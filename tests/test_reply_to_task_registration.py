@@ -171,7 +171,9 @@ class TestBuildSenderInfoWithEndpointInfo:
                 "uds_path": "/tmp/synapse-claude-8100.sock",
             }
         }
-        monkeypatch.setattr("synapse.tools.a2a.AgentRegistry", lambda: mock_registry)
+        monkeypatch.setattr(
+            "synapse.tools.a2a_helpers.AgentRegistry", lambda: mock_registry
+        )
 
         result = build_sender_info("synapse-claude-8100")
 
@@ -191,7 +193,9 @@ class TestBuildSenderInfoWithEndpointInfo:
                 "uds_path": "/tmp/synapse-claude-8100.sock",
             }
         }
-        monkeypatch.setattr("synapse.tools.a2a.AgentRegistry", lambda: mock_registry)
+        monkeypatch.setattr(
+            "synapse.tools.a2a_helpers.AgentRegistry", lambda: mock_registry
+        )
 
         result = build_sender_info("claude")
 
@@ -204,7 +208,9 @@ class TestBuildSenderInfoWithEndpointInfo:
         """Explicit sender with invalid format returns error."""
         mock_registry = MagicMock()
         mock_registry.list_agents.return_value = {}
-        monkeypatch.setattr("synapse.tools.a2a.AgentRegistry", lambda: mock_registry)
+        monkeypatch.setattr(
+            "synapse.tools.a2a_helpers.AgentRegistry", lambda: mock_registry
+        )
 
         result = build_sender_info("external-agent")
 
@@ -226,9 +232,12 @@ class TestBuildSenderInfoWithEndpointInfo:
                 "uds_path": "/tmp/synapse-gemini-8110.sock",
             }
         }
-        monkeypatch.setattr("synapse.tools.a2a.AgentRegistry", lambda: mock_registry)
         monkeypatch.setattr(
-            "synapse.tools.a2a.is_descendant_of", lambda child, parent: True
+            "synapse.tools.a2a_helpers.AgentRegistry", lambda: mock_registry
+        )
+        monkeypatch.setattr(
+            "synapse.tools.a2a_helpers.is_descendant_of",
+            lambda child, parent: True,
         )
         monkeypatch.setattr("os.getpid", lambda: 12346)
 

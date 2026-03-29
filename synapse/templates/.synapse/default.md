@@ -161,6 +161,26 @@ CANVAS — Post visual artifacts to shared canvas:
     dashboard   → multi-widget overview (metrics, health)
     (none)      → single-format content — most posts should use this
 
+  Template body schemas:
+    briefing:
+      {"summary":"...","sections":[{"title":"...","summary":"...","blocks":[0]}]}
+      sections map to content block indices; summary is optional.
+    comparison:
+      {"summary":"...","layout":"side-by-side|stacked","sides":[{"label":"...","blocks":[0]}]}
+      sides must contain at least 2 entries and each side needs a label.
+    steps:
+      {"summary":"...","steps":[{"title":"...","description":"...","done":true,"blocks":[0]}]}
+      steps are ordered; done controls the progress bar and checkmark state.
+    plan:
+      {"plan_id":"...","status":"proposed|active|completed|cancelled","mermaid":"graph TD\\n  A-->B","steps":[{"id":"...","subject":"...","agent":"...","status":"pending|blocked|in_progress|completed|failed","blocked_by":["..."]}]}
+      plan_id and step ids are required; mermaid is optional.
+    slides:
+      {"slides":[{"title":"...","blocks":[0],"notes":"..."}]}
+      slides are paginated in order; each slide must reference one or more blocks.
+    dashboard:
+      {"cols":2,"widgets":[{"title":"...","blocks":[0],"size":"1x1|2x1|1x2|2x2"}]}
+      cols is optional; each widget needs a title and block indices.
+
 SAME WORKING DIRECTORY — Leverage nearby agents:
   When you discover agents in the same WORKING_DIR (via `synapse list`),
   actively collaborate with them — they share your file context and can

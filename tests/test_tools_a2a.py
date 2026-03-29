@@ -74,7 +74,7 @@ class TestIsDescendantOf:
         """Same PID should be descendant of itself."""
         assert is_descendant_of(100, 100) is True
 
-    @patch("synapse.tools.a2a.get_parent_pid")
+    @patch("synapse.tools.a2a_helpers.get_parent_pid")
     def test_direct_child_is_descendant(self, mock_get_parent):
         """Direct child should be descendant."""
         # PID 200 -> parent 100
@@ -82,7 +82,7 @@ class TestIsDescendantOf:
 
         assert is_descendant_of(200, 100) is True
 
-    @patch("synapse.tools.a2a.get_parent_pid")
+    @patch("synapse.tools.a2a_helpers.get_parent_pid")
     def test_grandchild_is_descendant(self, mock_get_parent):
         """Grandchild should be descendant."""
 
@@ -94,7 +94,7 @@ class TestIsDescendantOf:
 
         assert is_descendant_of(300, 100) is True
 
-    @patch("synapse.tools.a2a.get_parent_pid")
+    @patch("synapse.tools.a2a_helpers.get_parent_pid")
     def test_not_descendant(self, mock_get_parent):
         """Unrelated process should not be descendant."""
 
@@ -110,7 +110,7 @@ class TestIsDescendantOf:
         """PID 1 (init) should not be descendant of arbitrary PID."""
         assert is_descendant_of(1, 999) is False
 
-    @patch("synapse.tools.a2a.get_parent_pid")
+    @patch("synapse.tools.a2a_helpers.get_parent_pid")
     def test_max_depth_prevents_infinite_loop(self, mock_get_parent):
         """Should respect max_depth to prevent infinite loop."""
         # Always return a different parent to simulate long chain
@@ -135,8 +135,8 @@ class TestBuildSenderInfo:
         assert "Error" in result
         assert "synapse-<type>-<port>" in result
 
-    @patch("synapse.tools.a2a.AgentRegistry")
-    @patch("synapse.tools.a2a.is_descendant_of")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers.is_descendant_of")
     def test_auto_detect_from_registry(
         self, mock_is_descendant, mock_registry_cls, monkeypatch
     ):
@@ -160,8 +160,8 @@ class TestBuildSenderInfo:
         assert result["sender_type"] == "claude"
         assert result["sender_endpoint"] == "http://localhost:8100"
 
-    @patch("synapse.tools.a2a.AgentRegistry")
-    @patch("synapse.tools.a2a._find_sender_by_pid")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers._find_sender_by_pid")
     def test_auto_detect_from_synapse_agent_id_env(
         self, mock_find_sender_by_pid, mock_registry_cls, monkeypatch
     ):
@@ -187,8 +187,8 @@ class TestBuildSenderInfo:
         assert result["sender_uds_path"] == "/tmp/synapse-gemini-8110.sock"
         mock_find_sender_by_pid.assert_not_called()
 
-    @patch("synapse.tools.a2a.AgentRegistry")
-    @patch("synapse.tools.a2a._find_sender_by_pid")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers._find_sender_by_pid")
     def test_env_sender_id_used_when_not_in_registry(
         self, mock_find_sender_by_pid, mock_registry_cls, monkeypatch
     ):
@@ -211,8 +211,8 @@ class TestBuildSenderInfo:
         assert result == {"sender_id": "synapse-missing-9999"}
         mock_find_sender_by_pid.assert_not_called()
 
-    @patch("synapse.tools.a2a.AgentRegistry")
-    @patch("synapse.tools.a2a.is_descendant_of")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers.is_descendant_of")
     def test_no_match_returns_empty(
         self, mock_is_descendant, mock_registry_cls, monkeypatch
     ):
@@ -226,7 +226,7 @@ class TestBuildSenderInfo:
 
         assert result == {}
 
-    @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
     def test_handles_registry_exception(self, mock_registry_cls, monkeypatch):
         """Should handle registry exceptions gracefully."""
         monkeypatch.delenv("SYNAPSE_AGENT_ID", raising=False)
@@ -236,7 +236,7 @@ class TestBuildSenderInfo:
 
         assert result == {}
 
-    @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
     def test_explicit_sender_by_agent_type_returns_error(self, mock_registry_cls):
         """Should return error when agent_type is used instead of ID."""
         mock_registry = MagicMock()
@@ -257,7 +257,7 @@ class TestBuildSenderInfo:
         assert "Error" in result
         assert "synapse-gemini-8110" in result
 
-    @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
     def test_explicit_sender_by_custom_name_returns_error(self, mock_registry_cls):
         """Should return error when custom name is used instead of ID."""
         mock_registry = MagicMock()
@@ -279,7 +279,7 @@ class TestBuildSenderInfo:
         assert "Error" in result
         assert "synapse-claude-8100" in result
 
-    @patch("synapse.tools.a2a.AgentRegistry")
+    @patch("synapse.tools.a2a_helpers.AgentRegistry")
     def test_explicit_sender_with_valid_id(self, mock_registry_cls):
         """Should accept valid agent ID format."""
         mock_registry = MagicMock()
@@ -646,7 +646,7 @@ class TestCmdSend:
             response_mode="silent",
         )
 
-        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+        with patch("synapse.tools.a2a_helpers.get_settings") as mock_settings:
             mock_settings.return_value.get_a2a_flow.return_value = "auto"
             cmd_send(args)
 
@@ -699,7 +699,7 @@ class TestCmdSend:
             response_mode="wait",
         )
 
-        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+        with patch("synapse.tools.a2a_helpers.get_settings") as mock_settings:
             mock_settings.return_value.get_a2a_flow.return_value = "auto"
             cmd_send(args)
 
@@ -751,7 +751,7 @@ class TestCmdSend:
             response_mode="wait",
         )
 
-        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+        with patch("synapse.tools.a2a_helpers.get_settings") as mock_settings:
             mock_settings.return_value.get_a2a_flow.return_value = "auto"
             cmd_send(args)
 
@@ -802,7 +802,7 @@ class TestCmdSend:
             response_mode="wait",
         )
 
-        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+        with patch("synapse.tools.a2a_helpers.get_settings") as mock_settings:
             mock_settings.return_value.get_a2a_flow.return_value = "auto"
             cmd_send(args)
 
@@ -857,7 +857,7 @@ class TestCmdSend:
             response_mode="wait",
         )
 
-        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+        with patch("synapse.tools.a2a_helpers.get_settings") as mock_settings:
             mock_settings.return_value.get_a2a_flow.return_value = "auto"
             cmd_send(args)
 
@@ -1194,7 +1194,7 @@ class TestCmdBroadcast:
             response_mode="wait",
         )
 
-        with patch("synapse.tools.a2a.get_settings") as mock_settings:
+        with patch("synapse.tools.a2a_helpers.get_settings") as mock_settings:
             mock_settings.return_value.get_a2a_flow.return_value = "auto"
             cmd_broadcast(args)
 
@@ -1526,7 +1526,7 @@ class TestTypePortShorthandMatch:
 class TestSentMessageHistory:
     """Test sent message history recording."""
 
-    @patch("synapse.tools.a2a._get_history_manager")
+    @patch("synapse.tools.a2a_helpers._get_history_manager")
     @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
@@ -1586,7 +1586,7 @@ class TestSentMessageHistory:
         assert call_kwargs["metadata"]["direction"] == "sent"
         assert call_kwargs["metadata"]["priority"] == 3
 
-    @patch("synapse.tools.a2a._get_history_manager")
+    @patch("synapse.tools.a2a_helpers._get_history_manager")
     @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
     @patch("synapse.tools.a2a.is_process_running", return_value=True)
@@ -1638,7 +1638,7 @@ class TestSentMessageHistory:
         # Verify history was NOT recorded
         mock_history.save_observation.assert_not_called()
 
-    @patch("synapse.tools.a2a._get_history_manager")
+    @patch("synapse.tools.a2a_helpers._get_history_manager")
     @patch("synapse.tools.a2a.A2AClient")
     @patch("synapse.tools.a2a.is_port_open", return_value=True)
     @patch("synapse.tools.a2a.is_process_running", return_value=True)

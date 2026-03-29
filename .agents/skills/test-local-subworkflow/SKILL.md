@@ -4,6 +4,8 @@ description: 'Workflow: Parent workflow that delegates to test-local-child to ve
 
   . Triggered by /test-local-subworkflow command.'
 name: test-local-subworkflow
+metadata:
+  internal: true
 ---
 <!-- synapse-workflow-autogen -->
 

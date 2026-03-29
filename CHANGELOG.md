@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.14] - 2026-03-29
+
+### Added
+
+- Canvas post `--stdin` flag and `-` convention for piped input (#468)
+- Canvas post `--example <format>` to print working examples (#468)
+- MCP `canvas_post` tool for programmatic posting without shell escaping (#468)
+- Template body schemas documented in agent instructions (#468)
+- DB Browser shows global `~/.synapse/` databases with scope badge (#468)
+- Spotlight badges always visible (format/template type + card position)
+
+### Changed
+
+- Split `canvas.js` (5,213 lines) into 8 modular script files (#468)
+- Split `canvas.css` (4,629 lines) into 7 thematic CSS modules (#468)
+- Split `server.py` routes into FastAPI APIRouter modules (#468)
+- Extract `a2a.py` helpers into `a2a_helpers.py` module (#468)
+- Centralize `CANVAS_CSS_FILES` / `CANVAS_JS_FILES` constants (#468)
+
+### Fixed
+
+- Spotlight template/nav badges visible as empty circles when hidden (#468)
+- SQLite connection leak in DB Browser query endpoint (#468)
+
 ## [0.17.13] - 2026-03-29
 
 ### Added
@@ -2876,6 +2900,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.13...HEAD
+[0.17.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.13...v0.17.14
 [0.17.13]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.12...v0.17.13
 [0.17.12]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.11...v0.17.12
 [0.17.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.10...v0.17.11

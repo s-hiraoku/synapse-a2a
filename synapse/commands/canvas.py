@@ -30,6 +30,34 @@ CANVAS_SERVICE_ID = "synapse-canvas"
 PID_FILE = os.path.expanduser("~/.synapse/canvas.pid")
 LOG_FILE = os.path.expanduser("~/.synapse/logs/canvas.log")
 
+CANVAS_POST_EXAMPLES: dict[str, str] = {
+    "mermaid": 'synapse canvas post mermaid "graph TD; Start-->Done" --title "Flow"',
+    "markdown": 'synapse canvas post markdown "# Report\n\n- Item 1\n- Item 2" --title "Report"',
+    "html": 'synapse canvas post html "<div><strong>Hello</strong> Canvas</div>" --title "HTML"',
+    "artifact": 'synapse canvas post artifact "<html><body><h1>Artifact</h1></body></html>" --title "Artifact"',
+    "table": """synapse canvas post table '{"headers":["Name","Score"],"rows":[["Alice",95],["Bob",87]]}' --title "Scores" """.strip(),
+    "json": """synapse canvas post json '{"service":"api","status":"ok","latency_ms":42}' --title "JSON" """.strip(),
+    "diff": 'synapse canvas post diff "--- a.txt\n+++ b.txt\n@@ -1 +1 @@\n-old\n+new" --title "Diff"',
+    "chart": """synapse canvas post chart '{"type":"bar","data":{"labels":["A","B"],"datasets":[{"label":"Score","data":[10,20]}]}}' --title "Chart" """.strip(),
+    "image": 'synapse canvas post image "https://example.com/image.png" --title "Image"',
+    "code": 'synapse canvas post code "def hello():\n    return 42" --lang python --title "Code"',
+    "log": """synapse canvas post log '{"entries":[{"level":"info","message":"Started"},{"level":"error","message":"Failed"}]}' --title "Log" """.strip(),
+    "status": """synapse canvas post status '{"status":"running","label":"Build","detail":"Step 3/5"}' --title "Status" """.strip(),
+    "metric": """synapse canvas post metric '{"value":"99.9%","label":"Uptime","trend":"up"}' --title "Metric" """.strip(),
+    "checklist": """synapse canvas post checklist '[{"text":"Write tests","done":true},{"text":"Deploy","done":false}]' --title "Checklist" """.strip(),
+    "timeline": """synapse canvas post timeline '[{"time":"09:00","label":"Start"},{"time":"09:30","label":"Review"}]' --title "Timeline" """.strip(),
+    "alert": """synapse canvas post alert '{"level":"warning","title":"Disk Space","message":"90% full"}' --title "Alert" """.strip(),
+    "file-preview": """synapse canvas post file-preview '{"path":"src/app.py","language":"python","content":"print(\\"hi\\")"}' --title "File Preview" """.strip(),
+    "trace": """synapse canvas post trace '[{"span":"request","duration_ms":120},{"span":"db","duration_ms":35}]' --title "Trace" """.strip(),
+    "tip": 'synapse canvas post tip "Use --stdin when content includes quotes or backticks." --title "Tip"',
+    "progress": """synapse canvas post progress '{"label":"Migration","current":7,"total":10}' --title "Progress" """.strip(),
+    "terminal": 'synapse canvas post terminal "$ pytest -q\n24 passed" --title "Terminal"',
+    "dependency-graph": """synapse canvas post dependency-graph '{"nodes":[{"id":"api"},{"id":"db"}],"edges":[{"from":"api","to":"db"}]}' --title "Dependencies" """.strip(),
+    "cost": """synapse canvas post cost '{"items":[{"label":"API calls","amount":12.50}],"total":12.50,"currency":"USD"}' --title "Cost" """.strip(),
+    "link-preview": """synapse canvas post link-preview '{"url":"https://example.com","title":"Example","description":"Preview"}' --title "Link Preview" """.strip(),
+    "plan": """synapse canvas post plan '{"plan_id":"release-1","status":"active","mermaid":"graph TD; plan-->tests; tests-->release","steps":[{"id":"tests","subject":"Write tests","agent":"synapse-codex-8120","status":"completed"},{"id":"release","subject":"Ship release","status":"active","blocked_by":["tests"]}]}' --title "Execution Plan" """.strip(),
+}
+
 
 def _resolve_agent_name(agent_id: str, agent_name: str = "") -> str:
     """Resolve agent display name from registry unless already provided."""
@@ -40,6 +68,24 @@ def _resolve_agent_name(agent_id: str, agent_name: str = "") -> str:
     if not info:
         return ""
     return str(info.get("name") or "")
+
+
+def get_canvas_post_example(format_name: str) -> str:
+    """Return a working CLI example for a canvas post format."""
+    return CANVAS_POST_EXAMPLES[format_name]
+
+
+def _read_text_input(
+    body: str | dict | None, file_path: str | None = None
+) -> str | dict:
+    """Resolve body text from stdin/file conventions."""
+    if file_path:
+        if file_path == "-":
+            return sys.stdin.read()
+        return Path(file_path).read_text(encoding="utf-8")
+    if body == "-":
+        return sys.stdin.read()
+    return body if body is not None else ""
 
 
 # ============================================================
@@ -662,7 +708,7 @@ def post_plan(
 
 def post_shortcut(
     format_name: str,
-    body: str | dict,
+    body: str | dict | None,
     title: str = "",
     agent_id: str = "",
     agent_name: str = "",
@@ -675,8 +721,7 @@ def post_shortcut(
     file_path: str | None = None,
 ) -> dict | None:
     """Post a card via format shortcut. Returns card dict or None."""
-    if file_path:
-        body = Path(file_path).read_text(encoding="utf-8")
+    body = _read_text_input(body, file_path=file_path)
     agent_name = _resolve_agent_name(agent_id, agent_name)
     content_dict: dict = {"format": format_name, "body": body}
     if lang:

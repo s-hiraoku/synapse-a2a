@@ -169,7 +169,7 @@ class TestA2aSendResponseFlags:
             patch("synapse.tools.a2a.is_port_open", return_value=True),
             patch("synapse.tools.a2a.build_sender_info", return_value={}),
             patch("synapse.tools.a2a.A2AClient") as mock_client_cls,
-            patch("synapse.tools.a2a.get_settings") as mock_settings,
+            patch("synapse.tools.a2a_helpers.get_settings") as mock_settings,
         ):
             mock_registry = MagicMock()
             mock_registry.list_agents.return_value = {
@@ -216,7 +216,7 @@ class TestA2aSendResponseFlags:
             patch("synapse.tools.a2a.is_port_open", return_value=True),
             patch("synapse.tools.a2a.build_sender_info", return_value={}),
             patch("synapse.tools.a2a.A2AClient") as mock_client_cls,
-            patch("synapse.tools.a2a.get_settings") as mock_settings,
+            patch("synapse.tools.a2a_helpers.get_settings") as mock_settings,
         ):
             mock_registry = MagicMock()
             mock_registry.list_agents.return_value = {

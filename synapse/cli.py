@@ -2481,8 +2481,23 @@ def cmd_canvas_serve(args: argparse.Namespace) -> None:
 def cmd_canvas_post(args: argparse.Namespace) -> None:
     """Post a card to Canvas."""
     from synapse.canvas.protocol import FORMAT_REGISTRY
-    from synapse.commands.canvas import ensure_server_running, post_shortcut
+    from synapse.commands.canvas import (
+        ensure_server_running,
+        get_canvas_post_example,
+        post_shortcut,
+    )
     from synapse.config import CANVAS_DEFAULT_PORT
+
+    example_format = getattr(args, "example", None)
+    if example_format:
+        if example_format not in FORMAT_REGISTRY:
+            print(
+                f"Error: Unknown format '{example_format}'. Valid: {', '.join(FORMAT_REGISTRY)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print(get_canvas_post_example(example_format))
+        return
 
     fmt = args.format
     if fmt not in FORMAT_REGISTRY:
@@ -2493,8 +2508,14 @@ def cmd_canvas_post(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     body = args.body
-    if body == "-":
+    if getattr(args, "stdin", False) or body == "-":
         body = sys.stdin.read()
+    if body is None and not getattr(args, "file", None):
+        print(
+            "Error: body is required unless --stdin, --file, or --example is used",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     port = args.port or CANVAS_DEFAULT_PORT
     ensure_server_running(port=port)
@@ -5937,9 +5958,26 @@ Scopes:
     p_canvas_post = canvas_subparsers.add_parser("post", help="Post a card to Canvas")
     p_canvas_post.add_argument(
         "format",
+        nargs="?",
+        default=None,
         help="Content format (mermaid, markdown, html, artifact, table, json, diff, code, chart, image, progress, terminal, dependency-graph, cost, ...)",
     )
-    p_canvas_post.add_argument("body", help="Content body (or '-' to read from stdin)")
+    p_canvas_post.add_argument(
+        "body",
+        nargs="?",
+        default=None,
+        help="Content body (or '-' / --stdin to read from stdin)",
+    )
+    p_canvas_post.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read body from stdin",
+    )
+    p_canvas_post.add_argument(
+        "--example",
+        default=None,
+        help="Print a working example command for the given format and exit",
+    )
     p_canvas_post.add_argument("--title", default="", help="Card title")
     p_canvas_post.add_argument(
         "--agent-id", default=os.environ.get("SYNAPSE_AGENT_ID", "cli"), help="Agent ID"

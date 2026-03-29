@@ -14,7 +14,12 @@ import pytest
 def _render_simple_markdown(text: str) -> str:
     if shutil.which("node") is None:
         pytest.skip("node is required for canvas markdown security tests")
-    source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    from synapse.canvas import CANVAS_JS_FILES
+
+    source = "\n".join(
+        Path(f"synapse/canvas/static/{f}").read_text(encoding="utf-8")
+        for f in CANVAS_JS_FILES
+    )
     match = re.search(
         r"function escapeHtml\(text\) \{.*?function simpleMarkdown\(text\) \{.*?\n  \}",
         source,

@@ -558,7 +558,7 @@
         <p>
           This standalone page renders every Canvas card format and template with
           hardcoded sample data. It mirrors the production Canvas patterns without
-          importing <code>canvas.js</code> directly, so it can live safely under
+          importing the canvas scripts directly, so it can live safely under
           <code>site-docs/assets/</code>.
         </p>
         <div class="hero-meta">
@@ -674,7 +674,7 @@
           format: "diff",
           title: "diff",
           description: "Unified diffs rendered with a side-by-side view.",
-          body: "diff --git a/canvas.js b/canvas.js\nindex 1234567..89abcde 100644\n--- a/canvas.js\n+++ b/canvas.js\n@@ -10,3 +10,4 @@ function loadSystemPanel() {\n-  return fetch('/api/system')\n+  return fetch('/api/system')\n+    .then(syncFileLocks)\n }\n",
+          body: "diff --git a/canvas-system.js b/canvas-system.js\nindex 1234567..89abcde 100644\n--- a/canvas-system.js\n+++ b/canvas-system.js\n@@ -10,3 +10,4 @@ function loadSystemPanel() {\n-  return fetch('/api/system')\n+  return fetch('/api/system')\n+    .then(syncFileLocks)\n }\n",
         },
         {
           format: "chart",
@@ -914,7 +914,7 @@
           title: "steps",
           description: "Guided workflow with progress and per-step detail blocks.",
           blocks: [
-            { format: "markdown", body: "Open `canvas.js` and identify block renderers." },
+            { format: "markdown", body: "Open `canvas-renderers.js` and identify block renderers." },
             { format: "markdown", body: "Port the renderers to a standalone static page." },
             { format: "markdown", body: "Link the page from `site-docs/guide/canvas.md`." },
           ],

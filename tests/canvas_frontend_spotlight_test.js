@@ -1,5 +1,5 @@
 const vm = require("node:vm");
-const { extractFunction, Document, assert } = require("./canvas_test_helpers");
+const { extractFunction, NS_STUB_CODE, Document, assert } = require("./canvas_test_helpers");
 
 function createEnvironment() {
   const document = new Document();
@@ -48,6 +48,16 @@ function buildHarness(initialCards, systemAgents) {
     function runMermaid() {}
     function downloadCard() {}
     function createDownloadButton() { return document.createElement("button"); }
+    ${NS_STUB_CODE}
+    ns.cards = cards;
+    ns.systemAgents = systemAgents;
+    ns._spotlightCardId = _spotlightCardId;
+    ns._spotlightManualIndex = _spotlightManualIndex;
+    ns._spotlightManualCardId = _spotlightManualCardId;
+    ns._spotlightUpdatedAt = _spotlightUpdatedAt;
+    ns._spotlightSwapTimer = _spotlightSwapTimer;
+    ns.canvasSpotlight = canvasSpotlight;
+    ns.canvasView = canvasView;
   `;
 
   const script = `

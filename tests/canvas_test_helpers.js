@@ -1,7 +1,19 @@
 const fs = require("fs");
 const vm = require("node:vm");
 
-const source = fs.readFileSync("synapse/canvas/static/canvas.js", "utf8");
+const _JS_FILES = [
+  "canvas-core.js",
+  "canvas-renderers.js",
+  "canvas-system.js",
+  "canvas-spotlight.js",
+  "canvas-admin.js",
+  "canvas-workflow.js",
+  "canvas-database.js",
+  "canvas-init.js",
+];
+const source = _JS_FILES
+  .map((f) => fs.readFileSync("synapse/canvas/static/" + f, "utf8"))
+  .join("\n");
 
 // This simple brace-counting extractor assumes the target function body does not
 // contain unmatched braces inside strings, template literals, or comments.
@@ -221,6 +233,41 @@ class Document {
   }
 }
 
+// Stub for the SynapseCanvas namespace used by split JS modules.
+// Tests that extract individual functions via extractFunction() need this
+// object in scope so that `ns.*` references inside those functions resolve.
+const NS_STUB_CODE = `
+  var ns = {
+    _systemPanelRendered: false, _lastSystemData: null, _lastSystemJSON: null,
+    _dashboardRendered: false, _dashExpandState: {},
+    _spotlightCardId: null, _spotlightManualIndex: -1, _spotlightManualCardId: null,
+    _spotlightUpdatedAt: null, _spotlightSwapTimer: null,
+    _selectedAdminTarget: null, _selectedAdminName: null, _adminPollingTimers: {},
+    _adminSending: false, _workflowData: null, _workflowRuns: null,
+    _selectedWorkflow: null, _workflowRunPollingTimer: null,
+    _dbCurrentDb: "", _dbCurrentTable: "", _dbCurrentScope: "project",
+    _dbOffset: 0, _dbLimit: 50, _dbTotal: 0,
+    cards: new Map(), knownAgents: new Set(), systemAgents: [],
+    currentRoute: "canvas", _sortedCardsCache: null,
+    renderTemplateOrBlocks: function() {},
+    renderBlock: function() { return document.createElement("div"); },
+    showToast: function() {}, formatTime: function(v) { return v; },
+    statusColor: function() { return "#999"; }, escapeHtml: function(s) { return s; },
+    navigate: function() {}, renderAll: function() {},
+    loadSystemPanel: function() {}, connectSSE: function() {},
+    runMermaid: function() {}, downloadCard: function() {},
+    createDownloadButton: function() { return document.createElement("button"); },
+    renderLiveFeed: function() {}, trackAgent: function() {},
+    getFilteredCards: function() { return []; },
+    getSortedCards: function() { return []; },
+    cardsByRecency: function(a, b) { return 0; },
+    parseContent: function(raw) { try { return JSON.parse(raw); } catch(e) { return raw; } },
+    renderTemplate: function() { return null; },
+    getTemplateBadgeLabel: function(card) { return ""; },
+    markAsNew: function() {},
+  };
+`;
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -228,6 +275,7 @@ function assert(condition, message) {
 module.exports = {
   source,
   extractFunction,
+  NS_STUB_CODE,
   Style,
   Element,
   TextNode,
