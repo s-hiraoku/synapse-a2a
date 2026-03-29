@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.13] - 2026-03-29
+
+### Added
+
+- Canvas format/template selection guide in base instructions (always available)
+- Same working directory agent collaboration guidance in base instructions
+- Canvas Spotlight keyboard navigation (ArrowLeft/Right, Escape)
+- Template visual differentiation with per-template accent colors
+- Template badge display in Spotlight title bar
+- Spotlight card transition animations (spotlight-swap CSS fix)
+- Sorted cards cache with dirty-flag invalidation for efficiency
+
+### Changed
+
+- Rewrite proactive.md from checklist format to task-size x feature matrix with per-feature skip conditions
+- Simplify Spotlight info bar: remove agent_id and card_id, add hover fade
+- Extract shared `cardsByRecency` comparator to eliminate sort duplication
+
+### Fixed
+
+- Spotlight-swap animation CSS was missing (JS applied class but no CSS rule existed)
+- Escape key now dismisses context menu and spotlight nav separately
+- ArrowRight no longer skips index 0 when entering manual navigation
+- Single-card case no longer shows "1/1" nav indicator
+
 ## [0.17.12] - 2026-03-28
 
 ### Added
@@ -2850,7 +2875,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.12...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.13...HEAD
+[0.17.13]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.12...v0.17.13
 [0.17.12]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.11...v0.17.12
 [0.17.11]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.10...v0.17.11
 [0.17.10]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.9...v0.17.10

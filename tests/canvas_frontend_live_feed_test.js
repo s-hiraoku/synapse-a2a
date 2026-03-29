@@ -24,6 +24,7 @@ function buildHarness(allCards, filteredCards) {
     let systemAgents = globalThis.__systemAgents;
     let localStorage = { getItem() { return null; }, setItem() {} };
     const FORMAT_ICONS = {};
+    function cardsByRecency(a, b) { return (b.updated_at || "").localeCompare(a.updated_at || ""); }
     function getFilteredCards() { return globalThis.__filteredCards; }
     function runMermaid() {}
     function downloadCard() {}

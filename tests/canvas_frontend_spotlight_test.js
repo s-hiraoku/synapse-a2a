@@ -19,9 +19,22 @@ function buildHarness(initialCards, systemAgents) {
     let cards = new Map(globalThis.__cards.map((card) => [card.card_id, card]));
     let systemAgents = globalThis.__systemAgents;
     let _spotlightCardId = "";
+    let _spotlightManualIndex = -1;
+    let _spotlightManualCardId = "";
     let _spotlightUpdatedAt = "";
     let _spotlightSwapTimer = 0;
     const SPOTLIGHT_SWAP_DELAY = 420;
+    function cardsByRecency(a, b) { return (b.updated_at || "").localeCompare(a.updated_at || ""); }
+    var _sortedCardsCache = null;
+    function _invalidateSortedCards() { _sortedCardsCache = null; }
+    function getSortedCards() {
+      if (!_sortedCardsCache) { _sortedCardsCache = [...cards.values()].sort(cardsByRecency); }
+      return _sortedCardsCache;
+    }
+    function getTemplateBadgeLabel(card) {
+      if (!card || !card.template) return "";
+      return String(card.template).replace(/[-_]+/g, " ");
+    }
     function parseContent(raw) { return JSON.parse(raw); }
     function renderTemplate() { return null; }
     function renderBlock(block) {
@@ -49,6 +62,7 @@ function buildHarness(initialCards, systemAgents) {
     globalThis.__renderSpotlight = renderSpotlight;
     globalThis.__setCards = function (nextCards) {
       cards = new Map(nextCards.map((card) => [card.card_id, card]));
+      _invalidateSortedCards();
     };
   `;
 

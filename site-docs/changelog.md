@@ -4,6 +4,16 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.13
+
+- **Added**: Canvas format/template selection guide in base instructions (always available, not just proactive mode)
+- **Added**: Spotlight keyboard navigation (ArrowLeft/Right to browse cards, Escape to return)
+- **Added**: Per-template accent colors and template badge in Spotlight title bar
+- **Changed**: Proactive instructions rewritten from checklist to task-size x feature matrix
+- **Changed**: Spotlight info bar simplified (hover fade, removed internal IDs)
+- **Fixed**: Spotlight card transition animation was missing (CSS rule not defined)
+- **Fixed**: Escape key and ArrowRight keyboard navigation edge cases
+
 ### v0.17.12
 
 - **Added**: `synapse config` shows effective values with source annotations (`os.environ > local > project > user > default`)

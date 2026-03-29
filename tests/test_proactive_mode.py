@@ -182,10 +182,10 @@ class TestProactiveModeTemplateExists:
         template = Path("synapse/templates/.synapse/proactive.md").read_text(
             encoding="utf-8"
         )
-        assert "BEFORE" in template
-        assert "DURING" in template
-        assert "AFTER" in template
-        assert "synapse memory" in template
+        assert "TASK SIZE" in template
+        assert "FEATURE MATRIX" in template
+        assert "SKIP CONDITIONS" in template
+        assert "Canvas" in template
 
     def test_project_proactive_md_is_synced_from_template(self):
         """Project .synapse/proactive.md should stay in sync with template."""

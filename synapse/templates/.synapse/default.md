@@ -128,6 +128,48 @@ HISTORY — Review past work:
   synapse history list --agent <name>
   synapse trace <task_id>
 
+CANVAS — Post visual artifacts to shared canvas:
+  synapse canvas post <format> "<content>" --title "…"
+
+  When to use:
+  - Output has visual structure that plain text cannot convey
+  - Content will be referenced later by other agents or humans
+  - Rule: "Would this be easier to understand as a formatted document?" → YES = Canvas
+
+  When NOT to use:
+  - Simple completion reports → broadcast/reply
+  - Single-file changes → commit message is sufficient
+  - Brief confirmations → A2A reply
+
+  Format selection (pick the simplest that works):
+    markdown   → narrative text, explanations, reports
+    table      → structured data with rows/columns
+    mermaid    → relationships, flows, architecture
+    code/diff  → code snippets, file changes
+    checklist  → actionable items with done/not-done
+    chart      → numeric trends, distributions
+    metric     → single KPI to highlight
+    alert      → urgent warnings
+    status     → agent/system status summary
+
+  Template selection (use only when content has internal structure):
+    briefing    → multi-section document with TOC (design docs, analysis)
+    comparison  → side-by-side evaluation of 2+ options
+    steps       → sequential process with progress tracking
+    plan        → task DAG with assignments and dependencies
+    slides      → paginated presentation (demos, walkthroughs)
+    dashboard   → multi-widget overview (metrics, health)
+    (none)      → single-format content — most posts should use this
+
+SAME WORKING DIRECTORY — Leverage nearby agents:
+  When you discover agents in the same WORKING_DIR (via `synapse list`),
+  actively collaborate with them — they share your file context and can
+  assist without additional setup.
+  - Delegate subtasks that match their ROLE or SKILL_SET
+  - Ask for reviews or second opinions on complex changes
+  - Share findings via shared memory so they benefit too
+  - Prefer same-dir agents over spawning new ones (lower overhead)
+
 ================================================================================
 BRANCH MANAGEMENT - CRITICAL
 ================================================================================

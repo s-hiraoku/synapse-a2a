@@ -51,6 +51,8 @@
   let currentRoute = "canvas";
   // Track displayed card to skip redundant rebuilds
   let _spotlightCardId = "";
+  let _spotlightManualIndex = -1;
+  let _spotlightManualCardId = "";
   let _spotlightUpdatedAt = "";
   let _spotlightSwapTimer = 0;
 
@@ -110,6 +112,30 @@
     return btn;
   }
 
+  var _sortedCardsCache = null;
+  function _invalidateSortedCards() { _sortedCardsCache = null; }
+  function cardsByRecency(a, b) {
+    return (b.updated_at || "").localeCompare(a.updated_at || "");
+  }
+  function getSortedCards() {
+    if (!_sortedCardsCache) {
+      _sortedCardsCache = [...cards.values()].sort(cardsByRecency);
+    }
+    return _sortedCardsCache;
+  }
+
+  function isEditableTarget(target) {
+    if (!target || !(target instanceof HTMLElement)) return false;
+    return Boolean(
+      target.closest("input, textarea, select, [contenteditable='true']")
+    );
+  }
+
+  function getTemplateBadgeLabel(card) {
+    if (!card || !card.template) return "";
+    return String(card.template).replace(/[-_]+/g, " ");
+  }
+
   // ----------------------------------------------------------------
   // Initial load
   // ----------------------------------------------------------------
@@ -125,6 +151,7 @@
       const resp = await fetch("/api/cards");
       const list = await resp.json();
       cards.clear();
+      _invalidateSortedCards();
       for (const card of list) {
         normalizeCard(card);
         cards.set(card.card_id, card);
@@ -145,6 +172,7 @@
     es.addEventListener("card_created", (e) => {
       const card = normalizeCard(JSON.parse(e.data));
       cards.set(card.card_id, card);
+      _invalidateSortedCards();
       trackAgent(card);
       renderCurrentView();
       showToast(card.title || "New card", card.agent_name || card.agent_id);
@@ -153,6 +181,7 @@
     es.addEventListener("card_updated", (e) => {
       const card = normalizeCard(JSON.parse(e.data));
       cards.set(card.card_id, card);
+      _invalidateSortedCards();
       trackAgent(card);
       renderCurrentView();
       showToast(card.title || "Card updated", card.agent_name || card.agent_id);
@@ -162,6 +191,7 @@
       const data = JSON.parse(e.data);
       const deleted = cards.get(data.card_id);
       cards.delete(data.card_id);
+      _invalidateSortedCards();
       if (data.card_id === _spotlightCardId) {
         _spotlightCardId = "";
         _spotlightUpdatedAt = "";
@@ -333,9 +363,7 @@
     cardCount.style.display = "";
 
     // Sort agent messages by recency only.
-    filtered.sort((a, b) => {
-      return (b.updated_at || "").localeCompare(a.updated_at || "");
-    });
+    filtered.sort(cardsByRecency);
 
     // Group cards by agent
     const agentGroups = new Map();
@@ -369,9 +397,7 @@
     }
 
     // Latest Posts ignores dashboard filters and always shows the newest cards.
-    const byTime = allCards.sort((a, b) =>
-      (b.updated_at || "").localeCompare(a.updated_at || "")
-    );
+    const byTime = allCards.sort(cardsByRecency);
     renderLiveFeed(byTime.slice(0, 3));
 
     const existingPanels = new Map();
@@ -3851,7 +3877,7 @@
   function renderSpotlight() {
     if (!canvasSpotlight) return;
 
-    const allCards = [...cards.values()];
+    const allCards = getSortedCards();
     if (allCards.length === 0) {
       // Empty state
       const empty = document.createElement("div");
@@ -3871,14 +3897,22 @@
       syncChildren(canvasSpotlight, [empty]);
       canvasView.style.removeProperty("--canvas-glow");
       _spotlightCardId = "";
+      _spotlightManualIndex = -1;
+      _spotlightManualCardId = "";
       _spotlightUpdatedAt = "";
       return;
     }
 
-    // Find the most recently updated card (O(n) instead of sorting)
-    const card = allCards.reduce((latest, c) =>
-      (c.updated_at || "") > (latest.updated_at || "") ? c : latest
-    );
+    // Re-resolve manual index by card_id to survive SSE reorder
+    if (_spotlightManualIndex >= 0 && _spotlightManualCardId) {
+      var resolved = allCards.findIndex(function (c) { return c.card_id === _spotlightManualCardId; });
+      _spotlightManualIndex = resolved >= 0 ? resolved : 0;
+    }
+    if (_spotlightManualIndex >= allCards.length) {
+      _spotlightManualIndex = allCards.length - 1;
+    }
+    const spotlightIndex = _spotlightManualIndex >= 0 ? _spotlightManualIndex : 0;
+    const card = allCards[spotlightIndex];
 
     const previousCardId = _spotlightCardId;
     const isSameCard = card.card_id === previousCardId;
@@ -3896,6 +3930,12 @@
 
     const frame = ensureSpotlightFrame();
     frame.titleText.textContent = card.title || "Untitled";
+    frame.templateBadge.textContent = getTemplateBadgeLabel(card);
+    frame.templateBadge.hidden = !frame.templateBadge.textContent;
+    frame.navIndicator.hidden = _spotlightManualIndex < 0;
+    frame.navIndicator.textContent = _spotlightManualIndex >= 0
+      ? (spotlightIndex + 1) + " / " + allCards.length
+      : "";
     renderSpotlightContent(frame.content, card);
     renderSpotlightInfo(frame.infoBar, card, agentStatus);
 
@@ -3913,6 +3953,9 @@
   function ensureSpotlightFrame() {
     let titleBar = canvasSpotlight.querySelector(".canvas-title-bar");
     let titleText = titleBar ? titleBar.querySelector(".canvas-title-text") : null;
+    let titleMeta = titleBar ? titleBar.querySelector(".canvas-title-meta") : null;
+    let templateBadge = titleMeta ? titleMeta.querySelector(".canvas-template-badge") : null;
+    let navIndicator = titleMeta ? titleMeta.querySelector(".canvas-nav-indicator") : null;
     if (!titleBar) {
       titleBar = document.createElement("div");
       titleBar.className = "canvas-title-bar";
@@ -3921,11 +3964,26 @@
       titleText = document.createElement("h2");
       titleText.className = "canvas-title-text";
     }
+    if (!titleMeta) {
+      titleMeta = document.createElement("div");
+      titleMeta.className = "canvas-title-meta";
+    }
+    if (!templateBadge) {
+      templateBadge = document.createElement("span");
+      templateBadge.className = "canvas-template-badge";
+      templateBadge.hidden = true;
+    }
+    if (!navIndicator) {
+      navIndicator = document.createElement("span");
+      navIndicator.className = "canvas-nav-indicator";
+      navIndicator.hidden = true;
+    }
+    syncChildren(titleMeta, [templateBadge, navIndicator]);
     let dlBtn = titleBar.querySelector(".canvas-dl-btn");
     if (!dlBtn) {
       dlBtn = createDownloadButton(function () { return _spotlightCardId; });
     }
-    syncChildren(titleBar, [titleText, dlBtn]);
+    syncChildren(titleBar, [titleText, titleMeta, dlBtn]);
 
     let content = canvasSpotlight.querySelector(".canvas-content");
     if (!content) {
@@ -3936,11 +3994,11 @@
     let infoBar = canvasSpotlight.querySelector(".canvas-info-bar");
     if (!infoBar) {
       infoBar = document.createElement("div");
-      infoBar.className = "canvas-info-bar";
+      infoBar.className = "canvas-info-bar canvas-info-bar--minimal";
     }
 
     syncChildren(canvasSpotlight, [titleBar, content, infoBar]);
-    return { titleBar, titleText, content, infoBar };
+    return { titleBar, titleText, titleMeta, templateBadge, navIndicator, content, infoBar };
   }
 
   function renderSpotlightContent(content, card) {
@@ -3964,11 +4022,6 @@
     agentName.className = "canvas-info-agent";
     agentName.textContent = card.agent_name || card.agent_id;
     infoBar.appendChild(agentName);
-
-    const idEl = document.createElement("span");
-    idEl.className = "canvas-info-id";
-    idEl.textContent = card.agent_id;
-    infoBar.appendChild(idEl);
 
     if (card.tags) {
       try {
@@ -3994,11 +4047,6 @@
     time.className = "canvas-info-time";
     time.textContent = formatTime(card.updated_at);
     infoBar.appendChild(time);
-
-    const cardId = document.createElement("span");
-    cardId.className = "canvas-info-card-id";
-    cardId.textContent = card.card_id;
-    infoBar.appendChild(cardId);
   }
 
   function markSpotlightSwap() {
@@ -4351,7 +4399,56 @@
   window.addEventListener("scroll", function() { hideAgentContextMenu(); }, true);
   window.addEventListener("resize", function() { hideAgentContextMenu(); });
   document.addEventListener("keydown", function(e) {
-    if (e.key === "Escape") hideAgentContextMenu();
+    // Escape: dismiss context menu first, then spotlight nav
+    if (e.key === "Escape") {
+      hideAgentContextMenu();
+      if (
+        currentRoute === "canvas" && canvasView &&
+        !canvasView.classList.contains("view-hidden") &&
+        _spotlightManualIndex >= 0
+      ) {
+        _spotlightManualIndex = -1;
+        _spotlightManualCardId = "";
+        e.preventDefault();
+        renderSpotlight();
+      }
+      return;
+    }
+
+    if (
+      currentRoute !== "canvas" ||
+      !canvasView ||
+      canvasView.classList.contains("view-hidden") ||
+      isEditableTarget(document.activeElement)
+    ) {
+      return;
+    }
+
+    const sortedCards = getSortedCards();
+    if (sortedCards.length <= 1) return;
+
+    if (e.key === "ArrowRight") {
+      var nextIndex = _spotlightManualIndex < 0 ? 1 : _spotlightManualIndex + 1;
+      if (nextIndex < sortedCards.length) {
+        _spotlightManualIndex = nextIndex;
+        _spotlightManualCardId = sortedCards[nextIndex].card_id;
+        e.preventDefault();
+        renderSpotlight();
+      }
+    } else if (e.key === "ArrowLeft") {
+      if (_spotlightManualIndex > 0) {
+        _spotlightManualIndex -= 1;
+        _spotlightManualCardId = sortedCards[_spotlightManualIndex].card_id;
+        e.preventDefault();
+        renderSpotlight();
+      } else if (_spotlightManualIndex < 0) {
+        // Enter manual mode at current card (index 0)
+        _spotlightManualIndex = 0;
+        _spotlightManualCardId = sortedCards[0].card_id;
+        e.preventDefault();
+        renderSpotlight();
+      }
+    }
   });
 
   // ── Confirm Modal ──────────────────────────────
