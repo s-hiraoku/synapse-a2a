@@ -69,12 +69,10 @@
 
     const frame = ensureSpotlightFrame();
     frame.titleText.textContent = card.title || "Untitled";
-    frame.templateBadge.textContent = getTemplateBadgeLabel(card);
-    frame.templateBadge.hidden = !frame.templateBadge.textContent;
-    frame.navIndicator.hidden = ns._spotlightManualIndex < 0;
-    frame.navIndicator.textContent = ns._spotlightManualIndex >= 0
-      ? (spotlightIndex + 1) + " / " + allCards.length
-      : "";
+    frame.templateBadge.textContent = getTemplateBadgeLabel(card) || card.format || "post";
+    frame.templateBadge.hidden = false;
+    frame.navIndicator.textContent = (spotlightIndex + 1) + " / " + allCards.length;
+    frame.navIndicator.hidden = false;
     renderSpotlightContent(frame.content, card);
     renderSpotlightInfo(frame.infoBar, card, agentStatus);
 
@@ -110,12 +108,10 @@
     if (!templateBadge) {
       templateBadge = document.createElement("span");
       templateBadge.className = "canvas-template-badge";
-      templateBadge.hidden = true;
     }
     if (!navIndicator) {
       navIndicator = document.createElement("span");
       navIndicator.className = "canvas-nav-indicator";
-      navIndicator.hidden = true;
     }
     syncChildren(titleMeta, [templateBadge, navIndicator]);
     let dlBtn = titleBar.querySelector(".canvas-dl-btn");

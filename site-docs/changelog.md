@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.14
+
+- **Added**: Canvas post `--stdin`, `--example`, MCP tool for better AI posting DX
+- **Added**: DB Browser shows global `~/.synapse/` databases with scope badge
+- **Changed**: Module split — canvas.js/css, server.py routes, a2a.py helpers extracted into smaller files
+- **Fixed**: Spotlight badges visible as empty circles, SQLite connection leak
+
 ### v0.17.13
 
 - **Added**: Canvas format/template selection guide in base instructions (always available, not just proactive mode)

@@ -37,10 +37,13 @@ synapse/
 ├── workflow_db.py   # Workflow run persistence (SQLite)
 ├── mcp/             # MCP server (bootstrap instruction distribution)
 ├── canvas/          # Shared visual output surface
+│   ├── server.py    #   FastAPI app factory & middleware
+│   ├── routes/      #   Route modules (admin, cards, db, workflow)
+│   └── static/      #   Modular CSS (7 files) & JS (8 files)
 ├── commands/        # CLI command implementations
 ├── profiles/        # YAML configs per agent type
 ├── proto/           # gRPC Protocol Buffers
-├── tools/           # A2A CLI tools
+├── tools/           # A2A CLI tools (a2a.py + a2a_helpers.py)
 └── templates/       # Project template files
 ```
 

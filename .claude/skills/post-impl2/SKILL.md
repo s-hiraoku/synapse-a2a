@@ -3,6 +3,8 @@ description: 'Workflow: Test workflow with non-existent agent target.
 
   . Triggered by /post-impl2 command.'
 name: post-impl2
+metadata:
+  internal: true
 ---
 <!-- synapse-workflow-autogen -->
 
