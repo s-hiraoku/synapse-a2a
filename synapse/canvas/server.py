@@ -1461,8 +1461,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
         dbs: list[dict[str, Any]] = []
         if not os.path.isdir(synapse_dir):
             return dbs
+        _hidden_dbs = {"task_board.db"}
         for f in sorted(os.listdir(synapse_dir)):
-            if f.endswith(".db"):
+            if f.endswith(".db") and f not in _hidden_dbs:
                 path = os.path.join(synapse_dir, f)
                 try:
                     conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
