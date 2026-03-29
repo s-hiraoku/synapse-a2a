@@ -21,7 +21,7 @@ TASK SIZE → FEATURE MATRIX
     delegation      : if subtasks can run in parallel
     broadcast       : on completion if others are waiting
 
-  Large (30+ min, 5+ files, multiple phases):
+  Large (> 30 min, 6+ files, multiple phases):
     memory search   : required — check what's already known
     file-safety     : required in multi-agent setups
     canvas          : for plans (plan/steps template), results (briefing template)
@@ -33,7 +33,7 @@ PER-FEATURE SKIP CONDITIONS
 ────────────────────────────────────────────────
 
   File Safety (lock/unlock):
-    SKIP: single-agent, new file creation, read-only operations, tests
+    SKIP: single-agent, new file creation, read-only operations, read-only test execution
 
   Shared Memory:
     SKIP: task-specific notes, information only relevant to you

@@ -52,6 +52,7 @@
   // Track displayed card to skip redundant rebuilds
   let _spotlightCardId = "";
   let _spotlightManualIndex = -1;
+  let _spotlightManualCardId = "";
   let _spotlightUpdatedAt = "";
   let _spotlightSwapTimer = 0;
 
@@ -3897,10 +3898,16 @@
       canvasView.style.removeProperty("--canvas-glow");
       _spotlightCardId = "";
       _spotlightManualIndex = -1;
+      _spotlightManualCardId = "";
       _spotlightUpdatedAt = "";
       return;
     }
 
+    // Re-resolve manual index by card_id to survive SSE reorder
+    if (_spotlightManualIndex >= 0 && _spotlightManualCardId) {
+      var resolved = allCards.findIndex(function (c) { return c.card_id === _spotlightManualCardId; });
+      _spotlightManualIndex = resolved >= 0 ? resolved : 0;
+    }
     if (_spotlightManualIndex >= allCards.length) {
       _spotlightManualIndex = allCards.length - 1;
     }
@@ -4401,6 +4408,7 @@
         _spotlightManualIndex >= 0
       ) {
         _spotlightManualIndex = -1;
+        _spotlightManualCardId = "";
         e.preventDefault();
         renderSpotlight();
       }
@@ -4423,17 +4431,20 @@
       var nextIndex = _spotlightManualIndex < 0 ? 1 : _spotlightManualIndex + 1;
       if (nextIndex < sortedCards.length) {
         _spotlightManualIndex = nextIndex;
+        _spotlightManualCardId = sortedCards[nextIndex].card_id;
         e.preventDefault();
         renderSpotlight();
       }
     } else if (e.key === "ArrowLeft") {
       if (_spotlightManualIndex > 0) {
         _spotlightManualIndex -= 1;
+        _spotlightManualCardId = sortedCards[_spotlightManualIndex].card_id;
         e.preventDefault();
         renderSpotlight();
       } else if (_spotlightManualIndex < 0) {
         // Enter manual mode at current card (index 0)
         _spotlightManualIndex = 0;
+        _spotlightManualCardId = sortedCards[0].card_id;
         e.preventDefault();
         renderSpotlight();
       }

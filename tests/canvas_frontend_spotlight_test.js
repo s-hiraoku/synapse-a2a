@@ -20,6 +20,7 @@ function buildHarness(initialCards, systemAgents) {
     let systemAgents = globalThis.__systemAgents;
     let _spotlightCardId = "";
     let _spotlightManualIndex = -1;
+    let _spotlightManualCardId = "";
     let _spotlightUpdatedAt = "";
     let _spotlightSwapTimer = 0;
     const SPOTLIGHT_SWAP_DELAY = 420;

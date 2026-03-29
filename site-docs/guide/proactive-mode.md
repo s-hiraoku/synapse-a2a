@@ -35,7 +35,7 @@ When Proactive Mode is enabled, agents receive a **task-size x feature matrix** 
 
 ### Task Size Matrix
 
-| Feature | Small (< 5 min, 1-2 files) | Medium (5-30 min, 3-5 files) | Large (30+ min, 5+ files) |
+| Feature | Small (< 5 min, 1-2 files) | Medium (5-30 min, 3-5 files) | Large (> 30 min, 6+ files) |
 |---------|---------------------------|------------------------------|--------------------------|
 | Memory search | Optional | Recommended | Required |
 | File safety | Only if multi-agent + shared files | If multi-agent + shared files | Required in multi-agent |
@@ -47,7 +47,7 @@ When Proactive Mode is enabled, agents receive a **task-size x feature matrix** 
 
 Each feature includes explicit skip conditions to prevent unnecessary coordination overhead:
 
-- **File Safety**: Skip for single-agent tasks, new file creation, read-only operations, or tests
+- **File Safety**: Skip for single-agent tasks, new file creation, read-only operations, or read-only test execution
 - **Shared Memory**: Skip for task-specific notes only relevant to you; use for discoveries that benefit other agents
 - **Canvas**: Skip for simple completion reports, single-file changes, or brief confirmations; use only when visual structure adds value
 - **Delegation**: Skip when overhead exceeds the task or no suitable agent is available
