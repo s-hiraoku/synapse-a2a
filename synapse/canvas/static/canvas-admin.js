@@ -1,64 +1,66 @@
-window.SynapseCanvas = window.SynapseCanvas || {};
-
-(function (ns) {
+(function(ns) {
   "use strict";
 
-  ns._adminPollingTimers = ns._adminPollingTimers || [];
-  ns._agentContextMenu = ns._agentContextMenu || null;
-  ns._contextMenuTarget = ns._contextMenuTarget || null;
-  ns._adminSending = ns._adminSending || false;
-  ns._isComposing = ns._isComposing || false;
-  ns._selectedAdminTarget = ns._selectedAdminTarget || "";
-  ns._selectedAdminName = ns._selectedAdminName || "";
-  ns._adminInitialized = ns._adminInitialized || false;
+  const adminView = ns.adminView;
+  const adminFeed = ns.adminFeed;
+  const adminTargetBadge = ns.adminTargetBadge;
+  const adminAgentsWidget = ns.adminAgentsWidget;
+  const adminMessageInput = ns.adminMessageInput;
+  const adminSendBtn = ns.adminSendBtn;
+  const showToast = ns.showToast;
+  const statusColor = ns.statusColor;
+  const renderSpotlight = function() { return ns.renderSpotlight.apply(ns, arguments); };
+  const renderSystemAgents = ns.renderSystemAgents;
+  const escapeHtml = ns.escapeHtml;
+  const canvasView = ns.canvasView;
+  const isEditableTarget = ns.isEditableTarget;
+  const getSortedCards = ns.getSortedCards;
+  let _adminSending = false;
 
-  ns.adminFeed = ns.adminFeed || document.getElementById("admin-feed");
-  ns.adminTargetBadge = ns.adminTargetBadge || document.getElementById("admin-target-badge");
-  ns.adminAgentsWidget = ns.adminAgentsWidget || document.getElementById("admin-agents-widget");
-  ns.adminMessageInput = ns.adminMessageInput || document.getElementById("admin-message-input");
-  ns.adminSendBtn = ns.adminSendBtn || document.getElementById("admin-send-btn");
-  ns.adminSplitter = ns.adminSplitter || document.getElementById("admin-splitter");
-
-  ns.loadAdminAgents = async function loadAdminAgents() {
+  async function loadAdminAgents() {
     try {
-      var resp = await fetch("/api/admin/agents");
-      var data = await resp.json();
-      var agents = data.agents || [];
-      ns.renderAdminAgentsWidget(agents);
+      const resp = await fetch("/api/admin/agents");
+      const data = await resp.json();
+      const agents = data.agents || [];
+      renderAdminAgentsWidget(agents);
     } catch (e) {
       console.error("Failed to load admin agents:", e);
     }
-  };
+  }
 
-  ns.renderAdminAgentsWidget = function renderAdminAgentsWidget(agents) {
-    if (!ns.adminAgentsWidget) return;
-
-    var existingWrap = ns.adminAgentsWidget.querySelector(".admin-agents-table-wrap");
+  function renderAdminAgentsWidget(agents) {
+    if (!adminAgentsWidget) return;
+    // Preserve the h3 title, remove only the table wrapper
+    var existingWrap = adminAgentsWidget.querySelector(".admin-agents-table-wrap");
     if (existingWrap) existingWrap.remove();
 
-    var content = ns.renderSystemAgents(agents, {
+    var content = renderSystemAgents(agents, {
       selectedId: ns._selectedAdminTarget,
-      onRowClick: function (agent) {
+      onRowClick: function(agent) {
         ns._selectedAdminTarget = agent.agent_id;
         ns._selectedAdminName = agent.name || agent.agent_id;
-        if (ns.adminTargetBadge) {
-          ns.adminTargetBadge.textContent = ns._selectedAdminName;
-          ns.adminTargetBadge.classList.add("has-target");
+        if (adminTargetBadge) {
+          adminTargetBadge.textContent = ns._selectedAdminName;
+          adminTargetBadge.classList.add("has-target");
         }
-        if (ns.adminMessageInput) ns.adminMessageInput.focus();
+        if (adminMessageInput) adminMessageInput.focus();
       },
-      onRowDblClick: function (agent) {
-        ns.jumpToAgent(agent.agent_id);
+      onRowDblClick: function(agent) {
+        jumpToAgent(agent.agent_id);
       },
-      onRowContextMenu: function (agent, e) {
-        ns.showAgentContextMenu(agent, e);
-      },
+      onRowContextMenu: function(agent, e) {
+        showAgentContextMenu(agent, e);
+      }
     });
     content.className = "admin-agents-table-wrap";
-    ns.adminAgentsWidget.appendChild(content);
-  };
+    adminAgentsWidget.appendChild(content);
+  }
 
-  ns.createAgentContextMenu = function createAgentContextMenu() {
+  // ── Agent Context Menu ──────────────────────────
+  var _agentContextMenu = null;
+  var _contextMenuTarget = null;
+
+  function createAgentContextMenu() {
     var menu = document.createElement("div");
     menu.className = "agent-context-menu";
 
@@ -68,27 +70,28 @@ window.SynapseCanvas = window.SynapseCanvas || {};
     icon.className = "ph ph-trash";
     killItem.appendChild(icon);
     killItem.appendChild(document.createTextNode(" Kill Agent"));
-    killItem.addEventListener("click", function (e) {
+    killItem.addEventListener("click", function(e) {
       e.stopPropagation();
-      var target = ns._contextMenuTarget;
-      ns.hideAgentContextMenu();
-      if (target) ns.killAgent(target);
+      var target = _contextMenuTarget;
+      hideAgentContextMenu();
+      if (target) killAgent(target);
     });
     menu.appendChild(killItem);
 
     document.body.appendChild(menu);
     return menu;
-  };
+  }
 
-  ns.showAgentContextMenu = function showAgentContextMenu(agent, e) {
+  function showAgentContextMenu(agent, e) {
     e.preventDefault();
     e.stopPropagation();
-    if (!ns._agentContextMenu) ns._agentContextMenu = ns.createAgentContextMenu();
-    ns._contextMenuTarget = agent;
+    if (!_agentContextMenu) _agentContextMenu = createAgentContextMenu();
+    _contextMenuTarget = agent;
 
-    var menu = ns._agentContextMenu;
+    var menu = _agentContextMenu;
     menu.style.display = "block";
 
+    // Position with viewport boundary correction
     var menuRect = menu.getBoundingClientRect();
     var x = e.clientX;
     var y = e.clientY;
@@ -98,15 +101,75 @@ window.SynapseCanvas = window.SynapseCanvas || {};
     if (y < 0) y = 8;
     menu.style.left = x + "px";
     menu.style.top = y + "px";
-  };
+  }
 
-  ns.hideAgentContextMenu = function hideAgentContextMenu() {
-    if (!ns._agentContextMenu || ns._agentContextMenu.style.display === "none") return;
-    ns._agentContextMenu.style.display = "none";
-    ns._contextMenuTarget = null;
-  };
+  function hideAgentContextMenu() {
+    if (!_agentContextMenu || _agentContextMenu.style.display === "none") return;
+    _agentContextMenu.style.display = "none";
+    _contextMenuTarget = null;
+  }
 
-  ns.showConfirmModal = function showConfirmModal(options) {
+  // Dismiss context menu on click-away, scroll, resize, Escape
+  document.addEventListener("click", function() { hideAgentContextMenu(); });
+  document.addEventListener("contextmenu", function() { hideAgentContextMenu(); });
+  window.addEventListener("scroll", function() { hideAgentContextMenu(); }, true);
+  window.addEventListener("resize", function() { hideAgentContextMenu(); });
+  document.addEventListener("keydown", function(e) {
+    // Escape: dismiss context menu first, then spotlight nav
+    if (e.key === "Escape") {
+      hideAgentContextMenu();
+      if (
+        ns.currentRoute === "canvas" && canvasView &&
+        !canvasView.classList.contains("view-hidden") &&
+        ns._spotlightManualIndex >= 0
+      ) {
+        ns._spotlightManualIndex = -1;
+        ns._spotlightManualCardId = "";
+        e.preventDefault();
+        renderSpotlight();
+      }
+      return;
+    }
+
+    if (
+      ns.currentRoute !== "canvas" ||
+      !canvasView ||
+      canvasView.classList.contains("view-hidden") ||
+      isEditableTarget(document.activeElement)
+    ) {
+      return;
+    }
+
+    const sortedCards = getSortedCards();
+    if (sortedCards.length <= 1) return;
+
+    if (e.key === "ArrowRight") {
+      var nextIndex = ns._spotlightManualIndex < 0 ? 1 : ns._spotlightManualIndex + 1;
+      if (nextIndex < sortedCards.length) {
+        ns._spotlightManualIndex = nextIndex;
+        ns._spotlightManualCardId = sortedCards[nextIndex].card_id;
+        e.preventDefault();
+        renderSpotlight();
+      }
+    } else if (e.key === "ArrowLeft") {
+      if (ns._spotlightManualIndex > 0) {
+        ns._spotlightManualIndex -= 1;
+        ns._spotlightManualCardId = sortedCards[ns._spotlightManualIndex].card_id;
+        e.preventDefault();
+        renderSpotlight();
+      } else if (ns._spotlightManualIndex < 0) {
+        // Enter manual mode at current card (index 0)
+        ns._spotlightManualIndex = 0;
+        ns._spotlightManualCardId = sortedCards[0].card_id;
+        e.preventDefault();
+        renderSpotlight();
+      }
+    }
+  });
+
+  // ── Confirm Modal ──────────────────────────────
+  function showConfirmModal(options) {
+    // options: { title, body, confirmLabel, cancelLabel, danger, onConfirm, onCancel }
     var overlay = document.createElement("div");
     overlay.className = "confirm-modal-overlay";
 
@@ -150,99 +213,77 @@ window.SynapseCanvas = window.SynapseCanvas || {};
       document.removeEventListener("keydown", onKey);
     }
     function onKey(e) {
-      if (e.key === "Escape") {
-        e.stopImmediatePropagation();
-        close();
-        if (options.onCancel) options.onCancel();
-      }
+      if (e.key === "Escape") { e.stopImmediatePropagation(); close(); if (options.onCancel) options.onCancel(); }
     }
     document.addEventListener("keydown", onKey);
-    overlay.addEventListener("click", function (e) {
-      if (e.target === overlay) {
-        close();
-        if (options.onCancel) options.onCancel();
-      }
+    overlay.addEventListener("click", function(e) {
+      if (e.target === overlay) { close(); if (options.onCancel) options.onCancel(); }
     });
-    cancelBtn.addEventListener("click", function () {
-      close();
-      if (options.onCancel) options.onCancel();
-    });
-    confirmBtn.addEventListener("click", function () {
-      close();
-      if (options.onConfirm) options.onConfirm();
-    });
+    cancelBtn.addEventListener("click", function() { close(); if (options.onCancel) options.onCancel(); });
+    confirmBtn.addEventListener("click", function() { close(); if (options.onConfirm) options.onConfirm(); });
 
     confirmBtn.focus();
-  };
+  }
 
-  ns.killAgent = function killAgent(agent) {
+  function killAgent(agent) {
     var agentLabel = agent.name || agent.agent_id;
-    ns.showConfirmModal({
+    showConfirmModal({
       title: "Kill Agent",
-      body:
-        'Are you sure you want to kill "' +
-        agentLabel +
-        '"? This will send SIGTERM to the agent process.',
+      body: "Are you sure you want to kill \"" + agentLabel + "\"? This will send SIGTERM to the agent process.",
       confirmLabel: "Kill",
       cancelLabel: "Cancel",
       danger: true,
       icon: "ph ph-trash",
-      onConfirm: function () {
-        ns.executeKillAgent(agent);
-      },
+      onConfirm: function() { executeKillAgent(agent); }
     });
-  };
+  }
 
-  ns.executeKillAgent = function executeKillAgent(agent) {
+  function executeKillAgent(agent) {
     fetch("/api/admin/agents/" + encodeURIComponent(agent.agent_id), { method: "DELETE" })
-      .then(function (resp) {
-        return resp.json();
-      })
-      .then(function (data) {
+      .then(function(resp) { return resp.json(); })
+      .then(function(data) {
         if (data.status === "stopped") {
-          ns.showToast("Agent killed", agent.name || agent.agent_id);
+          showToast("Agent killed", agent.name || agent.agent_id);
           if (ns._selectedAdminTarget === agent.agent_id) {
-            ns._selectedAdminTarget = "";
-            ns._selectedAdminName = "";
-            if (ns.adminTargetBadge) {
-              ns.adminTargetBadge.textContent = "";
-              ns.adminTargetBadge.classList.remove("has-target");
+            ns._selectedAdminTarget = null;
+            ns._selectedAdminName = null;
+            if (adminTargetBadge) {
+              adminTargetBadge.textContent = "";
+              adminTargetBadge.classList.remove("has-target");
             }
           }
-          ns.loadAdminAgents();
+          loadAdminAgents();
         } else {
-          ns.showToast("Kill failed: " + (data.status || data.error || "unknown"), agent.name || agent.agent_id);
+          showToast("Kill failed: " + (data.status || data.error || "unknown"), agent.name || agent.agent_id);
         }
       })
-      .catch(function () {
-        ns.showToast("Kill failed: network error", agent.name || agent.agent_id);
+      .catch(function() {
+        showToast("Kill failed: network error", agent.name || agent.agent_id);
       });
-  };
+  }
 
-  ns.jumpToAgent = function jumpToAgent(agentId) {
+  function jumpToAgent(agentId) {
     fetch("/api/admin/jump/" + encodeURIComponent(agentId), { method: "POST" })
-      .then(function (resp) {
-        return resp.json();
-      })
-      .then(function (data) {
+      .then(function(resp) { return resp.json(); })
+      .then(function(data) {
         if (data.ok) {
-          ns.showToast("Jumped to terminal", agentId);
+          showToast("Jumped to terminal", agentId);
         } else {
-          ns.showToast("Jump failed: " + (data.error || "unknown"), agentId);
+          showToast("Jump failed: " + (data.error || "unknown"), agentId);
         }
       })
-      .catch(function () {
-        ns.showToast("Jump failed: network error", agentId);
+      .catch(function() {
+        showToast("Jump failed: network error", agentId);
       });
-  };
+  }
 
-  ns.createAdminBubble = function createAdminBubble(role, text, agentName) {
+  function createAdminBubble(role, text, agentName) {
     var bubble = document.createElement("div");
     bubble.className = "admin-bubble admin-bubble-" + role;
     var header = document.createElement("div");
     header.className = "admin-bubble-header";
     var headerName = document.createElement("span");
-    headerName.textContent = role === "user" ? "You" : agentName || "Agent";
+    headerName.textContent = role === "user" ? "You" : (agentName || "Agent");
     header.appendChild(headerName);
     var time = document.createElement("span");
     time.className = "admin-bubble-time";
@@ -255,87 +296,49 @@ window.SynapseCanvas = window.SynapseCanvas || {};
     bubble.appendChild(body);
     bubble._adminBody = body;
     return bubble;
-  };
+  }
 
-  ns.addAdminBubble = function addAdminBubble(role, text, agentName) {
-    if (!ns.adminFeed) return;
-    var bubble = ns.createAdminBubble(role, text, agentName);
-    ns.adminFeed.appendChild(bubble);
-    ns.adminFeed.scrollTop = ns.adminFeed.scrollHeight;
-  };
+  function addAdminBubble(role, text, agentName) {
+    if (!adminFeed) return;
+    var bubble = createAdminBubble(role, text, agentName);
+    adminFeed.appendChild(bubble);
+    adminFeed.scrollTop = adminFeed.scrollHeight;
+  }
 
-  ns.addAdminSpinner = function addAdminSpinner() {
-    if (!ns.adminFeed) return null;
+  function addAdminSpinner() {
+    if (!adminFeed) return;
     var spinner = document.createElement("div");
     spinner.className = "admin-spinner";
     spinner.id = "admin-active-spinner";
     spinner.innerHTML = '<span class="admin-spinner-dot"></span> Waiting for response...';
-    ns.adminFeed.appendChild(spinner);
-    ns.adminFeed.scrollTop = ns.adminFeed.scrollHeight;
+    adminFeed.appendChild(spinner);
+    adminFeed.scrollTop = adminFeed.scrollHeight;
     return spinner;
-  };
+  }
 
-  ns.removeAdminSpinner = function removeAdminSpinner() {
+  function removeAdminSpinner() {
     var el = document.getElementById("admin-active-spinner");
     if (el) el.remove();
-  };
+  }
 
-  ns.pollAdminTask = function pollAdminTask(taskId, target, agentName) {
-    var attempts = 0;
-    var maxAttempts = 150;
-    var polling = true;
-
-    async function poll() {
-      if (!polling) return;
-      attempts++;
-      if (attempts > maxAttempts) {
-        polling = false;
-        ns.removeAdminSpinner();
-        ns.addAdminBubble("agent", "Timeout: No response after 5 minutes", agentName);
-        return;
-      }
-      try {
-        var resp = await fetch("/api/admin/replies/" + encodeURIComponent(taskId));
-        var data = await resp.json();
-        if (data.status === "completed" || data.status === "DONE") {
-          polling = false;
-          ns.removeAdminSpinner();
-          ns.addAdminBubble("agent", data.output || "Task completed", agentName);
-          return;
-        } else if (data.status === "failed" || data.status === "error") {
-          polling = false;
-          ns.removeAdminSpinner();
-          ns.addAdminBubble("agent", "Failed: " + (data.error || "Unknown error"), agentName);
-          return;
-        }
-      } catch (e) {
-        console.warn("[Admin] Poll error:", e);
-      }
-      var delay = attempts < 10 ? 1000 : 2000;
-      setTimeout(poll, delay);
-    }
-
-    setTimeout(poll, 500);
-  };
-
-  ns.sendAdminCommand = async function sendAdminCommand() {
-    if (ns._adminSending) return;
-    if (!ns.adminMessageInput) return;
-
+  async function sendAdminCommand() {
+    if (_adminSending) return;
+    if (!adminMessageInput) return;
     var target = ns._selectedAdminTarget;
-    var message = ns.adminMessageInput.value.trim();
+    var message = adminMessageInput.value.trim();
     if (!target || !message) return;
 
-    ns._adminSending = true;
-    if (ns.adminSendBtn) ns.adminSendBtn.disabled = true;
+    _adminSending = true;
+    if (adminSendBtn) adminSendBtn.disabled = true;
 
     var agentName = ns._selectedAdminName || target;
 
-    ns.adminMessageInput.value = "";
-    ns.adminMessageInput.style.height = "auto";
+    // Clear input immediately
+    adminMessageInput.value = "";
+    adminMessageInput.style.height = "auto";
 
-    ns.addAdminBubble("user", message, null);
-    ns.addAdminSpinner();
+    addAdminBubble("user", message, null);
+    addAdminSpinner();
 
     try {
       var resp = await fetch("/api/admin/send", {
@@ -345,159 +348,61 @@ window.SynapseCanvas = window.SynapseCanvas || {};
       });
       var data = await resp.json();
       if (!resp.ok) {
-        ns.removeAdminSpinner();
-        ns.addAdminBubble("agent", "Error: " + (data.detail || "Failed to send"), agentName);
+        removeAdminSpinner();
+        addAdminBubble("agent", "Error: " + (data.detail || "Failed to send"), agentName);
         return;
       }
-      ns.pollAdminTask(data.task_id, target, agentName);
+      pollAdminTask(data.task_id, target, agentName);
     } catch (e) {
-      ns.removeAdminSpinner();
-      ns.addAdminBubble("agent", "Error: " + e.message, agentName);
+      removeAdminSpinner();
+      addAdminBubble("agent", "Error: " + e.message, agentName);
     } finally {
-      ns._adminSending = false;
-      if (ns.adminSendBtn) ns.adminSendBtn.disabled = false;
+      _adminSending = false;
+      if (adminSendBtn) adminSendBtn.disabled = false;
     }
-  };
-
-  ns.initAdminView = function initAdminView() {
-    if (ns._adminInitialized) return;
-    ns._adminInitialized = true;
-
-    if (!ns.adminSplitter || !ns.adminAgentsWidget) return;
-
-    var adminContainer = document.getElementById("admin-container");
-    var adminInputBar = document.getElementById("admin-input-bar");
-    var storageKey = "canvas-admin-agents-height";
-    var minH = 80;
-
-    try {
-      var saved = parseInt(localStorage.getItem(storageKey), 10);
-      if (isFinite(saved)) {
-        ns.adminAgentsWidget.style.height = Math.max(minH, saved) + "px";
-        ns.adminAgentsWidget.classList.add("splitter-resized");
-      }
-    } catch (e) {
-      // ignore
-    }
-
-    var startY = 0;
-    var startHeight = 0;
-
-    function getMaxHeight() {
-      if (!adminContainer) return 400;
-      var inputH = adminInputBar ? adminInputBar.offsetHeight : 0;
-      return adminContainer.clientHeight - inputH - ns.adminSplitter.offsetHeight - minH;
-    }
-
-    function clamp(v) {
-      return Math.max(minH, Math.min(v, getMaxHeight()));
-    }
-
-    function onMouseMove(e) {
-      var delta = e.clientY - startY;
-      ns.adminAgentsWidget.style.height = clamp(startHeight + delta) + "px";
-    }
-
-    function onMouseUp() {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-      document.body.classList.remove("splitter-dragging");
-      ns.adminSplitter.classList.remove("dragging");
-      ns.adminAgentsWidget.classList.add("splitter-resized");
-      var h = clamp(parseInt(ns.adminAgentsWidget.style.height, 10));
-      if (isFinite(h)) {
-        try {
-          localStorage.setItem(storageKey, h);
-        } catch (e) {
-          // ignore
-        }
-      }
-    }
-
-    ns.adminSplitter.addEventListener("mousedown", function (e) {
-      e.preventDefault();
-      startY = e.clientY;
-      startHeight = ns.adminAgentsWidget.offsetHeight;
-      document.body.classList.add("splitter-dragging");
-      ns.adminSplitter.classList.add("dragging");
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-    });
-
-    ns.adminSplitter.addEventListener("keydown", function (e) {
-      var step = e.shiftKey ? 20 : 5;
-      var current = ns.adminAgentsWidget.offsetHeight;
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        ns.adminAgentsWidget.style.height = clamp(current + step) + "px";
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        ns.adminAgentsWidget.style.height = clamp(current - step) + "px";
-      }
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        ns.adminAgentsWidget.classList.add("splitter-resized");
-        var kh = clamp(parseInt(ns.adminAgentsWidget.style.height, 10));
-        if (isFinite(kh)) {
-          try {
-            localStorage.setItem(storageKey, kh);
-          } catch (e2) {
-            // ignore
-          }
-        }
-      }
-    });
-
-    document.addEventListener("click", function () {
-      ns.hideAgentContextMenu();
-    });
-    document.addEventListener("contextmenu", function () {
-      ns.hideAgentContextMenu();
-    });
-    window.addEventListener(
-      "scroll",
-      function () {
-        ns.hideAgentContextMenu();
-      },
-      true
-    );
-    window.addEventListener("resize", function () {
-      ns.hideAgentContextMenu();
-    });
-
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") {
-        ns.hideAgentContextMenu();
-      }
-    });
-
-    if (ns.adminSendBtn) ns.adminSendBtn.addEventListener("click", ns.sendAdminCommand);
-
-    function autoResizeAdminInput() {
-      if (!ns.adminMessageInput) return;
-      ns.adminMessageInput.style.height = "auto";
-      ns.adminMessageInput.style.height = Math.min(ns.adminMessageInput.scrollHeight, 120) + "px";
-    }
-
-    if (ns.adminMessageInput) {
-      ns.adminMessageInput.addEventListener("compositionstart", function () {
-        ns._isComposing = true;
-      });
-      ns.adminMessageInput.addEventListener("compositionend", function () {
-        ns._isComposing = false;
-      });
-      ns.adminMessageInput.addEventListener("input", autoResizeAdminInput);
-      ns.adminMessageInput.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" && e.metaKey && !ns._isComposing) {
-          e.preventDefault();
-          ns.sendAdminCommand();
-        }
-      });
-    }
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", ns.initAdminView, { once: true });
-  } else {
-    ns.initAdminView();
   }
+
+  function pollAdminTask(taskId, target, agentName) {
+    var attempts = 0;
+    var maxAttempts = 150;
+    var polling = true;
+
+    async function poll() {
+      if (!polling) return;
+      attempts++;
+      if (attempts > maxAttempts) {
+        polling = false;
+        removeAdminSpinner();
+        addAdminBubble("agent", "Timeout: No response after 5 minutes", agentName);
+        return;
+      }
+      try {
+        var resp = await fetch("/api/admin/replies/" + encodeURIComponent(taskId));
+        var data = await resp.json();
+        if (data.status === "completed" || data.status === "DONE") {
+          polling = false;
+          removeAdminSpinner();
+          var output = data.output || "Task completed";
+          addAdminBubble("agent", output, agentName);
+          return;
+        } else if (data.status === "failed" || data.status === "error") {
+          polling = false;
+          removeAdminSpinner();
+          addAdminBubble("agent", "Failed: " + (data.error || "Unknown error"), agentName);
+          return;
+        }
+      } catch (e) {
+        console.warn("[Admin] Poll error:", e);
+      }
+      // Adaptive interval: 1s for first 10, then 2s
+      var delay = attempts < 10 ? 1000 : 2000;
+      setTimeout(poll, delay);
+    }
+
+    // Start first poll quickly
+    setTimeout(poll, 500);
+  }
+
+  ns.loadAdminAgents = loadAdminAgents;
+  ns.sendAdminCommand = sendAdminCommand;
 })(window.SynapseCanvas);

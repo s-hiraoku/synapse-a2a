@@ -1,57 +1,48 @@
 (function(ns) {
   "use strict";
-  ns = ns || (window.SynapseCanvas = {});
-  function statusIcon(state) {
-    switch (state) {
-      case "success": return "●";
-      case "warn": return "▲";
-      case "error": return "✕";
-      case "running": return "◌";
-      default: return "•";
+
+  const parseBody = ns.parseBody;
+  const simpleMarkdown = ns.simpleMarkdown;
+  const escapeHtml = ns.escapeHtml;
+  const showToast = ns.showToast;
+  const statusColor = ns.statusColor;
+  const formatTime = ns.formatTime;
+
+  // ----------------------------------------------------------------
+  // Template renderer dispatcher
+  // ----------------------------------------------------------------
+  function renderTemplate(templateName, blocks, td, compact, renderOptions) {
+    switch (templateName) {
+      case "briefing":
+        return renderBriefing(blocks, td, compact, renderOptions);
+      case "comparison":
+        return renderComparison(blocks, td, compact, renderOptions);
+      case "dashboard":
+        return renderDashboardTemplate(blocks, td, compact, renderOptions);
+      case "steps":
+        return renderStepsTemplate(blocks, td, compact, renderOptions);
+      case "slides":
+        return renderSlidesTemplate(blocks, td, compact, renderOptions);
+      case "plan":
+        return renderPlanTemplate(blocks, td, compact, renderOptions);
+      default:
+        return null;
     }
-  }
-  function statusColor(status) {
-    switch (String(status || "").toLowerCase()) {
-      case "ready": return "var(--color-success)";
-      case "waiting": return "var(--color-accent)";
-      case "processing": return "var(--color-warning)";
-      case "done": return "var(--color-signal)";
-      case "shutting_down": return "var(--color-danger)";
-      case "success":
-      case "completed": return "var(--color-success)";
-      case "running":
-      case "in_progress": return "var(--color-accent)";
-      case "pending":
-      case "warn": return "var(--color-warning)";
-      case "error":
-      case "failed": return "var(--color-danger)";
-      default: return "var(--color-text-muted)";
-    }
-  }
-  function parseBody(body) {
-    if (typeof body === "string") { try { return JSON.parse(body); } catch (_e) { /* ignore */ } }
-    return body;
   }
 
-  var _ansiMap = {
-    "1": '<span class="ansi-bold">',
-    "30": '<span class="ansi-black">',
-    "31": '<span class="ansi-red">',
-    "32": '<span class="ansi-green">',
-    "33": '<span class="ansi-yellow">',
-    "34": '<span class="ansi-blue">',
-    "35": '<span class="ansi-magenta">',
-    "36": '<span class="ansi-cyan">',
-    "37": '<span class="ansi-white">',
-    "90": '<span class="ansi-bright-black">',
-    "91": '<span class="ansi-bright-red">',
-    "92": '<span class="ansi-bright-green">',
-    "93": '<span class="ansi-bright-yellow">',
-    "94": '<span class="ansi-bright-blue">',
-    "95": '<span class="ansi-bright-magenta">',
-    "96": '<span class="ansi-bright-cyan">',
-    "97": '<span class="ansi-bright-white">',
-  };
+  function renderTemplateOrBlocks(parent, card, blocks, compact, renderOptions) {
+    if (card.template && card.template_data && Object.keys(card.template_data).length > 0) {
+      const td = card.template_data;
+      const rendered = renderTemplate(card.template, blocks, td, compact, renderOptions);
+      if (rendered) {
+        parent.appendChild(rendered);
+        return;
+      }
+    }
+    for (const block of blocks) {
+      parent.appendChild(renderBlock(block, renderOptions));
+    }
+  }
 
   function renderBlock(block, options) {
     // Normalize legacy envelope shapes where metadata was embedded in body
@@ -153,42 +144,6 @@
     }
 
     return wrap;
-  }
-
-  // ----------------------------------------------------------------
-  // Template renderer dispatcher
-  // ----------------------------------------------------------------
-  function renderTemplate(templateName, blocks, td, compact, renderOptions) {
-    switch (templateName) {
-      case "briefing":
-        return renderBriefing(blocks, td, compact, renderOptions);
-      case "comparison":
-        return renderComparison(blocks, td, compact, renderOptions);
-      case "dashboard":
-        return renderDashboardTemplate(blocks, td, compact, renderOptions);
-      case "steps":
-        return renderStepsTemplate(blocks, td, compact, renderOptions);
-      case "slides":
-        return renderSlidesTemplate(blocks, td, compact, renderOptions);
-      case "plan":
-        return renderPlanTemplate(blocks, td, compact, renderOptions);
-      default:
-        return null;
-    }
-  }
-
-  function renderTemplateOrBlocks(parent, card, blocks, compact, renderOptions) {
-    if (card.template && card.template_data && Object.keys(card.template_data).length > 0) {
-      const td = card.template_data;
-      const rendered = renderTemplate(card.template, blocks, td, compact, renderOptions);
-      if (rendered) {
-        parent.appendChild(rendered);
-        return;
-      }
-    }
-    for (const block of blocks) {
-      parent.appendChild(renderBlock(block, renderOptions));
-    }
   }
 
   // ----------------------------------------------------------------
@@ -1531,203 +1486,11 @@
     el.appendChild(card);
   }
 
-  function escapeHtml(text) {
-    return String(text)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
 
-  /** Inline markdown formatting (bold, italic, code, links, strikethrough). */
-  function inlineMarkdown(line) {
-    // Extract code spans and links first to protect them from bold/italic
-    var slots = [];
-    var ph = "\x00";
-    var result = line
-      .replace(/`([^`]+)`/g, function(m) { slots.push("<code>" + m.slice(1, -1) + "</code>"); return ph + (slots.length - 1) + ph; })
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(_, text, href) {
-        if (/^(https?:|mailto:|#)/i.test(href) && !/^javascript:/i.test(href)) {
-          slots.push('<a href="' + href + '" target="_blank" rel="noopener">' + text + '</a>');
-        } else {
-          slots.push(text);
-        }
-        return ph + (slots.length - 1) + ph;
-      });
-    // Apply bold/italic/strikethrough on remaining text
-    result = result
-      .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      .replace(/~~(.+?)~~/g, "<del>$1</del>");
-    // Restore protected slots
-    return result.replace(new RegExp(ph + "(\\d+)" + ph, "g"), function(_, idx) { return slots[parseInt(idx, 10)]; });
-  }
-
-  /** Line-based markdown parser with block-level element support. */
-  function simpleMarkdown(text) {
-    var lines = text.split("\n");
-    var out = [];
-    var i = 0;
-
-    while (i < lines.length) {
-      var line = lines[i];
-
-      // Code block
-      if (/^```/.test(line)) {
-        var lang = (line.match(/^```(\w*)/) || [])[1] || "";
-        var codeLines = [];
-        i++;
-        while (i < lines.length && !/^```$/.test(lines[i])) {
-          codeLines.push(lines[i]);
-          i++;
-        }
-        i++; // skip closing ```
-        out.push('<pre><code class="language-' + lang + '">' + escapeHtml(codeLines.join("\n")) + "</code></pre>");
-        continue;
-      }
-
-      // Table: detect header row (| ... | ... |)
-      if (/^\|(.+\|)+\s*$/.test(line) && i + 1 < lines.length && /^\|[\s:]*-+/.test(lines[i + 1])) {
-        var headers = line.split("|").filter(function(c) { return c.trim() !== ""; });
-        // Parse alignment from separator row
-        var sepCells = lines[i + 1].split("|").filter(function(c) { return c.trim() !== ""; });
-        var aligns = sepCells.map(function(c) {
-          var t = c.trim();
-          if (t.charAt(0) === ":" && t.charAt(t.length - 1) === ":") return "center";
-          if (t.charAt(t.length - 1) === ":") return "right";
-          return "left";
-        });
-        var tableHtml = "<table><thead><tr>";
-        for (var h = 0; h < headers.length; h++) {
-          tableHtml += '<th style="text-align:' + (aligns[h] || "left") + '">' + inlineMarkdown(escapeHtml(headers[h].trim())) + "</th>";
-        }
-        tableHtml += "</tr></thead><tbody>";
-        i += 2; // skip header + separator
-        while (i < lines.length && /^\|(.+\|)+\s*$/.test(lines[i])) {
-          var cells = lines[i].split("|").filter(function(c) { return c.trim() !== ""; });
-          tableHtml += "<tr>";
-          for (var c = 0; c < cells.length; c++) {
-            tableHtml += '<td style="text-align:' + (aligns[c] || "left") + '">' + inlineMarkdown(escapeHtml(cells[c].trim())) + "</td>";
-          }
-          tableHtml += "</tr>";
-          i++;
-        }
-        tableHtml += "</tbody></table>";
-        out.push(tableHtml);
-        continue;
-      }
-
-      var escaped = escapeHtml(line);
-
-      // Horizontal rule
-      if (/^-{3,}\s*$/.test(line) || /^\*{3,}\s*$/.test(line)) {
-        out.push("<hr>");
-        i++;
-        continue;
-      }
-
-      // Headings
-      if (/^### /.test(line)) { out.push("<h4>" + inlineMarkdown(escaped.slice(4)) + "</h4>"); i++; continue; }
-      if (/^## /.test(line)) { out.push("<h3>" + inlineMarkdown(escaped.slice(3)) + "</h3>"); i++; continue; }
-      if (/^# /.test(line)) { out.push("<h2>" + inlineMarkdown(escaped.slice(2)) + "</h2>"); i++; continue; }
-
-      // Blockquote (consecutive > lines)
-      if (/^> /.test(line)) {
-        var bqLines = [];
-        while (i < lines.length && /^> /.test(lines[i])) {
-          bqLines.push(lines[i].slice(2));
-          i++;
-        }
-        out.push("<blockquote>" + bqLines.map(function(l) { return inlineMarkdown(escapeHtml(l)); }).join("<br>") + "</blockquote>");
-        continue;
-      }
-
-      // List (unordered or ordered, with nesting support)
-      if (/^\s*([-*] |\d+\. )/.test(line)) {
-        var stack = []; // [{type: "ul"|"ol", indent: number}]
-        while (i < lines.length) {
-          var lm = lines[i].match(/^(\s*)([-*] |\d+\. )(.*)/);
-          if (!lm) break;
-          var indent = lm[1].length;
-          var listType = /^\d/.test(lm[2]) ? "ol" : "ul";
-          var content = lm[3];
-          if (stack.length === 0) {
-            out.push("<" + listType + ">");
-            stack.push({ type: listType, indent: indent });
-          } else if (indent > stack[stack.length - 1].indent) {
-            out.push("<" + listType + ">");
-            stack.push({ type: listType, indent: indent });
-          } else {
-            while (stack.length > 1 && indent < stack[stack.length - 1].indent) {
-              out.push("</li></" + stack.pop().type + ">");
-            }
-            if (stack.length > 0 && stack[stack.length - 1].type !== listType && indent === stack[stack.length - 1].indent) {
-              out.push("</li></" + stack.pop().type + ">");
-              out.push("<" + listType + ">");
-              stack.push({ type: listType, indent: indent });
-            } else {
-              out.push("</li>");
-            }
-          }
-          out.push("<li>" + inlineMarkdown(escapeHtml(content)));
-          i++;
-        }
-        while (stack.length > 0) {
-          out.push("</li></" + stack.pop().type + ">");
-        }
-        continue;
-      }
-
-      // Empty line → paragraph break
-      if (line.trim() === "") {
-        out.push("");
-        i++;
-        continue;
-      }
-
-      // Regular paragraph
-      out.push("<p>" + inlineMarkdown(escaped) + "</p>");
-      i++;
-    }
-
-    return out.join("\n");
-  }
-
-  Object.assign(ns, {
-    parseBody: parseBody,
-    renderBlock: renderBlock,
-    renderTemplateOrBlocks: renderTemplateOrBlocks,
-    renderTemplate: renderTemplate,
-    renderMermaid: renderMermaid,
-    runMermaid: runMermaid,
-    renderMarkdown: renderMarkdown,
-    renderHTML: renderHTML,
-    renderTable: renderTable,
-    renderJSON: renderJSON,
-    renderDiff: renderDiff,
-    renderCode: renderCode,
-    renderImage: renderImage,
-    renderChart: renderChart,
-    renderLog: renderLog,
-    renderStatus: renderStatus,
-    renderMetric: renderMetric,
-    renderChecklist: renderChecklist,
-    renderTimeline: renderTimeline,
-    renderAlert: renderAlert,
-    renderFilePreview: renderFilePreview,
-    renderTrace: renderTrace,
-    renderTip: renderTip,
-    renderProgress: renderProgress,
-    renderTerminal: renderTerminal,
-    renderDependencyGraph: renderDependencyGraph,
-    renderCost: renderCost,
-    renderLinkPreview: renderLinkPreview,
-    escapeHtml: escapeHtml,
-    simpleMarkdown: simpleMarkdown,
-    statusIcon: statusIcon,
-    statusColor: statusColor,
-  });
-
-})(window.SynapseCanvas || (window.SynapseCanvas = {}));
+  ns.renderTemplateOrBlocks = renderTemplateOrBlocks;
+  ns.renderBlock = renderBlock;
+  ns.runMermaid = runMermaid;
+  ns.broadcastThemeToIframes = broadcastThemeToIframes;
+  ns.renderHTML = renderHTML;
+  ns.renderMermaid = renderMermaid;
+})(window.SynapseCanvas);

@@ -1,6 +1,4 @@
-window.SynapseCanvas = window.SynapseCanvas || {};
-
-(function (ns) {
+(function(ns) {
   "use strict";
 
   ns._dbCurrentDb = ns._dbCurrentDb || "";
@@ -8,23 +6,14 @@ window.SynapseCanvas = window.SynapseCanvas || {};
   ns._dbOffset = ns._dbOffset || 0;
   ns._dbLimit = ns._dbLimit || 50;
   ns._dbTotal = ns._dbTotal || 0;
-  ns._databaseInitialized = ns._databaseInitialized || false;
 
-  ns.formatBytes = function formatBytes(bytes) {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  };
-
-  ns.loadDatabaseList = async function loadDatabaseList() {
+  async function loadDatabaseList() {
     var tree = document.getElementById("db-tree");
     if (!tree) return;
-
     try {
       var resp = await fetch("/api/db/list");
       var dbs = await resp.json();
       tree.innerHTML = "";
-
       for (var i = 0; i < dbs.length; i++) {
         var db = dbs[i];
         var group = document.createElement("div");
@@ -35,14 +24,18 @@ window.SynapseCanvas = window.SynapseCanvas || {};
         var icon = document.createElement("i");
         icon.className = "ph ph-hard-drives";
         label.appendChild(icon);
-
         var nameSpan = document.createElement("span");
         nameSpan.textContent = db.name;
         label.appendChild(nameSpan);
-
+        if (db.scope === "global") {
+          var scopeBadge = document.createElement("span");
+          scopeBadge.className = "db-tree-scope";
+          scopeBadge.textContent = "global";
+          label.appendChild(scopeBadge);
+        }
         var sizeSpan = document.createElement("span");
         sizeSpan.className = "db-tree-size";
-        sizeSpan.textContent = ns.formatBytes(db.size);
+        sizeSpan.textContent = formatBytes(db.size);
         label.appendChild(sizeSpan);
         group.appendChild(label);
 
@@ -53,7 +46,7 @@ window.SynapseCanvas = window.SynapseCanvas || {};
           tblLink.href = "#";
           tblLink.dataset.db = db.name;
           tblLink.dataset.table = tbl;
-
+          tblLink.dataset.scope = db.scope || "project";
           var tblIcon = document.createElement("i");
           tblIcon.className = "ph ph-table";
           tblLink.appendChild(tblIcon);
@@ -61,27 +54,24 @@ window.SynapseCanvas = window.SynapseCanvas || {};
           tblLink.addEventListener("click", function (ev) {
             ev.preventDefault();
             var allLinks = tree.querySelectorAll(".db-tree-table");
-            for (var k = 0; k < allLinks.length; k++) {
-              allLinks[k].classList.remove("active");
-            }
+            for (var k = 0; k < allLinks.length; k++) allLinks[k].classList.remove("active");
             this.classList.add("active");
-            ns.loadDbTable(this.dataset.db, this.dataset.table, 0);
+            loadDbTable(this.dataset.db, this.dataset.table, 0, this.dataset.scope);
           });
           group.appendChild(tblLink);
         }
-
         tree.appendChild(group);
       }
     } catch (e) {
       tree.innerHTML = "<div class='workflow-empty'>Failed to load databases</div>";
     }
-  };
+  }
 
-  ns.loadDbTable = async function loadDbTable(dbName, tableName, offset) {
+  async function loadDbTable(dbName, tableName, offset, scope) {
     ns._dbCurrentDb = dbName;
     ns._dbCurrentTable = tableName;
+    ns._dbCurrentScope = scope || "project";
     ns._dbOffset = offset || 0;
-
     var emptyEl = document.getElementById("db-empty");
     var tableView = document.getElementById("db-table-view");
     if (emptyEl) emptyEl.classList.add("view-hidden");
@@ -91,16 +81,7 @@ window.SynapseCanvas = window.SynapseCanvas || {};
     if (titleEl) titleEl.textContent = dbName + " / " + tableName;
 
     try {
-      var resp = await fetch(
-        "/api/db/" +
-          encodeURIComponent(dbName) +
-          "/" +
-          encodeURIComponent(tableName) +
-          "?limit=" +
-          ns._dbLimit +
-          "&offset=" +
-          ns._dbOffset
-      );
+      var resp = await fetch("/api/db/" + encodeURIComponent(dbName) + "/" + encodeURIComponent(tableName) + "?limit=" + ns._dbLimit + "&offset=" + ns._dbOffset + "&scope=" + encodeURIComponent(ns._dbCurrentScope));
       var data = await resp.json();
       ns._dbTotal = data.total;
 
@@ -136,6 +117,7 @@ window.SynapseCanvas = window.SynapseCanvas || {};
         }
       }
 
+      // Pagination
       var pageInfo = document.getElementById("db-page-info");
       var prevBtn = document.getElementById("db-prev-btn");
       var nextBtn = document.getElementById("db-next-btn");
@@ -148,43 +130,24 @@ window.SynapseCanvas = window.SynapseCanvas || {};
       var tbody2 = document.getElementById("db-table-body");
       if (tbody2) tbody2.innerHTML = "<tr><td colspan='99'>Error loading data</td></tr>";
     }
-  };
-
-  ns.initDatabaseBrowser = function initDatabaseBrowser() {
-    if (ns._databaseInitialized) return;
-    ns._databaseInitialized = true;
-
-    var dbPrevBtn = document.getElementById("db-prev-btn");
-    var dbNextBtn = document.getElementById("db-next-btn");
-    if (dbPrevBtn) {
-      dbPrevBtn.addEventListener("click", function () {
-        if (ns._dbOffset > 0) {
-          ns.loadDbTable(
-            ns._dbCurrentDb,
-            ns._dbCurrentTable,
-            Math.max(0, ns._dbOffset - ns._dbLimit)
-          );
-        }
-      });
-    }
-    if (dbNextBtn) {
-      dbNextBtn.addEventListener("click", function () {
-        if (ns._dbOffset + ns._dbLimit < ns._dbTotal) {
-          ns.loadDbTable(
-            ns._dbCurrentDb,
-            ns._dbCurrentTable,
-            ns._dbOffset + ns._dbLimit
-          );
-        }
-      });
-    }
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", ns.initDatabaseBrowser, {
-      once: true,
-    });
-  } else {
-    ns.initDatabaseBrowser();
   }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  }
+
+  // Pagination buttons
+  var dbPrevBtn = document.getElementById("db-prev-btn");
+  var dbNextBtn = document.getElementById("db-next-btn");
+  if (dbPrevBtn) dbPrevBtn.addEventListener("click", function () {
+    if (ns._dbOffset > 0) loadDbTable(ns._dbCurrentDb, ns._dbCurrentTable, Math.max(0, ns._dbOffset - ns._dbLimit), ns._dbCurrentScope);
+  });
+  if (dbNextBtn) dbNextBtn.addEventListener("click", function () {
+    if (ns._dbOffset + ns._dbLimit < ns._dbTotal) loadDbTable(ns._dbCurrentDb, ns._dbCurrentTable, ns._dbOffset + ns._dbLimit, ns._dbCurrentScope);
+  });
+
+  ns.loadDatabaseList = loadDatabaseList;
+  ns.loadDbTable = loadDbTable;
 })(window.SynapseCanvas);

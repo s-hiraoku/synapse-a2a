@@ -1,6 +1,18 @@
 (function(ns) {
   "use strict";
-  ns = ns || (window.SynapseCanvas = {});
+
+  const systemPanel = ns.systemPanel;
+  const statusColor = ns.statusColor;
+  const historyStatusColor = ns.historyStatusColor;
+  const formatTimeShort = ns.formatTimeShort;
+  const renderAll = function() { return ns.renderAll.apply(ns, arguments); };
+  const loadAdminAgents = function() { return ns.loadAdminAgents.apply(ns, arguments); };
+
+  function formatNumber(n) {
+    if (n == null) return "-";
+    return Number(n).toLocaleString();
+  }
+
   // ----------------------------------------------------------------
   // System Panel
   // ----------------------------------------------------------------
@@ -11,22 +23,22 @@
       if (!resp.ok) return;
       const text = await resp.text();
       // Skip re-render if data hasn't changed (prevents flicker on polling)
-      if (text === _lastSystemJSON) return;
+      if (text === ns._lastSystemJSON) return;
       const data = JSON.parse(text);
       // Update cache only after successful parse
-      _lastSystemJSON = text;
-      systemAgents = Array.isArray(data.agents) ? data.agents : [];
-      _lastSystemData = data;
-      if (currentRoute === "system") {
+      ns._lastSystemJSON = text;
+      ns.systemAgents = Array.isArray(data.agents) ? data.agents : [];
+      ns._lastSystemData = data;
+      if (ns.currentRoute === "system") {
         renderSystemPanel(data);
       }
-      if (currentRoute === "dashboard") {
+      if (ns.currentRoute === "dashboard") {
         renderDashboard(data);
       }
-      if (currentRoute === "history") {
+      if (ns.currentRoute === "history") {
         renderAll();
       }
-      if (currentRoute === "admin") {
+      if (ns.currentRoute === "admin") {
         loadAdminAgents();
       }
     } catch (e) {
@@ -127,12 +139,12 @@
       content.appendChild(configGroup);
     }
 
-    if (!_systemPanelRendered) {
+    if (!ns._systemPanelRendered) {
       content.classList.add('is-new');
       content.querySelectorAll('.system-section').forEach(function(s) {
         s.classList.add('is-new');
       });
-      _systemPanelRendered = true;
+      ns._systemPanelRendered = true;
     }
     // Use replaceChildren to swap content in a single frame (avoids blank flash)
     systemPanel.replaceChildren(content);
@@ -142,9 +154,7 @@
   // Dashboard renderers
   // ----------------------------------------------------------------
 
-  var _dashExpandState = {};
-  var _dashboardRendered = false;
-
+    
   function createDashHeader(iconClass, titleText) {
     var header = document.createElement("div");
     header.className = "dash-widget-header";
@@ -168,7 +178,7 @@
    */
   function createDashWidget(widgetKey, iconClass, titleText, summaryEl, detailBuilder) {
     var frag = document.createDocumentFragment();
-    var isExpanded = !!_dashExpandState[widgetKey];
+    var isExpanded = !!ns._dashExpandState[widgetKey];
 
     var wrapper = document.createElement("div");
     wrapper.className = "dash-widget-inner";
@@ -187,11 +197,11 @@
     if (isExpanded && wrapper._dashDetailBuilder) detail.appendChild(wrapper._dashDetailBuilder());
 
     header.addEventListener("click", function () {
-      _dashExpandState[widgetKey] = !_dashExpandState[widgetKey];
+      ns._dashExpandState[widgetKey] = !ns._dashExpandState[widgetKey];
       chevron.classList.toggle("expanded");
       detail.classList.toggle("expanded");
       var builder = wrapper._dashDetailBuilder;
-      if (_dashExpandState[widgetKey] && builder) {
+      if (ns._dashExpandState[widgetKey] && builder) {
         detail.innerHTML = "";
         detail.appendChild(builder());
       }
@@ -222,7 +232,7 @@
       slot.appendChild(summaryBuilder());
     }
 
-    if (_dashExpandState[widgetKey] && detailBuilder) {
+    if (ns._dashExpandState[widgetKey] && detailBuilder) {
       var detail = existing.querySelector(".dash-widget-detail");
       if (detail) {
         detail.innerHTML = "";
@@ -248,7 +258,7 @@
     renderDashWorktrees(Array.isArray(data.worktrees) ? data.worktrees : []);
     renderDashMemory(Array.isArray(data.memories) ? data.memories : []);
     renderDashErrors(Array.isArray(data.registry_errors) ? data.registry_errors : []);
-    if (!_dashboardRendered) {
+    if (!ns._dashboardRendered) {
       var dashboardView = document.getElementById("dashboard-view");
       if (dashboardView) {
         var widgets = dashboardView.querySelectorAll(".dash-widget");
@@ -256,7 +266,7 @@
         var strips = dashboardView.querySelectorAll(".dash-strip");
         for (var si = 0; si < strips.length; si++) strips[si].classList.add("is-new");
       }
-      _dashboardRendered = true;
+      ns._dashboardRendered = true;
     }
   }
 
@@ -315,7 +325,7 @@
       }
       var headerTitle = el.querySelector(".dash-widget-header span");
       if (headerTitle) headerTitle.textContent = "Agents (" + agents.length + ")";
-      if (_dashExpandState["agents"]) {
+      if (ns._dashExpandState["agents"]) {
         var detail = el.querySelector(".dash-widget-detail");
         if (detail) {
           detail.innerHTML = "";
@@ -1254,6 +1264,21 @@
   }
 
   function renderSystemTips(tips) {
+    const banner = document.createElement("div");
+    banner.className = "system-tips";
+
+    const icon = document.createElement("span");
+    icon.className = "system-tips-icon";
+    icon.textContent = "\uD83D\uDCA1";
+    banner.appendChild(icon);
+
+    // Pick a random tip
+    const tip = tips[Math.floor(Math.random() * tips.length)];
+
+    const text = document.createElement("span");
+    text.className = "system-tips-text";
+    text.textContent = tip.text || tip;
+    banner.appendChild(text);
 
     const count = document.createElement("span");
     count.className = "system-tips-count";
@@ -1263,61 +1288,10 @@
     return banner;
   }
 
-  function historyStatusColor(status) {
-    switch (String(status || "").toLowerCase()) {
-      case "completed": return "var(--color-success)";
-      case "failed": return "var(--color-danger)";
-      case "canceled": return "var(--color-warning)";
-      default: return "var(--color-text-muted)";
-    }
-  }
-
-  function formatTimeShort(ts) {
-    if (!ts) return "";
-    try {
-      const d = new Date(ts + (ts.includes("Z") || ts.includes("+") ? "" : "Z"));
-      const now = new Date();
-      const diff = now - d;
-      if (diff < 60000) return "just now";
-      if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
-      if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
-      return d.toLocaleDateString();
-    } catch {
-      return ts;
-    }
-  }
-
-  // ----------------------------------------------------------------
-  // Simple markdown parser (no external dependency)
-  // ----------------------------------------------------------------
-
-  Object.assign(ns, {
-    loadSystemPanel: loadSystemPanel,
-    renderSystemPanel: renderSystemPanel,
-    renderDashboard: renderDashboard,
-    renderDashAgents: renderDashAgents,
-    renderDashMemory: renderDashMemory,
-    renderDashFileLocks: renderDashFileLocks,
-    renderDashWorktrees: renderDashWorktrees,
-    renderDashErrors: renderDashErrors,
-    createSystemSection: createSystemSection,
-    emptyState: emptyState,
-    scopeBadge: scopeBadge,
-    renderSystemAgents: renderSystemAgents,
-    renderRegistryErrors: renderRegistryErrors,
-    renderSystemFileLocks: renderSystemFileLocks,
-    renderSystemMemories: renderSystemMemories,
-    renderSystemWorktrees: renderSystemWorktrees,
-    renderSystemHistory: renderSystemHistory,
-    renderSystemProfiles: renderSystemProfiles,
-    renderSystemSkills: renderSystemSkills,
-    renderSystemSkillSets: renderSystemSkillSets,
-    renderSystemSessions: renderSystemSessions,
-    renderSystemWorkflows: renderSystemWorkflows,
-    renderSystemEnvironment: renderSystemEnvironment,
-    renderSystemTips: renderSystemTips,
-    historyStatusColor: historyStatusColor,
-    formatTimeShort: formatTimeShort,
-  });
-
-})(window.SynapseCanvas || (window.SynapseCanvas = {}));
+  ns.loadSystemPanel = loadSystemPanel;
+  ns.renderSystemPanel = renderSystemPanel;
+  ns.renderDashboard = renderDashboard;
+  ns.renderSystemAgents = renderSystemAgents;
+  ns.renderRegistryErrors = renderRegistryErrors;
+  ns.scopeBadge = scopeBadge;
+})(window.SynapseCanvas);
