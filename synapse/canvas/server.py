@@ -1466,15 +1466,14 @@ def create_app(db_path: str | None = None) -> FastAPI:
             if f.endswith(".db") and f not in _hidden_dbs:
                 path = os.path.join(synapse_dir, f)
                 try:
-                    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-                    tables = [
-                        r[0]
-                        for r in conn.execute(
-                            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-                        )
-                    ]
+                    with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as conn:
+                        tables = [
+                            r[0]
+                            for r in conn.execute(
+                                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+                            )
+                        ]
                     size = os.path.getsize(path)
-                    conn.close()
                     dbs.append(
                         {"name": f, "path": path, "tables": tables, "size": size}
                     )
@@ -1509,29 +1508,28 @@ def create_app(db_path: str | None = None) -> FastAPI:
         try:
             conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
             conn.row_factory = sqlite3.Row
-            # Get column info
-            cols = [
-                r[1]
-                for r in conn.execute(f"PRAGMA table_info({table_name})")  # noqa: S608
-            ]
-            if not cols:
-                conn.close()
-                raise HTTPException(
-                    status_code=404, detail=f"Table '{table_name}' not found"
-                )
-            # Count total rows
-            total = conn.execute(
-                f"SELECT COUNT(*) FROM {table_name}"  # noqa: S608
-            ).fetchone()[0]
-            # Fetch rows
-            rows = [
-                dict(r)
-                for r in conn.execute(
-                    f"SELECT * FROM {table_name} LIMIT ? OFFSET ?",  # noqa: S608
-                    (min(limit, 500), offset),
-                )
-            ]
-            conn.close()
+            with conn:
+                # Get column info
+                cols = [
+                    r[1]
+                    for r in conn.execute(f"PRAGMA table_info({table_name})")  # noqa: S608
+                ]
+                if not cols:
+                    raise HTTPException(
+                        status_code=404, detail=f"Table '{table_name}' not found"
+                    )
+                # Count total rows
+                total = conn.execute(
+                    f"SELECT COUNT(*) FROM {table_name}"  # noqa: S608
+                ).fetchone()[0]
+                # Fetch rows
+                rows = [
+                    dict(r)
+                    for r in conn.execute(
+                        f"SELECT * FROM {table_name} LIMIT ? OFFSET ?",  # noqa: S608
+                        (min(limit, 500), offset),
+                    )
+                ]
             return {
                 "db": db_name,
                 "table": table_name,
