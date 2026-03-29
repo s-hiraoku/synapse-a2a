@@ -585,12 +585,20 @@ def create_app(db_path: str | None = None) -> FastAPI:
     template_path = Path(__file__).parent / "templates" / "index.html"
     if template_path.exists():
         _index_html = template_path.read_text(encoding="utf-8")
-        _index_html = _index_html.replace(
-            "/static/palette.css", f"/static/palette.css?v={_cache_version}"
-        )
-        _index_html = _index_html.replace(
-            "/static/canvas.css", f"/static/canvas.css?v={_cache_version}"
-        )
+        for css_name in (
+            "palette.css",
+            "canvas-base.css",
+            "canvas-spotlight.css",
+            "canvas-dashboard.css",
+            "canvas-cards.css",
+            "canvas-markdown.css",
+            "canvas-templates.css",
+            "canvas-views.css",
+        ):
+            _index_html = _index_html.replace(
+                f"/static/{css_name}",
+                f"/static/{css_name}?v={_cache_version}",
+            )
         _index_html = _index_html.replace(
             "/static/canvas.js", f"/static/canvas.js?v={_cache_version}"
         )

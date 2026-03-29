@@ -8,6 +8,20 @@ from pathlib import Path
 
 import pytest
 
+_CANVAS_CSS_PATHS = (
+    "synapse/canvas/static/canvas-base.css",
+    "synapse/canvas/static/canvas-spotlight.css",
+    "synapse/canvas/static/canvas-dashboard.css",
+    "synapse/canvas/static/canvas-cards.css",
+    "synapse/canvas/static/canvas-markdown.css",
+    "synapse/canvas/static/canvas-templates.css",
+    "synapse/canvas/static/canvas-views.css",
+)
+
+
+def read_canvas_css() -> str:
+    return "".join(Path(path).read_text(encoding="utf-8") for path in _CANVAS_CSS_PATHS)
+
 
 def test_render_system_panel_registry_errors_states() -> None:
     """renderSystemPanel should omit or show registry errors UI based on errorCount."""
@@ -56,7 +70,7 @@ def test_render_spotlight_reuses_existing_shell_for_same_card_updates() -> None:
 
 def test_canvas_css_uses_signal_room_design_tokens() -> None:
     """canvas.css + palette.css should define design tokens and glass surfaces."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     palette = Path("synapse/canvas/static/palette.css").read_text(encoding="utf-8")
     source = css + palette
 
@@ -118,14 +132,14 @@ def test_dashboard_widgets_render_in_vertical_flow() -> None:
 
 def test_dashboard_css_classes_exist() -> None:
     """canvas.css should define dashboard-specific CSS classes."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     for cls in [".dash-strip", ".dash-grid", ".dash-widget"]:
         assert cls in css, f"Missing CSS class: {cls}"
 
 
 def test_system_skills_name_cells_allow_wrapping() -> None:
     """System skills name cells should wrap instead of colliding with descriptions."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = css.index(".agent-name-cell {")
     end = css.index("}", start)
     block = css[start:end]
@@ -137,7 +151,7 @@ def test_system_skills_name_cells_allow_wrapping() -> None:
 
 def test_dashboard_layout_is_single_column() -> None:
     """Dashboard should use a single-column vertical layout."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = css.index(".dash-grid {")
     end = css.index("}", start)
     dash_grid_block = css[start:end]
@@ -237,7 +251,7 @@ def test_admin_bubble_creation_split_exists_in_js() -> None:
 
 def test_admin_css_classes_exist() -> None:
     """canvas.css should define the admin view layout and bubble styles."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
 
     for selector in [
         "#admin-view",
@@ -259,7 +273,7 @@ def test_admin_css_classes_exist() -> None:
 
 def test_canvas_view_image_block_can_expand_to_available_height() -> None:
     """Canvas view image blocks should be allowed to fill the spotlight body."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = css.index(".canvas-content > .content-block {")
     end = css.index("}", start)
     base_block = css[start:end]
@@ -277,7 +291,7 @@ def test_canvas_view_image_block_can_expand_to_available_height() -> None:
 
 def test_canvas_view_images_use_contained_full_size_scaling() -> None:
     """Canvas view images should use the full content area without introducing scrollbars."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = css.index(".canvas-content .format-image img {")
     end = css.index("}", start)
     image_rule = css[start:end]
@@ -291,7 +305,7 @@ def test_canvas_view_images_use_contained_full_size_scaling() -> None:
 
 def test_canvas_view_html_block_can_expand_to_available_height() -> None:
     """Canvas view HTML blocks should be allowed to fill the spotlight body."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
     start = css.index(".canvas-content > .content-block.format-html,")
     end = css.index("}", start)
@@ -318,7 +332,7 @@ def test_canvas_view_html_block_can_expand_to_available_height() -> None:
 
 def test_canvas_view_chart_does_not_use_fixed_height_caps() -> None:
     """Canvas view charts should not be clamped to viewport or pixel max-heights."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
 
     start = css.index(".canvas-content .format-chart canvas {")
@@ -503,7 +517,7 @@ def test_spotlight_rendering_avoids_wholesale_rebuild_for_same_card_updates() ->
 
 def test_history_css_limits_entry_animations_to_new_items() -> None:
     """History CSS should animate only explicitly marked new items."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     live_feed_start = css.index(".live-feed-item {")
     live_feed_block = css[live_feed_start : css.index("}", live_feed_start)]
     agent_panel_start = css.index(".agent-panel {")
@@ -596,7 +610,7 @@ def test_dashboard_detail_sections_reuse_system_renderers() -> None:
 
 def test_dashboard_css_has_expand_collapse_styles() -> None:
     """canvas.css should define styles for the expandable widget pattern."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
 
     assert ".dash-widget-chevron" in css
     assert ".dash-widget-detail" in css
@@ -635,7 +649,7 @@ def test_phase6_filter_options_in_html() -> None:
 
 def test_phase6_css_classes_exist() -> None:
     """canvas.css should define CSS classes for the 4 new card types."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     for cls in [".progress-bar", ".terminal-output", ".dep-graph", ".cost-table"]:
         assert cls in css, f"Missing CSS class: {cls}"
 
@@ -668,7 +682,7 @@ def test_terminal_renderer_handles_ansi() -> None:
 def test_code_renderer_supports_inline_meta_row() -> None:
     """renderCode should support title/filename metadata via block-level x_title/x_filename."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = js.index("function renderCode(el, body, lang, block)")
     end = js.index("\n  function renderImage(", start)
     body = js[start:end]
@@ -706,7 +720,7 @@ def test_cost_renderer_has_table_and_total() -> None:
 def test_json_renderer_supports_optional_inner_title() -> None:
     """renderJSON should render a subtle single-line meta row via shared helpers."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = js.index("function renderJSON(el, body, block)")
     end = js.index("\n  function buildDiffPane(", start)
     body = js[start:end]
@@ -751,7 +765,7 @@ def test_mermaid_theme_syncs_with_canvas_theme() -> None:
 def test_mermaid_renderer_supports_inline_meta_row() -> None:
     """renderMermaid should support title/filename metadata via shared helpers."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = js.index("function renderMermaid(el, body, block)")
     end = js.index(
         "\n  /** Run mermaid on pending diagrams and fix SVG heights afterward. */",
@@ -769,7 +783,7 @@ def test_mermaid_renderer_supports_inline_meta_row() -> None:
 def test_tip_renderer_supports_string_body_with_meta_row() -> None:
     """renderTip should keep string body semantics and render block-level metadata separately."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
 
     assert 'case "tip":' in js
     start = js.index('case "tip":')
@@ -791,7 +805,7 @@ def test_tip_renderer_supports_string_body_with_meta_row() -> None:
 def test_log_renderer_parses_json_strings_and_supports_meta_row() -> None:
     """renderLog should preserve structured entries while accepting JSON-string bodies."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = js.index("function renderLog(el, body, block)")
     end = js.index("\n  function renderStatus(", start)
     body = js[start:end]
@@ -807,7 +821,7 @@ def test_log_renderer_parses_json_strings_and_supports_meta_row() -> None:
 def test_checklist_renderer_parses_json_strings_and_supports_meta_row() -> None:
     """renderChecklist should keep list semantics while accepting JSON-string bodies."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = js.index("function renderChecklist(el, body, block)")
     end = js.index("\n  function renderTimeline(", start)
     body = js[start:end]
@@ -823,7 +837,7 @@ def test_checklist_renderer_parses_json_strings_and_supports_meta_row() -> None:
 def test_trace_renderer_parses_json_strings_and_supports_meta_row() -> None:
     """renderTrace should keep list semantics while accepting JSON-string bodies."""
     js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = js.index("function renderTrace(el, body, block)")
     end = js.index("\n  function renderTraceSpan(", start)
     body = js[start:end]
@@ -839,7 +853,7 @@ def test_trace_renderer_parses_json_strings_and_supports_meta_row() -> None:
 def test_sidebar_collapse_toggle() -> None:
     """Sidebar should have a collapse/expand toggle with localStorage persistence."""
     source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
 
     # HTML: collapse toggle button exists in sidebar header
@@ -855,7 +869,7 @@ def test_sidebar_collapse_toggle() -> None:
 
 def test_sidebar_header_allows_title_to_wrap_inside_panel() -> None:
     """Sidebar header should wrap the title instead of overflowing the toggle button."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     heading_block = css.split(".sidebar-header h1 {", 1)[1].split("}", 1)[0]
 
     assert ".sidebar-header {" in css
@@ -865,7 +879,7 @@ def test_sidebar_header_allows_title_to_wrap_inside_panel() -> None:
 
 def test_collapsed_sidebar_uses_compact_width() -> None:
     """Collapsed sidebar should return to a compact width when labels are hidden."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
 
     assert "body.sidebar-collapsed #sidebar {" in css
     assert "width: var(--sidebar-collapsed-width);" in css
@@ -874,7 +888,7 @@ def test_collapsed_sidebar_uses_compact_width() -> None:
 
 def test_collapsed_sidebar_header_hides_title_and_keeps_button_inside() -> None:
     """Collapsed sidebar should hide the title and keep the toggle inside the panel."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     collapsed_heading_block = css.split(
         "body.sidebar-collapsed .sidebar-header h1 {", 1
     )[1].split("}", 1)[0]
@@ -892,7 +906,7 @@ def test_collapsed_sidebar_header_hides_title_and_keeps_button_inside() -> None:
 
 def test_collapsed_main_content_margin_matches_sidebar_width() -> None:
     """Collapsed layout should still shift the main content by the sidebar width."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
 
     assert "body.sidebar-collapsed #main-content {" in css
 
@@ -945,7 +959,7 @@ def test_admin_no_console_log_debug() -> None:
 
 def test_admin_bubble_max_width_is_90_percent() -> None:
     """Admin bubbles should use 90% max-width for better readability."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = css.index(".admin-bubble {")
     end = css.index("}", start)
     block = css[start:end]
@@ -955,7 +969,7 @@ def test_admin_bubble_max_width_is_90_percent() -> None:
 
 def test_admin_badge_has_proper_styling() -> None:
     """Admin target badge should have consistent styling."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
 
     assert "#admin-target-badge {" in css
     assert ".admin-row-selected" in css
@@ -989,7 +1003,7 @@ def test_admin_splitter_role_separator() -> None:
 
 def test_admin_splitter_css_cursor() -> None:
     """CSS should define row-resize cursor for the splitter."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     start = css.index("#admin-splitter {")
     end = css.index("}", start)
     block = css[start:end]
@@ -1022,7 +1036,7 @@ def test_workflow_nav_order() -> None:
 
 def test_workflow_css_classes_exist() -> None:
     """canvas.css should define workflow view CSS classes."""
-    css = Path("synapse/canvas/static/canvas.css").read_text(encoding="utf-8")
+    css = read_canvas_css()
     for selector in [
         "#workflow-view",
         "#workflow-container",

@@ -10,8 +10,14 @@ _CANVAS_DIR = Path(__file__).resolve().parent
 _ASSET_PATHS = (
     "templates/index.html",
     "static/canvas.js",
-    "static/canvas.css",
     "static/palette.css",
+    "static/canvas-base.css",
+    "static/canvas-spotlight.css",
+    "static/canvas-dashboard.css",
+    "static/canvas-cards.css",
+    "static/canvas-markdown.css",
+    "static/canvas-templates.css",
+    "static/canvas-views.css",
 )
 
 

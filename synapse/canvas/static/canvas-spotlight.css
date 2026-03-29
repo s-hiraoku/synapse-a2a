@@ -1,0 +1,298 @@
+/* ── Canvas View — Full-Viewport Projection ── */
+
+#canvas-view {
+  position: relative;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Ambient glow behind content — set dynamically via JS */
+#canvas-view::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  opacity: 0.08;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 30%,
+    var(--canvas-glow, var(--color-accent)),
+    transparent
+  );
+  transition: opacity 0.8s var(--ease-out);
+  pointer-events: none;
+}
+
+#canvas-spotlight {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* ── Canvas Title Bar ─────────────────────── */
+
+.canvas-title-bar {
+  flex-shrink: 0;
+  padding: var(--sp-6) var(--sp-8) var(--sp-4);
+  animation: slideDown 0.6s var(--ease-out);
+}
+
+.canvas-title-text {
+  font-family: var(--font-display);
+  font-size: clamp(var(--text-2xl), 4vw, var(--text-3xl));
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  color: var(--color-text);
+  text-wrap: balance;
+}
+
+.canvas-title-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+.canvas-template-badge,
+.canvas-nav-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius-full, 999px);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.canvas-template-badge {
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.canvas-nav-indicator {
+  border: 1px solid var(--glass-stroke);
+  background: var(--glass-bg);
+  color: var(--color-text-muted);
+}
+
+/* ── Canvas Content — fills viewport ──────── */
+
+.canvas-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--sp-8) var(--sp-8);
+  font-size: clamp(0.9375rem, 1.5vw, 1.125rem);
+  line-height: 1.8;
+  overflow-y: auto;
+  animation: fadeIn 0.6s var(--ease-out) 0.1s both;
+}
+
+.canvas-content > .content-block {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-4) 0;
+  max-width: 100%;
+}
+
+.canvas-content > .content-block.format-image {
+  flex: 1;
+  min-height: 0;
+}
+
+.canvas-content > .content-block.format-html,
+.canvas-content > .content-block.format-artifact {
+  flex: 1;
+  min-height: 0;
+}
+
+.canvas-content > .content-block.format-chart {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Content blocks inside templates use normal block flow (not flex)
+   so that mermaid SVGs and other dynamic content get natural height. */
+.briefing-section-body .content-block,
+.comparison-side-body .content-block,
+.dashboard-widget-body .content-block,
+.steps-step-body .content-block,
+.slides-slide .content-block {
+  display: block;
+  padding: var(--sp-2) 0;
+  max-width: 100%;
+}
+
+.canvas-content .content-block iframe {
+  min-height: 200px;
+}
+
+.canvas-content .format-html iframe,
+.canvas-content .format-artifact iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.canvas-content .format-table table {
+  font-size: clamp(var(--text-sm), 1.2vw, var(--text-base));
+}
+
+.canvas-content .format-code pre,
+.canvas-content .json-view,
+.canvas-content .diff-view,
+.canvas-content .log-view {
+  font-size: clamp(var(--text-xs), 1.1vw, var(--text-sm));
+  padding: var(--sp-5);
+  border-radius: var(--radius-md);
+}
+
+.canvas-content .format-markdown pre {
+  padding: var(--sp-5);
+  border-radius: var(--radius-md);
+}
+
+/* Mermaid and chart blocks expand in Canvas View */
+.canvas-content .format-mermaid pre.mermaid,
+.canvas-content .format-chart pre.mermaid {
+  padding: var(--sp-6);
+}
+
+.canvas-content .format-chart canvas {
+  height: 100%;
+  max-height: 100%;
+}
+
+/* Metric type — large centered display */
+.canvas-content .format-metric {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30vh;
+}
+
+.canvas-content .metric-value {
+  font-size: clamp(3rem, 10vw, 8rem);
+}
+
+/* ── Canvas Info Bar — floating bottom glass ── */
+
+.canvas-info-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-8);
+  background:
+    linear-gradient(0deg, var(--glass-highlight), transparent 140%),
+    var(--glass-bg-strong);
+  border-top: 1px solid var(--glass-stroke);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--glass-inner-shadow);
+  animation: slideUp 0.5s var(--ease-out) 0.2s both;
+}
+
+.canvas-info-bar--minimal {
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  opacity: 0.6;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.canvas-info-bar--minimal:hover {
+  opacity: 1;
+}
+
+.canvas-info-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
+  animation: glow-pulse 2s infinite;
+}
+
+.canvas-info-agent {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.canvas-info-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+.canvas-info-tags {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.canvas-info-tags .tag-chip {
+  font-size: var(--text-xs);
+}
+
+.canvas-info-time {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.canvas-info-bar--minimal .canvas-info-agent {
+  font-size: var(--text-sm);
+}
+
+.canvas-info-bar--minimal .canvas-info-tags .tag-chip,
+.canvas-info-bar--minimal .canvas-info-time {
+  font-size: var(--text-xs);
+}
+
+/* ── Canvas Empty State ───────────────────── */
+
+.canvas-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  color: var(--color-text-muted);
+  animation: fadeIn 0.8s var(--ease-out);
+}
+
+.canvas-empty-icon {
+  font-size: 4rem;
+  opacity: 0.2;
+  line-height: 1;
+  filter: drop-shadow(0 0 20px var(--color-accent));
+}
+
+.canvas-empty-text {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.canvas-empty-sub {
+  font-size: var(--text-sm);
+}
