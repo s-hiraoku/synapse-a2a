@@ -607,6 +607,12 @@
   background: var(--color-signal-subtle);
 }
 
+.scope-badge[data-scope="global"] {
+  color: var(--color-text-muted);
+  border-color: var(--glass-stroke);
+  background: var(--color-tint-light-subtle);
+}
+
 .system-agent {
   padding: var(--sp-1) 0;
   display: flex;

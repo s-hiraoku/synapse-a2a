@@ -1,5 +1,5 @@
 const vm = require("node:vm");
-const { extractFunction, Document, assert } = require("./canvas_test_helpers");
+const { extractFunction, NS_STUB_CODE, Document, assert } = require("./canvas_test_helpers");
 
 function createEnvironment() {
   const document = new Document();
@@ -36,6 +36,7 @@ function buildHarness() {
     let systemPanel = globalThis.__env.systemPanel;
     let localStorage = globalThis.__env.localStorage;
     let document = globalThis.__env.document;
+    ${NS_STUB_CODE}
     function statusColor() { return "#999"; }
     function renderAll() {}
     function emptyState(msg) {

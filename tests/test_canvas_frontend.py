@@ -8,15 +8,22 @@ from pathlib import Path
 
 import pytest
 
-_CANVAS_CSS_PATHS = (
-    "synapse/canvas/static/canvas-base.css",
-    "synapse/canvas/static/canvas-spotlight.css",
-    "synapse/canvas/static/canvas-dashboard.css",
-    "synapse/canvas/static/canvas-cards.css",
-    "synapse/canvas/static/canvas-markdown.css",
-    "synapse/canvas/static/canvas-templates.css",
-    "synapse/canvas/static/canvas-views.css",
-)
+from synapse.canvas import CANVAS_CSS_FILES, CANVAS_JS_FILES
+
+_CANVAS_CSS_PATHS = tuple(f"synapse/canvas/static/{f}" for f in CANVAS_CSS_FILES)
+_CANVAS_JS_PATHS = tuple(f"synapse/canvas/static/{f}" for f in CANVAS_JS_FILES)
+
+_canvas_js_cache: str | None = None
+
+
+def _read_canvas_js() -> str:
+    """Read and concatenate all canvas JS modules in load order (cached)."""
+    global _canvas_js_cache
+    if _canvas_js_cache is None:
+        _canvas_js_cache = "\n".join(
+            Path(p).read_text(encoding="utf-8") for p in _CANVAS_JS_PATHS
+        )
+    return _canvas_js_cache
 
 
 def read_canvas_css() -> str:
@@ -161,7 +168,7 @@ def test_dashboard_layout_is_single_column() -> None:
 
 def test_dashboard_route_in_js() -> None:
     """canvas.js should handle the dashboard route."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     assert '"dashboard"' in js
     assert "dashboardView" in js or "dashboard-view" in js
     assert "renderDashboard" in js
@@ -192,7 +199,7 @@ def test_admin_nav_link_exists_and_follows_system() -> None:
 
 def test_admin_route_in_js() -> None:
     """canvas.js should expose admin route handling and DOM bindings."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     assert 'document.getElementById("admin-view")' in js
     assert 'document.getElementById("admin-feed")' in js
@@ -207,7 +214,7 @@ def test_admin_route_in_js() -> None:
 
 def test_admin_command_center_functions_exist_in_js() -> None:
     """canvas.js should define the admin command-center helpers."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     for name in [
         "async function loadAdminAgents()",
@@ -218,23 +225,23 @@ def test_admin_command_center_functions_exist_in_js() -> None:
         "function removeAdminSpinner()",
         "async function sendAdminCommand()",
         "function pollAdminTask(taskId, target, agentName)",
-        "function escapeHtml(str)",
+        "function escapeHtml(text)",
     ]:
         assert name in js, f"Missing admin helper: {name}"
 
 
 def test_admin_init_event_listeners_exist_in_js() -> None:
     """canvas.js should wire the admin send button, Enter key, and IME handlers."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
-    assert 'adminSendBtn.addEventListener("click", sendAdminCommand)' in js
+    assert 'adminSendBtn.addEventListener("click", ns.sendAdminCommand)' in js
     assert 'adminMessageInput.addEventListener("keydown", function (e)' in js
     assert 'if (e.key === "Enter" && e.metaKey && !_isComposing)' in js
 
 
 def test_admin_reply_polling_endpoint_used_in_js() -> None:
     """Admin command center should poll the reply endpoint instead of SSE streaming."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     assert "/api/admin/replies/" in js
     assert "streamAdminTask(" not in js
@@ -243,7 +250,7 @@ def test_admin_reply_polling_endpoint_used_in_js() -> None:
 
 def test_admin_bubble_creation_split_exists_in_js() -> None:
     """addAdminBubble should delegate DOM construction to createAdminBubble."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     assert "function createAdminBubble(role, text, agentName)" in js
     assert "var bubble = createAdminBubble(role, text, agentName);" in js
@@ -306,7 +313,7 @@ def test_canvas_view_images_use_contained_full_size_scaling() -> None:
 def test_canvas_view_html_block_can_expand_to_available_height() -> None:
     """Canvas view HTML blocks should be allowed to fill the spotlight body."""
     css = read_canvas_css()
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = css.index(".canvas-content > .content-block.format-html,")
     end = css.index("}", start)
     html_block = css[start:end]
@@ -333,7 +340,7 @@ def test_canvas_view_html_block_can_expand_to_available_height() -> None:
 def test_canvas_view_chart_does_not_use_fixed_height_caps() -> None:
     """Canvas view charts should not be clamped to viewport or pixel max-heights."""
     css = read_canvas_css()
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     start = css.index(".canvas-content .format-chart canvas {")
     end = css.index("}", start)
@@ -346,7 +353,7 @@ def test_canvas_view_chart_does_not_use_fixed_height_caps() -> None:
 
 def test_dashboard_agent_widget_uses_agents_label() -> None:
     """Dashboard agent widget should use the simpler 'Agents' label."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     assert '"ph-robot", "Agents (" + agents.length + ")"' in js
     assert '"ph-robot", "Agent Fleet (' not in js
@@ -354,28 +361,28 @@ def test_dashboard_agent_widget_uses_agents_label() -> None:
 
 def test_load_system_panel_fetches_before_route_specific_rendering() -> None:
     """loadSystemPanel should cache fetched data even when system views are hidden."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = js.index("async function loadSystemPanel()")
     end = js.index("\n  function renderSystemPanel(", start)
     body = js[start:end]
 
     assert (
-        'if (currentRoute !== "system" && currentRoute !== "history") return;'
+        'if (ns.currentRoute !== "system" && ns.currentRoute !== "history") return;'
         not in body
     )
     assert (
-        'if (currentRoute !== "system" && currentRoute !== "history" && currentRoute !== "dashboard") return;'
+        'if (ns.currentRoute !== "system" && ns.currentRoute !== "history" && ns.currentRoute !== "dashboard") return;'
         not in body
     )
-    assert "_lastSystemData = data;" in body
-    assert 'if (currentRoute === "system") {' in body
-    assert 'if (currentRoute === "history") {' in body
+    assert "ns._lastSystemData = data;" in body
+    assert 'if (ns.currentRoute === "system") {' in body
+    assert 'if (ns.currentRoute === "history") {' in body
 
 
 def test_card_count_visibility_is_controlled_in_js_not_inline_html() -> None:
     """card-count should not be hard-hidden in HTML and should be shown by JS."""
     html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     assert 'id="card-count" style=' not in html
     assert "cardCount.textContent = countText;" in js
@@ -384,7 +391,7 @@ def test_card_count_visibility_is_controlled_in_js_not_inline_html() -> None:
 
 def test_status_color_prioritizes_agent_specific_states() -> None:
     """statusColor should define explicit mappings for agent lifecycle states."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = js.index("function statusColor(status)")
     end = js.index(
         "\n\n  // ----------------------------------------------------------------\n  // Router",
@@ -406,9 +413,9 @@ def test_status_color_prioritizes_agent_specific_states() -> None:
 
 def test_system_panel_polling_remains_enabled_for_dashboard_freshness() -> None:
     """Canvas should continue polling system data so dashboard agent/task widgets stay fresh."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
-    assert "window.setInterval(loadSystemPanel, 10000);" in js
+    assert "window.setInterval(ns.loadSystemPanel, 10000);" in js
 
 
 def test_live_feed_harness_uses_vm_instead_of_eval() -> None:
@@ -445,12 +452,10 @@ def test_system_panel_harness_uses_vm_instead_of_eval() -> None:
 
 def test_spotlight_swap_delay_uses_named_constant() -> None:
     """Spotlight swap timing should use a named constant instead of a bare literal."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = js.index("function markSpotlightSwap()")
-    end = js.index(
-        "\n\n  // ----------------------------------------------------------------",
-        start,
-    )
+    # Find the end of the function (next top-level function or namespace export)
+    end = js.index("\n  ns.renderSpotlight", start)
     body = js[start:end]
 
     assert "const SPOTLIGHT_SWAP_DELAY = 420;" in js
@@ -472,7 +477,7 @@ def test_extract_function_documents_brace_counting_limitations() -> None:
 
 def test_render_live_feed_reuses_existing_items() -> None:
     """History live feed should preserve existing DOM nodes instead of rebuilding all rows."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = js.index("function renderLiveFeed(recentCards)")
     end = js.index("\n  function createAgentPanel(", start)
     body = js[start:end]
@@ -484,7 +489,7 @@ def test_render_live_feed_reuses_existing_items() -> None:
 
 def test_history_rendering_uses_keyed_updates_instead_of_wholesale_clear() -> None:
     """History rendering should avoid clearing the entire grid on every update."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = js.index("function renderAll()")
     end = js.index("\n  function renderLiveFeed(", start)
     body = js[start:end]
@@ -501,12 +506,9 @@ def test_history_rendering_uses_keyed_updates_instead_of_wholesale_clear() -> No
 
 def test_spotlight_rendering_avoids_wholesale_rebuild_for_same_card_updates() -> None:
     """Spotlight rendering should preserve the shell and update only card content when possible."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = js.index("function renderSpotlight()")
-    end = js.index(
-        "\n  // ----------------------------------------------------------------\n  // Init",
-        start,
-    )
+    end = js.index("\n  function markSpotlightSwap()", start)
     body = js[start:end]
 
     assert "ensureSpotlightFrame()" in body
@@ -535,7 +537,7 @@ def test_history_css_limits_entry_animations_to_new_items() -> None:
 
 def test_system_panel_does_not_render_dashboard_sections() -> None:
     """System view should NOT render agents, tasks, file-locks, history, memory, worktrees."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     # Find the renderSystemPanel function body
     start = js.index("function renderSystemPanel(")
     # Find the next top-level function definition
@@ -552,7 +554,7 @@ def test_system_panel_does_not_render_dashboard_sections() -> None:
 
 def test_dashboard_widgets_use_expandable_detail_pattern() -> None:
     """Each dashboard widget should use createDashWidget for summary+detail toggle."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     assert "function createDashWidget(" in js
     assert "_dashExpandState" in js
@@ -574,14 +576,14 @@ def test_dashboard_widgets_use_expandable_detail_pattern() -> None:
 
 def test_dashboard_expand_state_persists_across_renders() -> None:
     """Expand state should be stored in a module-level object, not per-render."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     assert "var _dashExpandState = {};" in js
 
 
 def test_dashboard_refresh_updates_lazy_detail_builder_reference() -> None:
     """Collapsed widgets should reopen with the latest detail builder after refreshes."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     assert "wrapper._dashDetailBuilder = detailBuilder;" in js
     assert "existing._dashDetailBuilder = detailBuilder;" in js
@@ -599,7 +601,7 @@ def test_canvas_design_doc_only_claims_dashboard_in_place_updates() -> None:
 
 def test_dashboard_detail_sections_reuse_system_renderers() -> None:
     """Expanded detail sections should reuse renderSystem* functions."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     # Memory detail should use renderSystemMemories
     start = js.index("function renderDashMemory(")
@@ -619,7 +621,7 @@ def test_dashboard_css_has_expand_collapse_styles() -> None:
 
 def test_phase6_renderers_exist_in_js() -> None:
     """canvas.js should define render functions for progress, terminal, dependency-graph, cost."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     for fn in [
         "renderProgress",
         "renderTerminal",
@@ -631,7 +633,7 @@ def test_phase6_renderers_exist_in_js() -> None:
 
 def test_phase6_formats_in_render_block_switch() -> None:
     """renderBlock switch should dispatch to the 4 new renderers."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = js.index("function renderBlock(block, options)")
     end = js.index("\n  // ------", start)
     body = js[start:end]
@@ -656,7 +658,7 @@ def test_phase6_css_classes_exist() -> None:
 
 def test_progress_renderer_has_bar_and_steps() -> None:
     """renderProgress should render a progress bar and step list."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = js.index("function renderProgress(el, body)")
     end = js.index("\n  function ", start + 1)
     body = js[start:end]
@@ -669,7 +671,7 @@ def test_progress_renderer_has_bar_and_steps() -> None:
 
 def test_terminal_renderer_handles_ansi() -> None:
     """renderTerminal should process ANSI escape codes."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = js.index("function renderTerminal(el, body)")
     end = js.index("\n  function ", start + 1)
     body = js[start:end]
@@ -681,7 +683,7 @@ def test_terminal_renderer_handles_ansi() -> None:
 
 def test_code_renderer_supports_inline_meta_row() -> None:
     """renderCode should support title/filename metadata via block-level x_title/x_filename."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     css = read_canvas_css()
     start = js.index("function renderCode(el, body, lang, block)")
     end = js.index("\n  function renderImage(", start)
@@ -695,7 +697,7 @@ def test_code_renderer_supports_inline_meta_row() -> None:
 
 def test_dependency_graph_renderer_has_nodes_and_edges() -> None:
     """renderDependencyGraph should render nodes and edges."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = js.index("function renderDependencyGraph(el, body)")
     end = js.index("\n  function ", start + 1)
     body = js[start:end]
@@ -707,7 +709,7 @@ def test_dependency_graph_renderer_has_nodes_and_edges() -> None:
 
 def test_cost_renderer_has_table_and_total() -> None:
     """renderCost should render agent cost table and total."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     start = js.index("function renderCost(el, body)")
     end = js.index("\n  function ", start + 1)
     body = js[start:end]
@@ -719,7 +721,7 @@ def test_cost_renderer_has_table_and_total() -> None:
 
 def test_json_renderer_supports_optional_inner_title() -> None:
     """renderJSON should render a subtle single-line meta row via shared helpers."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     css = read_canvas_css()
     start = js.index("function renderJSON(el, body, block)")
     end = js.index("\n  function buildDiffPane(", start)
@@ -742,7 +744,7 @@ def test_json_renderer_supports_optional_inner_title() -> None:
 
 def test_mermaid_theme_syncs_with_canvas_theme() -> None:
     """Mermaid should use custom theme variables that change with light/dark toggle."""
-    source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    source = _read_canvas_js()
 
     # Theme config exists for both modes
     assert "MERMAID_THEMES" in source
@@ -764,7 +766,7 @@ def test_mermaid_theme_syncs_with_canvas_theme() -> None:
 
 def test_mermaid_renderer_supports_inline_meta_row() -> None:
     """renderMermaid should support title/filename metadata via shared helpers."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     css = read_canvas_css()
     start = js.index("function renderMermaid(el, body, block)")
     end = js.index(
@@ -782,7 +784,7 @@ def test_mermaid_renderer_supports_inline_meta_row() -> None:
 
 def test_tip_renderer_supports_string_body_with_meta_row() -> None:
     """renderTip should keep string body semantics and render block-level metadata separately."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     css = read_canvas_css()
 
     assert 'case "tip":' in js
@@ -804,7 +806,7 @@ def test_tip_renderer_supports_string_body_with_meta_row() -> None:
 
 def test_log_renderer_parses_json_strings_and_supports_meta_row() -> None:
     """renderLog should preserve structured entries while accepting JSON-string bodies."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     css = read_canvas_css()
     start = js.index("function renderLog(el, body, block)")
     end = js.index("\n  function renderStatus(", start)
@@ -820,7 +822,7 @@ def test_log_renderer_parses_json_strings_and_supports_meta_row() -> None:
 
 def test_checklist_renderer_parses_json_strings_and_supports_meta_row() -> None:
     """renderChecklist should keep list semantics while accepting JSON-string bodies."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     css = read_canvas_css()
     start = js.index("function renderChecklist(el, body, block)")
     end = js.index("\n  function renderTimeline(", start)
@@ -836,7 +838,7 @@ def test_checklist_renderer_parses_json_strings_and_supports_meta_row() -> None:
 
 def test_trace_renderer_parses_json_strings_and_supports_meta_row() -> None:
     """renderTrace should keep list semantics while accepting JSON-string bodies."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     css = read_canvas_css()
     start = js.index("function renderTrace(el, body, block)")
     end = js.index("\n  function renderTraceSpan(", start)
@@ -852,7 +854,7 @@ def test_trace_renderer_parses_json_strings_and_supports_meta_row() -> None:
 
 def test_sidebar_collapse_toggle() -> None:
     """Sidebar should have a collapse/expand toggle with localStorage persistence."""
-    source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    source = _read_canvas_js()
     css = read_canvas_css()
     html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
 
@@ -913,7 +915,7 @@ def test_collapsed_main_content_margin_matches_sidebar_width() -> None:
 
 def test_canvas_js_does_not_render_or_prioritize_pinned_cards() -> None:
     """canvas.js should ignore legacy pin state in the frontend."""
-    source = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    source = _read_canvas_js()
 
     assert "if (a.pinned && !b.pinned)" not in source
     assert "if (!a.pinned && b.pinned)" not in source
@@ -922,7 +924,7 @@ def test_canvas_js_does_not_render_or_prioritize_pinned_cards() -> None:
 
 def test_admin_ime_composition_listeners_exist() -> None:
     """canvas.js should register compositionstart/compositionend for IME support."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     assert "compositionstart" in js
     assert "compositionend" in js
@@ -938,7 +940,7 @@ def test_admin_target_badge_exists_in_html() -> None:
 
 def test_admin_agents_widget_reuses_renderSystemAgents() -> None:
     """canvas.js should reuse renderSystemAgents with onRowClick for admin selection."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     assert "renderAdminAgentsWidget" in js
     assert "_selectedAdminTarget" in js
@@ -952,7 +954,7 @@ def test_admin_agents_widget_reuses_renderSystemAgents() -> None:
 
 def test_admin_no_console_log_debug() -> None:
     """canvas.js should not contain console.log debug lines for admin."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
 
     assert 'console.log("[Admin]' not in js
 
@@ -1052,7 +1054,7 @@ def test_workflow_css_classes_exist() -> None:
 
 def test_workflow_route_in_js() -> None:
     """canvas.js should handle the workflow route and render functions."""
-    js = Path("synapse/canvas/static/canvas.js").read_text(encoding="utf-8")
+    js = _read_canvas_js()
     assert 'document.getElementById("workflow-view")' in js
     assert '"workflow"' in js
     assert "loadWorkflows" in js

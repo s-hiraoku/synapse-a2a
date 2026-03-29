@@ -27,7 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from synapse import __version__
-from synapse.canvas import compute_asset_hash
+from synapse.canvas import CANVAS_CSS_FILES, CANVAS_JS_FILES, compute_asset_hash
 from synapse.canvas.routes.admin import admin_router
 from synapse.canvas.routes.cards import cards_router
 from synapse.canvas.routes.db import db_router
@@ -585,23 +585,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
     template_path = Path(__file__).parent / "templates" / "index.html"
     if template_path.exists():
         _index_html = template_path.read_text(encoding="utf-8")
-        for css_name in (
-            "palette.css",
-            "canvas-base.css",
-            "canvas-spotlight.css",
-            "canvas-dashboard.css",
-            "canvas-cards.css",
-            "canvas-markdown.css",
-            "canvas-templates.css",
-            "canvas-views.css",
-        ):
+        for asset in ("palette.css", *CANVAS_CSS_FILES, *CANVAS_JS_FILES):
             _index_html = _index_html.replace(
-                f"/static/{css_name}",
-                f"/static/{css_name}?v={_cache_version}",
+                f"/static/{asset}",
+                f"/static/{asset}?v={_cache_version}",
             )
-        _index_html = _index_html.replace(
-            "/static/canvas.js", f"/static/canvas.js?v={_cache_version}"
-        )
 
     # ----------------------------------------------------------------
     # GET / — Main HTML page

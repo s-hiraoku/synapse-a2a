@@ -27,10 +27,11 @@
         var nameSpan = document.createElement("span");
         nameSpan.textContent = db.name;
         label.appendChild(nameSpan);
-        if (db.scope === "global") {
+        if (db.scope && db.scope !== "project") {
           var scopeBadge = document.createElement("span");
-          scopeBadge.className = "db-tree-scope";
-          scopeBadge.textContent = "global";
+          scopeBadge.className = "scope-badge";
+          scopeBadge.dataset.scope = db.scope;
+          scopeBadge.textContent = db.scope;
           label.appendChild(scopeBadge);
         }
         var sizeSpan = document.createElement("span");

@@ -1,5 +1,5 @@
 const vm = require("node:vm");
-const { extractFunction, Document, assert } = require("./canvas_test_helpers");
+const { extractFunction, NS_STUB_CODE, Document, assert } = require("./canvas_test_helpers");
 
 function createEnvironment() {
   const document = new Document();
@@ -23,6 +23,9 @@ function buildHarness(allCards, filteredCards) {
     let cards = new Map(globalThis.__allCards.map((card) => [card.card_id, card]));
     let systemAgents = globalThis.__systemAgents;
     let localStorage = { getItem() { return null; }, setItem() {} };
+    ${NS_STUB_CODE}
+    ns.cards = cards;
+    ns.systemAgents = systemAgents;
     const FORMAT_ICONS = {};
     function cardsByRecency(a, b) { return (b.updated_at || "").localeCompare(a.updated_at || ""); }
     function getFilteredCards() { return globalThis.__filteredCards; }

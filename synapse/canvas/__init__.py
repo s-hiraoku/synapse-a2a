@@ -7,17 +7,32 @@ from pathlib import Path
 
 _CANVAS_DIR = Path(__file__).resolve().parent
 
+CANVAS_CSS_FILES = (
+    "canvas-base.css",
+    "canvas-spotlight.css",
+    "canvas-dashboard.css",
+    "canvas-cards.css",
+    "canvas-markdown.css",
+    "canvas-templates.css",
+    "canvas-views.css",
+)
+
+CANVAS_JS_FILES = (
+    "canvas-core.js",
+    "canvas-renderers.js",
+    "canvas-system.js",
+    "canvas-spotlight.js",
+    "canvas-admin.js",
+    "canvas-workflow.js",
+    "canvas-database.js",
+    "canvas-init.js",
+)
+
 _ASSET_PATHS = (
     "templates/index.html",
-    "static/canvas.js",
     "static/palette.css",
-    "static/canvas-base.css",
-    "static/canvas-spotlight.css",
-    "static/canvas-dashboard.css",
-    "static/canvas-cards.css",
-    "static/canvas-markdown.css",
-    "static/canvas-templates.css",
-    "static/canvas-views.css",
+    *(f"static/{f}" for f in CANVAS_CSS_FILES),
+    *(f"static/{f}" for f in CANVAS_JS_FILES),
 )
 
 
