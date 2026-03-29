@@ -1013,12 +1013,12 @@ def test_workflow_nav_link_exists() -> None:
 
 
 def test_workflow_nav_order() -> None:
-    """Workflow nav should appear between Dashboard and Agent Control."""
+    """Workflow nav should appear after Agent Control and before Database."""
     html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
-    dashboard_pos = html.index('data-route="dashboard"')
-    workflow_pos = html.index('data-route="workflow"')
     admin_pos = html.index('data-route="admin"')
-    assert dashboard_pos < workflow_pos < admin_pos
+    workflow_pos = html.index('data-route="workflow"')
+    database_pos = html.index('data-route="database"')
+    assert admin_pos < workflow_pos < database_pos
 
 
 def test_workflow_css_classes_exist() -> None:
