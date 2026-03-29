@@ -18,6 +18,7 @@
   const historyView = document.getElementById("history-view");
   const systemView = document.getElementById("system-view");
   const adminView = document.getElementById("admin-view");
+  const databaseView = document.getElementById("database-view");
   const adminFeed = document.getElementById("admin-feed");
   const adminTargetBadge = document.getElementById("admin-target-badge");
   const adminAgentsWidget = document.getElementById("admin-agents-widget");
@@ -45,7 +46,7 @@
   const SPOTLIGHT_SWAP_DELAY = 420;
 
   // Route labels for topbar
-  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", workflow: "Workflow", system: "System", admin: "Agent Control" };
+  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", workflow: "Workflow", system: "System", admin: "Agent Control", database: "Database" };
 
   // Current route
   let currentRoute = "canvas";
@@ -466,6 +467,8 @@
     // Header
     const header = document.createElement("div");
     header.className = "agent-panel-header";
+    header.setAttribute("role", "button");
+    header.setAttribute("tabindex", "0");
 
     const dot = document.createElement("span");
     dot.className = "agent-panel-dot";
@@ -491,6 +494,7 @@
     arrow.className = "agent-panel-arrow";
     const storageKey = `agent-panel-${group.agentId}`;
     const isCollapsed = localStorage.getItem(storageKey) === "collapsed";
+    header.setAttribute("aria-expanded", String(!isCollapsed));
     if (isCollapsed) arrow.classList.add("collapsed");
     arrow.textContent = "\u25BC";
     header.appendChild(arrow);
@@ -502,13 +506,22 @@
     body.className = "agent-panel-body";
     if (isCollapsed) body.classList.add("collapsed");
 
-    header.addEventListener("click", () => {
+    const togglePanel = () => {
       body.classList.toggle("collapsed");
       arrow.classList.toggle("collapsed");
+      header.setAttribute("aria-expanded", String(!body.classList.contains("collapsed")));
       localStorage.setItem(
         storageKey,
         body.classList.contains("collapsed") ? "collapsed" : "expanded"
       );
+    };
+
+    header.addEventListener("click", togglePanel);
+    header.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        togglePanel();
+      }
     });
 
     panel.appendChild(body);
@@ -1364,6 +1377,7 @@
         svg.removeAttribute("width");
         svg.style.height = "auto";
         svg.style.display = "block";
+        svg.style.maxWidth = "100%";
         svg.style.margin = "0 auto";
       });
     }).catch(function () { /* mermaid parse errors are non-fatal */ });
@@ -2495,26 +2509,40 @@
   function buildMemoryList(memories) {
     var list = document.createElement("div");
     list.className = "dash-memory-list";
-    var shown = memories.slice(0, 5);
+    var shown = memories.slice(0, 8);
     for (var i = 0; i < shown.length; i++) {
       var m = shown[i];
       var item = document.createElement("div");
       item.className = "dash-memory-item";
 
+      var header = document.createElement("div");
+      header.className = "dash-memory-item-header";
+
       var key = document.createElement("span");
       key.className = "dash-memory-key";
       key.textContent = m.key || "";
-      item.appendChild(key);
+      header.appendChild(key);
 
-      var content = document.createElement("span");
-      content.className = "dash-memory-content";
-      content.textContent = m.content || "";
-      item.appendChild(content);
+      if (m.scope && m.scope !== "global") {
+        var scope = document.createElement("span");
+        scope.className = "tag-chip";
+        scope.textContent = m.scope;
+        header.appendChild(scope);
+      }
 
       var author = document.createElement("span");
       author.className = "dash-memory-author";
       author.textContent = m.author || "";
-      item.appendChild(author);
+      header.appendChild(author);
+
+      item.appendChild(header);
+
+      var content = document.createElement("div");
+      content.className = "dash-memory-content";
+      var contentText = m.content || "";
+      content.textContent = contentText.length > 120 ? contentText.slice(0, 120) + "\u2026" : contentText;
+      content.title = contentText;
+      item.appendChild(content);
 
       list.appendChild(item);
     }
@@ -2527,12 +2555,12 @@
 
     if (memories.length === 0) {
       el.innerHTML = "";
-      el.appendChild(createDashHeader("ph-brain", "Shared Knowledge (0)"));
+      el.appendChild(createDashHeader("ph-brain", "Shared Memory (0)"));
       el.appendChild(emptyState("No shared memories"));
       return;
     }
 
-    var titleText = "Shared Knowledge (" + memories.length + ")";
+    var titleText = "Shared Memory (" + memories.length + ")";
     var detailFn = function () { return renderSystemMemories(memories); };
 
     if (updateDashWidget(el, titleText, function () { return buildMemoryList(memories); }, detailFn)) return;
@@ -2885,7 +2913,7 @@
     table.className = "system-agents-table";
     const thead = document.createElement("thead");
     const hrow = document.createElement("tr");
-    for (const col of ["KEY", "AUTHOR", "TAGS", "UPDATED"]) {
+    for (const col of ["KEY", "CONTENT", "SCOPE", "AUTHOR", "TAGS", "UPDATED"]) {
       const th = document.createElement("th");
       th.textContent = col;
       hrow.appendChild(th);
@@ -2896,12 +2924,22 @@
     const tbody = document.createElement("tbody");
     for (const mem of memories) {
       const tr = document.createElement("tr");
-      tr.title = mem.content || "";
 
       const tdKey = document.createElement("td");
       tdKey.className = "agent-name-cell";
       tdKey.textContent = mem.key;
       tr.appendChild(tdKey);
+
+      const tdContent = document.createElement("td");
+      tdContent.className = "agent-dir-cell";
+      var contentStr = mem.content || "";
+      tdContent.textContent = contentStr.length > 80 ? contentStr.slice(0, 80) + "\u2026" : contentStr;
+      tdContent.title = contentStr;
+      tr.appendChild(tdContent);
+
+      const tdScope = document.createElement("td");
+      tdScope.textContent = mem.scope || "global";
+      tr.appendChild(tdScope);
 
       const tdAuthor = document.createElement("td");
       tdAuthor.textContent = mem.author;
@@ -3766,6 +3804,7 @@
     if (hash === "#/system") return "system";
     if (hash === "#/workflow") return "workflow";
     if (hash === "#/admin") return "admin";
+    if (hash === "#/database") return "database";
     return "canvas";
   }
 
@@ -3833,6 +3872,7 @@
     systemView.classList.add("view-hidden");
     if (workflowView) workflowView.classList.add("view-hidden");
     if (adminView) adminView.classList.add("view-hidden");
+    if (databaseView) databaseView.classList.add("view-hidden");
 
     _dashboardRendered = false;
     _systemPanelRendered = false;
@@ -3864,6 +3904,10 @@
       if (adminView) adminView.classList.remove("view-hidden");
       filterBar.style.display = "none";
       loadAdminAgents();
+    } else if (currentRoute === "database") {
+      if (databaseView) databaseView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      loadDatabaseList();
     } else {
       historyView.classList.remove("view-hidden");
       filterBar.style.display = "";
@@ -4061,6 +4105,148 @@
       _spotlightSwapTimer = 0;
     }, SPOTLIGHT_SWAP_DELAY);
   }
+
+  // ----------------------------------------------------------------
+  // Database Browser View
+  // ----------------------------------------------------------------
+  var _dbCurrentDb = "";
+  var _dbCurrentTable = "";
+  var _dbOffset = 0;
+  var _dbLimit = 50;
+  var _dbTotal = 0;
+
+  async function loadDatabaseList() {
+    var tree = document.getElementById("db-tree");
+    if (!tree) return;
+    try {
+      var resp = await fetch("/api/db/list");
+      var dbs = await resp.json();
+      tree.innerHTML = "";
+      for (var i = 0; i < dbs.length; i++) {
+        var db = dbs[i];
+        var group = document.createElement("div");
+        group.className = "db-tree-group";
+
+        var label = document.createElement("div");
+        label.className = "db-tree-db";
+        var icon = document.createElement("i");
+        icon.className = "ph ph-hard-drives";
+        label.appendChild(icon);
+        var nameSpan = document.createElement("span");
+        nameSpan.textContent = db.name;
+        label.appendChild(nameSpan);
+        var sizeSpan = document.createElement("span");
+        sizeSpan.className = "db-tree-size";
+        sizeSpan.textContent = formatBytes(db.size);
+        label.appendChild(sizeSpan);
+        group.appendChild(label);
+
+        for (var j = 0; j < db.tables.length; j++) {
+          var tbl = db.tables[j];
+          var tblLink = document.createElement("a");
+          tblLink.className = "db-tree-table";
+          tblLink.href = "#";
+          tblLink.dataset.db = db.name;
+          tblLink.dataset.table = tbl;
+          var tblIcon = document.createElement("i");
+          tblIcon.className = "ph ph-table";
+          tblLink.appendChild(tblIcon);
+          tblLink.appendChild(document.createTextNode(tbl));
+          tblLink.addEventListener("click", function (ev) {
+            ev.preventDefault();
+            var allLinks = tree.querySelectorAll(".db-tree-table");
+            for (var k = 0; k < allLinks.length; k++) allLinks[k].classList.remove("active");
+            this.classList.add("active");
+            loadDbTable(this.dataset.db, this.dataset.table, 0);
+          });
+          group.appendChild(tblLink);
+        }
+        tree.appendChild(group);
+      }
+    } catch (e) {
+      tree.innerHTML = "<div class='workflow-empty'>Failed to load databases</div>";
+    }
+  }
+
+  async function loadDbTable(dbName, tableName, offset) {
+    _dbCurrentDb = dbName;
+    _dbCurrentTable = tableName;
+    _dbOffset = offset || 0;
+    var emptyEl = document.getElementById("db-empty");
+    var tableView = document.getElementById("db-table-view");
+    if (emptyEl) emptyEl.classList.add("view-hidden");
+    if (tableView) tableView.classList.remove("view-hidden");
+
+    var titleEl = document.getElementById("db-table-title");
+    if (titleEl) titleEl.textContent = dbName + " / " + tableName;
+
+    try {
+      var resp = await fetch("/api/db/" + encodeURIComponent(dbName) + "/" + encodeURIComponent(tableName) + "?limit=" + _dbLimit + "&offset=" + _dbOffset);
+      var data = await resp.json();
+      _dbTotal = data.total;
+
+      var countEl = document.getElementById("db-table-count");
+      if (countEl) countEl.textContent = data.total + " rows";
+
+      var thead = document.getElementById("db-table-head");
+      if (thead) {
+        thead.innerHTML = "";
+        var hrow = document.createElement("tr");
+        for (var c = 0; c < data.columns.length; c++) {
+          var th = document.createElement("th");
+          th.textContent = data.columns[c];
+          hrow.appendChild(th);
+        }
+        thead.appendChild(hrow);
+      }
+
+      var tbody = document.getElementById("db-table-body");
+      if (tbody) {
+        tbody.innerHTML = "";
+        for (var r = 0; r < data.rows.length; r++) {
+          var tr = document.createElement("tr");
+          for (var c2 = 0; c2 < data.columns.length; c2++) {
+            var td = document.createElement("td");
+            var val = data.rows[r][data.columns[c2]];
+            var text = val === null ? "" : String(val);
+            td.textContent = text.length > 100 ? text.slice(0, 100) + "\u2026" : text;
+            if (text.length > 100) td.title = text;
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+      }
+
+      // Pagination
+      var pageInfo = document.getElementById("db-page-info");
+      var prevBtn = document.getElementById("db-prev-btn");
+      var nextBtn = document.getElementById("db-next-btn");
+      var startRow = _dbOffset + 1;
+      var endRow = Math.min(_dbOffset + data.rows.length, _dbTotal);
+      if (pageInfo) pageInfo.textContent = startRow + "-" + endRow + " / " + _dbTotal;
+      if (prevBtn) prevBtn.disabled = _dbOffset <= 0;
+      if (nextBtn) nextBtn.disabled = _dbOffset + _dbLimit >= _dbTotal;
+    } catch (e) {
+      var tbody2 = document.getElementById("db-table-body");
+      if (tbody2) tbody2.innerHTML = "<tr><td colspan='99'>Error loading data</td></tr>";
+    }
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  }
+
+  // Pagination buttons
+  var dbPrevBtn = document.getElementById("db-prev-btn");
+  var dbNextBtn = document.getElementById("db-next-btn");
+  if (dbPrevBtn) dbPrevBtn.addEventListener("click", function () {
+    if (_dbOffset > 0) loadDbTable(_dbCurrentDb, _dbCurrentTable, Math.max(0, _dbOffset - _dbLimit));
+  });
+  if (dbNextBtn) dbNextBtn.addEventListener("click", function () {
+    if (_dbOffset + _dbLimit < _dbTotal) loadDbTable(_dbCurrentDb, _dbCurrentTable, _dbOffset + _dbLimit);
+  });
 
   // ----------------------------------------------------------------
   // Workflow View

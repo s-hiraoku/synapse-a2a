@@ -1451,4 +1451,96 @@ def create_app(db_path: str | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
         return _workflow_to_dict(wf)
 
+    # ── DB Browser endpoints ────────────────────────────────
+
+    def _get_synapse_dir() -> str:
+        return os.environ.get("SYNAPSE_DIR", os.path.join(os.getcwd(), ".synapse"))
+
+    def _list_databases() -> list[dict[str, Any]]:
+        synapse_dir = _get_synapse_dir()
+        dbs: list[dict[str, Any]] = []
+        if not os.path.isdir(synapse_dir):
+            return dbs
+        for f in sorted(os.listdir(synapse_dir)):
+            if f.endswith(".db"):
+                path = os.path.join(synapse_dir, f)
+                try:
+                    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+                    tables = [
+                        r[0]
+                        for r in conn.execute(
+                            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+                        )
+                    ]
+                    size = os.path.getsize(path)
+                    conn.close()
+                    dbs.append(
+                        {"name": f, "path": path, "tables": tables, "size": size}
+                    )
+                except Exception:
+                    continue
+        return dbs
+
+    @app.get("/api/db/list")
+    async def db_list() -> list[dict[str, Any]]:
+        """List all SQLite databases in .synapse/."""
+        return _list_databases()
+
+    @app.get("/api/db/{db_name}/{table_name}")
+    async def db_query(
+        db_name: str,
+        table_name: str,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Query rows from a table in a Synapse database (read-only)."""
+        if not db_name.endswith(".db"):
+            raise HTTPException(status_code=400, detail="Invalid database name")
+        # Sanitize table name to prevent injection
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
+            raise HTTPException(status_code=400, detail="Invalid table name")
+        synapse_dir = _get_synapse_dir()
+        db_path = os.path.join(synapse_dir, db_name)
+        if not os.path.isfile(db_path):
+            raise HTTPException(
+                status_code=404, detail=f"Database '{db_name}' not found"
+            )
+        try:
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+            conn.row_factory = sqlite3.Row
+            # Get column info
+            cols = [
+                r[1]
+                for r in conn.execute(f"PRAGMA table_info({table_name})")  # noqa: S608
+            ]
+            if not cols:
+                conn.close()
+                raise HTTPException(
+                    status_code=404, detail=f"Table '{table_name}' not found"
+                )
+            # Count total rows
+            total = conn.execute(
+                f"SELECT COUNT(*) FROM {table_name}"  # noqa: S608
+            ).fetchone()[0]
+            # Fetch rows
+            rows = [
+                dict(r)
+                for r in conn.execute(
+                    f"SELECT * FROM {table_name} LIMIT ? OFFSET ?",  # noqa: S608
+                    (min(limit, 500), offset),
+                )
+            ]
+            conn.close()
+            return {
+                "db": db_name,
+                "table": table_name,
+                "columns": cols,
+                "rows": rows,
+                "total": total,
+                "limit": min(limit, 500),
+                "offset": offset,
+            }
+        except sqlite3.OperationalError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
     return app

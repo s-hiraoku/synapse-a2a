@@ -29,6 +29,7 @@
     <a href="#/workflow" class="nav-link" data-route="workflow"><i class="ph ph-flow-arrow"></i><span>Workflow</span></a>
     <a href="#/admin" class="nav-link" data-route="admin"><i class="ph ph-crown"></i><span>Agent Control</span></a>
     <a href="#/system" class="nav-link" data-route="system"><i class="ph ph-gear-six"></i><span>System</span></a>
+    <a href="#/database" class="nav-link" data-route="database"><i class="ph ph-database"></i><span>Database</span></a>
   </nav>
   <div class="sidebar-footer">
     <button id="theme-toggle" title="Toggle light/dark theme"><i class="ph ph-sun"></i><span>Light</span></button>
@@ -125,6 +126,36 @@
       <div id="workflow-detail-panel">
         <div id="workflow-detail-empty" class="workflow-empty">Select a workflow</div>
         <div id="workflow-detail-content" class="view-hidden"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Database Browser View -->
+  <section id="database-view" class="view-hidden">
+    <div id="db-browser">
+      <div id="db-sidebar">
+        <h3 class="admin-section-title"><i class="ph ph-database"></i> Databases</h3>
+        <div id="db-tree"></div>
+      </div>
+      <div id="db-content">
+        <div id="db-empty" class="workflow-empty">Select a table to browse</div>
+        <div id="db-table-view" class="view-hidden">
+          <div id="db-table-header">
+            <h3 id="db-table-title"></h3>
+            <span id="db-table-count"></span>
+          </div>
+          <div id="db-table-scroll">
+            <table id="db-table" class="system-agents-table">
+              <thead id="db-table-head"></thead>
+              <tbody id="db-table-body"></tbody>
+            </table>
+          </div>
+          <div id="db-table-footer">
+            <button id="db-prev-btn" disabled><i class="ph ph-caret-left"></i> Prev</button>
+            <span id="db-page-info"></span>
+            <button id="db-next-btn" disabled>Next <i class="ph ph-caret-right"></i></button>
+          </div>
+        </div>
       </div>
     </div>
   </section>
