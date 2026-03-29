@@ -237,14 +237,16 @@ Templates add structured layouts on top of composite cards. While composite card
 
 ### Available Templates
 
-| Template | Purpose | Key Fields |
-|---|---|---|
-| `briefing` | Structured report with collapsible sections | `sections` (title, blocks, summary, collapsed) |
-| `comparison` | Side-by-side or stacked N-way comparison (2-4 sides) | `sides` (label, blocks), `layout` |
-| `dashboard` | Grid layout with resizable widgets (1-4 columns) | `widgets` (title, blocks, size), `cols` |
-| `steps` | Linear workflow with completion tracking | `steps` (title, blocks, done, description) |
-| `slides` | Page-by-page navigation with speaker notes | `slides` (title, blocks, notes) |
-| `plan` | Execution plan with dependency DAG and status tracking | `plan_id`, `status`, `steps` (id, subject, agent, status, blocked_by), `mermaid` |
+Each template has a distinct **accent color** used for left-border highlights, progress bars, and step markers, making it easy to identify the template type at a glance.
+
+| Template | Purpose | Accent Color | Key Fields |
+|---|---|---|---|
+| `briefing` | Structured report with collapsible sections | Brand indigo | `sections` (title, blocks, summary, collapsed) |
+| `comparison` | Side-by-side or stacked N-way comparison (2-4 sides) | Amber | `sides` (label, blocks), `layout` |
+| `dashboard` | Grid layout with resizable widgets (1-4 columns) | Warning (amber) | `widgets` (title, blocks, size), `cols` |
+| `steps` | Linear workflow with completion tracking | Green (success) | `steps` (title, blocks, done, description) |
+| `slides` | Page-by-page navigation with speaker notes | Signal (cyan) | `slides` (title, blocks, notes) |
+| `plan` | Execution plan with dependency DAG and status tracking | Purple | `plan_id`, `status`, `steps` (id, subject, agent, status, blocked_by), `mermaid` |
 
 ### How Templates Work
 
@@ -628,8 +630,10 @@ The Canvas view is a **full-viewport projection** of the most recently updated c
 
 - The latest card fills the entire content area
 - A **title bar** at the top shows the card title
-- A **floating info bar** at the bottom shows agent name, status dot, tags, timestamp, and card ID
+- A **template badge** in the title bar shows the active template name (e.g., BRIEFING, PLAN) when the card uses a template
+- A **floating info bar** at the bottom shows agent name, status dot, tags, and timestamp in a minimal, fade-on-hover style
 - An **ambient glow** border reflects the posting agent's status color (green=READY, yellow=PROCESSING, etc.)
+- **Keyboard navigation**: Press ++arrow-right++ / ++arrow-left++ to browse through cards by recency. A navigation indicator (e.g., "2 / 5") appears in the title bar. Press ++escape++ to return to the live (most-recent) view. Keyboard navigation is disabled when an input field is focused.
 - HTML cards render inside a sandboxed `<iframe>` that fills the full content area (no auto-resize — uses CSS flex)
 - Filter controls are hidden in this view
 

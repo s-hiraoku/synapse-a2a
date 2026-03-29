@@ -2,9 +2,9 @@
 
 ## Overview
 
-Proactive Mode makes agents **mandatorily** use ALL Synapse coordination features for every task, regardless of size. When enabled, agents always search shared memory, lock files, post canvas artifacts, and delegate work -- no exceptions.
+Proactive Mode provides agents with a **task-size x feature matrix** that guides Synapse feature usage based on task scope and context. When enabled, agents receive structured guidance on when to use shared memory, file safety, canvas, delegation, and broadcasting -- scaled to the task at hand rather than applied uniformly.
 
-Without Proactive Mode, agents use a collaboration decision framework that recommends feature usage based on task complexity. Proactive Mode removes this discretion and enforces full feature usage on every task.
+Without Proactive Mode, agents have no specific guidance on when to use coordination features. Proactive Mode adds this decision framework so agents can make informed choices about which features to employ for each task.
 
 ## Activation
 
@@ -31,31 +31,27 @@ Or configure it in `.synapse/settings.json`:
 
 ## What Changes
 
-When Proactive Mode is enabled, agents follow a mandatory checklist for **every** task (not just delegations):
+When Proactive Mode is enabled, agents receive a **task-size x feature matrix** that maps each Synapse feature to task size categories. Instead of a mandatory checklist, agents use judgment based on task scope:
 
-### Before Starting
+### Task Size Matrix
 
-| Action | Command |
-|--------|---------|
-| Search shared memory | `synapse memory search <keywords>` |
-| Check available agents | `synapse list` |
+| Feature | Small (< 5 min, 1-2 files) | Medium (5-30 min, 3-5 files) | Large (30+ min, 5+ files) |
+|---------|---------------------------|------------------------------|--------------------------|
+| Memory search | Optional | Recommended | Required |
+| File safety | Only if multi-agent + shared files | If multi-agent + shared files | Required in multi-agent |
+| Canvas | Skip | Only for complex output | Plans, results, briefings |
+| Delegation | Skip | If subtasks can parallelize | Actively delegate |
+| Broadcast | Skip (unless blocking others) | On completion if others waiting | On milestones |
 
-### During Execution
+### Per-Feature Skip Conditions
 
-| Action | Command |
-|--------|---------|
-| Lock files before editing | `synapse file-safety lock <file>` |
-| Post progress to canvas | `synapse canvas post` |
-| Save discoveries to memory | `synapse memory save <key> <content>` |
-| Delegate independent work | `synapse spawn` / `synapse send --silent` |
-| Unlock files when done | `synapse file-safety unlock <file>` |
+Each feature includes explicit skip conditions to prevent unnecessary coordination overhead:
 
-### After Completion
-
-| Action | Command |
-|--------|---------|
-| Broadcast completion | `synapse broadcast "Task done"` |
-| Post summary to canvas | `synapse canvas post` |
+- **File Safety**: Skip for single-agent tasks, new file creation, read-only operations, or tests
+- **Shared Memory**: Skip for task-specific notes only relevant to you; use for discoveries that benefit other agents
+- **Canvas**: Skip for simple completion reports, single-file changes, or brief confirmations; use only when visual structure adds value
+- **Delegation**: Skip when overhead exceeds the task or no suitable agent is available
+- **Broadcast**: Skip for trivial completions or work that only concerns you
 
 ## How It Works
 
