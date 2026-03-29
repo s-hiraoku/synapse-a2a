@@ -16,6 +16,8 @@ from typing import TextIO, cast
 
 import yaml
 
+from synapse.canvas.protocol import FORMAT_REGISTRY, CanvasMessage, validate_message
+from synapse.canvas.store import CanvasStore
 from synapse.registry import AgentRegistry
 from synapse.settings import SynapseSettings, get_settings
 
@@ -203,6 +205,32 @@ class SynapseMCPServer:
                     "required": ["prompt"],
                 },
             ),
+            MCPTool(
+                name="canvas_post",
+                description="Post content to Canvas without shell escaping. Body may be a string or JSON string for structured formats.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "format": {
+                            "type": "string",
+                            "description": "Canvas content format",
+                        },
+                        "body": {
+                            "type": "string",
+                            "description": "Content body (JSON string for structured formats).",
+                        },
+                        "title": {
+                            "type": "string",
+                            "description": "Optional card title.",
+                        },
+                        "tags": {
+                            "type": "string",
+                            "description": "Optional comma-separated tags.",
+                        },
+                    },
+                    "required": ["format", "body"],
+                },
+            ),
         ]
 
     def read_resource(self, uri: str) -> str:
@@ -253,7 +281,111 @@ class SynapseMCPServer:
             if not isinstance(prompt, str):
                 raise ValueError("analyze_task requires string prompt")
             return self._tool_analyze_task(prompt)
+        if name == "canvas_post":
+            return self._tool_canvas_post(arguments)
         raise ValueError(f"Unsupported MCP tool: {name}")
+
+    def _tool_canvas_post(self, arguments: dict[str, object]) -> dict[str, object]:
+        """Post a Canvas card directly through the local store."""
+        format_name = arguments.get("format")
+        body = arguments.get("body")
+        title = arguments.get("title", "")
+        tags_value = arguments.get("tags", "")
+
+        if not isinstance(format_name, str) or not format_name:
+            raise ValueError("canvas_post requires string format")
+        if format_name not in FORMAT_REGISTRY:
+            raise ValueError(
+                f"Unknown Canvas format '{format_name}'. "
+                f"Valid formats: {', '.join(sorted(FORMAT_REGISTRY))}"
+            )
+        if not isinstance(title, str):
+            raise ValueError("canvas_post title must be a string")
+        if not isinstance(tags_value, (str, list)):
+            raise ValueError("canvas_post tags must be a string or list")
+
+        body_value = self._coerce_canvas_body(format_name, body)
+        tags = self._parse_canvas_tags(tags_value)
+
+        payload: dict[str, object] = {
+            "type": "render",
+            "content": {"format": format_name, "body": body_value},
+            "agent_id": self.agent_id,
+            "title": title,
+        }
+        if tags:
+            payload["tags"] = tags
+
+        msg = CanvasMessage.from_dict(payload)
+        errors = validate_message(msg)
+        if errors:
+            raise ValueError("; ".join(errors))
+
+        if isinstance(msg.content, list):
+            content_json = json.dumps(
+                [block.to_dict() for block in msg.content],
+                ensure_ascii=False,
+            )
+        else:
+            content_json = json.dumps(msg.content.to_dict(), ensure_ascii=False)
+
+        store = CanvasStore()
+        result = store.add_card(
+            agent_id=msg.agent_id or self.agent_id,
+            content=content_json,
+            title=msg.title,
+            agent_name=msg.agent_name or None,
+            card_type=msg.type or "render",
+            pinned=msg.pinned,
+            tags=msg.tags or None,
+            template=msg.template,
+            template_data=msg.template_data or None,
+        )
+
+        try:
+            from synapse.canvas import server as canvas_server
+
+            canvas_server._broadcast_event("card_created", result)
+        except Exception as exc:  # pragma: no cover - best effort broadcast
+            logger.debug("Failed to broadcast Canvas SSE event: %s", exc)
+
+        return result
+
+    def _coerce_canvas_body(
+        self, format_name: str, body: object
+    ) -> str | dict[str, object] | list[object]:
+        """Coerce a Canvas body value from MCP arguments."""
+        spec = FORMAT_REGISTRY[format_name]
+        if spec.body_type == "string":
+            if not isinstance(body, str):
+                raise ValueError(f"{format_name} body must be a string")
+            return body
+
+        if isinstance(body, (dict, list)):
+            parsed = body
+        elif isinstance(body, str):
+            try:
+                parsed = json.loads(body)
+            except json.JSONDecodeError as err:
+                if spec.body_type == "object":
+                    raise ValueError(
+                        f"{format_name} body must be valid JSON for structured formats"
+                    ) from err
+                return body
+        else:
+            raise ValueError(f"{format_name} body must be a string, object, or array")
+
+        if spec.body_type == "object" and not isinstance(parsed, dict):
+            raise ValueError(f"{format_name} body must be a JSON object")
+        return cast(str | dict[str, object] | list[object], parsed)
+
+    def _parse_canvas_tags(self, tags_value: object) -> list[str]:
+        """Parse tag arguments into a compact list."""
+        if isinstance(tags_value, list):
+            return [str(tag).strip() for tag in tags_value if str(tag).strip()]
+        if isinstance(tags_value, str):
+            return [tag.strip() for tag in tags_value.split(",") if tag.strip()]
+        return []
 
     def _tool_bootstrap_agent(self) -> dict[str, object]:
         """Return runtime context and instruction resource URIs."""

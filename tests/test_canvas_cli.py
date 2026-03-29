@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from argparse import Namespace
+from io import StringIO
 
 import pytest
 
@@ -83,6 +85,25 @@ class TestCanvasPost:
         content = json.loads(result["content"])
         assert content["format"] == "mermaid"
         assert content["body"] == "graph TD; File-->Canvas"
+
+    def test_post_from_dash_file_reads_stdin(self, tmp_path, monkeypatch):
+        """post_shortcut should read stdin when file_path is '-'."""
+        from synapse.commands.canvas import post_shortcut
+
+        monkeypatch.setattr(sys, "stdin", StringIO("graph TD; Pipe-->Canvas"))
+
+        result = post_shortcut(
+            format_name="mermaid",
+            body=None,
+            file_path="-",
+            title="Flow From Pipe",
+            agent_id="synapse-claude-8103",
+            db_path=str(tmp_path / "canvas.db"),
+        )
+
+        assert result is not None
+        content = json.loads(result["content"])
+        assert content["body"] == "graph TD; Pipe-->Canvas"
 
     def test_post_shortcut_autofills_agent_name_from_registry(
         self, tmp_path, monkeypatch
@@ -202,6 +223,127 @@ class TestCanvasPost:
                 agent_id="synapse-codex-8120",
                 db_path=str(tmp_path / "canvas.db"),
             )
+
+    def test_cmd_canvas_post_reads_body_from_stdin_flag(self, monkeypatch):
+        """cmd_canvas_post should read stdin when --stdin is set."""
+        from synapse import cli
+
+        calls: dict[str, object] = {}
+
+        monkeypatch.setattr(
+            "synapse.commands.canvas.ensure_server_running",
+            lambda port: calls.setdefault("port", port),
+        )
+        monkeypatch.setattr(
+            sys,
+            "stdin",
+            StringIO("# Test from stdin"),
+        )
+
+        def fake_post_shortcut(**kwargs):
+            calls["kwargs"] = kwargs
+            return {"card_id": "card-123"}
+
+        monkeypatch.setattr("synapse.commands.canvas.post_shortcut", fake_post_shortcut)
+
+        args = Namespace(
+            format="markdown",
+            body=None,
+            stdin=True,
+            example=None,
+            title="Report",
+            agent_id="synapse-codex-8120",
+            agent_name="",
+            card_id=None,
+            pinned=False,
+            tags=None,
+            lang=None,
+            port=4310,
+            file=None,
+        )
+
+        cli.cmd_canvas_post(args)
+
+        assert calls["port"] == 4310
+        assert calls["kwargs"]["body"] == "# Test from stdin"
+        assert calls["kwargs"]["format_name"] == "markdown"
+
+    def test_cmd_canvas_post_reads_stdin_when_body_is_dash(self, monkeypatch):
+        """cmd_canvas_post should treat '-' body as stdin input."""
+        from synapse import cli
+
+        calls: dict[str, object] = {}
+        monkeypatch.setattr(
+            "synapse.commands.canvas.ensure_server_running", lambda port: None
+        )
+        monkeypatch.setattr(sys, "stdin", StringIO("piped body"))
+
+        def fake_post_shortcut(**kwargs):
+            calls["kwargs"] = kwargs
+            return {"card_id": "card-123"}
+
+        monkeypatch.setattr("synapse.commands.canvas.post_shortcut", fake_post_shortcut)
+
+        args = Namespace(
+            format="markdown",
+            body="-",
+            stdin=False,
+            example=None,
+            title="",
+            agent_id="cli",
+            agent_name="",
+            card_id=None,
+            pinned=False,
+            tags=None,
+            lang=None,
+            port=None,
+            file=None,
+        )
+
+        cli.cmd_canvas_post(args)
+
+        assert calls["kwargs"]["body"] == "piped body"
+
+    def test_cmd_canvas_post_prints_example_and_exits(self, monkeypatch, capsys):
+        """cmd_canvas_post should print a format example and exit without posting."""
+        from synapse import cli
+
+        monkeypatch.setattr(
+            "synapse.commands.canvas.ensure_server_running",
+            lambda port: pytest.fail("should not start server for --example"),
+        )
+        monkeypatch.setattr(
+            "synapse.commands.canvas.post_shortcut",
+            lambda **kwargs: pytest.fail("should not post for --example"),
+        )
+
+        args = Namespace(
+            format=None,
+            body=None,
+            stdin=False,
+            example="table",
+            title="",
+            agent_id="cli",
+            agent_name="",
+            card_id=None,
+            pinned=False,
+            tags=None,
+            lang=None,
+            port=None,
+            file=None,
+        )
+
+        cli.cmd_canvas_post(args)
+        out = capsys.readouterr().out
+        assert "synapse canvas post table" in out
+        assert '"headers":["Name","Score"]' in out
+
+    def test_canvas_post_examples_cover_all_registered_formats(self):
+        """Every registered format should have a documented example command."""
+        from synapse.canvas.protocol import FORMAT_REGISTRY
+        from synapse.commands.canvas import CANVAS_POST_EXAMPLES
+
+        assert set(FORMAT_REGISTRY).issubset(set(CANVAS_POST_EXAMPLES))
 
 
 # ============================================================
