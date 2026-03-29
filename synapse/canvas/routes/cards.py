@@ -184,7 +184,9 @@ async def clear_cards(
     request: Request,
     agent_id: str | None = None,
 ) -> dict[str, int]:
-    count = request.app.state.store.clear_all(agent_id=agent_id)
+    caller_id = request.headers.get("X-Agent-Id", "")
+    effective_agent_id = agent_id or caller_id or None
+    count = request.app.state.store.clear_all(agent_id=effective_agent_id)
     return {"cleared": count}
 
 

@@ -6,7 +6,13 @@
   const escapeHtml = ns.escapeHtml;
   const showToast = ns.showToast;
   const statusColor = ns.statusColor;
+  const statusIcon = ns.statusIcon;
   const formatTime = ns.formatTime;
+
+  function formatNumber(n) {
+    if (n == null) return "-";
+    return Number(n).toLocaleString();
+  }
 
   // ----------------------------------------------------------------
   // Template renderer dispatcher
@@ -1419,10 +1425,13 @@
     var siteName = data.og_site_name || data.site_name || domain;
     var favicon = data.favicon || "";
 
-    var card = document.createElement(url ? "a" : "div");
+    // Only allow http/https URLs to prevent XSS via javascript: or data: URIs
+    var safeUrl = url && /^https?:\/\//i.test(url) ? url : "";
+
+    var card = document.createElement(safeUrl ? "a" : "div");
     card.className = "link-preview-card";
-    if (url) {
-      card.href = url;
+    if (safeUrl) {
+      card.href = safeUrl;
       card.target = "_blank";
       card.rel = "noopener noreferrer";
     }

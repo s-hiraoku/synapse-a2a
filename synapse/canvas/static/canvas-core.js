@@ -1167,7 +1167,7 @@ window.SynapseCanvas = (function() {
   filterType.addEventListener("change", renderAll);
   filterAgent.addEventListener("change", renderAll);
   window.addEventListener("hashchange", navigate);
-  if (adminSendBtn) adminSendBtn.addEventListener("click", ns.sendAdminCommand);
+  if (adminSendBtn) adminSendBtn.addEventListener("click", function() { ns.sendAdminCommand(); });
   var _isComposing = false;
   function autoResizeAdminInput() {
     if (!adminMessageInput) return;

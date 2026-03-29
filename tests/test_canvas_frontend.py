@@ -234,7 +234,10 @@ def test_admin_init_event_listeners_exist_in_js() -> None:
     """canvas.js should wire the admin send button, Enter key, and IME handlers."""
     js = _read_canvas_js()
 
-    assert 'adminSendBtn.addEventListener("click", ns.sendAdminCommand)' in js
+    assert (
+        'adminSendBtn.addEventListener("click", function() { ns.sendAdminCommand(); })'
+        in js
+    )
     assert 'adminMessageInput.addEventListener("keydown", function (e)' in js
     assert 'if (e.key === "Enter" && e.metaKey && !_isComposing)' in js
 

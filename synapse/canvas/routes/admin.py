@@ -32,8 +32,13 @@ async def admin_receive_reply(request: Request) -> dict[str, Any]:
     if task_id and task_id in admin_task_id_map:
         task_id = admin_task_id_map.pop(task_id)
 
-    if not task_id and admin_pending_tasks:
+    if not task_id and len(admin_pending_tasks) == 1:
         task_id = next(iter(admin_pending_tasks))
+    elif not task_id and len(admin_pending_tasks) > 1:
+        server_module.logger.warning(
+            "Reply without correlation and %d pending tasks; cannot determine target",
+            len(admin_pending_tasks),
+        )
 
     if not isinstance(task_id, str) or not task_id:
         task_id = str(uuid.uuid4())
@@ -121,6 +126,11 @@ async def admin_send(request: Request) -> Any:
         raise HTTPException(status_code=404, detail=f"Agent '{target}' not found")
 
     pre_task_id = str(uuid.uuid4())
+
+    # Register pending task before the HTTP call so that replies arriving
+    # before this coroutine resumes can still be correlated.
+    request.app.state.admin_pending_tasks.add(pre_task_id)
+
     a2a_request = {
         "message": {"role": "user", "parts": [{"type": "text", "text": message}]},
         "metadata": {
@@ -141,6 +151,7 @@ async def admin_send(request: Request) -> Any:
             resp = await client.post(f"{endpoint}/tasks/send", json=a2a_request)
             resp_data = resp.json()
     except httpx.HTTPError as exc:
+        request.app.state.admin_pending_tasks.discard(pre_task_id)
         raise HTTPException(
             status_code=502,
             detail=f"Failed to reach agent: {exc}",
@@ -152,7 +163,6 @@ async def admin_send(request: Request) -> Any:
     if isinstance(status, dict):
         status = status.get("state", "unknown")
 
-    request.app.state.admin_pending_tasks.add(pre_task_id)
     if agent_task_id:
         request.app.state.admin_task_id_map[agent_task_id] = pre_task_id
 
@@ -274,7 +284,9 @@ async def admin_jump_to_agent(agent_id: str) -> dict[str, Any]:
     from synapse.terminal_jump import jump_to_terminal
 
     registry_dir = server_module._get_registry_dir()
-    agent_file = Path(registry_dir) / f"{agent_id}.json"
+    agent_file = (Path(registry_dir) / f"{agent_id}.json").resolve()
+    if agent_file.parent != Path(registry_dir).resolve():
+        return {"ok": False, "error": "Invalid agent_id"}
     if not agent_file.is_file():
         return {"ok": False, "error": f"Agent {agent_id} not found"}
     try:
