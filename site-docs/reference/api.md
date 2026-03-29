@@ -1164,6 +1164,65 @@ curl -X POST http://localhost:3000/api/admin/jump/synapse-claude-8100
 
 ---
 
+## Database Browser API
+
+The Canvas server exposes read-only endpoints for browsing Synapse SQLite databases in the project's `.synapse/` directory. These power the [Database View](../guide/canvas.md#database-view-database).
+
+| Method | Endpoint | Description |
+|:------:|----------|-------------|
+| GET | `/api/db/list` | List all SQLite databases with table names and file sizes |
+| GET | `/api/db/{db_name}/{table_name}` | Query rows from a table (read-only, paginated) |
+
+### GET /api/db/list -- List Databases
+
+Returns all `.db` files in `.synapse/` (excluding internal databases like `task_board.db`). Each entry includes the database name, absolute path, table list, and file size in bytes.
+
+```bash
+curl http://localhost:3000/api/db/list
+```
+
+**Response:**
+
+```json
+[
+  {
+    "name": "file_safety.db",
+    "path": "/path/to/.synapse/file_safety.db",
+    "tables": ["file_locks", "file_history"],
+    "size": 32768
+  }
+]
+```
+
+### GET /api/db/{db_name}/{table_name} -- Query Table
+
+Returns paginated rows from a table. All access is read-only (`?mode=ro` SQLite URI). Table names are validated against `^[a-zA-Z_][a-zA-Z0-9_]*$` to prevent SQL injection.
+
+```bash
+curl "http://localhost:3000/api/db/file_safety.db/file_locks?limit=50&offset=0"
+```
+
+**Query parameters:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `limit` | 100 | Maximum rows to return |
+| `offset` | 0 | Row offset for pagination |
+
+**Response:**
+
+```json
+{
+  "columns": ["id", "file", "agent", "locked_at"],
+  "rows": [{"id": 1, "file": "src/main.py", "agent": "claude", "locked_at": "2026-03-29T10:00:00"}],
+  "total": 1,
+  "limit": 100,
+  "offset": 0
+}
+```
+
+---
+
 ## Workflow API
 
 The Canvas server exposes workflow management endpoints for the [Workflow View](../guide/canvas.md#workflow-view-workflow). These endpoints run on the Canvas port (default `3000`).

@@ -168,6 +168,8 @@ Compound signal: PROCESSING→READY suppressed when `task_active` flag set or fi
 
 `/tasks/send` blocked until agent completes initialization. Timeout: 30s. Bypasses: priority 5 and reply messages.
 
+**PROCESSING wait**: `synapse send` also waits up to 30s for a PROCESSING target to become idle before delivering. Skipped for `--force`, priority 5, and `--silent`.
+
 ## Storage
 
 ```

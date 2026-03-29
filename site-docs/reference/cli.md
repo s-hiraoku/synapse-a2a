@@ -192,7 +192,9 @@ synapse send <target> "<message>" [OPTIONS]
 | `--message-file PATH` | Read message from file (`-` for stdin) |
 | `--stdin` | Read message from stdin |
 | `--attach FILE` | Attach file (repeatable) |
-| `--force` | Bypass working_dir mismatch check |
+| `--force` | Bypass working_dir mismatch check and skip PROCESSING wait |
+
+**PROCESSING wait**: When the target agent's status is `PROCESSING`, `synapse send` automatically waits (polling every 1 second) for the agent to become `READY` before delivering the message. This prevents messages from being queued behind an in-progress task. The wait is skipped for `--silent` sends, priority-5 (critical) sends, and when `--force` is specified. The timeout is controlled by `SYNAPSE_SEND_WAIT_TIMEOUT` (default: 30 seconds).
 
 !!! tip "Choosing response mode"
     - `--notify` (default): Returns immediately; you get a PTY notification when the receiver completes. Best for most use cases.
