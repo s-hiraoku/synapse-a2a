@@ -178,7 +178,7 @@ idle_detection:
   pattern_use: "startup_only"
   timeout: 3.0
 waiting_detection:
-  regex: "●\\s+\\d+\\.|Action Required|Allow (once|for this session|for this file)|No, suggest changes"
+  regex: "●\\s+\\d+\\.|Action Required|Allow (?:once|for this session|for this file)|No, suggest changes"
   require_idle: true
   idle_timeout: 0.5
   waiting_expiry: 10
