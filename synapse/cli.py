@@ -468,6 +468,77 @@ def cmd_rename(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_set_summary(args: argparse.Namespace) -> None:
+    """Set or clear an agent's work summary."""
+    target = args.target
+    clear = getattr(args, "clear", False)
+    auto = getattr(args, "auto", False)
+    summary_text = getattr(args, "summary", None)
+
+    registry = AgentRegistry()
+    agent_info = registry.resolve_agent(target)
+
+    if agent_info is None:
+        print(f"Agent not found: {target}")
+        print("Run 'synapse list' to see running agents.")
+        sys.exit(1)
+
+    agent_id: str = agent_info["agent_id"]
+
+    if clear:
+        result = registry.update_summary(agent_id, None)
+        if result:
+            print(f"Cleared summary for {agent_id}")
+        else:
+            print(f"Failed to clear summary for {agent_id}")
+            sys.exit(1)
+        return
+
+    if auto:
+        # Auto-generate from git info
+        working_dir = agent_info.get("working_dir", os.getcwd())
+        try:
+            branch = subprocess.check_output(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                cwd=working_dir,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+            try:
+                files_output = subprocess.check_output(
+                    ["git", "diff", "--name-only", "HEAD~1"],
+                    cwd=working_dir,
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                ).strip()
+            except subprocess.CalledProcessError:
+                # Fallback for repos with a single commit
+                files_output = subprocess.check_output(
+                    ["git", "diff", "--name-only", "HEAD"],
+                    cwd=working_dir,
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                ).strip()
+            recent_files = (
+                ", ".join(files_output.splitlines()[:3]) if files_output else "none"
+            )
+            summary_text = f"branch: {branch} | recent: {recent_files}"
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print("Failed to auto-generate summary from git info.")
+            sys.exit(1)
+
+    if not summary_text:
+        print("Provide a summary text, --auto, or --clear.")
+        sys.exit(1)
+
+    result = registry.update_summary(agent_id, summary_text)
+    if result:
+        print(f"Updated summary for {agent_id}: {summary_text}")
+    else:
+        print(f"Failed to update summary for {agent_id}")
+        sys.exit(1)
+
+
 def _clear_screen() -> None:
     """Clear terminal screen (cross-platform)."""
     os.system("cls" if os.name == "nt" else "clear")
@@ -4495,6 +4566,51 @@ Target resolution priority:
         help="Clear name and role",
     )
     p_rename.set_defaults(func=cmd_rename)
+
+    # set-summary
+    p_set_summary = subparsers.add_parser(
+        "set-summary",
+        help="Set agent work summary",
+        description="""Set or clear a persistent work summary for a running agent.
+
+Unlike the ephemeral task preview (30 chars), summary is longer (up to 120 chars)
+and persists until explicitly changed or cleared.
+
+Target resolution priority:
+  1. Custom name (my-claude) - highest priority
+  2. Full agent ID (synapse-claude-8100)
+  3. Type-port shorthand (claude-8100)
+  4. Type (claude) - only if single instance""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse set-summary claude "Working on auth refactor"
+  synapse set-summary my-claude --auto
+  synapse set-summary claude --clear""",
+    )
+    p_set_summary.add_argument(
+        "target",
+        metavar="TARGET",
+        help="Agent name, ID (synapse-claude-8100), type-port (claude-8100), or type",
+    )
+    p_set_summary.add_argument(
+        "summary",
+        nargs="?",
+        default=None,
+        help="Summary text (up to 120 chars)",
+    )
+    p_set_summary.add_argument(
+        "--clear",
+        "-c",
+        action="store_true",
+        help="Clear the summary",
+    )
+    p_set_summary.add_argument(
+        "--auto",
+        "-a",
+        action="store_true",
+        help="Auto-generate from git branch and recent files",
+    )
+    p_set_summary.set_defaults(func=cmd_set_summary)
 
     # list
     p_list = subparsers.add_parser(

@@ -91,6 +91,7 @@ flowchart LR
 | **Intégration Externe** | Communiquez avec d'autres agents Google A2A |
 | **Sécurité des Fichiers** | Prévention des conflits multi-agents avec verrouillage de fichiers et suivi des modifications (visible dans `synapse list`) |
 | **Nommage d'Agents** | Noms et rôles personnalisés pour une identification facile (`synapse send my-claude "hello"`) |
+| **Résumé d'Agent** | Résumé persistant de 120 caractères (`synapse set-summary`). Texte manuel, `--auto` depuis le contexte git, `--clear` pour supprimer. Visible dans Canvas, MCP `list_agents`, Agent Card `extensions.synapse`, et `synapse list --columns SUMMARY` |
 | **Moniteur d'Agents** | Statut en temps réel (READY/WAITING/PROCESSING/DONE), aperçu de la tâche CURRENT, saut vers le terminal |
 | **Historique des Tâches** | Suivi automatique des tâches avec recherche, export et statistiques (activé par défaut) |
 | **Tableau de tâches partagé** | Coordination des tâches basée sur SQLite avec suivi des dépendances (`synapse tasks`) |
@@ -561,6 +562,7 @@ synapse kill my-claude
 | `synapse kill <target> -f` | Arrêt forcé (SIGKILL immédiat) |
 | `synapse jump <target>` | Aller au terminal de l'agent |
 | `synapse rename <target>` | Assigner un nom/rôle à l'agent |
+| `synapse set-summary <target> [text]` | Définir un résumé persistant (120 car.). `--auto` génère depuis le contexte git, `--clear` supprime |
 | `synapse --version` | Afficher la version |
 | `synapse list` | Lister les agents en cours d'exécution (Rich TUI avec rafraîchissement automatique et saut vers le terminal) |
 | `synapse logs <profile>` | Afficher les logs |
@@ -1311,6 +1313,7 @@ L'affichage se met à jour automatiquement lorsque le statut des agents change (
 | CURRENT | Aperçu de la tâche en cours |
 | TRANSPORT | Indicateur de transport de communication |
 | WORKING_DIR | Répertoire de travail actuel |
+| SUMMARY | Résumé persistant de l'agent (opt-in, non inclus dans les colonnes par défaut) |
 | EDITING_FILE | Fichier en cours d'édition (uniquement avec File Safety activé) |
 
 **Personnaliser les colonnes** dans `settings.json` :

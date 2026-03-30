@@ -27,6 +27,11 @@ synapse kill my-claude -f                      # Force kill
 synapse jump my-claude                         # Jump to terminal
 synapse rename claude --name my-claude         # Assign name
 
+# Agent Summary
+synapse set-summary my-claude "Frontend specialist handling React components"
+synapse set-summary my-claude --auto           # Auto-generate from git context
+synapse set-summary my-claude --clear          # Remove summary
+
 # Messaging
 synapse send my-claude "Review this" --wait    # Synchronous
 synapse send gemini "Fix this" --silent        # Fire-and-forget

@@ -91,6 +91,7 @@ flowchart LR
 | **外部集成** | 与其他 Google A2A 智能体通信 |
 | **文件安全** | 通过文件锁定和变更追踪防止多智能体冲突（在 `synapse list` 中可见） |
 | **智能体命名** | 自定义名称和角色便于识别（`synapse send my-claude "hello"`） |
+| **智能体摘要** | 持久化120字符智能体摘要（`synapse set-summary`）。手动文本、`--auto` 从 git 上下文自动生成、`--clear` 删除。在 Canvas、MCP `list_agents`、Agent Card `extensions.synapse`、`synapse list --columns SUMMARY` 中显示 |
 | **智能体监控** | 实时状态（READY/WAITING/PROCESSING/DONE）、当前任务预览、终端跳转 |
 | **任务历史** | 自动任务追踪，支持搜索、导出和统计（默认启用） |
 | **共享任务板** | 基于 SQLite 的任务协调，支持依赖追踪 (`synapse tasks`) |
@@ -561,6 +562,7 @@ synapse kill my-claude
 | `synapse kill <target> -f` | 强制停机（立即发送 SIGKILL） |
 | `synapse jump <target>` | 跳转到智能体的终端 |
 | `synapse rename <target>` | 为智能体分配名称/角色 |
+| `synapse set-summary <target> [text]` | 设置持久化智能体摘要（120字符）。`--auto` 从 git 上下文生成，`--clear` 删除 |
 | `synapse --version` | 显示版本 |
 | `synapse list` | 列出运行中的智能体（Rich TUI，自动刷新，终端跳转） |
 | `synapse logs <profile>` | 显示日志 |
@@ -1299,6 +1301,7 @@ synapse list
 | CURRENT | 当前任务预览 |
 | TRANSPORT | 通信传输指示器 |
 | WORKING_DIR | 当前工作目录 |
+| SUMMARY | 持久化智能体摘要（可选，不在默认列中） |
 | EDITING_FILE | 正在编辑的文件（仅文件安全启用时） |
 
 **在 `settings.json` 中自定义列**：

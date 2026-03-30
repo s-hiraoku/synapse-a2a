@@ -94,6 +94,7 @@ flowchart LR
 | **External Integration** | Communicate with other Google A2A agents |
 | **File Safety** | Prevent multi-agent conflicts with file locking and change tracking (visible in `synapse list`) |
 | **Agent Naming** | Custom names and roles for easy identification (`synapse send my-claude "hello"`) |
+| **Agent Summary** | Persistent 120-char agent summary (`synapse set-summary`). Manual text, `--auto` from git context, or `--clear`. Visible in Canvas, MCP `list_agents`, Agent Card `extensions.synapse`, and `synapse list --columns SUMMARY` |
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), CURRENT task preview, terminal jump |
 | **Task History** | Automatic task tracking with search, export, and statistics (enabled by default) |
 | **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
@@ -678,6 +679,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse kill <target> -f` | Force kill (immediate SIGKILL) |
 | `synapse jump <target>` | Jump to agent's terminal |
 | `synapse rename <target>` | Assign name/role to agent |
+| `synapse set-summary <target> [text]` | Set persistent agent summary (120 chars). `--auto` generates from git context, `--clear` removes |
 | `synapse --version` | Show version |
 | `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
 | `synapse list --plain` | Force one-shot plain-text output without entering the TUI |
@@ -1497,7 +1499,7 @@ The display automatically updates when agent status changes (via file watcher) w
 
 ### JSON Output
 
-`synapse list --json` outputs a JSON array of agent objects for AI and scripting use. Each object includes: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, and optionally `editing_file`.
+`synapse list --json` outputs a JSON array of agent objects for AI and scripting use. Each object includes: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `summary`, and optionally `editing_file`.
 
 If automation is attached to a TTY, use `synapse list --json`, `synapse list --plain`, or set `SYNAPSE_NONINTERACTIVE=1`. Bare `synapse list` is intended for human-operated interactive terminals.
 
@@ -1516,6 +1518,7 @@ For Copilot specifically, bracketed paste is enabled because Copilot CLI 1.0.12+
 | TRANSPORT | Communication transport indicator |
 | WORKING_DIR | Current working directory |
 | SKILL_SET | Applied skill set name (if any) |
+| SUMMARY | Persistent agent summary (opt-in, not in default columns) |
 | EDITING_FILE | File being edited (File Safety enabled only) |
 
 **Customize columns** in `settings.json`:

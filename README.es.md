@@ -91,6 +91,7 @@ flowchart LR
 | **Integración Externa** | Comunícate con otros agentes Google A2A |
 | **Seguridad de Archivos** | Previene conflictos multi-agente con bloqueo de archivos y seguimiento de cambios (visible en `synapse list`) |
 | **Nombrado de Agentes** | Nombres y roles personalizados para fácil identificación (`synapse send mi-claude "hola"`) |
+| **Resumen de Agente** | Resumen persistente de 120 caracteres (`synapse set-summary`). Texto manual, `--auto` genera desde contexto git, `--clear` elimina. Visible en Canvas, MCP `list_agents`, Agent Card `extensions.synapse`, y `synapse list --columns SUMMARY` |
 | **Monitor de Agentes** | Estado en tiempo real (READY/WAITING/PROCESSING/DONE), vista previa de tarea ACTUAL, salto a terminal |
 | **Historial de Tareas** | Seguimiento automático de tareas con búsqueda, exportación y estadísticas (habilitado por defecto) |
 | **Tablero de Tareas Compartido** | Coordinación de tareas basada en SQLite con seguimiento de dependencias (`synapse tasks`) |
@@ -561,6 +562,7 @@ synapse kill mi-claude
 | `synapse kill <destino> -f` | Cierre forzado (SIGKILL inmediato) |
 | `synapse jump <destino>` | Saltar a la terminal del agente |
 | `synapse rename <destino>` | Asignar nombre/rol al agente |
+| `synapse set-summary <destino> [texto]` | Establecer resumen persistente del agente (120 car.). `--auto` genera desde contexto git, `--clear` elimina |
 | `synapse --version` | Mostrar version |
 | `synapse list` | Listar agentes en ejecución (Rich TUI con auto-actualizacion y salto a terminal) |
 | `synapse logs <profile>` | Mostrar logs |
@@ -1311,6 +1313,7 @@ La visualización se actualiza automáticamente cuando cambia el estado de los a
 | CURRENT | Vista previa de la tarea actual |
 | TRANSPORT | Indicador de transporte de comunicación |
 | WORKING_DIR | Directorio de trabajo actual |
+| SUMMARY | Resumen persistente del agente (opt-in, no incluido en columnas por defecto) |
 | EDITING_FILE | Archivo siendo editado (solo con Seguridad de Archivos habilitada) |
 
 **Personalizar columnas** en `settings.json`:

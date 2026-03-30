@@ -54,6 +54,7 @@ def make_agent(
         "zellij_pane_id": None,
         "current_task_preview": current_task_preview,
         "task_received_at": task_received_at,
+        "summary": None,
         "transport": transport,
     }
     if editing_file is not None:
@@ -124,6 +125,7 @@ class TestListJson:
                 "transport": "UDS→",
                 "current_task_preview": "Review issue #380",
                 "task_received_at": 1710000000.0,
+                "summary": None,
             }
         ]
 
@@ -219,6 +221,7 @@ class TestListJson:
                 "transport": "-",
                 "current_task_preview": None,
                 "task_received_at": None,
+                "summary": None,
                 "editing_file": "tests/test_cmd_list_json.py",
             }
         ]

@@ -1508,19 +1508,22 @@ def create_a2a_router(
         protocol = "https" if use_https else "http"
 
         # Build extensions (synapse-specific metadata only, no x-synapse-context)
-        extensions = {
-            "synapse": {
-                "agent_id": agent_id,
-                "pty_wrapped": True,
-                "priority_interrupt": True,
-                "at_agent_syntax": True,
-                "submit_sequence": repr(submit_seq),
-                "addressable_as": [
-                    f"@{agent_id}",
-                    f"@{agent_type}",
-                ],
-            },
+        synapse_ext: dict[str, Any] = {
+            "agent_id": agent_id,
+            "pty_wrapped": True,
+            "priority_interrupt": True,
+            "at_agent_syntax": True,
+            "submit_sequence": repr(submit_seq),
+            "addressable_as": [
+                f"@{agent_id}",
+                f"@{agent_type}",
+            ],
         }
+        if registry:
+            agent_data = registry.get_agent(agent_id)
+            if agent_data and agent_data.get("summary"):
+                synapse_ext["summary"] = agent_data["summary"]
+        extensions = {"synapse": synapse_ext}
 
         return AgentCard(
             name=f"Synapse {agent_type.capitalize()}",

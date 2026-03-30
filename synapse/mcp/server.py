@@ -97,6 +97,7 @@ class SynapseMCPServer:
         "transport",
         "current_task_preview",
         "task_received_at",
+        "summary",
     )
 
     def __init__(

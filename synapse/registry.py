@@ -571,6 +571,16 @@ class AgentRegistry:
 
         return self._atomic_update(agent_id, set_name_role, "name/role")
 
+    _MAX_TASK_PREVIEW_LEN = 30
+    _MAX_SUMMARY_LEN = 120
+
+    @staticmethod
+    def _truncate(text: str, max_len: int) -> str:
+        """Truncate *text* to *max_len* chars, appending '...' if needed."""
+        if len(text) > max_len:
+            return text[: max_len - 3] + "..."
+        return text
+
     def update_current_task(self, agent_id: str, task_preview: str | None) -> bool:
         """Update current task preview for an agent.
 
@@ -582,13 +592,9 @@ class AgentRegistry:
         Returns:
             True if updated successfully, False otherwise.
         """
-        # Truncate long previews to max 30 chars total (including "...")
         truncated_preview: str | None = None
         if task_preview is not None:
-            if len(task_preview) > 30:
-                truncated_preview = task_preview[:27] + "..."
-            else:
-                truncated_preview = task_preview
+            truncated_preview = self._truncate(task_preview, self._MAX_TASK_PREVIEW_LEN)
 
         def set_task_preview(data: dict) -> None:
             if truncated_preview is None:
@@ -599,6 +605,30 @@ class AgentRegistry:
                 data["task_received_at"] = time.time()
 
         return self._atomic_update(agent_id, set_task_preview, "current_task_preview")
+
+    def update_summary(self, agent_id: str, summary: str | None) -> bool:
+        """Update the summary for an agent.
+
+        Args:
+            agent_id: The unique agent identifier.
+            summary: Summary text (truncated to 120 chars), or None to clear.
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+        truncated: str | None = None
+        if summary is not None:
+            truncated = self._truncate(summary, self._MAX_SUMMARY_LEN)
+
+        def set_summary(data: dict) -> None:
+            if truncated is None:
+                data.pop("summary", None)
+                data.pop("summary_updated_at", None)
+            else:
+                data["summary"] = truncated
+                data["summary_updated_at"] = time.time()
+
+        return self._atomic_update(agent_id, set_summary, "summary")
 
     def update_skill_set(self, agent_id: str, skill_set: str | None) -> bool:
         """Update the skill set for an agent.
