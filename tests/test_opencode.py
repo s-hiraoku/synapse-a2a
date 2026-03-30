@@ -85,17 +85,19 @@ class TestOpenCodeProfile:
         assert compiled is not None
 
     def test_profile_waiting_detection_patterns(self, profile):
-        """Profile waiting detection should match expected patterns."""
+        """Profile waiting detection should match OpenCode's button-bar UI."""
         regex = profile["waiting_detection"]["regex"]
         compiled = re.compile(regex, re.MULTILINE)
 
-        # Should match numbered choices
-        assert compiled.search("1. First option")
-        assert compiled.search("  2. Second option")
+        # OpenCode uses horizontal button bar, not numbered lists
+        # Source: internal/tui/components/dialog/permission.go
+        assert compiled.search("Permission Required")
+        assert compiled.search("Allow (a)")
+        assert compiled.search("Allow for session (s)")
+        assert compiled.search("Deny (d)")
 
-        # Should match Yes/No prompts
-        assert compiled.search("[y/N]")
-        assert compiled.search("[Y/n]")
+        # Should NOT match numbered choices (old incorrect pattern)
+        assert not compiled.search("1. First option")
 
 
 class TestOpenCodeTemplate:

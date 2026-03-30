@@ -18,8 +18,11 @@ input_ready_pattern: "›"                       # Codex shows › when ready fo
 
 # WAITING status detection (user input prompts)
 # Re-enabled with #140 fix: now uses new_data only + auto-expiry
+# Codex uses ratatui TUI with › selector for approval overlays
+# Source: codex-rs/tui/src/bottom_pane/approval_overlay.rs
+# UI: › 1. Yes, proceed (y) / Yes, and don't ask again (a) / No, and tell Codex (esc)
 waiting_detection:
-  regex: "^\\s+\\d+\\.\\s+.+$"
+  regex: "›\\s+\\d+\\.|Yes, proceed|Yes, and don't ask again|No, and tell Codex|Press enter to confirm"
   require_idle: true
   idle_timeout: 0.5
   waiting_expiry: 10                           # Auto-clear WAITING after 10s

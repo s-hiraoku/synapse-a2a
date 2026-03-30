@@ -28,6 +28,7 @@ waiting_detection:                 # Optional: detect selection UI
   regex: string                    # Pattern for selection UI
   require_idle: boolean            # Require idle state first
   idle_timeout: float              # Idle timeout before checking
+  waiting_expiry: float            # Auto-clear WAITING after N seconds (default: 10)
 
 env:                               # Additional environment variables
   KEY: "value"
@@ -176,6 +177,11 @@ idle_detection:
   pattern: "BRACKETED_PASTE_MODE"
   pattern_use: "startup_only"
   timeout: 3.0
+waiting_detection:
+  regex: "●\\s+\\d+\\.|Action Required|Allow (once|for this session|for this file)|No, suggest changes"
+  require_idle: true
+  idle_timeout: 0.5
+  waiting_expiry: 10
 ```
 
 ### Codex CLI
@@ -186,6 +192,11 @@ submit_sequence: "\r"
 idle_detection:
   strategy: "timeout"
   timeout: 3.0
+waiting_detection:
+  regex: "›\\s+\\d+\\.|Yes, proceed|Yes, and don't ask again|No, and tell Codex|Press enter to confirm"
+  require_idle: true
+  idle_timeout: 0.5
+  waiting_expiry: 10
 ```
 
 ### OpenCode
@@ -197,6 +208,11 @@ idle_detection:
   strategy: "timeout"
   pattern_use: "never"
   timeout: 1.0
+waiting_detection:
+  regex: "Permission Required|Allow \\(a\\)|Allow for session \\(s\\)|Deny \\(d\\)"
+  require_idle: true
+  idle_timeout: 0.5
+  waiting_expiry: 10
 ```
 
 ### GitHub Copilot CLI
@@ -216,6 +232,11 @@ idle_detection:
   strategy: "timeout"
   pattern_use: "never"
   timeout: 0.5
+waiting_detection:
+  regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)|approve .+ for the rest of the running session|No, and tell Copilot"
+  require_idle: true
+  idle_timeout: 0.5
+  waiting_expiry: 10
 ```
 
 ### Dummy (Testing)
@@ -248,6 +269,7 @@ waiting_detection:
   regex: "Select an option"
   require_idle: true
   idle_timeout: 0.5
+  waiting_expiry: 10
 
 env:
   MY_API_KEY: "value"

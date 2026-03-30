@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.15
+
+- **Fixed**: OpenCode/Codex/Gemini WAITING detection accuracy — patterns now match actual agent approval UIs
+- **Changed**: Copilot WAITING regex extended with agent-specific text patterns
+- **Tests**: Parametrized per-agent WAITING pattern tests loaded from YAML profiles
+
 ### v0.17.14
 
 - **Added**: Canvas post `--stdin`, `--example`, MCP tool for better AI posting DX

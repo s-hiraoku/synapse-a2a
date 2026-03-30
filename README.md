@@ -1559,13 +1559,13 @@ For Copilot specifically, bracketed paste is enabled because Copilot CLI 1.0.12+
 
 WAITING detection is enabled in all five profiles (claude, codex, gemini, opencode, copilot). The [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) false positive issue was resolved by matching only against fresh PTY output (`new_data`) and adding auto-expiry (`waiting_expiry`, default 10s) with buffer tail re-check.
 
-Detects agents waiting for user input (selection UI, Y/n prompts) using regex patterns:
+Detects agents waiting for user input (selection UI, Y/n prompts) using agent-specific regex patterns:
 
-- **Gemini**: `● 1. Option` selection UI, `Allow execution` prompts
 - **Claude**: `❯ Option` cursor, `☐/☑` checkboxes, `[Y/n]` prompts
-- **Codex**: Indented numbered lists
-- **OpenCode**: Numbered choices, selection indicators, `[y/N]` prompts
-- **Copilot**: Numbered choices, selection indicators, `[y/N]` or `(y/n)` prompts. A repeated WAITING state only confirms after the prompt text clears.
+- **Gemini**: `● 1. Option` selection UI, `Action Required` header, `Allow once/for this session/for this file`, `No, suggest changes`
+- **Codex**: `›` selector with numbered items, `Yes, proceed`, `Yes, and don't ask again`, `No, and tell Codex`, `Press enter to confirm`
+- **OpenCode**: `Permission Required` header, horizontal button bar (`Allow (a)`, `Allow for session (s)`, `Deny (d)`)
+- **Copilot**: Numbered choices, selection indicators, `[y/N]` or `(y/n)` prompts, `approve ... for the rest of the running session`, `No, and tell Copilot`. A repeated WAITING state only confirms after the prompt text clears.
 
 ### Compound Signal Status Detection
 
