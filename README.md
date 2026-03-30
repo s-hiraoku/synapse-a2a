@@ -1285,7 +1285,8 @@ curl http://localhost:8100/.well-known/agent.json
       "agent_id": "synapse-claude-8100",
       "pty_wrapped": true,
       "priority_interrupt": true,
-      "at_agent_syntax": true
+      "at_agent_syntax": true,
+      "summary": "Working on auth refactor"
     },
     "x-synapse-context": {
       "identity": "synapse-claude-8100",

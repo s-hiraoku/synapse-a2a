@@ -533,7 +533,7 @@ def cmd_set_summary(args: argparse.Namespace) -> None:
 
     result = registry.update_summary(agent_id, summary_text)
     if result:
-        print(f"Updated summary for {agent_id}: {summary_text}")
+        print(f"Updated summary for {agent_id}")
     else:
         print(f"Failed to update summary for {agent_id}")
         sys.exit(1)
@@ -4598,13 +4598,14 @@ Target resolution priority:
         default=None,
         help="Summary text (up to 120 chars)",
     )
-    p_set_summary.add_argument(
+    _summary_mode = p_set_summary.add_mutually_exclusive_group()
+    _summary_mode.add_argument(
         "--clear",
         "-c",
         action="store_true",
         help="Clear the summary",
     )
-    p_set_summary.add_argument(
+    _summary_mode.add_argument(
         "--auto",
         "-a",
         action="store_true",

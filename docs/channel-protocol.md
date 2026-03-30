@@ -109,10 +109,13 @@ Reference: [Claude Code Channels Reference](https://code.claude.com/docs/en/chan
 
 ### User Guide
 
-#### Enabling channel mode
+#### Enabling channel mode (Phase B — not yet implemented)
+
+> **Note**: The `--channel` flag is planned for Phase B and is not yet available.
+> The design below describes the intended behavior once implemented.
 
 ```bash
-# Start Claude with channel support
+# Start Claude with channel support (Phase B)
 synapse start claude --channel
 
 # Channel is opt-in, off by default
