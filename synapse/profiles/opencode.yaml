@@ -18,14 +18,12 @@ idle_detection:
 # input_ready_pattern: not set (use timeout-based detection only)
 
 # WAITING status detection (user input prompts)
-# OpenCode uses Bubble Tea TUI with selection UI
-# Detects numbered lists, checkboxes, and confirmation prompts
+# OpenCode uses Bubble Tea TUI with horizontal button bar for permission dialogs
+# Source: internal/tui/components/dialog/permission.go
+# UI: [Allow (a)]  [Allow for session (s)]  [Deny (d)]
+# Dialog title: "Permission Required"
 waiting_detection:
-  # Regex pattern to detect:
-  # - Numbered choices (1., 2., 3.)
-  # - Selection indicators (>, *)
-  # - Yes/No prompts [y/N]
-  regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]"
+  regex: "Permission Required|Allow \\(a\\)|Allow for session \\(s\\)|Deny \\(d\\)"
   require_idle: true
   idle_timeout: 0.5          # 500ms no output after pattern
   waiting_expiry: 10         # Auto-clear WAITING after 10s

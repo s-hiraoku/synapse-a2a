@@ -37,14 +37,11 @@ idle_detection:
 input_ready_pattern: "❯"                       # Copilot shows ❯ when ready for input
 
 # WAITING status detection (user input prompts)
-# Copilot CLI uses selection UI for tool approvals and confirmations
-# Detects numbered choices, Yes/No prompts, and selection indicators
+# Copilot CLI uses Ink TUI with numbered selection for tool approvals
+# UI: 1. Yes / 2. Yes, and approve TOOL for the rest of the running session
+#      3. No, and tell Copilot what to do differently (Esc)
 waiting_detection:
-  # Regex pattern to detect:
-  # - Numbered choices (1., 2., 3.)
-  # - Selection indicators (>, *)
-  # - Yes/No prompts [y/N] or (y/n)
-  regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)"
+  regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)|approve .+ for the rest of the running session|No, and tell Copilot"
   require_idle: true
   idle_timeout: 0.5            # 500ms no output after pattern
   waiting_expiry: 10           # Auto-clear WAITING after 10s

@@ -2,10 +2,16 @@
 
 import threading
 import time
+from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
+import yaml
 
 from synapse.config import TASK_PROTECTION_TIMEOUT, WAITING_EXPIRY_SECONDS
 from synapse.controller import TerminalController
+
+PROFILES_DIR = Path(__file__).resolve().parent.parent / "synapse" / "profiles"
 
 
 def _make_controller(**kwargs):
@@ -342,6 +348,101 @@ class TestWaitingFreshOutput:
         assert "waiting_detection" in profile
         assert "regex" in profile["waiting_detection"]
         assert "waiting_expiry" in profile["waiting_detection"]
+
+
+# ============================================================
+# Per-Agent WAITING Pattern Accuracy Tests
+# ============================================================
+
+# Load regex patterns directly from YAML profiles to prevent drift.
+# Tests use require_idle=False to isolate regex matching from timing.
+
+
+def _load_profile_regex(agent: str) -> str:
+    with open(PROFILES_DIR / f"{agent}.yaml") as f:
+        return yaml.safe_load(f)["waiting_detection"]["regex"]
+
+
+def _check_pattern(regex: str, text: str) -> bool:
+    ctrl = _make_controller(
+        waiting_detection={"regex": regex, "require_idle": False, "waiting_expiry": 60}
+    )
+    return ctrl._check_waiting_state(text.encode("utf-8"))
+
+
+# fmt: off
+WAITING_POSITIVE_CASES = [
+    # Gemini CLI — Ink TUI with ● selector
+    ("gemini", "● 1. Allow once"),
+    ("gemini", "Action Required"),
+    ("gemini", "Allow once"),
+    ("gemini", "Allow for this session"),
+    ("gemini", "Allow for this file in all future sessions"),
+    ("gemini", "No, suggest changes (esc)"),
+    ("gemini", "\x1b[32m● 1. Allow once\x1b[0m"),
+    # Codex CLI — ratatui TUI with › selector
+    ("codex", "› 1. Yes, proceed (y)"),
+    ("codex", "Yes, proceed"),
+    ("codex", "Yes, and don't ask again"),
+    ("codex", "No, and tell Codex what to do differently"),
+    ("codex", "Press enter to confirm or esc to cancel"),
+    ("codex", "\x1b[0m› 1. Yes, proceed\x1b[0m"),
+    # Copilot CLI — Ink TUI with numbered selection
+    ("copilot", "  1. Yes"),
+    ("copilot", "  2. Yes, and approve touch for the rest of the running session"),
+    ("copilot", "  3. No, and tell Copilot what to do differently (Esc)"),
+    ("copilot", "[y/N]"),
+    # OpenCode — Bubble Tea TUI with horizontal button bar
+    ("opencode", "Permission Required"),
+    ("opencode", "Allow (a)"),
+    ("opencode", "Allow for session (s)"),
+    ("opencode", "Deny (d)"),
+    ("opencode", "╭─ Permission Required ─╮"),
+    ("opencode", "\x1b[1mPermission Required\x1b[0m"),
+]
+
+WAITING_NEGATIVE_CASES = [
+    # Gemini — should not match normal output or plain numbered lists
+    ("gemini", "Generating code..."),
+    ("gemini", "1. First item in a list"),
+    # Codex — should not match plain numbered output
+    ("codex", "  1. Some numbered output"),
+    ("codex", "Working on your request..."),
+    # Copilot — should not match normal processing output
+    ("copilot", "Working on task..."),
+    # OpenCode — old patterns must NOT match; also guard against partial matches
+    ("opencode", "  1. First item"),
+    ("opencode", "[y/N]"),
+    ("opencode", "Permission denied: /etc/shadow"),
+    ("opencode", "Processing your request..."),
+]
+# fmt: on
+
+
+class TestPerAgentWaitingPatterns:
+    """Verify that each profile's deployed regex matches actual approval prompts
+    and does not false-positive on normal output.
+
+    Regex is loaded from YAML profiles at test time to prevent test/profile drift.
+    """
+
+    @pytest.mark.parametrize(
+        "agent,text",
+        WAITING_POSITIVE_CASES,
+        ids=[f"{a}-{t[:40]}" for a, t in WAITING_POSITIVE_CASES],
+    )
+    def test_pattern_matches(self, agent, text):
+        regex = _load_profile_regex(agent)
+        assert _check_pattern(regex, text) is True
+
+    @pytest.mark.parametrize(
+        "agent,text",
+        WAITING_NEGATIVE_CASES,
+        ids=[f"{a}-{t[:40]}" for a, t in WAITING_NEGATIVE_CASES],
+    )
+    def test_pattern_no_false_positive(self, agent, text):
+        regex = _load_profile_regex(agent)
+        assert _check_pattern(regex, text) is False
 
 
 class TestWaitingExpiryConfig:

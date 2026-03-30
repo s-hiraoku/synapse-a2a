@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.15] - 2026-03-31
+
+### Fixed
+
+- OpenCode WAITING detection completely broken — was matching numbered lists but OpenCode uses horizontal button bar (`Permission Required`, `Allow (a)`, `Deny (d)`)
+- Codex WAITING detection too generic — replaced broad `^\s+\d+\.` with Codex-specific `›` selector and approval text patterns
+- Gemini WAITING regex matched unused `○` character and missed `Action Required` header
+
+### Changed
+
+- Copilot WAITING regex extended with agent-specific text patterns (`No, and tell Copilot`, `approve ... for the rest of the running session`)
+- Gemini regex capturing group `()` → non-capturing `(?:)` for correctness
+
+### Tests
+
+- Add parametrized per-agent WAITING pattern tests (positive + negative + ANSI) loaded from YAML profiles
+- Update OpenCode profile test to match new button-bar UI patterns
+
+### Documentation
+
+- Update README, site-docs profiles reference with corrected WAITING detection patterns
+- Add `waiting_detection` blocks to site-docs profile examples (Gemini, Codex, OpenCode, Copilot)
+
 ## [0.17.14] - 2026-03-29
 
 ### Added
@@ -2899,7 +2922,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.13...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.15...HEAD
+[0.17.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.14...v0.17.15
 [0.17.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.13...v0.17.14
 [0.17.13]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.12...v0.17.13
 [0.17.12]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.11...v0.17.12

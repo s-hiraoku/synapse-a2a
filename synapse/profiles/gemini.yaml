@@ -20,8 +20,12 @@ input_ready_pattern: ">"                       # Gemini shows > in input box whe
 
 # WAITING status detection (user input prompts)
 # Re-enabled with #140 fix: now uses new_data only + auto-expiry
+# Gemini uses Ink TUI with ● selector for permission dialogs
+# Source: packages/cli/src/ui/components/messages/ToolConfirmationMessage.tsx
+# UI: ● 1. Allow once / Allow for this session / No, suggest changes (esc)
+# Header: "Action Required"
 waiting_detection:
-  regex: "[●○]\\s+\\d+\\.|Allow (execution|once|for this session)"
+  regex: "●\\s+\\d+\\.|Action Required|Allow (?:once|for this session|for this file)|No, suggest changes"
   require_idle: true
   idle_timeout: 0.5
   waiting_expiry: 10                           # Auto-clear WAITING after 10s
