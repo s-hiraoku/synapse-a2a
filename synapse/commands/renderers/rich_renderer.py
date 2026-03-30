@@ -91,6 +91,7 @@ class RichRenderer:
         "CURRENT": (None, 20, 35, "current_task_preview"),
         "TRANSPORT": (None, 10, None, "transport"),
         "WORKING_DIR": (None, 20, 30, "working_dir"),
+        "SUMMARY": (None, 20, 40, "summary"),
         "EDITING_FILE": (None, 15, 25, "editing_file"),
     }
 

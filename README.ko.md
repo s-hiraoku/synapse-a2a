@@ -91,6 +91,7 @@ flowchart LR
 | **외부 연동** | 다른 Google A2A 에이전트와 통신 |
 | **File Safety** | 파일 잠금 및 변경 추적으로 멀티 에이전트 충돌 방지(`synapse list`에서 확인 가능) |
 | **에이전트 명명** | 커스텀 이름과 역할로 쉬운 식별(`synapse send my-claude "hello"`) |
+| **에이전트 요약** | 영구 120자 에이전트 요약(`synapse set-summary`). 수동 텍스트, `--auto`로 git 컨텍스트에서 자동 생성, `--clear`로 삭제. Canvas, MCP `list_agents`, Agent Card `extensions.synapse`, `synapse list --columns SUMMARY`에서 표시 |
 | **에이전트 모니터** | 실시간 상태(READY/WAITING/PROCESSING/DONE), CURRENT 작업 미리보기, 터미널 점프 |
 | **작업 이력** | 검색, 내보내기, 통계 기능을 갖춘 자동 작업 추적(기본 활성화) |
 | **공유 작업 보드** | SQLite 기반의 작업 조율 및 의존성 추적 (`synapse tasks`) |
@@ -519,6 +520,7 @@ synapse kill my-claude
 | `synapse kill <target>` | 에이전트 즉시 종료 |
 | `synapse jump <target>` | 에이전트의 터미널로 점프 |
 | `synapse rename <target>` | 에이전트에 이름/역할 설정 |
+| `synapse set-summary <target> [text]` | 영구 에이전트 요약 설정(120자). `--auto`로 git 컨텍스트에서 생성, `--clear`로 삭제 |
 | `synapse --version` | 버전 표시 |
 | `synapse list` | 실행 중인 에이전트 목록 (자동 갱신 Rich TUI, 터미널 점프 지원) |
 | `synapse logs <profile>` | 로그 표시 |
@@ -1229,6 +1231,7 @@ synapse list
 | CURRENT | 현재 작업 미리보기 |
 | TRANSPORT | 통신 전송 표시기 |
 | WORKING_DIR | 현재 작업 디렉토리 |
+| SUMMARY | 영구 에이전트 요약 (옵트인, 기본 컬럼에 포함되지 않음) |
 | EDITING_FILE | 편집 중인 파일 (File Safety 활성 시만) |
 
 **컬럼 커스터마이즈** (`settings.json`):

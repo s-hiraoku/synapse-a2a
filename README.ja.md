@@ -93,6 +93,7 @@ flowchart LR
 | **外部連携** | 他の Google A2A エージェントと通信 |
 | **File Safety** | ファイルロックと変更追跡でマルチエージェント競合を防止（`synapse list` で表示可能） |
 | **エージェント命名** | カスタム名とロールで識別しやすく（`synapse send my-claude "hello"`） |
+| **エージェントサマリー** | 永続的な120文字のエージェント要約（`synapse set-summary`）。手動テキスト、`--auto` で git コンテキストから自動生成、`--clear` で削除。Canvas、MCP `list_agents`、Agent Card `extensions.synapse`、`synapse list --columns SUMMARY` で表示 |
 | **エージェントモニター** | リアルタイムステータス（READY/WAITING/PROCESSING/DONE）、CURRENT タスクプレビュー、ターミナルジャンプ |
 | **タスク履歴** | 検索・エクスポート・統計機能付きの自動タスク追跡（デフォルトで有効） |
 | **共有タスクボード** | 依存関係追跡機能付きの SQLite ベースのタスク調整 (`synapse tasks`) |
@@ -613,6 +614,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse kill <target> -f` | 強制終了 (即座に SIGKILL) |
 | `synapse jump <target>` | エージェントのターミナルにジャンプ |
 | `synapse rename <target>` | エージェントに名前・ロールを設定 |
+| `synapse set-summary <target> [text]` | 永続的なエージェント要約を設定（120文字）。`--auto` で git コンテキストから生成、`--clear` で削除 |
 | `synapse --version` | バージョン表示 |
 | `synapse list` | 実行中のエージェント一覧（自動更新 Rich TUI、ターミナルジャンプ対応） |
 | `synapse logs <profile>` | ログ表示 |
@@ -1372,6 +1374,7 @@ synapse list
 | TRANSPORT | 通信状態インジケータ |
 | WORKING_DIR | 作業ディレクトリ |
 | SKILL_SET | 適用されているスキルセット名（任意） |
+| SUMMARY | 永続的なエージェント要約（オプトイン、デフォルト列に含まれない） |
 | EDITING_FILE | 編集中のファイル（File Safety有効時のみ） |
 
 **カラムのカスタマイズ**（`settings.json`）:

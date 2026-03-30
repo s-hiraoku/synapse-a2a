@@ -577,6 +577,12 @@
     tdRole.textContent = agent.role || "-";
     tr.appendChild(tdRole);
 
+    var tdSummary = document.createElement("td");
+    tdSummary.className = "agent-summary-cell";
+    tdSummary.textContent = agent.summary || "-";
+    if (agent.summary) tdSummary.title = agent.summary;
+    tr.appendChild(tdSummary);
+
     var tdSkill = document.createElement("td");
     tdSkill.className = "agent-role-cell";
     tdSkill.textContent = agent.skill_set || "-";
@@ -628,7 +634,7 @@
 
     var thead = document.createElement("thead");
     var hrow = document.createElement("tr");
-    var cols = ["", "TYPE", "NAME", "ROLE", "SKILL SET", "STATUS", "PORT", "DIR", "CURRENT"];
+    var cols = ["", "TYPE", "NAME", "ROLE", "SUMMARY", "SKILL SET", "STATUS", "PORT", "DIR", "CURRENT"];
     for (var ci = 0; ci < cols.length; ci++) {
       var th = document.createElement("th");
       th.textContent = cols[ci];

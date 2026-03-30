@@ -63,6 +63,7 @@ from synapse.webhooks import (
 
 if TYPE_CHECKING:
     from synapse.a2a_client import ExternalAgent
+    from synapse.transport import MessageTransport
 
 # Task state mapping from Google A2A spec
 TaskState = Literal[
@@ -1113,6 +1114,7 @@ def create_a2a_router(
     submit_seq: str = "\n",
     agent_id: str | None = None,
     registry: AgentRegistry | None = None,
+    transport: "MessageTransport | None" = None,
 ) -> APIRouter:
     """
     Create Google A2A compatible router.
@@ -1124,6 +1126,7 @@ def create_a2a_router(
         submit_seq: Submit sequence for the CLI
         agent_id: Unique agent ID (e.g., synapse-claude-8100)
         registry: AgentRegistry instance for discovering other agents
+        transport: Message transport for delivery (default: PTYTransport)
 
     Returns:
         FastAPI APIRouter with A2A endpoints
@@ -1131,6 +1134,12 @@ def create_a2a_router(
     # Generate agent_id if not provided
     if agent_id is None:
         agent_id = f"synapse-{agent_type}-{port}"
+
+    # Build default PTY transport if none provided
+    if transport is None and controller is not None:
+        from synapse.transport import PTYTransport
+
+        transport = PTYTransport(controller, get_long_message_store(), submit_seq)
     router = APIRouter(tags=["Google A2A Compatible"])
 
     def _finalize_working_task(
@@ -1450,25 +1459,18 @@ def create_a2a_router(
                             "Failed to persist reply target for %s: %s", agent_id, e
                         )
 
-            # Prepare message for PTY (may store to file if too long)
-            pty_text, used_file = _prepare_pty_message(
-                get_long_message_store(),
-                task.id,
-                pty_payload_text,
-                response_mode,
-                sender_id=sender_info.sender_id,
-                sender_name=sender_info.sender_name,
+            # Deliver message via transport (PTY by default, Channel in future)
+            written = (
+                transport.deliver(
+                    task.id,
+                    pty_payload_text,
+                    response_mode=response_mode,
+                    sender_id=sender_info.sender_id,
+                    sender_name=sender_info.sender_name,
+                )
+                if transport
+                else False
             )
-
-            # Send to PTY with A2A prefix
-            # For file references, sender prefix is already in pty_text
-            prefixed_content = format_a2a_message(
-                pty_text,
-                response_mode=response_mode if not used_file else "silent",
-                sender_id=sender_info.sender_id if not used_file else None,
-                sender_name=sender_info.sender_name if not used_file else None,
-            )
-            written = controller.write(prefixed_content, submit_seq=submit_seq)
             if not written:
                 controller.clear_task_active()
                 task_store.update_status(task.id, "failed")
@@ -1508,19 +1510,22 @@ def create_a2a_router(
         protocol = "https" if use_https else "http"
 
         # Build extensions (synapse-specific metadata only, no x-synapse-context)
-        extensions = {
-            "synapse": {
-                "agent_id": agent_id,
-                "pty_wrapped": True,
-                "priority_interrupt": True,
-                "at_agent_syntax": True,
-                "submit_sequence": repr(submit_seq),
-                "addressable_as": [
-                    f"@{agent_id}",
-                    f"@{agent_type}",
-                ],
-            },
+        synapse_ext: dict[str, Any] = {
+            "agent_id": agent_id,
+            "pty_wrapped": True,
+            "priority_interrupt": True,
+            "at_agent_syntax": True,
+            "submit_sequence": repr(submit_seq),
+            "addressable_as": [
+                f"@{agent_id}",
+                f"@{agent_type}",
+            ],
         }
+        if registry:
+            agent_data = registry.get_agent(agent_id)
+            if agent_data and agent_data.get("summary"):
+                synapse_ext["summary"] = agent_data["summary"]
+        extensions = {"synapse": synapse_ext}
 
         return AgentCard(
             name=f"Synapse {agent_type.capitalize()}",

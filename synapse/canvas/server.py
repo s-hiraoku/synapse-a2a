@@ -654,6 +654,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
                         "endpoint": data.get("endpoint", ""),
                         "current_task_preview": data.get("current_task_preview", ""),
                         "task_received_at": data.get("task_received_at"),
+                        "summary": data.get("summary", ""),
                     }
                 )
 

@@ -106,6 +106,7 @@ async def admin_agents() -> dict[str, Any]:
                     "skill_set": data.get("skill_set", ""),
                     "working_dir": data.get("working_dir", ""),
                     "tty_device": data.get("tty_device", ""),
+                    "summary": data.get("summary", ""),
                 }
             )
     return {"agents": agents}

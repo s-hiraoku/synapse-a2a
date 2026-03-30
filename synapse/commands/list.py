@@ -147,6 +147,7 @@ class ListCommand:
                 "zellij_pane_id": info.get("zellij_pane_id"),
                 "current_task_preview": info.get("current_task_preview"),
                 "task_received_at": info.get("task_received_at"),
+                "summary": info.get("summary"),
                 "transport": registry.get_transport_display(agent_id) or "-",
             }
 
@@ -627,6 +628,7 @@ class ListCommand:
         "transport",
         "current_task_preview",
         "task_received_at",
+        "summary",
     )
 
     def run_json(self, args: argparse.Namespace) -> None:

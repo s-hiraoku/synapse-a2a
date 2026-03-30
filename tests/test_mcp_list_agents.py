@@ -50,6 +50,7 @@ def make_agent(
         "endpoint": endpoint or f"http://localhost:{port}",
         "current_task_preview": current_task_preview,
         "task_received_at": task_received_at,
+        "summary": None,
     }
 
 
@@ -125,6 +126,7 @@ def test_list_agents_returns_agents() -> None:
                 "transport": "UDS→",
                 "current_task_preview": "Review issue #380",
                 "task_received_at": 1710000000.0,
+                "summary": None,
             },
             {
                 "agent_id": "synapse-gemini-8110",
@@ -140,6 +142,7 @@ def test_list_agents_returns_agents() -> None:
                 "transport": "TCP→",
                 "current_task_preview": "Write MCP tests",
                 "task_received_at": 1710000100.0,
+                "summary": None,
             },
         ]
     }
@@ -179,6 +182,7 @@ def test_list_agents_filter_by_status() -> None:
                 "transport": "-",
                 "current_task_preview": None,
                 "task_received_at": None,
+                "summary": None,
             }
         ]
     }
@@ -235,6 +239,7 @@ def test_list_agents_via_handle_request() -> None:
                 "transport": "UDS→",
                 "current_task_preview": None,
                 "task_received_at": None,
+                "summary": None,
             }
         ]
     }
