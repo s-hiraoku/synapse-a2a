@@ -26,6 +26,9 @@ if TYPE_CHECKING:
     from synapse.observation import ObservationCollector
 
 from synapse.config import (
+    AUTO_APPROVE_COOLDOWN,
+    AUTO_APPROVE_MAX_CONSECUTIVE,
+    AUTO_APPROVE_STABILIZE_DELAY,
     IDENTITY_WAIT_TIMEOUT,
     IDLE_CHECK_WINDOW,
     OUTPUT_BUFFER_MAX,
@@ -125,6 +128,7 @@ class TerminalController:
         submit_confirm_retries: int | None = None,
         long_submit_confirm_timeout: float | None = None,
         long_submit_confirm_retries: int | None = None,
+        auto_approve: dict | None = None,
     ):
         self.command = command
         self.args = args or []
@@ -389,6 +393,81 @@ class TerminalController:
                     f"got {long_submit_confirm_retries}"
                 )
             self._long_submit_confirm_retries = long_submit_confirm_retries
+
+        # Auto-approve: automatically respond to WAITING (permission prompts)
+        self._auto_approve_config = auto_approve or {}
+        self._auto_approve_enabled = bool(
+            auto_approve and auto_approve.get("runtime_response")
+        )
+        if self._auto_approve_enabled:
+            raw_response = auto_approve.get("runtime_response", "")  # type: ignore[union-attr]
+            # Decode YAML escape sequences (e.g., "\r" -> actual CR)
+            self._auto_approve_response: str = (
+                raw_response.encode().decode("unicode_escape") if raw_response else ""
+            )
+            self._auto_approve_max: int = int(
+                auto_approve.get("max_consecutive", AUTO_APPROVE_MAX_CONSECUTIVE)  # type: ignore[union-attr]
+            )
+            self._auto_approve_cooldown: float = float(
+                auto_approve.get("cooldown", AUTO_APPROVE_COOLDOWN)  # type: ignore[union-attr]
+            )
+        else:
+            self._auto_approve_response = ""
+            self._auto_approve_max = AUTO_APPROVE_MAX_CONSECUTIVE
+            self._auto_approve_cooldown = AUTO_APPROVE_COOLDOWN
+        self._auto_approve_count: int = 0
+        self._auto_approve_last_time: float | None = None
+        self._auto_approve_stopped: bool = False
+        self._auto_approve_lock = threading.Lock()
+
+        if self._auto_approve_enabled:
+            self.on_status_change(self._handle_auto_approve)
+
+    def _handle_auto_approve(self, old_status: str, new_status: str) -> None:
+        """Auto-approve callback: send approval response on WAITING transitions.
+
+        Runs on a daemon thread (dispatched by _dispatch_status_callbacks).
+        All mutable state is guarded by _auto_approve_lock.
+        """
+        with self._auto_approve_lock:
+            if new_status != "WAITING":
+                return
+
+            if self._auto_approve_stopped:
+                return
+
+            now = time.time()
+
+            if (
+                self._auto_approve_last_time is not None
+                and (now - self._auto_approve_last_time) < self._auto_approve_cooldown
+            ):
+                logger.debug(
+                    "[%s] Auto-approve cooldown active, skipping",
+                    self.agent_id,
+                )
+                return
+
+            if self._auto_approve_count >= self._auto_approve_max:
+                logger.warning(
+                    "[%s] Auto-approve max consecutive reached (%d), stopping",
+                    self.agent_id,
+                    self._auto_approve_max,
+                )
+                self._auto_approve_stopped = True
+                return
+
+            self._auto_approve_count += 1
+            self._auto_approve_last_time = time.time()
+
+        # Sleep and write outside the lock to avoid blocking other callbacks
+        time.sleep(AUTO_APPROVE_STABILIZE_DELAY)
+        logger.info(
+            "[%s] Auto-approve #%d: sending approval response",
+            self.agent_id,
+            self._auto_approve_count,
+        )
+        self.write(self._auto_approve_response)
 
     def on_status_change(self, callback: Callable[[str, str], None]) -> None:
         """Register a callback invoked on status transitions.

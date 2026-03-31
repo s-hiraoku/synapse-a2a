@@ -31,3 +31,10 @@ waiting_detection:
   require_idle: true
   idle_timeout: 0.3
   waiting_expiry: 10                           # Auto-clear WAITING after 10s
+
+# Auto-approve configuration (used by synapse spawn / team start)
+# cli_flag: Injected as tool_arg to skip permission prompts at launch
+# runtime_response: Sent to PTY when WAITING status detected during execution
+auto_approve:
+  cli_flag: "--dangerously-skip-permissions"
+  runtime_response: "y\r"

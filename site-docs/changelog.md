@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.17.16
+
+- **Added**: Auto-approve for spawned agents — CLI permission bypass flags injected by default (#469)
+- **Added**: Runtime WAITING auto-response with safety controls (max 20, 2s cooldown)
+- **Added**: `--no-auto-approve` opt-out flag for `spawn` and `team start`
+- **Changed**: Spawn/team-start unified via `prepare_spawn()` + `execute_spawn()`
+- **Docs**: New `agent-permission-modes.md` guide for all 5 CLI permission systems
+
 ### v0.17.15
 
 - **Fixed**: OpenCode/Codex/Gemini WAITING detection accuracy — patterns now match actual agent approval UIs

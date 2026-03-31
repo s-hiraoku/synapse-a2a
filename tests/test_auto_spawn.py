@@ -6,7 +6,7 @@ Test-first development: tests for pane creation and team start command.
 from __future__ import annotations
 
 import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -331,6 +331,8 @@ class TestTeamStartExecution:
             agents=["claude", "claude"],
             layout="split",
             all_new=True,
+            no_auto_approve=False,
+            worktree=None,
         )
 
         captured_agents: list[list[str]] = []
@@ -340,12 +342,16 @@ class TestTeamStartExecution:
             return ["echo noop"]
 
         with (
+            patch("synapse.spawn.load_profile", return_value={}),
+            patch("synapse.spawn.is_port_available", return_value=True),
+            patch("synapse.spawn.PortManager") as mock_pm_cls,
             patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"),
-            patch(
-                "synapse.terminal_jump.create_panes", side_effect=capture_create_panes
-            ),
+            patch("synapse.spawn.create_panes", side_effect=capture_create_panes),
             patch("subprocess.run"),
         ):
+            mock_pm = MagicMock()
+            mock_pm.get_available_port.side_effect = [8100, 8101]
+            mock_pm_cls.return_value = mock_pm
             cmd_team_start(args)
 
         # Should have captured one call with agent specs containing ports
@@ -450,6 +456,8 @@ class TestTeamStartExecution:
             agents=["silent-snake"],
             layout="split",
             all_new=True,
+            no_auto_approve=False,
+            worktree=None,
         )
 
         captured_agents: list[list[str]] = []
@@ -461,10 +469,11 @@ class TestTeamStartExecution:
         with (
             patch("synapse.cli.AgentRegistry") as mock_registry_cls,
             patch("synapse.cli.AgentProfileStore") as mock_store_cls,
+            patch("synapse.spawn.load_profile", return_value={}),
+            patch("synapse.spawn.is_port_available", return_value=True),
+            patch("synapse.spawn.PortManager") as mock_pm_cls,
             patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"),
-            patch(
-                "synapse.terminal_jump.create_panes", side_effect=capture_create_panes
-            ),
+            patch("synapse.spawn.create_panes", side_effect=capture_create_panes),
             patch("subprocess.run"),
         ):
             mock_registry_cls.return_value.is_name_unique.return_value = True
@@ -476,6 +485,9 @@ class TestTeamStartExecution:
                 role="reviewer",
                 skill_set="architect",
             )
+            mock_pm = MagicMock()
+            mock_pm.get_available_port.return_value = 8120
+            mock_pm_cls.return_value = mock_pm
             cmd_team_start(args)
 
         assert len(captured_agents) == 1

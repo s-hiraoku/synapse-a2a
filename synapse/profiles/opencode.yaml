@@ -27,3 +27,10 @@ waiting_detection:
   require_idle: true
   idle_timeout: 0.5          # 500ms no output after pattern
   waiting_expiry: 10         # Auto-clear WAITING after 10s
+
+# Auto-approve configuration
+# OpenCode has no CLI flag; uses env var OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS
+auto_approve:
+  cli_flag: null
+  env_flag: "OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS=true"
+  runtime_response: "a\r"

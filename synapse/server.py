@@ -143,6 +143,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     long_submit_confirm_timeout = profile.get("long_submit_confirm_timeout")
     long_submit_confirm_retries = profile.get("long_submit_confirm_retries")
 
+    # Auto-approve configuration: runtime WAITING detection auto-response
+    auto_approve_config = profile.get("auto_approve", {})
+    if os.environ.get("SYNAPSE_AUTO_APPROVE") == "false":
+        auto_approve_config = {}
+
     controller = TerminalController(
         command=profile["command"],
         args=all_args,
@@ -167,6 +172,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         submit_confirm_retries=submit_confirm_retries,
         long_submit_confirm_timeout=long_submit_confirm_timeout,
         long_submit_confirm_retries=long_submit_confirm_retries,
+        auto_approve=auto_approve_config if auto_approve_config else None,
     )
     controller.start()
 
