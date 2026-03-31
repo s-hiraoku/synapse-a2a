@@ -15,7 +15,7 @@ Spawning is sub-agent delegation. The parent spawns child agents to offload subt
 | Task is small or within your expertise | **Do it yourself** | No overhead, fastest path |
 | Another agent is already running and READY | **`synapse send` to existing agent** | Reusing avoids startup cost, instruction injection, and readiness wait |
 | Task is large and would consume your context | **`synapse spawn` a new agent** | Offloads work so your context stays clean |
-| Task has independent parallel subtasks | **`synapse spawn` N agents** | Each agent focuses on one subtask; total time is max(subtask times) instead of sum |
+| Task has independent parallel subtasks | **`synapse team start` N agents** | Proper tile layout; each agent focuses on one subtask |
 
 **Rule of thumb:** Spawn when delegating would be faster, more precise, or prevent your context from being consumed by a large subtask.
 
@@ -94,58 +94,46 @@ synapse kill <spawned-agent-name> -f
 synapse list --json  # Verify the agent is gone
 ```
 
-## Automation Args (per CLI)
+## Auto-Approve (Automatic)
 
-Each CLI has its own automation args. These are passed as tool args after `--`
-because they are forwarded to the underlying CLI, not consumed by Synapse
-itself.
+Since v0.17.16, `synapse spawn` and `synapse team start` **automatically inject**
+the appropriate CLI permission bypass flag for each agent profile. You no longer
+need to pass `-- <flags>` manually.
 
-**Recommended default:** When using `synapse spawn` or `synapse team start`,
-include the appropriate tool-specific automation args for non-interactive or
-unattended runs. OpenCode is the exception here: `--agent build` selects the
-build agent profile, while approval behavior still depends on OpenCode
-permission config.
+| CLI | Auto-injected Flag |
+|-----|-------------------|
+| **Claude Code** | `--dangerously-skip-permissions` |
+| **Gemini CLI** | `--yolo` |
+| **Codex CLI** | `--full-auto` |
+| **Copilot CLI** | `--yolo` |
+| **OpenCode** | env `OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS=true` |
 
-| CLI | Args | Notes |
-|-----|------|-------|
-| **Claude Code** | `--dangerously-skip-permissions` | Skips all permission prompts |
-| **Gemini CLI** | `--approval-mode=yolo` | Yolo mode -- auto-approve all actions |
-| **Codex CLI** | `--full-auto` | Sandboxed auto-approve (`-a on-request --sandbox workspace-write`) |
-| **OpenCode** | `--agent build` | Selects the build agent profile; approval behavior still depends on OpenCode permission config |
-| **Copilot CLI** | `--allow-all-tools` | Allow all tools without prompts |
+To disable auto-approve: `synapse spawn claude --no-auto-approve`
 
-```bash
-# Spawn with automation args
-synapse spawn claude -- --dangerously-skip-permissions
-synapse spawn gemini -- --approval-mode=yolo
-synapse spawn codex -- --full-auto
-synapse spawn opencode -- --agent build                  # Select OpenCode's build agent profile
-synapse spawn copilot -- --allow-all-tools
+Runtime safety: if an agent hits a permission prompt despite the CLI flag,
+the controller detects WAITING status and auto-sends the approval response.
 
-# Team start with automation args (tool args apply to ALL agents, so keep teams homogeneous)
-synapse team start claude claude -- --dangerously-skip-permissions
-synapse team start gemini gemini -- --approval-mode=yolo
-# For Codex full unrestricted mode: --dangerously-bypass-approvals-and-sandbox
-```
+For full details, see `docs/agent-permission-modes.md`.
 
 ## CLI and API
 
 ### CLI
 
 ```bash
+# Single agent (auto-approve flags injected automatically)
 synapse spawn claude                          # Spawn in new pane
 synapse spawn gemini --port 8115              # Explicit port
 synapse spawn claude --name Reviewer --role "code review" --skill-set dev-set
-synapse spawn claude --terminal tmux          # Specific terminal
-synapse spawn sharp-checker                   # Spawn by saved Agent ID
-synapse spawn Claud                           # Spawn by saved agent display name
 synapse spawn claude --worktree               # Spawn in isolated worktree
 synapse spawn claude -w my-feature            # Named worktree
-synapse spawn claude -- --dangerously-skip-permissions   # Tool args after '--'
-synapse spawn gemini -- --approval-mode=yolo            # Gemini yolo mode
-synapse spawn codex -- --full-auto                       # Codex sandboxed auto-approve
-synapse spawn opencode -- --agent build                  # OpenCode build agent profile (permissions are configured separately)
-synapse spawn copilot -- --allow-all-tools               # Copilot allow all
+synapse spawn claude --no-auto-approve        # Disable auto-approve
+synapse spawn sharp-checker                   # Spawn by saved Agent ID
+
+# Multiple agents — use team start for proper tile layout
+synapse team start claude gemini codex        # Mixed team (each gets its own auto-approve flag)
+synapse team start claude:Reviewer gemini:Searcher  # With names
+synapse team start claude gemini --worktree   # Each in isolated worktree
+synapse team start claude gemini --no-auto-approve  # Disable auto-approve for all
 ```
 
 ### Spawn via API
