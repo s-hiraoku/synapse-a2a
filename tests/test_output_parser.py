@@ -654,3 +654,100 @@ class TestCleanCopilotResponse:
             "[38;5;178m█93  ⎇ fix/cpit-long-submt-timing-0159  (+330,-6)"
         )
         assert clean_copilot_response(raw) == "SYNAPSE_WAIT_TEST_SHORT_7"
+
+
+class TestOpenCodeTuiArtifacts:
+    """Tests for OpenCode (Bubble Tea) TUI artifact removal.
+
+    OpenCode renders progress indicators using block/geometric Unicode
+    characters (U+25A0-U+25FF, U+2B1D, etc.).  These lines should be
+    stripped while preserving real content.
+    See: https://github.com/s-hiraoku/synapse-a2a/issues/480
+    """
+
+    def test_removes_block_progress_bar(self):
+        """OpenCode block-element progress bar lines should be stripped."""
+        raw = "■⬝⬝⬝■■■■■⬝⬝■■■■■■⬝■■■■■■⬝■■■■■■⬝⬝■■■■■⬝⬝⬝"
+        assert clean_copilot_response(raw) == ""
+
+    def test_removes_empty_block_line(self):
+        """Lines composed entirely of ⬝ (empty block) should be stripped."""
+        raw = "⬝⬝⬝⬝⬝⬝⬝⬝⬝⬝⬝"
+        assert clean_copilot_response(raw) == ""
+
+    def test_removes_opencode_progress_with_content(self):
+        """Real content around OpenCode progress bars should survive."""
+        raw = (
+            "m■⬝⬝⬝■■■■■⬝⬝■■■■■■⬝■■■■■■⬝■■■■■■⬝⬝■■■■■⬝⬝⬝\n"
+            "Found 6 profile files...\n"
+            "⬝⬝⬝⬝⬝⬝⬝⬝⬝⬝⬝"
+        )
+        result = clean_copilot_response(raw)
+        assert result == "Found 6 profile files..."
+
+    def test_removes_filled_block_line(self):
+        """Lines of filled block characters (█▓▒░) should be stripped."""
+        raw = "████████████████████"
+        assert clean_copilot_response(raw) == ""
+
+    def test_removes_geometric_shape_line(self):
+        """Lines of geometric shape characters (▣▤▥▦) should be stripped."""
+        raw = "▣▣▣▣▣▣▣▣▣▣"
+        assert clean_copilot_response(raw) == ""
+
+    def test_preserves_real_text_with_occasional_block(self):
+        """Text containing a block char within words should be preserved."""
+        raw = "Processing ■ step 3 of 5"
+        result = clean_copilot_response(raw)
+        assert "Processing" in result
+        assert "step 3 of 5" in result
+
+
+class TestGeminiTuiArtifacts:
+    """Tests for Gemini CLI (Ink) TUI artifact removal.
+
+    Gemini CLI renders input prompt frames using block elements
+    (U+2580-U+259F) and extended box drawing characters (╭╮╰╯┃).
+    See: https://github.com/s-hiraoku/synapse-a2a/issues/480
+    """
+
+    def test_removes_upper_block_border(self):
+        """Upper half-block border line (▀▀▀) should be stripped."""
+        raw = "▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀"
+        assert clean_copilot_response(raw) == ""
+
+    def test_removes_lower_block_border(self):
+        """Lower half-block border line (▄▄▄) should be stripped."""
+        raw = "▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄"
+        assert clean_copilot_response(raw) == ""
+
+    def test_removes_gemini_input_prompt_frame(self):
+        """Full Gemini input prompt frame should be stripped."""
+        raw = "▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀\n >   Type your message...\n▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄"
+        assert clean_copilot_response(raw) == ""
+
+    def test_removes_extended_box_drawing_lines(self):
+        """Extended box drawing lines (╭╮╰╯┃) should be stripped."""
+        raw = "╭──────────────────╮\n┃ prompt           ┃\n╰──────────────────╯"
+        assert clean_copilot_response(raw) == ""
+
+    def test_preserves_content_around_gemini_frame(self):
+        """Real content before/after Gemini TUI frame should survive."""
+        raw = (
+            "The answer is 42.\n"
+            "▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀\n"
+            " >   Type your message...\n"
+            "▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄"
+        )
+        result = clean_copilot_response(raw)
+        assert result == "The answer is 42."
+
+    def test_removes_gemini_type_prompt_line(self):
+        """Gemini '> Type your message...' prompt should be stripped."""
+        raw = " >   Type your message..."
+        assert clean_copilot_response(raw) == ""
+
+    def test_removes_vertical_bar_only_lines(self):
+        """Lines of only ┃ and spaces should be stripped."""
+        raw = "┃                  ┃"
+        assert clean_copilot_response(raw) == ""

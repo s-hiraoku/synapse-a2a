@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-04-01
+
+### Fixed
+
+- **TUI artifact removal for OpenCode/Gemini**: Strip block element lines (U+2580-U+259F), geometric shape lines (U+25A0-U+25FF, U+2B1D), TUI frame content lines, and Gemini CLI input prompts from agent responses (#480)
+- Extended `_BOX_CHARS` with rounded corner and heavy/dashed box-drawing variants (`╭╮╰╯┃╌╍╎╏`)
+- Added `_is_tui_block_line()` for lines with minor ANSI residue (e.g. orphaned SGR `m` prefix)
+- Added `_is_tui_frame_content_line()` to detect bordered TUI panel rows
+
+### Tests
+
+- Added `TestOpenCodeTuiArtifacts` (6 tests) and `TestGeminiTuiArtifacts` (7 tests) in `test_output_parser.py`
+
 ## [0.18.0] - 2026-03-31
 
 ### Added
@@ -2966,7 +2979,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.1...HEAD
+[0.18.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.16...v0.18.0
 [0.17.16]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.15...v0.17.16
 [0.17.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.14...v0.17.15

@@ -321,7 +321,28 @@ _COPILOT_ESC_STOP_RE = re.compile(
 _BARE_CSI_FRAGMENT_RE = re.compile(r"^\[\??\d*(?:;\d+)*[A-Za-z]$")
 _BRANCH_STATUS_LINE_RE = re.compile(r"⎇\s+\S+.*\(\+\d+,-\d+\)")
 _SPINNER_CHARS = frozenset("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ ")
-_BOX_CHARS = frozenset("─│┌┐└┘├┤┬┴┼╔╗╚╝║═ \u200b")
+_BOX_CHARS = frozenset("─│┌┐└┘├┤┬┴┼╔╗╚╝║═╭╮╰╯┃╌╍╎╏ \u200b")
+
+# TUI block elements (U+2580-U+259F), geometric shapes (U+25A0-U+25FF),
+# and additional block/geometric characters used by OpenCode (Bubble Tea)
+# and Gemini CLI (Ink) for progress bars, borders, and decorations.
+# fmt: off
+_TUI_BLOCK_CHARS = frozenset(
+    # Block Elements U+2580-U+259F
+    "▀▁▂▃▄▅▆▇█▉▊▋▌▍▎▏▐░▒▓▔▕▖▗▘▙▚▛▜▝▞▟"
+    # Geometric Shapes U+25A0-U+25FF (common subset)
+    "■□▢▣▤▥▦▧▨▩▪▫▬▭▮▯▰▱"
+    # Miscellaneous Symbols used by TUI frameworks
+    "⬝"  # U+2B1D — used by OpenCode for empty progress slots
+    " "   # Space (lines may be padded)
+)
+# fmt: on
+
+# Gemini CLI input prompt pattern: " > Type your message..."
+_GEMINI_INPUT_PROMPT_RE = re.compile(
+    r"^\s*>\s+Type your message\.\.\.\s*$",
+    re.IGNORECASE,
+)
 
 # Sent message echo comparison length (shared with a2a_compat storage)
 SENT_MESSAGE_COMPARE_LEN = 50
@@ -350,6 +371,52 @@ def _is_branch_status_line(line: str) -> bool:
     return _BRANCH_STATUS_LINE_RE.search(line) is not None
 
 
+# Characters that are allowed as minor residue in a TUI block line.
+# These appear when ANSI sequences are partially stripped (e.g. trailing 'm').
+_ANSI_RESIDUE_CHARS = frozenset("m0123456789;[")
+
+
+def _is_tui_block_line(line: str) -> bool:
+    """Return True for lines that are mostly TUI block/geometric chars.
+
+    Allows up to 3 chars of ANSI residue (e.g. leading 'm' from orphaned SGR).
+    """
+    residue = 0
+    for c in line:
+        if c in _TUI_BLOCK_CHARS:
+            continue
+        if c in _ANSI_RESIDUE_CHARS:
+            residue += 1
+            if residue > 3:
+                return False
+        else:
+            return False
+    return True
+
+
+# Vertical border characters used by TUI frames
+_VERTICAL_BORDER_CHARS = frozenset("│┃║")
+# Max inner text length for TUI frame content lines (avoids false positives
+# on markdown tables or code that legitimately uses box-drawing chars)
+_MAX_TUI_FRAME_INNER_LEN = 40
+
+
+def _is_tui_frame_content_line(line: str) -> bool:
+    """Return True for TUI frame content lines like '┃ prompt ┃'.
+
+    These lines start and end with a vertical border character, with
+    arbitrary (non-meaningful) content between them.  Only short inner
+    text is stripped to avoid false-positiving on real code that uses
+    box-drawing in markdown tables, etc.
+    """
+    if len(line) < 3:
+        return False
+    if line[0] not in _VERTICAL_BORDER_CHARS or line[-1] not in _VERTICAL_BORDER_CHARS:
+        return False
+    inner = line[1:-1].strip()
+    return len(inner) <= _MAX_TUI_FRAME_INNER_LEN
+
+
 def clean_copilot_response(raw_delta: str, sent_message: str | None = None) -> str:
     """Remove Copilot TUI artifacts from response context delta.
 
@@ -373,6 +440,17 @@ def clean_copilot_response(raw_delta: str, sent_message: str | None = None) -> s
             continue
         # Skip box-drawing / border lines
         if all(c in _BOX_CHARS for c in stripped):
+            continue
+        # Skip TUI block element / geometric shape lines (OpenCode/Gemini),
+        # allowing up to 3 chars of ANSI residue (e.g. "m■⬝⬝..." where
+        # "m" is a leftover SGR suffix)
+        if _is_tui_block_line(stripped):
+            continue
+        # Skip TUI frame content lines: ┃ text ┃ or │ text │
+        if _is_tui_frame_content_line(stripped):
+            continue
+        # Skip Gemini CLI input prompt
+        if _GEMINI_INPUT_PROMPT_RE.match(stripped):
             continue
         if _is_update_banner_line(stripped):
             continue

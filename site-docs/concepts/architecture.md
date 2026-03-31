@@ -103,7 +103,7 @@ Translates between Synapse internals and the Google A2A protocol format.
 
 - Converts incoming A2A messages to PTY writes
 - Formats PTY output as structured A2A reply artifacts with content scoring to prefer richer responses over trivial PTY noise
-- Cleans TUI artifacts (spinners, box-drawing, status bars, input echo) from all agent types before building reply artifacts
+- Cleans TUI artifacts (spinners, box-drawing, block elements, TUI frame content, Gemini input prompts, status bars, input echo) from all agent types before building reply artifacts
 - Manages task lifecycle (submitted → working → completed/failed)
 - Handles long message storage (>200 chars → file reference)
 

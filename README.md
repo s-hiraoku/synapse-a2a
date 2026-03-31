@@ -1854,7 +1854,7 @@ scoop update synapse-a2a
 
 ## Known Limitations
 
-- **TUI Rendering**: Display may be garbled with Ink-based CLIs
+- **TUI Rendering**: Display may be garbled with Ink-based CLIs (response artifacts from Bubble Tea and Ink TUIs are automatically stripped)
 - **PTY Limitations**: Some special input sequences not supported
 - **Ghostty Focus**: Ghostty uses AppleScript to target the currently focused window or tab. If you switch tabs while a `spawn` or `team start` command is executing, the agent may be spawned in the unintended tab. Please wait for the command to complete before interacting with the terminal.
 - **Codex Sandbox**: Codex CLI's sandbox blocks network access, requiring configuration for inter-agent communication (see below)
@@ -1947,6 +1947,7 @@ Automatically parse CLI output for error detection, status updates, and Artifact
 |---------|-------------|
 | Error Detection | Detects `command not found`, `permission denied`, etc. |
 | input_required | Detects question/confirmation prompts |
+| TUI Artifact Removal | Strips Ink/Bubble Tea artifacts (spinners, box-drawing, block elements, frame content, Gemini input prompts) from all agent responses |
 | Output Parser | Structures code/files/errors |
 
 ### gRPC Support
