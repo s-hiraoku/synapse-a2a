@@ -102,7 +102,9 @@ synapse mcp serve                          # Start MCP server over stdio (option
 # list_agents        — List all running Synapse agents with status and connection info
 #                      Optional input: {"status": "READY"}  (filter by status)
 # analyze_task       — Analyze user prompt and suggest team/task split (Smart Suggest)
-#                      Input: {"prompt": "user instruction text"}
+#                      Input: {"prompt": "user instruction text", "files": [...], "agent_type": "claude"}
+#                      Returns delegation_strategy: "self" | "subagent" | "spawn"
+#                      Context includes diff_stats, file_conflicts, dependencies, parallelizable
 #                      Triggers configurable via .synapse/suggest.yaml
 
 # Self-Learning Pipeline

@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from importlib.metadata import version
 from pathlib import Path
 from typing import TextIO, cast
@@ -18,6 +18,7 @@ import yaml
 
 from synapse.canvas.protocol import FORMAT_REGISTRY, CanvasMessage, validate_message
 from synapse.canvas.store import CanvasStore
+from synapse.file_safety import FileSafetyManager
 from synapse.registry import AgentRegistry
 from synapse.settings import SynapseSettings, get_settings
 
@@ -31,8 +32,13 @@ _SMART_SUGGEST_INSTRUCTIONS = """
 ## Smart Suggest
 
 When you receive a new task, call `analyze_task` with the user's prompt first.
-If it returns a suggestion, share it with the user and ask for approval.
-If it returns no suggestion, continue normally.
+It returns a `delegation_strategy` field:
+- "self": Handle the task yourself (small scope, no delegation needed)
+- "subagent": Use your built-in subagent capability (Claude: Agent tool, Codex: subprocess)
+- "spawn": Use `synapse spawn` or `synapse team start` for multi-agent execution
+
+If delegation_strategy is "spawn" and a suggestion is returned, share it with the user and ask for approval.
+For "self" or "subagent", continue normally with the recommended approach.
 """.strip()
 
 _DEFAULT_SUGGEST_CONFIG: dict[str, object] = {
@@ -55,6 +61,39 @@ _DEFAULT_SUGGEST_CONFIG: dict[str, object] = {
         ],
     },
 }
+
+_DEFAULT_DELEGATION_THRESHOLDS: dict[str, int] = {
+    "self_max_files": 3,
+    "self_max_lines": 100,
+    "subagent_max_files": 8,
+    "subagent_max_dirs": 2,
+}
+
+_DEFAULT_SUBAGENT_CAPABLE_AGENTS: list[str] = ["claude", "codex"]
+
+# Keywords that indicate a different model's perspective is needed → spawn
+_CROSS_MODEL_KEYWORDS: list[str] = [
+    "review",
+    "レビュー",
+    "verify",
+    "検証",
+    "second opinion",
+    "別視点",
+]
+
+_LARGE_FILE_THRESHOLD = 100  # lines changed to count as "large"
+
+
+@dataclass(frozen=True)
+class GitDiffStats:
+    """Metrics from git diff --numstat for delegation decisions."""
+
+    files_changed: int
+    insertions: int
+    deletions: int
+    directory_spread: int
+    file_paths: list[str]
+    large_files: list[str]
 
 
 class UnknownMCPResourceError(ValueError):
@@ -109,14 +148,27 @@ class SynapseMCPServer:
         port: int = 0,
         user_dir: Path | None = None,
         registry_factory: Callable[[], AgentRegistry] | None = None,
+        file_safety_factory: Callable[[], FileSafetyManager] | None = None,
     ) -> None:
         self._settings_factory = settings_factory or get_settings
         self._registry_factory = registry_factory or AgentRegistry
+        self._file_safety_factory = (
+            file_safety_factory or self._default_file_safety_factory
+        )
         self.agent_type = agent_type
         self.agent_id = agent_id
         self.port = port
         self.user_dir = user_dir
         self._cached_settings: SynapseSettings | None = None
+
+    @staticmethod
+    def _default_file_safety_factory() -> FileSafetyManager | None:
+        """Create a FileSafetyManager when available."""
+        try:
+            return FileSafetyManager()
+        except Exception as exc:
+            logger.debug("FileSafetyManager unavailable: %s", exc)
+            return None
 
     def _settings(self) -> SynapseSettings:
         if self._cached_settings is None:
@@ -194,14 +246,23 @@ class SynapseMCPServer:
             ),
             MCPTool(
                 name="analyze_task",
-                description="Analyze a user prompt and suggest team/task splits when the work looks large enough.",
+                description="Analyze a user prompt and suggest delegation strategy (self/subagent/spawn) with team/task splits when appropriate.",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "prompt": {
                             "type": "string",
                             "description": "User instruction to analyze for team/task split suggestions.",
-                        }
+                        },
+                        "files": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Optional list of file paths the task is expected to touch.",
+                        },
+                        "agent_type": {
+                            "type": "string",
+                            "description": "Calling agent's type (e.g. claude, codex, gemini). Used for subagent capability check.",
+                        },
                     },
                     "required": ["prompt"],
                 },
@@ -281,7 +342,13 @@ class SynapseMCPServer:
             prompt = arguments.get("prompt")
             if not isinstance(prompt, str):
                 raise ValueError("analyze_task requires string prompt")
-            return self._tool_analyze_task(prompt)
+            files = arguments.get("files")
+            if files is not None and not isinstance(files, list):
+                files = None
+            agent_type = arguments.get("agent_type")
+            if not isinstance(agent_type, str):
+                agent_type = self.agent_type
+            return self._tool_analyze_task(prompt, files=files, agent_type=agent_type)
         if name == "canvas_post":
             return self._tool_canvas_post(arguments)
         raise ValueError(f"Unsupported MCP tool: {name}")
@@ -435,17 +502,41 @@ class SynapseMCPServer:
 
         return {"agents": result}
 
-    def _tool_analyze_task(self, prompt: str) -> dict[str, object]:
-        """Analyze a prompt and suggest a team/task split when triggers match."""
+    def _tool_analyze_task(
+        self,
+        prompt: str,
+        *,
+        files: list[str] | None = None,
+        agent_type: str | None = None,
+    ) -> dict[str, object]:
+        """Analyze a prompt and suggest delegation strategy + team/task split."""
         config = self._load_suggest_config()
         if not bool(config.get("enabled", True)):
             return {"suggestion": None, "reason": "disabled"}
 
+        effective_agent_type = agent_type or self.agent_type
         triggers = config.get("triggers", {})
         if not isinstance(triggers, dict):
             triggers = {}
 
         changed_paths = self._get_git_status_paths()
+        diff_stats = self._get_git_diff_stats()
+        extracted_paths = self._extract_file_paths_from_prompt(prompt)
+        analysis_paths = list(
+            dict.fromkeys(diff_stats.file_paths + changed_paths + extracted_paths)
+        )
+        if files:
+            analysis_paths = list(dict.fromkeys(analysis_paths + files))
+        if analysis_paths:
+            diff_stats = replace(
+                diff_stats,
+                files_changed=max(diff_stats.files_changed, len(analysis_paths)),
+                directory_spread=len(
+                    {self._group_directory(p) for p in analysis_paths}
+                ),
+                file_paths=analysis_paths,
+            )
+
         triggered_by: list[str] = []
 
         min_files = triggers.get("min_files", 10)
@@ -473,13 +564,68 @@ class SynapseMCPServer:
                 if isinstance(keyword, str) and keyword.lower() in prompt_lower:
                     triggered_by.append(f"keyword:{keyword}")
 
-        if not triggered_by:
-            return {"suggestion": None, "reason": "no_trigger_matched"}
+        # Diff-size trigger
+        diff_size_cfg = triggers.get("diff_size", {})
+        if isinstance(diff_size_cfg, dict):
+            min_lines = diff_size_cfg.get("min_lines", 200)
+            if (
+                isinstance(min_lines, int)
+                and (diff_stats.insertions + diff_stats.deletions) >= min_lines
+            ):
+                triggered_by.append("diff_size")
 
-        return {
-            "suggestion": self._build_suggestion(prompt, changed_paths, triggered_by),
-            "triggered_by": triggered_by,
+        # Determine delegation strategy regardless of trigger match
+        strategy, strategy_reason = self._determine_delegation_strategy(
+            diff_stats, prompt, effective_agent_type, config
+        )
+        file_conflicts = self._detect_file_conflicts(analysis_paths)
+        dependencies = self._detect_dependencies(analysis_paths)
+        parallelizable = not dependencies
+        warnings: list[str] = []
+
+        if file_conflicts["risk"] == "high":
+            strategy = "spawn"
+            strategy_reason = "High file-lock conflict risk across task files"
+            warnings.append("High file conflict risk detected; prefer spawn.")
+        elif (
+            not parallelizable
+            and len(analysis_paths)
+            <= self._load_delegation_thresholds(config)["self_max_files"]
+        ):
+            strategy = "self"
+            strategy_reason = (
+                "Strong sequential dependencies across a small file set favor self"
+            )
+
+        context: dict[str, object] = {
+            "diff_stats": {
+                "files": diff_stats.files_changed,
+                "insertions": diff_stats.insertions,
+                "deletions": diff_stats.deletions,
+                "spread": diff_stats.directory_spread,
+            },
+            "file_conflicts": file_conflicts,
+            "dependencies": dependencies,
+            "parallelizable": parallelizable,
         }
+
+        suggestion = (
+            self._build_suggestion(prompt, analysis_paths, triggered_by, dependencies)
+            if triggered_by and strategy == "spawn"
+            else None
+        )
+
+        result: dict[str, object] = {
+            "delegation_strategy": strategy,
+            "strategy_reason": strategy_reason,
+            "suggestion": suggestion,
+            "context": context,
+            "triggered_by": triggered_by,
+            "warnings": warnings,
+        }
+        if not triggered_by:
+            result["reason"] = "no_trigger_matched"
+        return result
 
     def _load_suggest_config(self) -> dict[str, object]:
         """Load suggest configuration from project scope, falling back to defaults."""
@@ -514,6 +660,14 @@ class SynapseMCPServer:
             merged_triggers = cast(dict[str, object], config["triggers"])
             merged_triggers.update(raw_triggers)
 
+        raw_thresholds = suggest.get("delegation_thresholds", {})
+        if isinstance(raw_thresholds, dict):
+            config["delegation_thresholds"] = raw_thresholds
+
+        raw_capable = suggest.get("subagent_capable_agents")
+        if isinstance(raw_capable, list):
+            config["subagent_capable_agents"] = raw_capable
+
         return config
 
     def _get_git_status_paths(self) -> list[str]:
@@ -536,6 +690,294 @@ class SynapseMCPServer:
             return []
 
         return self._parse_git_status_paths(result.stdout)
+
+    def _get_git_diff_stats(self) -> GitDiffStats:
+        """Return diff metrics from git diff --numstat, ignoring failures."""
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--numstat", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=Path.cwd(),
+                timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            logger.debug("git diff --numstat failed: %s", exc)
+            return GitDiffStats(0, 0, 0, 0, [], [])
+
+        if result.returncode != 0:
+            return GitDiffStats(0, 0, 0, 0, [], [])
+
+        return self._parse_git_numstat(result.stdout)
+
+    def _parse_git_numstat(self, output: str) -> GitDiffStats:
+        """Parse git diff --numstat output into GitDiffStats."""
+        if not output or not output.strip():
+            return GitDiffStats(0, 0, 0, 0, [], [])
+
+        file_paths: list[str] = []
+        large_files: list[str] = []
+        total_ins = 0
+        total_del = 0
+
+        for line in output.strip().splitlines():
+            parts = line.split("\t", 2)
+            if len(parts) < 3:
+                continue
+
+            ins_str, del_str, filepath = parts
+            file_paths.append(filepath)
+
+            if ins_str == "-" or del_str == "-":  # binary file
+                continue
+
+            try:
+                ins = int(ins_str)
+                dels = int(del_str)
+            except ValueError:
+                continue
+
+            total_ins += ins
+            total_del += dels
+            if ins + dels >= _LARGE_FILE_THRESHOLD:
+                large_files.append(filepath)
+
+        directory_spread = len({self._group_directory(p) for p in file_paths})
+
+        return GitDiffStats(
+            files_changed=len(file_paths),
+            insertions=total_ins,
+            deletions=total_del,
+            directory_spread=directory_spread,
+            file_paths=file_paths,
+            large_files=large_files,
+        )
+
+    def _extract_file_paths_from_prompt(self, prompt: str) -> list[str]:
+        """Extract likely repository file paths mentioned in the prompt."""
+        matches = re.findall(
+            r"(?<![\w/.-])([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+)",
+            prompt,
+        )
+        paths: list[str] = []
+        for match in matches:
+            candidate = match.rstrip(".,:;)]}\"'")
+            if "." not in Path(candidate).name:
+                continue
+            if candidate.startswith(("http://", "https://")):
+                continue
+            if candidate not in paths:
+                paths.append(candidate)
+        return paths
+
+    def _detect_file_conflicts(self, task_files: list[str]) -> dict[str, object]:
+        """Detect active locks on task files held by other agents."""
+        if not task_files:
+            return {"locked_by_others": {}, "risk": "none"}
+
+        try:
+            manager = self._file_safety_factory()
+            if manager is None:
+                return {"locked_by_others": {}, "risk": "none"}
+            locks = manager.list_locks()
+        except Exception as exc:
+            logger.debug("File conflict detection unavailable: %s", exc)
+            return {"locked_by_others": {}, "risk": "none"}
+
+        locked_by_others: dict[str, str] = {}
+        task_file_set = set(task_files)
+        for lock in locks:
+            file_path = str(lock.get("file_path", ""))
+            if file_path not in task_file_set:
+                continue
+            holder = str(lock.get("agent_id") or lock.get("agent_name") or "")
+            if holder == self.agent_id:
+                continue
+            locked_by_others[file_path] = holder
+
+        overlap_count = len(locked_by_others)
+        risk = "none"
+        if overlap_count >= 3:
+            risk = "high"
+        elif overlap_count >= 1:
+            risk = "low"
+        return {"locked_by_others": locked_by_others, "risk": risk}
+
+    def _detect_dependencies(self, changed_paths: list[str]) -> list[dict[str, str]]:
+        """Infer dependency edges where 'from' must complete before 'to'."""
+        dependencies: list[dict[str, str]] = []
+        seen: set[tuple[str, str, str]] = set()
+        project_root = Path.cwd()
+        module_map = self._build_module_map(changed_paths)
+
+        for path_text in changed_paths:
+            if Path(path_text).suffix != ".py":
+                continue
+            try:
+                content = (project_root / path_text).read_text(encoding="utf-8")
+            except OSError:
+                continue
+
+            imports = re.findall(
+                r"^\s*from\s+([A-Za-z_][\w.]*)\s+import\s+",
+                content,
+                flags=re.MULTILINE,
+            )
+            for import_clause in re.findall(
+                r"^\s*import\s+([A-Za-z_][\w., ]*)",
+                content,
+                flags=re.MULTILINE,
+            ):
+                imports.extend(
+                    part.strip() for part in import_clause.split(",") if part.strip()
+                )
+
+            for module_name in imports:
+                dependency_path = self._resolve_module_dependency(
+                    module_name, module_map
+                )
+                if dependency_path is None or dependency_path == path_text:
+                    continue
+                key = (dependency_path, path_text, "import")
+                if key in seen:
+                    continue
+                dependencies.append(
+                    {
+                        "from": dependency_path,
+                        "to": path_text,
+                        "reason": "import",
+                    }
+                )
+                seen.add(key)
+
+        ordered_paths = sorted(
+            changed_paths,
+            key=lambda item: (self._dependency_tier(item), changed_paths.index(item)),
+        )
+        for previous, current in zip(ordered_paths, ordered_paths[1:], strict=False):
+            previous_tier = self._dependency_tier(previous)
+            current_tier = self._dependency_tier(current)
+            if previous_tier >= current_tier:
+                continue
+            key = (previous, current, "naming_convention")
+            if key in seen:
+                continue
+            dependencies.append(
+                {
+                    "from": previous,
+                    "to": current,
+                    "reason": "naming_convention",
+                }
+            )
+            seen.add(key)
+
+        return dependencies
+
+    def _build_module_map(self, changed_paths: list[str]) -> dict[str, str]:
+        module_map: dict[str, str] = {}
+        for path_text in changed_paths:
+            path = Path(path_text)
+            if path.suffix != ".py":
+                continue
+            module_name = ".".join(path.with_suffix("").parts)
+            module_map[module_name] = path_text
+            if path.name == "__init__.py":
+                module_map[".".join(path.parent.parts)] = path_text
+        return module_map
+
+    def _resolve_module_dependency(
+        self, module_name: str, module_map: dict[str, str]
+    ) -> str | None:
+        for candidate in sorted(module_map, key=len, reverse=True):
+            if module_name == candidate or module_name.startswith(candidate + "."):
+                return module_map[candidate]
+        return None
+
+    def _dependency_tier(self, path_text: str) -> int:
+        lowered = path_text.lower()
+        if lowered.startswith("tests/") or Path(path_text).name.startswith("test_"):
+            return 2
+        if any(token in lowered for token in ("migration", "schema", "model")):
+            return 0
+        if any(token in lowered for token in ("service", "handler")):
+            return 1
+        return 1
+
+    @staticmethod
+    def _load_delegation_thresholds(config: dict[str, object] | None) -> dict[str, int]:
+        """Load delegation thresholds from config, falling back to defaults."""
+        thresholds = dict(_DEFAULT_DELEGATION_THRESHOLDS)
+        if config:
+            cfg_thresholds = config.get("delegation_thresholds")
+            if isinstance(cfg_thresholds, dict):
+                for k, v in cfg_thresholds.items():
+                    if isinstance(v, int):
+                        thresholds[k] = v
+        return thresholds
+
+    def _determine_delegation_strategy(
+        self,
+        diff_stats: GitDiffStats,
+        prompt: str,
+        agent_type: str,
+        config: dict[str, object] | None = None,
+    ) -> tuple[str, str]:
+        """Determine whether to handle task self, via subagent, or via spawn.
+
+        Returns (strategy, reason) tuple.
+        """
+        thresholds = self._load_delegation_thresholds(config)
+        subagent_capable = list(_DEFAULT_SUBAGENT_CAPABLE_AGENTS)
+
+        if config:
+            cfg_capable = config.get("subagent_capable_agents")
+            if isinstance(cfg_capable, list):
+                subagent_capable = [a for a in cfg_capable if isinstance(a, str)]
+
+        total_lines = diff_stats.insertions + diff_stats.deletions
+
+        # Check for cross-model keywords → always spawn
+        prompt_lower = prompt.lower()
+        for kw in _CROSS_MODEL_KEYWORDS:
+            if kw.lower() in prompt_lower:
+                return (
+                    "spawn",
+                    f"Different model perspective needed (keyword: {kw})",
+                )
+
+        # Small change → self
+        if (
+            diff_stats.files_changed <= thresholds["self_max_files"]
+            and total_lines <= thresholds["self_max_lines"]
+            and diff_stats.directory_spread <= 1
+        ):
+            return (
+                "self",
+                f"Small change ({diff_stats.files_changed} files, "
+                f"{total_lines} lines, {diff_stats.directory_spread} directory)",
+            )
+
+        # Medium change + subagent-capable agent → subagent
+        if (
+            diff_stats.files_changed <= thresholds["subagent_max_files"]
+            and diff_stats.directory_spread <= thresholds["subagent_max_dirs"]
+            and agent_type in subagent_capable
+        ):
+            return (
+                "subagent",
+                f"Medium change ({diff_stats.files_changed} files, "
+                f"{total_lines} lines, {diff_stats.directory_spread} dirs) — "
+                f"{agent_type} has built-in subagent capability",
+            )
+
+        # Large change or non-subagent-capable → spawn
+        return (
+            "spawn",
+            f"Large change ({diff_stats.files_changed} files, "
+            f"{total_lines} lines, {diff_stats.directory_spread} dirs) — "
+            f"recommend Synapse spawn for parallel execution",
+        )
 
     def _parse_git_status_paths(self, output: str) -> list[str]:
         """Extract changed paths from git status --porcelain output."""
@@ -582,36 +1024,36 @@ class SynapseMCPServer:
         return False
 
     def _build_suggestion(
-        self, prompt: str, changed_paths: list[str], triggered_by: list[str]
+        self,
+        prompt: str,
+        changed_paths: list[str],
+        triggered_by: list[str],
+        dependencies: list[dict[str, str]],
     ) -> dict[str, object]:
         subject = self._derive_subject(prompt, changed_paths)
-        tasks = [
-            {
-                "subject": f"{subject} design",
-                "description": "Clarify scope, interfaces, and rollout risks before implementation.",
-                "suggested_agent": "claude",
-                "priority": 4,
-                "blocked_by": [],
-            },
-            {
-                "subject": f"{subject} implementation",
-                "description": "Make the code changes across the affected files and directories.",
-                "suggested_agent": "codex",
-                "priority": 3,
-                "blocked_by": [f"{subject} design"],
-            },
-            {
-                "subject": f"{subject} verification",
-                "description": "Add or update tests and review the final behavior.",
-                "suggested_agent": "gemini",
-                "priority": 3,
-                "blocked_by": [f"{subject} implementation"],
-            },
-        ]
+        agent_cycle = ["claude", "codex", "gemini"]
+        tasks: list[dict[str, object]] = []
+        prior_subjects: list[str] = []
+        for index, tier_files in enumerate(
+            self._build_dependency_tiers(changed_paths, dependencies), start=1
+        ):
+            task_subject = f"{subject} tier {index}"
+            tasks.append(
+                {
+                    "subject": task_subject,
+                    "description": (
+                        f"Update dependency tier {index}: {', '.join(tier_files)}."
+                    ),
+                    "suggested_agent": agent_cycle[(index - 1) % len(agent_cycle)],
+                    "priority": 4 if index == 1 else 3,
+                    "blocked_by": list(prior_subjects),
+                }
+            )
+            prior_subjects.append(task_subject)
 
         summary = (
-            "This work looks broad enough to benefit from splitting design, "
-            "implementation, and verification."
+            "This work looks broad enough to benefit from splitting execution by "
+            "dependency tier."
         )
         if any(
             trigger.startswith("keyword:review") or trigger == "keyword:レビュー"
@@ -626,6 +1068,38 @@ class SynapseMCPServer:
             "approve_command": "Share the proposed split with the user and ask for approval before execution.",
             "team_command": "synapse team start claude codex gemini -- <approved task>",
         }
+
+    def _build_dependency_tiers(
+        self, changed_paths: list[str], dependencies: list[dict[str, str]]
+    ) -> list[list[str]]:
+        if not changed_paths:
+            return []
+        if not dependencies:
+            return [changed_paths]
+
+        incoming: dict[str, set[str]] = {path: set() for path in changed_paths}
+        outgoing: dict[str, set[str]] = {path: set() for path in changed_paths}
+        for dependency in dependencies:
+            source = dependency["from"]
+            target = dependency["to"]
+            if source not in incoming or target not in incoming:
+                continue
+            incoming[target].add(source)
+            outgoing[source].add(target)
+
+        remaining = list(changed_paths)
+        tiers: list[list[str]] = []
+        while remaining:
+            tier = [path for path in remaining if not incoming[path]]
+            if not tier:
+                tiers.append(remaining[:])
+                break
+            tiers.append(tier)
+            remaining = [path for path in remaining if path not in tier]
+            for path in tier:
+                for child in outgoing[path]:
+                    incoming[child].discard(path)
+        return tiers
 
     def _derive_subject(self, prompt: str, changed_paths: list[str]) -> str:
         cleaned = re.sub(r"\s+", " ", prompt).strip()

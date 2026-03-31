@@ -31,19 +31,32 @@ STEP 1: Assess the Situation (ALWAYS do this when starting a task)
 STEP 2: Collaboration Decision Framework
 
   [DO IT YOURSELF]
-  - Small task (under 5 minutes)
+  - 3 files or fewer, under 100 lines changed, within 1 directory
   - Within your role/expertise
-  - No other READY agents available
   - Requires your current context (files already read, state already understood)
+  - `analyze_task` returned delegation_strategy == "self"
 
-  [DELEGATE] synapse send <target> "..." --notify or --silent
+  [USE SUBAGENT] (Claude Code: Agent tool / Codex: subprocess)
+  - 4-8 files, 2 directories or fewer
+  - Same-model work: code generation, search, targeted refactoring
+  - Context sharing needed (parent's file knowledge is valuable)
+  - Immediate result needed (no startup cost)
+  - Only available for: Claude Code, Codex (not Gemini, OpenCode, Copilot)
+  - `analyze_task` returned delegation_strategy == "subagent"
+
+  [DELEGATE TO EXISTING AGENT] synapse send <target> "..." --notify or --silent
   - Outside your role (check ROLE column in synapse list)
   - Can run in parallel with your own work
   - A READY agent with a matching role exists in the same WORKING_DIR
-  - If no suitable agent exists:
-    - Single agent: `synapse spawn <profile> --name <n> --role "<r>"`
-    - Multiple agents: `synapse team start <spec1> <spec2> ...` (proper tile layout)
-  - CROSS-MODEL PREFERENCE: When spawning or delegating, prefer a DIFFERENT model type.
+
+  [USE SYNAPSE SPAWN] synapse spawn / synapse team start
+  - 9+ files OR 3+ directories
+  - Different model's perspective needed (review, verification, second opinion)
+  - Rate-limit distribution needed (use a different model type)
+  - File isolation needed (--worktree for concurrent edits)
+  - Agent types without subagent capability (Gemini, OpenCode, Copilot)
+  - `analyze_task` returned delegation_strategy == "spawn"
+  - CROSS-MODEL PREFERENCE: When spawning, prefer a DIFFERENT model type.
     Reasons: (1) diverse models bring diverse strengths, (2) distributes token usage across
     providers to avoid rate limits. If one model is rate-limited, delegate to another type.
   - Auto-approve: `spawn` and `team start` automatically inject CLI permission bypass
@@ -65,14 +78,16 @@ STEP 2: Collaboration Decision Framework
   - When you find bugs or pitfalls others should avoid
 
 STEP 3: Before Large Tasks — MANDATORY COLLABORATION GATE
-  For tasks with 3+ phases OR 10+ file changes, you MUST:
-  1. Run `synapse list` to check available agents
-  2. Run `synapse memory search "<topic>"` to check shared knowledge
-  3. Build an Agent Assignment plan (see below) before writing any code
-  4. If no suitable agents exist, launch them:
+  For tasks touching 9+ files, 200+ lines, or 3+ directories, you MUST:
+  1. Call `analyze_task` with the user's prompt to get delegation_strategy
+  2. Run `synapse list` to check available agents
+  3. Run `synapse memory search "<topic>"` to check shared knowledge
+  4. If analyze_task reports file conflicts (risk: high), use --worktree when spawning
+  5. Build an Agent Assignment plan (see below) before writing any code
+  6. If no suitable agents exist, launch them:
      - Single agent: `synapse spawn <profile> --name <n> --role "<r>"`
      - Multiple agents: `synapse team start <spec1> <spec2> ...` (ensures tile layout)
-  5. CROSS-MODEL: Use different model types for subtasks (diversity improves quality)
+  7. CROSS-MODEL: Use different model types for subtasks (diversity improves quality)
 
   Agent Assignment Plan Template:
   Before starting multi-phase work, create a table like this:
@@ -101,6 +116,8 @@ STEP 5: Worker Autonomy — You Can Also Delegate
   - Always kill agents you spawn after their work is complete: `synapse kill <name> -f`
 
 Efficiency Rules:
+  - Call `analyze_task` first to get delegation_strategy before deciding
+  - Prefer subagent for medium tasks if your agent supports it (Claude, Codex)
   - Prefer --notify or --silent (non-blocking keeps you productive)
   - Use --wait only when you cannot continue without the answer
   - Check `synapse list` to confirm the target is READY before sending

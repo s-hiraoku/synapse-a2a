@@ -72,14 +72,15 @@ class TestMandatoryCollaborationGate:
         assert "3+" in template_content or "3 or more" in template_content
 
     def test_mandatory_gate_for_many_files(self, template_content: str) -> None:
-        """Must require collaboration check for tasks with 10+ file changes."""
-        assert "10+" in template_content or "10 or more" in template_content
+        """Must require collaboration check for tasks with many file changes."""
+        assert "9+" in template_content or "9 or more" in template_content
 
     def test_must_keyword_enforcement(self, template_content: str) -> None:
         """Must use MUST (not should/consider) to enforce the gate."""
         lines = template_content.split("\n")
         found_must = any(
-            ("3+" in line or "10+" in line) and "MUST" in line for line in lines
+            ("3+" in line or "9+" in line or "9 or more" in line) and "MUST" in line
+            for line in lines
         )
         assert found_must, "Large task gate must use MUST keyword for enforcement"
 

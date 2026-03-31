@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.18.0
+
+- **Added**: `delegation_strategy` in `analyze_task` — 3-tier recommendation (self/subagent/spawn) with git diff heuristics, file conflict detection, and dependency analysis (#476)
+- **Added**: Subagent vs Synapse spawn decision framework in default.md and spawning.md
+- **Changed**: Concrete thresholds replace vague criteria (≤3 files=self, 4-8=subagent, 9+=spawn)
+- **Docs**: Updated synapse-reference.md and README.md with new analyze_task capabilities
+
 ### v0.17.16
 
 - **Added**: Auto-approve for spawned agents — CLI permission bypass flags injected by default (#469)
