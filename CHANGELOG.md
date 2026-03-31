@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.16] - 2026-03-31
+
+### Added
+
+- Auto-approve for spawned agents: `synapse spawn` and `synapse team start` now inject CLI-specific permission bypass flags by default (#469)
+- Runtime WAITING auto-response: controller detects permission prompts and sends profile-specific approval response
+- `--no-auto-approve` flag for `spawn` and `team start` to opt out of automatic approval
+- `auto_approve` config section in all 5 agent profiles (claude, gemini, codex, copilot, opencode)
+- Safety controls: max 20 consecutive auto-approvals, 2s cooldown, thread-safe with lock
+- New docs: `docs/agent-permission-modes.md` — comprehensive CLI permission modes guide
+
+### Changed
+
+- Refactored spawn/team-start unification: `spawn_agent()` split into `prepare_spawn()` + `execute_spawn()`
+- `cmd_team_start()` now uses shared spawn infrastructure (auto-approve, port allocation, worktree creation)
+- Updated `auto-approve-flags.md` with corrected flags (Copilot: `--yolo`, OpenCode: env var)
+
+### Removed
+
+- Dead code: `_inject_ports()`, `_run_pane_commands()` (cli.py), `_get_new_tmux_pane_id()` (spawn.py)
+
 ## [0.17.15] - 2026-03-31
 
 ### Fixed
@@ -2922,7 +2943,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.15...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.16...HEAD
+[0.17.16]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.15...v0.17.16
 [0.17.15]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.14...v0.17.15
 [0.17.14]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.13...v0.17.14
 [0.17.13]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.12...v0.17.13

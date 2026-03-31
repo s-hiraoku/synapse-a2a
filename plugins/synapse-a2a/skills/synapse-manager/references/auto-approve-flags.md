@@ -1,39 +1,97 @@
 # Tool-Specific Automation Args
 
 Each CLI agent uses different forwarded automation args. Pass them after `--`
-when spawning. For most CLIs these args skip approval prompts; for OpenCode,
-`--agent build` selects the build agent profile and does not bypass OpenCode
-permission checks.
+when spawning.
 
-Before forwarding automation args to `synapse spawn`, run the normal
-collaboration preflight: `synapse list` to confirm agent availability,
-`synapse memory search <query>` to surface shared knowledge, and
-`synapse history` to verify task tracking. Apply the tool-specific args only
-after those checks, and remember that OpenCode `--agent build` changes the
-agent profile rather than bypassing permission prompts.
+**Default behavior:** Since v0.X.X, `synapse spawn` and `synapse team start`
+automatically inject the appropriate auto-approve flag for each agent profile.
+Use `--no-auto-approve` to disable this behavior.
+
+## Quick Reference
 
 | Agent | Args | Example |
 |-------|------|---------|
 | **Claude Code** | `--dangerously-skip-permissions` | `synapse spawn claude -- --dangerously-skip-permissions` |
-| **Gemini CLI** | `-y` (or `--yolo`) | `synapse spawn gemini -- -y` |
+| **Gemini CLI** | `--yolo` (or `-y`) | `synapse spawn gemini -- --yolo` |
 | **Codex CLI** | `--full-auto` | `synapse spawn codex -- --full-auto` |
-| **GitHub Copilot CLI** | `--allow-all-tools` | `synapse spawn copilot -- --allow-all-tools` |
-| **OpenCode** | `--agent build` | `synapse spawn opencode -- --agent build` selects the build agent profile; approval still depends on OpenCode permissions |
+| **GitHub Copilot CLI** | `--yolo` (or `--allow-all`) | `synapse spawn copilot -- --yolo` |
+| **OpenCode** | env: `OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS=true` | Config: `opencode.json` に `"permission": "allow"` |
 
-**Codex details:** `--full-auto` = `-a on-request --sandbox workspace-write` (sandboxed auto-approve).
-For fully unrestricted: `--dangerously-bypass-approvals-and-sandbox`.
+## Detailed Permission Modes
 
-**Mixed teams:** Not all CLIs ignore unknown args — some exit with errors.
-When combining args fails, start agents individually:
+### Claude Code
+
+6-level permission modes (toggle with `Shift+Tab` during session):
+
+| Mode | Description |
+|------|-------------|
+| `default` | Ask before every tool use |
+| `acceptEdits` | Auto-approve file edits only; bash commands still require confirmation |
+| `auto` | AI classifier (Sonnet 4.6) evaluates each action before execution; blocks dangerous ops. Requires `--enable-auto-mode` |
+| `bypassPermissions` | Skip all permission prompts. **`--dangerously-skip-permissions`**. Sandbox-only |
+
+v2.0+ recommends **Hooks** (PreToolUse events) as a safer alternative to `--dangerously-skip-permissions`.
+
+### Codex CLI
+
+Two-axis control: `approval_policy` × `sandbox_mode`.
+
+| Flag | Behavior |
+|------|----------|
+| `--full-auto` | `-a on-request -s workspace-write` — sandboxed auto-approve (read/write in workspace) |
+| `-a never` | Never ask for approval (sandbox restrictions still apply) |
+| `--dangerously-bypass-approvals-and-sandbox` (`--yolo`) | Bypass both approval and sandbox — isolated runners only |
+
+Config: `~/.codex/config.toml` profiles with `approval_policy = "never"`.
+
+### Gemini CLI
+
+| Flag | Behavior |
+|------|----------|
+| `--yolo` (`-y`) | Auto-approve all tool calls. Docker sandbox enabled by default |
+| `--approval-mode=auto_edit` | Auto-approve file read/write only |
+| `--allowed-tools "ShellTool(git status)"` | Bypass specific tools only |
+
+Toggle in session: `Ctrl+Y`. Config: `~/.gemini/settings.json`.
+
+### OpenCode
+
+| Method | Behavior |
+|--------|----------|
+| `opencode.json` → `"permission": "allow"` | Auto-approve all tools |
+| env `OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS=true` | Same effect via env var |
+
+No `--dangerously-skip-permissions` CLI flag yet (Feature Request open).
+
+### GitHub Copilot CLI
+
+| Flag | Behavior |
+|------|----------|
+| `--yolo` (`--allow-all`) | Approve all tool/path/URL access |
+| `--no-ask-user` | Suppress clarification questions |
+| Autopilot mode + `--allow-all` | Fully autonomous execution |
+
+In-session: `/yolo` or `/allow-all` slash commands.
+
+## Synapse Auto-Approve
+
+Synapse automatically injects the appropriate flag when spawning agents:
+
 ```bash
-synapse spawn claude -- --dangerously-skip-permissions
-synapse spawn gemini -- -y
-synapse spawn opencode -- --agent build   # Build agent profile only; does not bypass OpenCode permission checks
+# Default: auto-approve enabled
+synapse spawn claude          # → --dangerously-skip-permissions injected
+synapse team start claude gemini  # → each agent gets its own flag
+
+# Opt out
+synapse spawn claude --no-auto-approve
+synapse team start claude gemini --no-auto-approve
 ```
 
-**Via API:**
-```bash
-curl -X POST http://localhost:8100/spawn \
-  -H "Content-Type: application/json" \
-  -d '{"profile": "gemini", "tool_args": ["-y"]}'
-```
+Runtime WAITING detection: if an agent hits a permission prompt despite the
+CLI flag, Synapse's controller detects the WAITING status and automatically
+sends the approval response (profile-specific: `y\r`, `\r`, `1\r`, `a\r`).
+
+Safety controls:
+- Max 20 consecutive auto-approvals (configurable per profile)
+- 2s cooldown between approvals
+- `SYNAPSE_AUTO_APPROVE=false` env var disables globally

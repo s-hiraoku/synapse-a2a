@@ -76,11 +76,13 @@ synapse session restore <name>
 synapse workflow run <name>
 synapse workflow sync                            # Re-generate skills from all workflow YAMLs
 
-# Spawn/Teams
+# Spawn/Teams (auto-approve enabled by default)
 synapse spawn claude --name Tester --role "test writer"
 synapse spawn claude --worktree feature-auth
+synapse spawn claude --no-auto-approve             # Disable auto-approve
 synapse team start claude gemini
 synapse team start claude gemini --worktree
+synapse team start claude gemini --no-auto-approve # Disable for all agents
 
 # Skills
 synapse skills list
@@ -168,6 +170,8 @@ In server mode (when `agent_name` is set), startup/runtime logging is redirected
 States: READY → PROCESSING → DONE → READY (auto after 10s), WAITING, SHUTTING_DOWN
 
 Compound signal: PROCESSING→READY suppressed when `task_active` flag set or file locks held.
+
+**WAITING auto-approve**: When an agent enters WAITING status (permission prompt detected), the controller automatically sends the profile-specific approval response (e.g., `y\r` for Claude, `\r` for Gemini). Enabled by default for spawned agents; disable with `--no-auto-approve` or `SYNAPSE_AUTO_APPROVE=false`. Safety: max 20 consecutive, 2s cooldown. See [docs/agent-permission-modes.md](agent-permission-modes.md).
 
 ## Readiness Gate
 

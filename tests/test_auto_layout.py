@@ -415,14 +415,18 @@ class TestSpawnPaneTracking:
         """After spawning, the new pane ID should be stored via tmux session env."""
         from synapse.spawn import spawn_agent
 
+        # _get_tmux_pane_ids is called twice: before and after pane creation.
+        # Before: {%0, %1}, After: {%0, %1, %5} — new pane is %5.
         with (
-            patch("synapse.spawn.load_profile"),
+            patch("synapse.spawn.load_profile", return_value={}),
             patch("synapse.spawn.is_port_available", return_value=True),
             patch("synapse.spawn.detect_terminal_app", return_value="tmux"),
             patch("synapse.spawn.create_panes", return_value=["echo test"]),
             patch("subprocess.run"),
-            patch("synapse.spawn._get_tmux_pane_ids", return_value={"%0", "%1"}),
-            patch("synapse.spawn._get_new_tmux_pane_id", return_value="%5"),
+            patch(
+                "synapse.spawn._get_tmux_pane_ids",
+                side_effect=[{"%0", "%1"}, {"%0", "%1", "%5"}],
+            ),
             patch("synapse.spawn._get_tmux_spawn_panes", return_value=""),
             patch("synapse.spawn._set_tmux_spawn_panes") as mock_set,
         ):
@@ -433,17 +437,17 @@ class TestSpawnPaneTracking:
         """Subsequent spawns should append to existing spawn zone panes."""
         from synapse.spawn import spawn_agent
 
+        # Before: {%0, %1, %5}, After: {%0, %1, %5, %8} — new pane is %8.
         with (
-            patch("synapse.spawn.load_profile"),
+            patch("synapse.spawn.load_profile", return_value={}),
             patch("synapse.spawn.is_port_available", return_value=True),
             patch("synapse.spawn.detect_terminal_app", return_value="tmux"),
             patch("synapse.spawn.create_panes", return_value=["echo test"]),
             patch("subprocess.run"),
             patch(
                 "synapse.spawn._get_tmux_pane_ids",
-                return_value={"%0", "%1", "%5"},
+                side_effect=[{"%0", "%1", "%5"}, {"%0", "%1", "%5", "%8"}],
             ),
-            patch("synapse.spawn._get_new_tmux_pane_id", return_value="%8"),
             patch("synapse.spawn._get_tmux_spawn_panes", return_value="%5"),
             patch("synapse.spawn._set_tmux_spawn_panes") as mock_set,
         ):

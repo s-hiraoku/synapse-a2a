@@ -72,6 +72,19 @@ TASK_PROTECTION_TIMEOUT: float = 30.0
 WAITING_EXPIRY_SECONDS: float = 10.0
 
 # ============================================================
+# Auto-Approve Constants
+# ============================================================
+
+# Max consecutive auto-approvals before stopping (safety valve)
+AUTO_APPROVE_MAX_CONSECUTIVE: int = 20
+
+# Minimum seconds between consecutive auto-approvals
+AUTO_APPROVE_COOLDOWN: float = 2.0
+
+# Delay before sending auto-approve response (let WAITING UI render)
+AUTO_APPROVE_STABILIZE_DELAY: float = 0.3
+
+# ============================================================
 # Canvas Constants
 # ============================================================
 

@@ -45,3 +45,9 @@ waiting_detection:
   require_idle: true
   idle_timeout: 0.5            # 500ms no output after pattern
   waiting_expiry: 10           # Auto-clear WAITING after 10s
+
+# Auto-approve configuration
+# --yolo (--allow-all): approve all tool/path/URL access
+auto_approve:
+  cli_flag: "--yolo"
+  runtime_response: "1\r"

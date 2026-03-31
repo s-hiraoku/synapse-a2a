@@ -29,3 +29,9 @@ waiting_detection:
   require_idle: true
   idle_timeout: 0.5
   waiting_expiry: 10                           # Auto-clear WAITING after 10s
+
+# Auto-approve configuration
+# Gemini --yolo enables Docker sandbox by default
+auto_approve:
+  cli_flag: "--yolo"
+  runtime_response: "\r"
