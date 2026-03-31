@@ -233,7 +233,7 @@ Analyzes a user prompt and suggests team/task splits when the work appears large
 | `keywords` | refactor, migrate, review, redesign, etc. | Prompt contains task-splitting keywords |
 | `diff_size.min_lines` | 200 | Total insertions + deletions from `git diff --numstat` |
 
-The response always includes a `delegation_strategy` field indicating the recommended execution approach:
+When enabled, the response always includes a `delegation_strategy` field indicating the recommended execution approach:
 
 | Strategy | Meaning |
 |----------|---------|
@@ -271,10 +271,6 @@ suggest:
       - redesign
     diff_size:
       min_lines: 200
-    file_conflict:
-      enabled: true
-    dependency_detection:
-      enabled: true
   delegation_thresholds:
     self_max_files: 3
     self_max_lines: 100

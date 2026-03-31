@@ -50,7 +50,7 @@ STEP 2: Collaboration Decision Framework
   - A READY agent with a matching role exists in the same WORKING_DIR
 
   [USE SYNAPSE SPAWN] synapse spawn / synapse team start
-  - 9+ files OR 3+ directories OR 200+ lines changed
+  - 9+ files OR 3+ directories
   - Different model's perspective needed (review, verification, second opinion)
   - Rate-limit distribution needed (use a different model type)
   - File isolation needed (--worktree for concurrent edits)

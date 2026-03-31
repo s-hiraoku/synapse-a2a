@@ -589,7 +589,8 @@ class SynapseMCPServer:
             warnings.append("High file conflict risk detected; prefer spawn.")
         elif (
             not parallelizable
-            and len(analysis_paths) <= _DEFAULT_DELEGATION_THRESHOLDS["self_max_files"]
+            and len(analysis_paths)
+            <= self._load_delegation_thresholds(config)["self_max_files"]
         ):
             strategy = "self"
             strategy_reason = (
@@ -903,6 +904,18 @@ class SynapseMCPServer:
             return 1
         return 1
 
+    @staticmethod
+    def _load_delegation_thresholds(config: dict[str, object] | None) -> dict[str, int]:
+        """Load delegation thresholds from config, falling back to defaults."""
+        thresholds = dict(_DEFAULT_DELEGATION_THRESHOLDS)
+        if config:
+            cfg_thresholds = config.get("delegation_thresholds")
+            if isinstance(cfg_thresholds, dict):
+                for k, v in cfg_thresholds.items():
+                    if isinstance(v, int):
+                        thresholds[k] = v
+        return thresholds
+
     def _determine_delegation_strategy(
         self,
         diff_stats: GitDiffStats,
@@ -914,15 +927,10 @@ class SynapseMCPServer:
 
         Returns (strategy, reason) tuple.
         """
-        thresholds = dict(_DEFAULT_DELEGATION_THRESHOLDS)
+        thresholds = self._load_delegation_thresholds(config)
         subagent_capable = list(_DEFAULT_SUBAGENT_CAPABLE_AGENTS)
 
         if config:
-            cfg_thresholds = config.get("delegation_thresholds")
-            if isinstance(cfg_thresholds, dict):
-                for k, v in cfg_thresholds.items():
-                    if isinstance(v, int):
-                        thresholds[k] = v
             cfg_capable = config.get("subagent_capable_agents")
             if isinstance(cfg_capable, list):
                 subagent_capable = [a for a in cfg_capable if isinstance(a, str)]
