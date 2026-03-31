@@ -23,16 +23,21 @@ Progress reporting prevents managers from sending unnecessary interrupts:
 
 ### Sub-Delegation
 
-Workers can spawn helpers for independent subtasks. This is efficient when your task has naturally parallel parts:
+Workers can spawn helpers for independent subtasks:
 ```bash
+# Single helper
 synapse spawn gemini --worktree --name Helper --role "test writer"
 synapse send Helper "Write tests for auth.py and report the result" --notify
-# Poll or interrupt if you need an urgent status check:
-synapse interrupt Helper "Quick status check" --priority 4
-# Wait for the completion notification (or use --wait above), then clean up:
 synapse kill Helper -f
+
+# Multiple helpers — use team start for proper tile layout
+synapse team start gemini:Tester codex:Linter --worktree
+synapse send Tester "Write tests for auth.py" --notify
+synapse send Linter "Run linting on src/" --notify
+# Clean up after completion:
+synapse kill Tester -f && synapse kill Linter -f
 ```
-Prefer different model types to distribute load and avoid rate limits.
+Auto-approve flags are injected automatically. Prefer different model types to distribute load.
 
 ## On Completion
 

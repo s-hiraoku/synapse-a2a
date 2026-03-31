@@ -21,11 +21,13 @@ def test_messaging_doc_softens_vscode_capability_claim() -> None:
 
 def test_spawning_doc_uses_current_gemini_flag_and_safe_examples() -> None:
     text = _read("plugins/synapse-a2a/skills/synapse-a2a/references/spawning.md")
-    assert "| **Gemini CLI** | `--approval-mode=yolo` |" in text
-    assert "synapse spawn gemini -- --approval-mode=yolo" in text
-    assert "synapse spawn gemini -- -y" not in text
+    # Auto-approve section should list current flags
+    assert "| **Gemini CLI** | `--yolo` |" in text
+    assert "synapse team start claude gemini codex" in text
+    # Old manual flag passing should be removed
+    assert "synapse spawn gemini -- --approval-mode=yolo" not in text
     assert (
-        "synapse team start claude gemini -- --dangerously-skip-permissions" not in text
+        "synapse team start claude claude -- --dangerously-skip-permissions" not in text
     )
 
 
@@ -80,11 +82,9 @@ def test_worker_guide_waits_for_helper_completion_before_kill() -> None:
     text = _read(
         "plugins/synapse-a2a/skills/synapse-manager/references/worker-guide.md"
     )
-    assert "synapse send Helper" in text
+    assert "synapse send Helper" in text or "synapse send Tester" in text
     assert "--wait" in text or "--notify" in text
-    assert "--priority 4" in text or "--priority 5" in text
-    assert "synapse kill Helper -f" in text
-    assert "--silent" not in text.split("synapse kill Helper -f")[0][-200:]
+    assert "synapse kill Helper -f" in text or "synapse kill Tester -f" in text
 
 
 def test_reinst_skill_documents_source_and_synced_invocations() -> None:

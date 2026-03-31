@@ -40,10 +40,14 @@ STEP 2: Collaboration Decision Framework
   - Outside your role (check ROLE column in synapse list)
   - Can run in parallel with your own work
   - A READY agent with a matching role exists in the same WORKING_DIR
-  - If no suitable agent exists, spawn one with `synapse spawn`
+  - If no suitable agent exists:
+    - Single agent: `synapse spawn <profile> --name <n> --role "<r>"`
+    - Multiple agents: `synapse team start <spec1> <spec2> ...` (proper tile layout)
   - CROSS-MODEL PREFERENCE: When spawning or delegating, prefer a DIFFERENT model type.
     Reasons: (1) diverse models bring diverse strengths, (2) distributes token usage across
     providers to avoid rate limits. If one model is rate-limited, delegate to another type.
+  - Auto-approve: `spawn` and `team start` automatically inject CLI permission bypass
+    flags. Use `--no-auto-approve` to disable.
 
   [ASK FOR HELP] synapse send <target> "..." --wait
   - You are stuck or unsure about your approach
@@ -64,10 +68,11 @@ STEP 3: Before Large Tasks — MANDATORY COLLABORATION GATE
   For tasks with 3+ phases OR 10+ file changes, you MUST:
   1. Run `synapse list` to check available agents
   2. Run `synapse memory search "<topic>"` to check shared knowledge
-  3. Create a task board entry: `synapse tasks create "<task>" -d "<description>"`
-  4. Build an Agent Assignment plan (see below) before writing any code
-  5. If no suitable agent exists, spawn a specialist with `synapse spawn`
-  6. CROSS-MODEL: Spawn a different model type for subtasks (diversity improves quality)
+  3. Build an Agent Assignment plan (see below) before writing any code
+  4. If no suitable agents exist, launch them:
+     - Single agent: `synapse spawn <profile> --name <n> --role "<r>"`
+     - Multiple agents: `synapse team start <spec1> <spec2> ...` (ensures tile layout)
+  5. CROSS-MODEL: Use different model types for subtasks (diversity improves quality)
 
   Agent Assignment Plan Template:
   Before starting multi-phase work, create a table like this:
@@ -78,12 +83,6 @@ STEP 3: Before Large Tasks — MANDATORY COLLABORATION GATE
   | Phase 1 impl | Claude | Complex refactoring |
   | Phase 2 | Gemini | Independent feature, different model |
   | Review | Codex | Fresh perspective from different model |
-
-  Then register each phase on the task board:
-  ```
-  synapse tasks create "Phase 1: ..." -d "..." --priority 4
-  synapse tasks assign <id> <agent>
-  ```
 
   DO NOT skip this step. Single-agent execution of multi-phase plans leads to
   slower delivery, no parallel work, and missed review opportunities.
@@ -107,7 +106,9 @@ Efficiency Rules:
   - Check `synapse list` to confirm the target is READY before sending
   - Include specific file names and completion criteria when delegating
   - Prefer agents in the same WORKING_DIR (shared context is easier)
-  - If no suitable agent exists, spawn one with `synapse spawn`
+  - If no suitable agent exists:
+    - Single agent: `synapse spawn <profile> --name <n> --role "<r>"`
+    - Multiple agents: `synapse team start <spec1> <spec2> ...`
   - When spawning, prefer a different model type to distribute load and avoid rate limits
   - ALWAYS kill agents you spawn after their work is complete: `synapse kill <name> -f`
 
@@ -116,13 +117,6 @@ USE SYNAPSE FEATURES ACTIVELY
 ================================================================================
 
 You have access to powerful coordination tools. Use them — don't just rely on send/reply.
-
-TASK BOARD — Track all work transparently:
-  synapse tasks create "subject" -d "description" --priority 4
-  synapse tasks list --status pending
-  synapse tasks assign <id> <agent>
-  synapse tasks complete <id>
-  synapse tasks fail <id> --reason "..."
 
 SHARED MEMORY — Build collective knowledge:
   synapse memory save <key> "<content>" --tags <topic> --notify
@@ -174,6 +168,26 @@ CANVAS — Post visual artifacts to shared canvas:
     slides      → paginated presentation (demos, walkthroughs)
     dashboard   → multi-widget overview (metrics, health)
     (none)      → single-format content — most posts should use this
+
+  Template body schemas:
+    briefing:
+      {"summary":"...","sections":[{"title":"...","summary":"...","blocks":[0]}]}
+      sections map to content block indices; summary is optional.
+    comparison:
+      {"summary":"...","layout":"side-by-side|stacked","sides":[{"label":"...","blocks":[0]}]}
+      sides must contain at least 2 entries and each side needs a label.
+    steps:
+      {"summary":"...","steps":[{"title":"...","description":"...","done":true,"blocks":[0]}]}
+      steps are ordered; done controls the progress bar and checkmark state.
+    plan:
+      {"plan_id":"...","status":"proposed|active|completed|cancelled","mermaid":"graph TD\\n  A-->B","steps":[{"id":"...","subject":"...","agent":"...","status":"pending|blocked|in_progress|completed|failed","blocked_by":["..."]}]}
+      plan_id and step ids are required; mermaid is optional.
+    slides:
+      {"slides":[{"title":"...","blocks":[0],"notes":"..."}]}
+      slides are paginated in order; each slide must reference one or more blocks.
+    dashboard:
+      {"cols":2,"widgets":[{"title":"...","blocks":[0],"size":"1x1|2x1|1x2|2x2"}]}
+      cols is optional; each widget needs a title and block indices.
 
 SAME WORKING DIRECTORY — Leverage nearby agents:
   When you discover agents in the same WORKING_DIR (via `synapse list`),
