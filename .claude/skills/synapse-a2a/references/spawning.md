@@ -8,14 +8,22 @@ Spawning is sub-agent delegation. The parent spawns child agents to offload subt
 - **Parallel execution** -- independent subtasks run simultaneously, cutting total wall-clock time.
 - **Specialist precision** -- a dedicated role (e.g., "test writer") produces higher-quality results than a generalist handling everything.
 
-## When to Spawn vs. Reuse
+## When to Spawn vs. Subagent vs. Self
+
+Call `analyze_task` first — it returns a `delegation_strategy` recommendation.
 
 | Situation | Action | Why |
 |-----------|--------|-----|
-| Task is small or within your expertise | **Do it yourself** | No overhead, fastest path |
+| ≤3 files, ≤100 lines, 1 directory | **Do it yourself** (strategy: "self") | No overhead, fastest path |
+| 4-8 files, ≤2 dirs, Claude/Codex agent | **Use built-in subagent** (strategy: "subagent") | Same-process, context shared, no startup cost |
 | Another agent is already running and READY | **`synapse send` to existing agent** | Reusing avoids startup cost, instruction injection, and readiness wait |
-| Task is large and would consume your context | **`synapse spawn` a new agent** | Offloads work so your context stays clean |
+| 9+ files, 3+ dirs, or different model needed | **`synapse spawn` a new agent** (strategy: "spawn") | Offloads work, different model perspective, rate-limit distribution |
 | Task has independent parallel subtasks | **`synapse team start` N agents** | Proper tile layout; each agent focuses on one subtask |
+
+**Subagent vs. Synapse spawn:**
+- Subagent (Claude Code Agent tool / Codex subprocess): same process, same model, shared context, low cost. Use for medium-scope work that doesn't need a different perspective.
+- Synapse spawn: separate process, different model possible, file isolation via --worktree. Use for large scope, cross-model review, or rate-limit distribution.
+- Only Claude Code and Codex have subagent capability. Gemini, OpenCode, Copilot always use Synapse spawn.
 
 **Rule of thumb:** Spawn when delegating would be faster, more precise, or prevent your context from being consumed by a large subtask.
 

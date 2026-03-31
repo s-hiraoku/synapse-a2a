@@ -219,6 +219,8 @@ Analyzes a user prompt and suggests team/task splits when the work appears large
 | Parameter | Type | Required | Description |
 |-----------|------|:--------:|-------------|
 | `prompt` | string | Yes | User instruction to analyze for team/task split suggestions |
+| `files` | array of strings | No | File paths the task is expected to touch (hint for conflict/dependency detection) |
+| `agent_type` | string | No | Calling agent's type (e.g. claude, codex, gemini) for subagent capability check |
 
 **Trigger conditions** (configurable via `.synapse/suggest.yaml`):
 
@@ -229,8 +231,17 @@ Analyzes a user prompt and suggests team/task splits when the work appears large
 | `missing_tests` | true | Source files lack corresponding test files |
 | `min_prompt_length` | 200 | Prompt exceeds this character count |
 | `keywords` | refactor, migrate, review, redesign, etc. | Prompt contains task-splitting keywords |
+| `diff_size.min_lines` | 200 | Total insertions + deletions from `git diff --numstat` |
 
-When one or more triggers match, the tool returns a suggested task split (design/implement/verify pattern). When no triggers match, it returns `null`, indicating the task can be handled normally.
+The response always includes a `delegation_strategy` field indicating the recommended execution approach:
+
+| Strategy | Meaning |
+|----------|---------|
+| `self` | Handle the task yourself (small scope, no delegation needed) |
+| `subagent` | Use your built-in subagent capability (Claude: Agent tool, Codex: subprocess) |
+| `spawn` | Use `synapse spawn` or `synapse team start` for multi-agent execution |
+
+When one or more triggers match, the tool also returns a suggested task split (design/implement/verify pattern). When no triggers match, `suggestion` is `null`, indicating the task can be handled with the recommended strategy without further decomposition.
 
 **Example call** (JSON-RPC `tools/call`):
 
@@ -258,9 +269,26 @@ suggest:
       - migrate
       - review
       - redesign
+    diff_size:
+      min_lines: 200
+    file_conflict:
+      enabled: true
+    dependency_detection:
+      enabled: true
+  delegation_thresholds:
+    self_max_files: 3
+    self_max_lines: 100
+    subagent_max_files: 8
+    subagent_max_dirs: 2
+  subagent_capable_agents:
+    - claude
+    - codex
 ```
 
-When Smart Suggest is enabled, the default instruction resource automatically includes guidance for agents to call `analyze_task` on new tasks and share suggestions with the user before proceeding.
+When Smart Suggest is enabled, the default instruction resource automatically includes guidance for agents to call `analyze_task` on new tasks and act according to the returned `delegation_strategy`:
+
+- **`self`** or **`subagent`**: Continue normally with the recommended approach.
+- **`spawn`**: If a suggestion is returned, share it with the user and ask for approval before spawning agents.
 
 !!! tip "From Suggestion to Plan Card"
     When `analyze_task` returns a suggestion, the agent can post it as a Canvas Plan Card (`synapse canvas plan`). See [Canvas -- Plan Template](canvas.md#plan).

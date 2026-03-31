@@ -317,9 +317,9 @@ steps:
 
 ## Smart Suggest
 
-When using MCP bootstrap, the `analyze_task` MCP tool can automatically suggest task splits for complex prompts. When a prompt triggers Smart Suggest (based on file count, multi-directory changes, missing tests, prompt length, or keyword matching), the agent receives a suggested breakdown (design/implement/verify) that can be turned into a Plan Card.
+When using MCP bootstrap, the `analyze_task` MCP tool can automatically suggest task splits for complex prompts. The tool always returns a `delegation_strategy` (`self`, `subagent`, or `spawn`) indicating whether the agent should handle the task alone, use a built-in subagent, or delegate via `synapse spawn`/`synapse team start`. When a prompt triggers Smart Suggest (based on file count, multi-directory changes, missing tests, prompt length, or keyword matching), the agent also receives a suggested breakdown (design/implement/verify) that can be turned into a Plan Card.
 
-This complements workflows by automating the initial task decomposition step. While workflows define fixed, reusable sequences, Smart Suggest dynamically analyzes each prompt and proposes ad-hoc task splits when the work appears large enough.
+This complements workflows by automating the initial task decomposition step. While workflows define fixed, reusable sequences, Smart Suggest dynamically analyzes each prompt, recommends a delegation strategy, and proposes ad-hoc task splits when the work appears large enough.
 
 See [MCP Bootstrap Setup](mcp-setup.md#mcp-tools) for details on the `analyze_task` tool, and [Canvas -- Plan Template](canvas.md#plan) for Plan Card documentation.
 

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-03-31
+
+### Added
+
+- **delegation_strategy in analyze_task**: MCP `analyze_task` tool now returns a `delegation_strategy` field ("self" / "subagent" / "spawn") to guide agents on whether to handle tasks themselves, use built-in subagents (Claude Code Agent tool, Codex subprocess), or spawn separate Synapse agents (#476)
+- **Git diff heuristics**: `GitDiffStats` dataclass with `_get_git_diff_stats()` parses `git diff --numstat` for quantitative change metrics (files, lines, directory spread)
+- **File conflict detection**: `_detect_file_conflicts()` queries `FileSafetyManager.list_locks()` to identify files locked by other agents; high conflict risk forces spawn + --worktree recommendation
+- **Sequential dependency detection**: `_detect_dependencies()` analyzes Python imports and naming conventions (migration→service→test ordering) to build dependency graphs; prevents incorrect parallelization
+- **New analyze_task parameters**: optional `files` (hint paths) and `agent_type` (subagent capability check) in MCP inputSchema
+- **Enriched analyze_task output**: `context` section with `diff_stats`, `file_conflicts`, `dependencies`, `parallelizable`; `warnings` list for actionable alerts
+
+### Changed
+
+- **default.md decision framework**: replaced vague "5 min / 10 files" criteria with concrete thresholds — [DO IT YOURSELF] (≤3 files, ≤100 lines, 1 dir), [USE SUBAGENT] (4-8 files, ≤2 dirs, Claude/Codex only), [USE SYNAPSE SPAWN] (9+ files, 3+ dirs, cross-model)
+- **spawning.md**: added subagent vs Synapse spawn comparison table with clear decision criteria
+- **Smart Suggest instructions**: updated to explain delegation_strategy field and recommended actions per strategy
+- **Configurable thresholds**: `delegation_thresholds` and `subagent_capable_agents` in `.synapse/suggest.yaml`
+
+### Documentation
+
+- Updated `docs/synapse-reference.md` with new analyze_task parameters and return fields
+- Updated `README.md` Smart Suggest feature description
+
 ## [0.17.16] - 2026-03-31
 
 ### Added
