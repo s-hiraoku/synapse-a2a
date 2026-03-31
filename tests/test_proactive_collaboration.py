@@ -79,7 +79,8 @@ class TestMandatoryCollaborationGate:
         """Must use MUST (not should/consider) to enforce the gate."""
         lines = template_content.split("\n")
         found_must = any(
-            ("3+" in line or "9+" in line) and "MUST" in line for line in lines
+            ("3+" in line or "9+" in line or "9 or more" in line) and "MUST" in line
+            for line in lines
         )
         assert found_must, "Large task gate must use MUST keyword for enforcement"
 
