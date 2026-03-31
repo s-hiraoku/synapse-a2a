@@ -380,10 +380,14 @@ def _is_tui_block_line(line: str) -> bool:
     """Return True for lines that are mostly TUI block/geometric chars.
 
     Allows up to 3 chars of ANSI residue (e.g. leading 'm' from orphaned SGR).
+    Requires at least one actual block char to avoid false-positiving on
+    short numeric strings like "42".
     """
     residue = 0
+    has_block = False
     for c in line:
         if c in _TUI_BLOCK_CHARS:
+            has_block = True
             continue
         if c in _ANSI_RESIDUE_CHARS:
             residue += 1
@@ -391,7 +395,7 @@ def _is_tui_block_line(line: str) -> bool:
                 return False
         else:
             return False
-    return True
+    return has_block
 
 
 # Vertical border characters used by TUI frames

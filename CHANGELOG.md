@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
-- Added `TestOpenCodeTuiArtifacts` (6 tests) and `TestGeminiTuiArtifacts` (7 tests) in `test_output_parser.py`
+- Added `TestOpenCodeTuiArtifacts` (6 tests) and `TestGeminiTuiArtifacts` (7 tests) in `tests/test_output_parser.py`
 
 ## [0.18.0] - 2026-03-31
 
