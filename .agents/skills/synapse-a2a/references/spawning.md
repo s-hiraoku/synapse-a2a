@@ -166,14 +166,13 @@ synapse team start claude gemini codex --layout horizontal
 synapse team start claude gemini --all-new  # All agents in new panes
 synapse team start claude gemini --worktree  # Each agent in its own worktree
 synapse team start claude gemini codex -w my-feature  # Named prefix: my-feature-claude-0, etc.
-synapse team start claude claude -- --dangerously-skip-permissions
+synapse team start claude gemini --no-auto-approve  # Disable auto-approve
 ```
 
 Team Start via API (`POST /team/start`):
 
 ```jsonc
 {"agents": ["gemini", "codex"], "layout": "split"}
-{"agents": ["gemini", "gemini"], "tool_args": ["--approval-mode=yolo"]}
 ```
 
 ## Worktree Isolation
