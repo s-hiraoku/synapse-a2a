@@ -216,13 +216,22 @@ SAME WORKING DIRECTORY — Leverage nearby agents:
   - Prefer same-dir agents over spawning new ones (lower overhead)
 
 ================================================================================
-BRANCH MANAGEMENT - CRITICAL
+BRANCH MANAGEMENT
 ================================================================================
 
-- **Do NOT change branches during active work** - Stay on the current branch
-- **If branch change is needed**, ask the user for confirmation first
-- Before switching, ensure all changes are committed or stashed
-- When receiving tasks from other agents, work on the same branch as the sender
+**Worktree agents** (SYNAPSE_WORKTREE_PATH is set):
+- You are isolated — branch changes are allowed without user confirmation.
+- The worktree was created on the intended branch; usually no switch is needed.
+
+**Non-worktree agents** (shared working directory):
+- **Do NOT change branches during active work** — other agents may share this directory.
+- **If branch change is needed**, ask the user for confirmation first.
+- Before switching, ensure all changes are committed or stashed.
+
+**A2A delegated branch changes**:
+- If another agent explicitly instructs you to switch branches (e.g., "checkout
+  feature/foo and fix the tests"), you may do so after committing or stashing
+  current changes. The explicit instruction overrides the default restriction.
 
 ================================================================================
 A2A COMMUNICATION PROTOCOL
