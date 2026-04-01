@@ -105,7 +105,7 @@ flowchart LR
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --silent` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
 | **Saved Agent Definitions** | `synapse agents add/list/show/delete` — Save reusable agent templates (profile + name + role + skill set) with persistent **Agent IDs**. `synapse spawn` accepts Agent IDs/names in addition to profile names |
-| **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Use `--worktree` / `-w` for Synapse-native git worktree isolation (all agents, `.synapse/worktrees/`). Legacy `-- --worktree` also supported for Claude Code only |
+| **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Use `--worktree` / `-w` for Synapse-native git worktree isolation (all agents, `.synapse/worktrees/`). Use `--branch` / `-b` to specify the base branch for worktree creation (defaults to `origin/main`). Legacy `-- --worktree` also supported for Claude Code only |
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 | **Learning Mode** | Two independent flags: `SYNAPSE_LEARNING_MODE_ENABLED=true` enables Prompt Improvement section; `SYNAPSE_LEARNING_MODE_TRANSLATION=true` enables JP-to-EN Learning section. Either flag activates `learning.md` injection and Tips. Response uses normal formatting (no separators); structured formatting (━━━ separators, section headers) applies only to feedback sections (Prompt Improvement, JP-to-EN Learning, Tips) |
 | **Proactive Mode** | `SYNAPSE_PROACTIVE_MODE_ENABLED=true` guides agents to use Synapse features (shared memory, canvas, file safety, delegation, broadcast) based on a task-size x feature matrix. Small tasks skip most features; medium tasks use them selectively; large tasks require full coordination. Per-feature skip conditions prevent unnecessary overhead. Follows the learning_mode pattern: env var activation + `.synapse/proactive.md` instruction file appended at startup. Off by default |
@@ -336,8 +336,11 @@ Agents proactively assess when to delegate, spawn helpers, or share knowledge. T
 # Manager spawns a different model type for a subtask (cross-model preference)
 synapse spawn gemini --worktree --name Tester --role "test writer"
 
-# Delegate work to the spawned agent
-synapse send Tester "Write integration tests for auth module" --silent
+# Spawn on a specific branch (e.g., a renovate/dependabot PR branch)
+synapse spawn codex --worktree --branch renovate/major-eslint-monorepo --name Fixer --role "dependency updater"
+
+# Delegate work to the spawned agent (prefer --notify over --wait)
+synapse send Tester "Write integration tests for auth module" --notify
 
 # Share discoveries via shared memory for all agents to use
 synapse memory save auth-pattern "OAuth2 flow uses refresh tokens" --tags auth --notify
@@ -360,6 +363,9 @@ Share skills, config, or investigation results with agents running in different 
 ```bash
 # Spawn a worker in its own worktree
 synapse spawn codex --worktree feature-api --name Cody --role "API implementation"
+
+# Spawn on a non-main base branch
+synapse spawn codex --worktree feature-api --branch develop --name Cody --role "API implementation"
 
 # Write instructions to a file (avoids shell expansion of backticks)
 cat > /tmp/instructions.md << 'EOF'
@@ -725,7 +731,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
 | `synapse team start` | Launch agents (1st=handoff, rest=new panes). `--all-new` for all new panes |
-| `synapse spawn <profile\|saved-agent>` | Spawn a single agent in a new terminal pane. Accepts saved agent IDs/names. `--worktree` / `-w` for Synapse-native worktree isolation (all agents) |
+| `synapse spawn <profile\|saved-agent>` | Spawn a single agent in a new terminal pane. Accepts saved agent IDs/names. `--worktree` / `-w` for Synapse-native worktree isolation (all agents). `--branch` / `-b` to set the base branch for worktree (default: `origin/main`) |
 | `synapse agents list` | List saved agent definitions |
 | `synapse agents show <id_or_name>` | Show details for a saved agent |
 | `synapse agents add <id>` | Add or update a saved agent definition (requires `--name`, `--profile`) |

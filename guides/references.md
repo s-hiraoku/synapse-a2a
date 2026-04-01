@@ -150,7 +150,7 @@ flowchart TB
 インタラクティブモードでエージェントを起動します。
 
 ```bash
-synapse <profile> [--name NAME] [--role ROLE] [--agent|-A ID_OR_NAME] [--skill-set SET] [--port PORT] [--no-setup] [--delegate-mode] [--worktree|-w [NAME]]
+synapse <profile> [--name NAME] [--role ROLE] [--agent|-A ID_OR_NAME] [--skill-set SET] [--port PORT] [--no-setup] [--delegate-mode] [--worktree|-w [NAME]] [--branch|-b BRANCH]
 ```
 
 | 引数 | 必須 | 説明 |
@@ -164,6 +164,7 @@ synapse <profile> [--name NAME] [--role ROLE] [--agent|-A ID_OR_NAME] [--skill-s
 | `--no-setup` | No | 対話型セットアップをスキップ |
 | `--delegate-mode` | No | マネージャー/委任者として起動（ファイル編集なし） |
 | `--worktree [NAME]`, `-w` | No | Synapse ネイティブ worktree 分離で起動（`.synapse/worktrees/<name>/`）。NAME 省略時は自動生成。全エージェント対応 |
+| `--branch BRANCH`, `-b` | No | worktree のベースブランチを指定（デフォルト: `origin/main`）。`--worktree` と併用 |
 
 **例**:
 
@@ -173,6 +174,7 @@ synapse codex --port 8120
 synapse gemini --port 8110
 synapse claude --worktree my-feature              # worktree 分離で起動
 synapse gemini -w                                 # 自動名で worktree 起動
+synapse claude --worktree fix -b renovate/eslint  # 特定ブランチベースで worktree 起動
 
 # 保存済みエージェント定義を使用
 synapse claude --agent calm-lead                  # 保存済みIDで起動

@@ -33,9 +33,9 @@ synapse set-summary my-claude --auto           # Auto-generate from git context
 synapse set-summary my-claude --clear          # Remove summary
 
 # Messaging
-synapse send my-claude "Review this" --wait    # Synchronous
+synapse send claude "Update" --notify          # Async notification (default, recommended)
+synapse send my-claude "Review this" --wait    # Synchronous (blocks caller)
 synapse send gemini "Fix this" --silent        # Fire-and-forget
-synapse send claude "Update" --notify          # Async notification (default)
 synapse send claude --message-file /tmp/msg.txt --silent  # From file
 synapse send claude "Review" --attach src/main.py --wait  # With file
 synapse reply "Result here"                    # Auto-route to sender
@@ -79,9 +79,11 @@ synapse workflow sync                            # Re-generate skills from all w
 # Spawn/Teams (auto-approve enabled by default)
 synapse spawn claude --name Tester --role "test writer"
 synapse spawn claude --worktree feature-auth
+synapse spawn codex --worktree --branch renovate/major-eslint-monorepo  # Base branch for worktree
 synapse spawn claude --no-auto-approve             # Disable auto-approve
 synapse team start claude gemini
 synapse team start claude gemini --worktree
+synapse team start claude gemini --worktree --branch feature/api  # Base branch for all worktrees
 synapse team start claude gemini --no-auto-approve # Disable for all agents
 
 # Skills

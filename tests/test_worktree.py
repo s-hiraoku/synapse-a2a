@@ -197,6 +197,66 @@ class TestCreateWorktree:
         assert info.branch == "worktree-feature-auth"
         assert info.path == Path("/repo/.synapse/worktrees/feature-auth")
 
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    @patch("pathlib.Path.mkdir")
+    def test_create_worktree_with_custom_base_branch(
+        self,
+        mock_mkdir: MagicMock,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """When base_branch is provided, it should be used instead of get_default_remote_branch."""
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("synapse.worktree.generate_worktree_name", return_value="keen-owl"):
+            with patch("pathlib.Path.exists", return_value=False):
+                info = create_worktree(base_branch="renovate/major-eslint-monorepo")
+
+        assert info.name == "keen-owl"
+        assert info.branch == "worktree-keen-owl"
+        assert info.base_branch == "renovate/major-eslint-monorepo"
+
+        # Verify git worktree add used the custom base branch
+        cmd = mock_run.call_args[0][0]
+        assert cmd[-1] == "renovate/major-eslint-monorepo"
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    @patch("pathlib.Path.mkdir")
+    def test_create_worktree_base_branch_none_uses_default(
+        self,
+        mock_mkdir: MagicMock,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+        mock_remote: MagicMock,
+    ) -> None:
+        """When base_branch is None, get_default_remote_branch is used."""
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("synapse.worktree.generate_worktree_name", return_value="bold-fox"):
+            with patch("pathlib.Path.exists", return_value=False):
+                info = create_worktree(base_branch=None)
+
+        assert info.base_branch == "origin/main"
+        cmd = mock_run.call_args[0][0]
+        assert cmd[-1] == "origin/main"
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    def test_create_worktree_empty_base_branch_raises(
+        self, mock_git_root: MagicMock
+    ) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            create_worktree(base_branch="")
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    def test_create_worktree_dash_base_branch_raises(
+        self, mock_git_root: MagicMock
+    ) -> None:
+        with pytest.raises(ValueError, match="must not start with"):
+            create_worktree(base_branch="--malicious")
+
     @patch("synapse.worktree.get_git_root")
     def test_create_worktree_not_in_git_repo(self, mock_git_root: MagicMock) -> None:
         mock_git_root.side_effect = RuntimeError("Not a git repository")

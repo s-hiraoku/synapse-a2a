@@ -188,6 +188,9 @@ synapse spawn gemini --name Helper --role "search specialist"
 # With worktree isolation
 synapse spawn claude --worktree feature-auth
 
+# With worktree on a specific base branch
+synapse spawn codex --worktree --branch renovate/major-eslint-monorepo
+
 # Pass tool-specific flags after '--'
 synapse spawn claude -- --dangerously-skip-permissions
 ```
@@ -204,6 +207,9 @@ synapse team start claude gemini --all-new
 
 # With worktree isolation for every agent
 synapse team start claude gemini --worktree
+
+# With worktree on a specific base branch
+synapse team start claude gemini --worktree --branch feature/api
 
 # Extended spec  profile:Name:role:skill-set
 synapse team start claude:Reviewer:reviewer:code-review gemini:Searcher

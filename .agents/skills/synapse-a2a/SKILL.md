@@ -1,15 +1,6 @@
 ---
 name: synapse-a2a
-description: >-
-  Synapse A2A agent communication — sending messages, spawning agents,
-  delegating tasks, sharing memory, and coordinating file edits.
-  Use this skill when: running synapse send/reply/broadcast/interrupt,
-  spawning agents with synapse spawn or synapse team start,
-  sharing knowledge with synapse memory, locking files with synapse file-safety,
-  checking agent status with synapse list/status, or orchestrating any
-  multi-agent workflow. For AI/programmatic use, prefer `synapse list --json`,
-  `synapse status <target> --json`, or the MCP `list_agents` tool instead of
-  interactive `synapse list`.
+description: "Synapse A2A agent communication -- sending messages, spawning agents, delegating tasks, sharing memory, and coordinating file edits. Use this skill when: running synapse send/reply/broadcast/interrupt, spawning agents with synapse spawn or synapse team start, sharing knowledge with synapse memory, locking files with synapse file-safety, checking agent status with synapse list/status, or orchestrating any multi-agent workflow. For AI/programmatic use, prefer synapse list --json, synapse status <target> --json, or the MCP list_agents tool instead of interactive synapse list."
 ---
 
 # Synapse A2A Communication

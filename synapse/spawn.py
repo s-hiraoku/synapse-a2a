@@ -109,6 +109,7 @@ def prepare_spawn(
     worktree: str | bool | None = None,
     fallback_tool_args: list[str] | None = None,
     auto_approve: bool = True,
+    branch: str | None = None,
 ) -> PreparedAgent:
     """Prepare a single agent for spawning (Phase 1: validate & allocate).
 
@@ -128,6 +129,9 @@ def prepare_spawn(
         fallback_tool_args: Shell-level fallback command args on failure.
         auto_approve: If True (default), inject the profile's auto-approve
             CLI flag and set SYNAPSE_AUTO_APPROVE=true in the environment.
+        branch: Base branch for worktree creation (e.g. ``renovate/foo``).
+            Only used when ``worktree`` is truthy. Defaults to the remote
+            default branch when None.
 
     Returns:
         PreparedAgent ready for execute_spawn().
@@ -159,7 +163,7 @@ def prepare_spawn(
         from synapse.worktree import create_worktree
 
         wt_name = worktree if isinstance(worktree, str) else None
-        worktree_info = create_worktree(name=wt_name)
+        worktree_info = create_worktree(name=wt_name, base_branch=branch)
         cwd = str(worktree_info.path)
         extra_env.update(
             {
@@ -402,6 +406,7 @@ def spawn_agent(
     worktree: str | bool | None = None,
     fallback_tool_args: list[str] | None = None,
     auto_approve: bool = True,
+    branch: str | None = None,
 ) -> SpawnResult:
     """Spawn a single agent in a new terminal pane.
 
@@ -422,6 +427,8 @@ def spawn_agent(
         fallback_tool_args: Shell-level fallback command args on failure.
         auto_approve: If True (default), inject the profile's auto-approve
             CLI flag and set SYNAPSE_AUTO_APPROVE=true.
+        branch: Base branch for worktree creation. Only used when
+            ``worktree`` is truthy. Defaults to remote default branch.
 
     Returns:
         SpawnResult with agent_id, port, terminal_used, status.
@@ -440,6 +447,7 @@ def spawn_agent(
         worktree=worktree,
         fallback_tool_args=fallback_tool_args,
         auto_approve=auto_approve,
+        branch=branch,
     )
 
     results = execute_spawn(
