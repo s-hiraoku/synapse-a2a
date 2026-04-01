@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-04-02
+
+### Added
+
+- **Worktree auto-recommendation**: `analyze_task` returns `recommended_worktree` field — `true` when delegation strategy is `spawn` or file conflict risk is high
+- **Team start worktree default**: `synapse team start` now defaults to `--worktree` isolation; opt out with `--no-worktree`
+- **Branch implies worktree**: `--branch` flag auto-enables `--worktree` in `synapse spawn` (no longer requires explicit `--worktree`)
+- Worktree decision criteria documented in agent instruction template (`default.md`)
+
+### Changed
+
+- `--branch` without `--worktree` no longer errors — worktree is auto-enabled instead
+- Agent instruction template (`default.md`) now includes worktree decision rules in Collaboration Decision Framework
+
+### Documentation
+
+- README, synapse-reference, guides, and site-docs updated to reflect worktree auto-recommendation, team start default, and `--no-worktree` opt-out
+
 ## [0.18.4] - 2026-04-01
 
 ### Documentation
