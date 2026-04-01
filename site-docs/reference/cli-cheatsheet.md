@@ -540,7 +540,7 @@ When spawning agents with full autonomy, pass the appropriate flag after `--`:
 | Claude Code | `--dangerously-skip-permissions` | `synapse spawn claude -- --dangerously-skip-permissions` |
 | Gemini CLI | `-y` | `synapse spawn gemini -- -y` |
 | Codex CLI | `--full-auto` | `synapse spawn codex -- --full-auto` |
-| Copilot CLI | `--allow-all-tools` | `synapse spawn copilot -- --allow-all-tools` |
+| Copilot CLI | `--allow-all` | `synapse spawn copilot -- --allow-all` |
 
 ---
 

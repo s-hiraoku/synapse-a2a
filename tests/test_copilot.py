@@ -133,6 +133,10 @@ class TestCopilotProfile:
         assert compiled.search("(y/n)")
         assert compiled.search("(Y/N)")
 
+    def test_profile_auto_approve_uses_canonical_allow_all_flag(self, profile):
+        """Copilot auto-approve should use the documented canonical flag."""
+        assert profile["auto_approve"]["cli_flag"] == "--allow-all"
+
 
 class TestCopilotTemplate:
     """Tests for Copilot instruction template."""

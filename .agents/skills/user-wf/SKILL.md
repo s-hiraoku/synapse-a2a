@@ -1,8 +1,6 @@
 ---
 description: 'Workflow: Describe what this workflow does. Triggered by /user-wf command.'
 name: user-wf
-metadata:
-  internal: true
 ---
 <!-- synapse-workflow-autogen -->
 

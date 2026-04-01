@@ -4,8 +4,6 @@ description: 'Workflow: Post-implementation workflow: docs/simplify/sync in para
 
   . Triggered by /post-impl command.'
 name: post-impl
-metadata:
-  internal: true
 ---
 <!-- synapse-workflow-autogen -->
 

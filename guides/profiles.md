@@ -370,6 +370,7 @@ env:
 - Bubble Tea ベースの TUI のため `\r` を使用
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
 - 1.0 秒のタイムアウト
+- 初回インストラクション送信前は `input_ready_pattern` を使わず、timeout-based idle のフォールバックで入力可能状態を確認する
 
 ---
 
@@ -411,6 +412,7 @@ waiting_detection:
 - **inject pipe**: `pty.spawn()` の `_copy` ループがマスター fd の I/O を管理するため、他スレッドからの直接書き込みが消失する問題を解決。inject pipe 機構がキーボード入力とプログラム的書き込みをマージする
 - **`input_ready_pattern: "❯"`**: 初期インストラクション送信前に TUI の準備完了を検出。Copilot が `❯` プロンプトを表示した時点で入力可能と判断
 - **`write_delay: 0.5`**: 500ms の遅延。TUI が描画を完了してから CR を送信
+- **`auto_approve.cli_flag: "--allow-all"`**: 起動時の承認スキップは Copilot CLI の canonical な `--allow-all` を注入する
 - **submit confirmation**: `submit_confirm_timeout` / `submit_confirm_retries` で Copilot がプロンプトをクリアしたことを確認。長いメッセージやファイル参照送信では `long_submit_confirm_timeout` / `long_submit_confirm_retries` でより大きな確認バジェットを使用
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
 - 500ms の短いタイムアウト（高速応答性）

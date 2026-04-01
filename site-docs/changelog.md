@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.18.3
+
+- **Fixed**: OpenCode startup instruction injection now waits for timeout-idle readiness when no `input_ready_pattern` is available (#477)
+- **Fixed**: Copilot spawned sessions now use the canonical `--allow-all` auto-approve flag instead of the legacy alias (#479)
+- **Docs**: Updated permission-mode, profile, and site reference examples to match the new startup and auto-approve behavior
+
 ### v0.18.2
 
 - **Added**: Canvas clipboard copy — copy card content to clipboard as Markdown via new button in card headers and spotlight view

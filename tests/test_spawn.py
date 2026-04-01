@@ -118,6 +118,16 @@ class TestSpawnCLIParsing:
 class TestSpawnAgent:
     """Tests for spawn_agent() function."""
 
+    def test_prepare_spawn_injects_copilot_allow_all(self) -> None:
+        """Copilot auto-approve should inject the canonical allow-all flag."""
+        from synapse.spawn import prepare_spawn
+
+        with patch("synapse.spawn.is_port_available", return_value=True):
+            prepared = prepare_spawn("copilot", port=8140, tool_args=["--resume"])
+
+        assert prepared.tool_args == ["--allow-all", "--resume"]
+        assert prepared.extra_env == {"SYNAPSE_AUTO_APPROVE": "true"}
+
     def test_spawn_returns_result(self) -> None:
         """spawn_agent() should return a SpawnResult with agent_id and port."""
         from synapse.spawn import SpawnResult, spawn_agent

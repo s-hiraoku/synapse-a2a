@@ -377,7 +377,7 @@ class TestProfileAutoApproveConfig:
             ("claude", "--dangerously-skip-permissions"),
             ("gemini", "--yolo"),
             ("codex", "--full-auto"),
-            ("copilot", "--yolo"),
+            ("copilot", "--allow-all"),
         ],
     )
     def test_profile_has_auto_approve_cli_flag(

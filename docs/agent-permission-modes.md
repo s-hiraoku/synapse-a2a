@@ -24,7 +24,7 @@ synapse team start claude gemini --no-auto-approve
 | Codex CLI | `--full-auto` | ワークスペース制限 | なし | `~/.codex/config.toml` |
 | Gemini CLI | `--yolo` | Docker (デフォルト) | `Ctrl+Y` | `~/.gemini/settings.json` |
 | OpenCode | env var | なし | なし | `opencode.json` |
-| Copilot CLI | `--yolo` | なし | `/yolo` コマンド | なし |
+| Copilot CLI | `--allow-all` | なし | `/allow-all` コマンド | なし |
 
 ## Claude Code
 
@@ -84,7 +84,7 @@ CLI フラグ（`--dangerously-skip-permissions`）は Feature Request として
 | no-ask-user | `--no-ask-user` | 明確化質問の抑制 |
 | Autopilot | Autopilot モード | 各ステップを自律実行。`--allow-all` との併用で完全自律 |
 
-**Synapse での動作:** `--yolo` が自動注入される。WAITING 検知時は `1`（Yes）+ Enter を送信。
+**Synapse での動作:** `--allow-all` が自動注入される。WAITING 検知時は `1`（Yes）+ Enter を送信。
 
 セッション中 `/yolo` または `/allow-all` コマンドでも有効化可能。
 
