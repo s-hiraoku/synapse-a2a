@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.18.1
+
+- **Fixed**: TUI artifact removal for OpenCode (Bubble Tea) and Gemini CLI (Ink) — block elements, geometric shapes, frame content lines, and input prompts are now stripped from agent responses (#480)
+- **Tests**: 13 new tests for OpenCode and Gemini TUI artifact patterns
+
 ### v0.18.0
 
 - **Added**: `delegation_strategy` in `analyze_task` — 3-tier recommendation (self/subagent/spawn) with git diff heuristics, file conflict detection, and dependency analysis (#476)
