@@ -48,6 +48,8 @@ function buildHarness(initialCards, systemAgents) {
     function runMermaid() {}
     function downloadCard() {}
     function createDownloadButton() { return document.createElement("button"); }
+    function copyCardToClipboard() {}
+    function createCopyButton() { return document.createElement("button"); }
     ${NS_STUB_CODE}
     ns.cards = cards;
     ns.systemAgents = systemAgents;

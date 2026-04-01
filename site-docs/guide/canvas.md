@@ -541,13 +541,16 @@ Canvas uses a **dedicated port (3000)** separate from agent servers (8100-8149) 
 - **Pinned cards**: Exempt from TTL. They stay until manually deleted or server restart.
 - **Update resets TTL**: When a card is updated via `card_id`, its expiry is refreshed.
 
-## Card Download
+## Card Actions
 
-Cards can be downloaded as files directly from the Canvas UI or via the HTTP API. Each content format maps to an optimal download format automatically.
+Cards can be downloaded or copied to the clipboard directly from the Canvas UI, or downloaded via the HTTP API. Each content format maps to an optimal download format automatically.
 
 ### Browser UI
 
-Every card in the History view and the Canvas spotlight view includes a **download button** (<i class="ph ph-download-simple"></i>). Clicking it triggers a browser download of the card content in its native format.
+Every card in the History view and the Canvas spotlight view includes two action buttons in the card header:
+
+- **Copy to clipboard** (<i class="ph ph-copy-simple"></i>) — copies the card content to the system clipboard as plain text. A brief "Copied!" tooltip confirms the action.
+- **Download** (<i class="ph ph-download-simple"></i>) — triggers a browser download of the card content in its native format.
 
 ### HTTP API
 

@@ -6,6 +6,7 @@
   const getSortedCards = ns.getSortedCards;
   const statusColor = ns.statusColor;
   const createDownloadButton = ns.createDownloadButton;
+  const createCopyButton = ns.createCopyButton;
   const getTemplateBadgeLabel = ns.getTemplateBadgeLabel;
   const parseContent = ns.parseContent;
   const renderTemplateOrBlocks = function() { return ns.renderTemplateOrBlocks.apply(ns, arguments); };
@@ -114,11 +115,15 @@
       navIndicator.className = "canvas-nav-indicator";
     }
     syncChildren(titleMeta, [templateBadge, navIndicator]);
+    let cpBtn = titleBar.querySelector(".canvas-copy-btn");
+    if (!cpBtn) {
+      cpBtn = createCopyButton(function () { return ns._spotlightCardId; });
+    }
     let dlBtn = titleBar.querySelector(".canvas-dl-btn");
     if (!dlBtn) {
       dlBtn = createDownloadButton(function () { return ns._spotlightCardId; });
     }
-    syncChildren(titleBar, [titleText, titleMeta, dlBtn]);
+    syncChildren(titleBar, [titleText, titleMeta, cpBtn, dlBtn]);
 
     let content = canvasSpotlight.querySelector(".canvas-content");
     if (!content) {
