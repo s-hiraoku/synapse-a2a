@@ -34,7 +34,7 @@ synapse codex -- resume <sessionId>
 | `--delegate-mode` | Start as manager/delegator (no file editing) |
 | `--port PORT` | Override default port |
 | `--worktree [NAME]`, `-w` | Create git worktree for isolated work (optional name) |
-| `--branch BRANCH`, `-b` | Base branch for worktree creation (requires `--worktree`) |
+| `--branch BRANCH`, `-b` | Base branch for worktree creation (implies `--worktree`) |
 
 !!! tip "Using Saved Agent Definitions at Startup"
     The `--agent` / `-A` flag resolves a saved agent definition by ID or display name:
@@ -240,8 +240,9 @@ synapse team start <profiles...> [OPTIONS] [-- TOOL_ARGS]
 |------|-------------|
 | `--layout LAYOUT` | `split`, `horizontal`, or `vertical` |
 | `--all-new` | All agents in new panes |
-| `--worktree [NAME]`, `-w` | Create per-agent git worktrees for isolation |
-| `--branch BRANCH`, `-b` | Base branch for worktree creation (requires `--worktree`) |
+| `--worktree [NAME]`, `-w` | Create per-agent git worktrees for isolation (**default: enabled**) |
+| `--no-worktree` | Opt out of worktree isolation |
+| `--branch BRANCH`, `-b` | Base branch for worktree creation |
 
 **Profile spec format**: `profile[:name[:role[:skill_set[:port]]]]`
 
@@ -269,7 +270,7 @@ When a saved agent is used, its profile, name, role, and skill set are resolved 
 | `--role ROLE` | Agent role (supports `@path` file reference) |
 | `--terminal TERM` | Terminal app override |
 | `--worktree [NAME]`, `-w` | Create git worktree for isolated work |
-| `--branch BRANCH`, `-b` | Base branch for worktree creation (requires `--worktree`) |
+| `--branch BRANCH`, `-b` | Base branch for worktree creation (implies `--worktree`) |
 
 ## Session Save/Restore
 
@@ -700,7 +701,7 @@ Serves Synapse bootstrap resources (instructions, skills) over MCP stdio transpo
 | `--agent-type TYPE` | Agent type for instruction resolution (inferred from agent ID if omitted) |
 | `--port PORT` | Port for instruction placeholder resolution |
 
-MCP tools exposed: `bootstrap_agent`, `list_agents`, `analyze_task`. See [MCP Bootstrap Setup](../guide/mcp-setup.md#mcp-tools) for tool documentation.
+MCP tools exposed: `bootstrap_agent`, `list_agents`, `analyze_task`. The `analyze_task` tool returns a `recommended_worktree` field indicating whether worktree isolation is advisable for the given task. See [MCP Bootstrap Setup](../guide/mcp-setup.md#mcp-tools) for tool documentation.
 
 !!! warning "Experimental"
     This command is in early development (Phase 1). The interface may change in future releases.

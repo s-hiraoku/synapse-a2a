@@ -164,7 +164,7 @@ synapse <profile> [--name NAME] [--role ROLE] [--agent|-A ID_OR_NAME] [--skill-s
 | `--no-setup` | No | 対話型セットアップをスキップ |
 | `--delegate-mode` | No | マネージャー/委任者として起動（ファイル編集なし） |
 | `--worktree [NAME]`, `-w` | No | Synapse ネイティブ worktree 分離で起動（`.synapse/worktrees/<name>/`）。NAME 省略時は自動生成。全エージェント対応 |
-| `--branch BRANCH`, `-b` | No | worktree のベースブランチを指定（デフォルト: `origin/main`）。`--worktree` と併用 |
+| `--branch BRANCH`, `-b` | No | worktree のベースブランチを指定（デフォルト: `origin/main`）。**`--worktree` を自動的に有効化** |
 
 **例**:
 
@@ -318,10 +318,10 @@ synapse list --json       # JSON 配列出力（AI/スクリプト向け）
 
 複数エージェントを分割ペインで起動します。
 
-**デフォルト動作**: 1番目のエージェントが現在のターミナルを引き継ぎ（handoff）、2番目以降が新しいペインで起動します。
+**デフォルト動作**: 1番目のエージェントが現在のターミナルを引き継ぎ（handoff）、2番目以降が新しいペインで起動します。**デフォルトで `--worktree` 分離が有効**です（`--no-worktree` でオプトアウト可能）。
 
 ```bash
-synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|vertical] [--all-new] [-- tool_args...]
+synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|vertical] [--all-new] [--no-worktree] [-- tool_args...]
 ```
 
 **エージェント指定（agent_spec）の形式**:
@@ -339,7 +339,8 @@ synapse team start <agent_spec1> <agent_spec2> ... [--layout split|horizontal|ve
 | `agents` | Yes | 起動するエージェントスペック（複数指定） |
 | `--layout` | No | ペインレイアウト (`split`, `horizontal`, `vertical`) |
 | `--all-new` | No | 全エージェントを新しいペインで起動（現在のターミナルは残る） |
-| `--worktree [NAME]`, `-w` | No | Synapse ネイティブ worktree 分離（各エージェントが個別の worktree を取得）。NAME 指定時はプレフィックスとして使用。全エージェント対応 |
+| `--worktree [NAME]`, `-w` | No | Synapse ネイティブ worktree 分離（各エージェントが個別の worktree を取得）。NAME 指定時はプレフィックスとして使用。全エージェント対応。**デフォルトで有効** |
+| `--no-worktree` | No | worktree 分離を無効化（デフォルトの worktree をオプトアウト） |
 | `-- tool_args...` | No | `--` の後の引数はすべて起動される CLI ツールに渡される（例: `-- --dangerously-skip-permissions`） |
 
 **対応ターミナル**:
@@ -359,7 +360,8 @@ synapse team start Cody gemini:Gem              # saved_agent_name + profile:nam
 synapse team start claude gemini --layout horizontal
 synapse team start claude gemini --all-new          # 全員新ペイン
 synapse team start claude gemini -- --dangerously-skip-permissions  # ツール引数を渡す
-synapse team start claude gemini --worktree         # Synapse ネイティブ worktree（全エージェント対応）
+synapse team start claude gemini                    # デフォルトで worktree 分離が有効
+synapse team start claude gemini --no-worktree      # worktree を無効化
 synapse team start claude gemini --worktree task    # 名前プレフィックス指定（task-claude-0, task-gemini-1）
 # Claude Code 固有の --worktree（従来の方法、Claude のみ対応）:
 synapse team start claude -- --worktree
@@ -388,6 +390,8 @@ synapse spawn <profile|saved_agent_id|saved_agent_name> [--port PORT] [--name NA
 | `--skill-set` | No | スキルセット名 |
 | `--terminal` | No | 使用するターミナル (`tmux`, `iterm2`, `terminal_app`, `ghostty`, `vscode`, `zellij`) |
 | `--worktree [NAME]`, `-w` | No | Synapse ネイティブ worktree 分離（`.synapse/worktrees/<name>/`）。NAME 省略時は自動生成。全エージェント対応 |
+| `--branch BRANCH`, `-b` | No | worktree のベースブランチを指定（デフォルト: `origin/main`）。**`--worktree` を自動的に有効化** |
+| `--no-worktree` | No | worktree 分離を無効化 |
 | `-- tool_args...` | No | `--` の後の引数はすべて起動される CLI ツールに渡される（例: `-- --dangerously-skip-permissions`） |
 
 **動作**:
@@ -1603,7 +1607,7 @@ MCP サーバー (`synapse mcp serve` / `python -m synapse.mcp`) が提供する
 
 #### analyze_task
 
-ユーザーのプロンプトを解析し、チーム/タスク分割が有効な場合に提案を生成します（Smart Suggest）。
+ユーザーのプロンプトを解析し、チーム/タスク分割が有効な場合に提案を生成します（Smart Suggest）。レスポンスには `delegation_strategy`（`self` / `subagent` / `spawn`）と `recommended_worktree`（spawn 戦略またはファイル競合が多い場合に `true`）を含みます。
 
 ```json
 // リクエスト (tools/call)

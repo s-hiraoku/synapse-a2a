@@ -5452,7 +5452,7 @@ Extended Specification:
         "--branch",
         "-b",
         default=None,
-        help="Base branch for worktree (default: remote default branch). Only used with --worktree.",
+        help="Base branch for worktree (default: remote default branch)",
     )
     p_team_start.add_argument(
         "--no-auto-approve",
