@@ -4,6 +4,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.18.4
+
+- **Docs**: Synchronized package, plugin, and GitHub Pages version references for the `0.18.4` release
+
 ### v0.18.3
 
 - **Fixed**: OpenCode startup instruction injection now waits for timeout-idle readiness when no `input_ready_pattern` is available (#477)
