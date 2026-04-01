@@ -4,8 +4,6 @@ description: 'Workflow: Minimal test workflow that delegates to the existing pos
 
   . Triggered by /test-subworkflow command.'
 name: test-subworkflow
-metadata:
-  internal: true
 ---
 <!-- synapse-workflow-autogen -->
 

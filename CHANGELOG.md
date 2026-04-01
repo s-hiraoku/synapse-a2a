@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.3] - 2026-04-01
+
+### Fixed
+
+- **OpenCode initial instruction injection**: when no `input_ready_pattern` is configured, Synapse now waits for timeout-based idle readiness before sending startup instructions (#477)
+- **Copilot auto-approve flag**: switched spawned Copilot sessions to the canonical `--allow-all` launch flag and aligned observability/tests with the new behavior (#479)
+
+### Documentation
+
+- Updated permission-mode, profile, reference, and site docs to describe OpenCode timeout-idle startup readiness and Copilot `--allow-all`
+
 ## [0.18.2] - 2026-04-01
 
 ### Added
@@ -2986,7 +2997,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.2...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.3...HEAD
+[0.18.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.2...v0.18.3
 [0.18.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.1...v0.18.2
 [0.18.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.0...v0.18.1
 [0.18.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.17.16...v0.18.0

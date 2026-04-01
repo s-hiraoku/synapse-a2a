@@ -2,8 +2,6 @@
 description: 'Workflow: Describe what this workflow does. Triggered by /my-review
   command.'
 name: my-review
-metadata:
-  internal: true
 ---
 <!-- synapse-workflow-autogen -->
 

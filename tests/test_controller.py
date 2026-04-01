@@ -266,6 +266,31 @@ class TestIdentityInstruction:
         assert "bootstrap_agent()" in pty_message
         assert "[LONG MESSAGE - FILE ATTACHED]" not in pty_message
 
+    def test_wait_for_input_ready_without_pattern_polls_timeout_idle(
+        self, controller, monkeypatch
+    ):
+        """Agents without an input prompt pattern should still wait for idle.
+
+        OpenCode does not expose a stable prompt glyph, so initial instruction
+        injection must fall back to timeout-idle polling instead of returning
+        immediately.
+        """
+        controller._input_ready_pattern = None
+        timeout_idle = Mock(side_effect=[False, False, True])
+        monkeypatch.setattr(controller, "_check_timeout_idle", timeout_idle)
+
+        sleep_calls = []
+        monkeypatch.setattr(
+            "synapse.controller.time.sleep",
+            lambda delay: sleep_calls.append(delay),
+        )
+
+        result = controller._wait_for_input_ready()
+
+        assert result.startswith("timeout_idle(")
+        assert timeout_idle.call_count == 3
+        assert sleep_calls[:2] == [0.5, 0.5]
+
     def test_identity_not_sent_without_agent_id(self, mock_registry):
         """Identity should not be sent if agent_id is None."""
         ctrl = TerminalController(

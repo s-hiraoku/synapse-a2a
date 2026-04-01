@@ -1,8 +1,6 @@
 ---
 description: 'Workflow: Cycle test workflow A -> B. Triggered by /test-cycle-a command.'
 name: test-cycle-a
-metadata:
-  internal: true
 ---
 <!-- synapse-workflow-autogen -->
 

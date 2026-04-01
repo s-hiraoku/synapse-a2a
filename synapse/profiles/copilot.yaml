@@ -47,7 +47,7 @@ waiting_detection:
   waiting_expiry: 10           # Auto-clear WAITING after 10s
 
 # Auto-approve configuration
-# --yolo (--allow-all): approve all tool/path/URL access
+# --allow-all is the canonical form; Copilot also accepts --yolo as an alias.
 auto_approve:
-  cli_flag: "--yolo"
+  cli_flag: "--allow-all"
   runtime_response: "1\r"

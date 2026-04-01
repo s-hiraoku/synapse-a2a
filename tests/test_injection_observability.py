@@ -278,7 +278,7 @@ class TestDeliverLog:
         assert "input_ready=timeout" in deliver_logs[0].message
 
     def test_deliver_log_no_pattern(self, caplog) -> None:
-        """When no input_ready_pattern configured, should log input_ready=none."""
+        """When no input_ready_pattern configured, should log timeout fallback."""
         ctrl = _make_controller(master_fd=5, input_ready_pattern=None)
 
         mock_settings = MagicMock()
@@ -300,7 +300,7 @@ class TestDeliverLog:
             if "INJECT/DELIVER" in r.message and "synapse-claude-8100" in r.message
         ]
         assert len(deliver_logs) == 1
-        assert "input_ready=none" in deliver_logs[0].message
+        assert "input_ready=timeout(10.0s)" in deliver_logs[0].message
 
     def test_deliver_log_write_size(self, caplog) -> None:
         """write_size should match len(prefixed) from format_a2a_message."""

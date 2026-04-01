@@ -4,8 +4,6 @@ description: 'Workflow: Minimal local workflow that sends a harmless test messag
 
   . Triggered by /test-local-child command.'
 name: test-local-child
-metadata:
-  internal: true
 ---
 <!-- synapse-workflow-autogen -->
 

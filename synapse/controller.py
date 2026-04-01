@@ -977,15 +977,16 @@ class TerminalController:
         Returns:
             A short description of the wait result for observability logging.
         """
+        timeout = 10.0
+        interval = 0.5
+
         if not self._input_ready_pattern:
             logger.info(
                 f"[{self.agent_id}] No input_ready_pattern configured, "
-                "using timeout-based detection"
+                "using timeout-based idle fallback"
             )
-            return "none"
+            return self._wait_for_timeout_idle(timeout, interval)
 
-        timeout = 10.0
-        interval = 0.5
         waited = 0.0
         pattern_bytes = self._input_ready_pattern.encode()
 
@@ -1013,6 +1014,25 @@ class TerminalController:
             f"[{self.agent_id}] Input prompt "
             f"'{self._input_ready_pattern}' "
             f"not detected after {timeout}s, proceeding anyway"
+        )
+        return f"timeout({timeout:.1f}s)"
+
+    def _wait_for_timeout_idle(self, timeout: float, interval: float) -> str:
+        """Wait for timeout-based idle detection during input readiness."""
+        waited = 0.0
+        while waited < timeout:
+            with self.lock:
+                if self._check_timeout_idle():
+                    logger.info(
+                        f"[{self.agent_id}] Timeout idle detected after {waited:.1f}s"
+                    )
+                    return f"timeout_idle({waited:.1f}s)"
+            time.sleep(interval)
+            waited += interval
+
+        logger.warning(
+            f"[{self.agent_id}] Timeout idle not detected after "
+            f"{timeout:.1f}s, proceeding anyway"
         )
         return f"timeout({timeout:.1f}s)"
 
