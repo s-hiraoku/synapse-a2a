@@ -243,6 +243,20 @@ class TestCreateWorktree:
         cmd = mock_run.call_args[0][0]
         assert cmd[-1] == "origin/main"
 
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    def test_create_worktree_empty_base_branch_raises(
+        self, mock_git_root: MagicMock
+    ) -> None:
+        with pytest.raises(ValueError, match="must not be empty"):
+            create_worktree(base_branch="")
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    def test_create_worktree_dash_base_branch_raises(
+        self, mock_git_root: MagicMock
+    ) -> None:
+        with pytest.raises(ValueError, match="must not start with"):
+            create_worktree(base_branch="--malicious")
+
     @patch("synapse.worktree.get_git_root")
     def test_create_worktree_not_in_git_repo(self, mock_git_root: MagicMock) -> None:
         mock_git_root.side_effect = RuntimeError("Not a git repository")

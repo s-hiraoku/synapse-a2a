@@ -240,7 +240,15 @@ def create_worktree(
         ValueError: If the provided name contains unsafe characters.
     """
     git_root = get_git_root()
-    if base_branch is None:
+    if base_branch is not None:
+        base_branch = base_branch.strip()
+        if not base_branch:
+            raise ValueError("base_branch must not be empty")
+        if base_branch.startswith("-"):
+            raise ValueError(
+                f"Invalid base_branch '{base_branch}': must not start with '-'"
+            )
+    else:
         base_branch = get_default_remote_branch()
 
     name = generate_worktree_name() if name is None else _validate_worktree_name(name)

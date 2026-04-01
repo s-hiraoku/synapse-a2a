@@ -180,6 +180,48 @@ class TestCmdSpawnWithWorktree:
 
     @patch("synapse.spawn.create_panes", return_value=["echo test"])
     @patch("subprocess.run")
+    def test_cmd_spawn_with_worktree_and_branch(
+        self,
+        mock_subprocess_run: MagicMock,
+        mock_create_panes: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """spawn_agent with worktree=True and branch='feature/x' passes base_branch through."""
+        from synapse.spawn import spawn_agent
+        from synapse.worktree import WorktreeInfo
+
+        wt_dir = tmp_path / ".synapse" / "worktrees" / "test-wt"
+        mock_wt_info = WorktreeInfo(
+            name="test-wt",
+            path=wt_dir,
+            branch="worktree-test-wt",
+            base_branch="feature/x",
+            created_at=1000.0,
+        )
+
+        mock_subprocess_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        with (
+            patch("synapse.spawn.load_profile"),
+            patch("synapse.spawn.is_port_available", return_value=True),
+            patch("synapse.spawn.detect_terminal_app", return_value="tmux"),
+            patch(
+                "synapse.worktree.create_worktree", return_value=mock_wt_info
+            ) as mock_create_wt,
+        ):
+            result = spawn_agent(
+                profile="claude",
+                port=8100,
+                worktree=True,
+                branch="feature/x",
+            )
+
+            mock_create_wt.assert_called_once_with(name=None, base_branch="feature/x")
+            assert result.worktree_path == str(wt_dir)
+            assert result.worktree_branch == "worktree-test-wt"
+
+    @patch("synapse.spawn.create_panes", return_value=["echo test"])
+    @patch("subprocess.run")
     def test_cmd_spawn_without_worktree(
         self,
         mock_subprocess_run: MagicMock,

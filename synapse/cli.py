@@ -3369,6 +3369,9 @@ def cmd_team_start(args: argparse.Namespace) -> None:
 
     worktree_opt = getattr(args, "worktree", None)
     branch_opt = getattr(args, "branch", None)
+    if branch_opt and not worktree_opt:
+        print("Error: --branch requires --worktree", file=sys.stderr)
+        sys.exit(1)
 
     # Prepare all agents via shared spawn infrastructure.
     # This handles port allocation, worktree creation, and auto-approve
@@ -3494,6 +3497,12 @@ def cmd_spawn(args: argparse.Namespace) -> None:
             )
             sys.exit(1)
 
+    branch = getattr(args, "branch", None)
+    worktree = getattr(args, "worktree", None)
+    if branch and not worktree:
+        print("Error: --branch requires --worktree", file=sys.stderr)
+        sys.exit(1)
+
     try:
         result = spawn_agent(
             profile=resolved_profile,
@@ -3503,9 +3512,9 @@ def cmd_spawn(args: argparse.Namespace) -> None:
             skill_set=resolved_skill_set,
             terminal=args.terminal,
             tool_args=tool_args or None,
-            worktree=getattr(args, "worktree", None),
+            worktree=worktree,
             auto_approve=not getattr(args, "no_auto_approve", False),
-            branch=getattr(args, "branch", None),
+            branch=branch,
         )
         print(f"{result.agent_id} {result.port}")
         if result.worktree_path:
