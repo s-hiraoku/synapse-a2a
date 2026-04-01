@@ -615,9 +615,15 @@ class SynapseMCPServer:
             else None
         )
 
+        # Recommend worktree when spawn strategy or high file conflict risk
+        recommended_worktree = (
+            strategy == "spawn" or file_conflicts.get("risk") == "high"
+        )
+
         result: dict[str, object] = {
             "delegation_strategy": strategy,
             "strategy_reason": strategy_reason,
+            "recommended_worktree": recommended_worktree,
             "suggestion": suggestion,
             "context": context,
             "triggered_by": triggered_by,
