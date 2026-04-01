@@ -156,6 +156,48 @@ git branch -d worktree-bold-hawk
 !!! tip "Which to use?"
     Use Synapse's `--worktree` for multi-agent workflows. Use Claude Code's `-- --worktree` only when you need Claude Code-specific worktree behavior. Do not combine both — it would create nested worktrees.
 
+## When To Use (and When Not To)
+
+### Use worktree when:
+
+| Situation | Why worktree helps |
+|-----------|-------------------|
+| **Multiple agents editing overlapping files** | Each agent gets an isolated copy — no file conflicts |
+| **Working on an existing PR branch** (e.g., Renovate, Dependabot) | `--branch` lets you branch off the PR directly instead of `origin/main` |
+| **Parallel review + implementation** | Reviewer reads code in isolation while implementer keeps editing |
+| **Rate-limit distribution across models** | Spawn different model types in worktrees to avoid single-provider limits |
+
+```bash
+# Typical multi-agent workflow with worktree
+synapse team start claude gemini --worktree
+
+# Fix a Renovate PR with a dedicated agent
+synapse spawn codex --worktree --branch renovate/major-eslint-monorepo
+
+# Review in parallel while you keep working
+synapse spawn gemini --worktree --name Reviewer --role "code reviewer"
+synapse send Reviewer "Review the auth module changes" --notify
+```
+
+### Skip worktree when:
+
+| Situation | Why worktree is unnecessary |
+|-----------|---------------------------|
+| **Single agent only** | No conflict risk — worktree adds overhead for no benefit |
+| **Multiple agents touching different files** | File safety locks (`synapse file-safety lock`) are lighter weight |
+| **Quick question or status check** | Use `synapse send` directly — no need for an isolated environment |
+| **Read-only tasks** (review without edits) | Agents can read the same files safely |
+
+!!! tip "Rule of thumb"
+    If two agents might `git add` the same file at the same time, use worktree.
+    Otherwise, file-safety locks or simple coordination is enough.
+
+### Branch management in worktrees
+
+Worktree agents are **exempt from the branch-change restriction**. Since they operate
+in an isolated directory, switching branches won't affect other agents or your main
+checkout. Non-worktree agents still require user confirmation before changing branches.
+
 ## Use Cases
 
 ### Implementation + Testing in Parallel
