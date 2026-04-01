@@ -40,6 +40,10 @@ synapse spawn claude --worktree feature-auth --name Auth --role "auth implementa
 
 # Short flag
 synapse spawn gemini -w
+
+# Specify base branch (worktree branches off from the given branch)
+synapse spawn codex --worktree --branch renovate/major-eslint-monorepo
+synapse spawn claude -w feature-auth -b develop
 ```
 
 ### Team Start with Worktree
@@ -52,6 +56,9 @@ synapse team start claude gemini --worktree
 
 # Name prefix (generates task-claude-0, task-gemini-1)
 synapse team start claude gemini --worktree task
+
+# All agents branch off a specific base branch
+synapse team start claude gemini --worktree --branch feature/api-v2
 ```
 
 ### Profile Shortcut
@@ -98,13 +105,14 @@ Response includes worktree metadata:
     - Changes or new commits exist (interactive) → prompt to keep or force-remove
     - Changes or new commits exist (non-interactive) → keep worktree, print path and branch
 
-The base branch is determined by `get_default_remote_branch()`, which uses a 3-step fallback:
+The base branch is determined in the following order:
 
-1. `git symbolic-ref refs/remotes/origin/HEAD` (e.g., `origin/main`)
-2. `origin/main` (if the ref exists locally)
-3. `HEAD` (last resort)
-
-Override with the `SYNAPSE_WORKTREE_BASE_BRANCH` environment variable when you need a specific base branch.
+1. `--branch` / `-b` CLI flag (highest priority)
+2. `SYNAPSE_WORKTREE_BASE_BRANCH` environment variable
+3. `get_default_remote_branch()` auto-detection:
+    1. `git symbolic-ref refs/remotes/origin/HEAD` (e.g., `origin/main`)
+    2. `origin/main` (if the ref exists locally)
+    3. `HEAD` (last resort)
 
 ## Monitoring
 
@@ -173,6 +181,9 @@ synapse spawn claude --worktree review --name Rex --role "code reviewer"
 synapse spawn claude --worktree auth --name Cody --role "implement auth"
 synapse spawn gemini --worktree api --name Gem --role "implement API endpoints"
 # Each agent on its own branch, merge independently
+
+# Branch off a Renovate/Dependabot PR for testing
+synapse spawn codex --worktree --branch renovate/major-eslint-monorepo --name Tester --role "run tests"
 ```
 
 ## Environment Variables

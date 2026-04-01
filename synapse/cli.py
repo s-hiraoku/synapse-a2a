@@ -3368,6 +3368,7 @@ def cmd_team_start(args: argparse.Namespace) -> None:
         return
 
     worktree_opt = getattr(args, "worktree", None)
+    branch_opt = getattr(args, "branch", None)
 
     # Prepare all agents via shared spawn infrastructure.
     # This handles port allocation, worktree creation, and auto-approve
@@ -3399,6 +3400,7 @@ def cmd_team_start(args: argparse.Namespace) -> None:
                 tool_args=tool_args or None,
                 worktree=wt,
                 auto_approve=auto_approve,
+                branch=branch_opt,
             )
             prepared_agents.append(prepared)
         except (RuntimeError, ValueError, FileNotFoundError) as e:
@@ -3503,6 +3505,7 @@ def cmd_spawn(args: argparse.Namespace) -> None:
             tool_args=tool_args or None,
             worktree=getattr(args, "worktree", None),
             auto_approve=not getattr(args, "no_auto_approve", False),
+            branch=getattr(args, "branch", None),
         )
         print(f"{result.agent_id} {result.port}")
         if result.worktree_path:
@@ -5440,6 +5443,12 @@ Extended Specification:
         help="Create git worktree per agent for isolated work (optional NAME prefix)",
     )
     p_team_start.add_argument(
+        "--branch",
+        "-b",
+        default=None,
+        help="Base branch for worktree (default: remote default branch). Only used with --worktree.",
+    )
+    p_team_start.add_argument(
         "--no-auto-approve",
         action="store_true",
         default=False,
@@ -5730,6 +5739,12 @@ Outputs '{agent_id} {port}' on success for scripting use.""",
         default=None,
         metavar="NAME",
         help="Create git worktree for isolated work (optional NAME)",
+    )
+    p_spawn.add_argument(
+        "--branch",
+        "-b",
+        default=None,
+        help="Base branch for worktree (default: remote default branch). Only used with --worktree.",
     )
     p_spawn.add_argument(
         "--no-auto-approve",

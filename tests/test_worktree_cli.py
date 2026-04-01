@@ -121,7 +121,7 @@ class TestCmdSpawnWithWorktree:
                 worktree=True,
             )
 
-            mock_create_wt.assert_called_once_with(name=None)
+            mock_create_wt.assert_called_once_with(name=None, base_branch=None)
             assert result.worktree_path == str(wt_dir)
             assert result.worktree_branch == "worktree-test-wt"
 
@@ -168,7 +168,7 @@ class TestCmdSpawnWithWorktree:
                 worktree="my-feature",
             )
 
-            mock_create_wt.assert_called_once_with(name="my-feature")
+            mock_create_wt.assert_called_once_with(name="my-feature", base_branch=None)
             assert result.worktree_path == str(wt_dir)
 
             # Verify cwd and env propagation to create_panes

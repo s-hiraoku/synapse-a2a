@@ -34,6 +34,7 @@ synapse codex -- resume <sessionId>
 | `--delegate-mode` | Start as manager/delegator (no file editing) |
 | `--port PORT` | Override default port |
 | `--worktree [NAME]`, `-w` | Create git worktree for isolated work (optional name) |
+| `--branch BRANCH`, `-b` | Base branch for worktree creation (requires `--worktree`) |
 
 !!! tip "Using Saved Agent Definitions at Startup"
     The `--agent` / `-A` flag resolves a saved agent definition by ID or display name:
@@ -240,6 +241,7 @@ synapse team start <profiles...> [OPTIONS] [-- TOOL_ARGS]
 | `--layout LAYOUT` | `split`, `horizontal`, or `vertical` |
 | `--all-new` | All agents in new panes |
 | `--worktree [NAME]`, `-w` | Create per-agent git worktrees for isolation |
+| `--branch BRANCH`, `-b` | Base branch for worktree creation (requires `--worktree`) |
 
 **Profile spec format**: `profile[:name[:role[:skill_set[:port]]]]`
 
@@ -267,6 +269,7 @@ When a saved agent is used, its profile, name, role, and skill set are resolved 
 | `--role ROLE` | Agent role (supports `@path` file reference) |
 | `--terminal TERM` | Terminal app override |
 | `--worktree [NAME]`, `-w` | Create git worktree for isolated work |
+| `--branch BRANCH`, `-b` | Base branch for worktree creation (requires `--worktree`) |
 
 ## Session Save/Restore
 

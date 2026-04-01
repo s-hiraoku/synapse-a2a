@@ -276,25 +276,30 @@ Parameters:
 - `--silent`: Fire and forget - no response or notification
 
 CHOOSING --wait vs --notify vs --silent:
-Analyze the message content and determine how you need the response.
-- If you need the result immediately to continue your work → use `--wait`
-- If you want to be notified when done but can continue working → use `--notify` (default)
-- If the message is purely informational with no reply needed → use `--silent`
-- **If unsure, omit the flag** (defaults to `--notify`, the safest option)
+**Default to --notify (or omit the flag).** Only use --wait when you truly cannot
+proceed without the answer — i.e., your very next action depends on the reply content.
+- `--notify` (DEFAULT): You get notified when done but keep working. **Use this for most messages.**
+- `--wait`: Blocks your execution. Use ONLY when your next line of work literally requires
+  the reply (e.g., you need a value to pass to the next function call).
+- `--silent`: Fire and forget — no response or notification.
+- **If unsure, omit the flag** (defaults to `--notify`, the safest option).
 
 IMPORTANT: `--from` requires agent ID format (`synapse-<type>-<port>`). Do NOT use agent types or custom names. In most environments, `--from` is auto-detected and can be omitted.
 When specifying --from explicitly, always use $SYNAPSE_AGENT_ID (auto-set at startup). Never hardcode agent IDs.
 
 Examples:
 ```bash
-# Question - needs reply, wait synchronously
-synapse send gemini "What is the best practice for error handling?" --wait
+# Question - needs reply, notified asynchronously (default)
+synapse send gemini "What is the best practice for error handling?"
 
-# Status check - needs reply, wait synchronously
-synapse send codex "What is your current status?" --wait
+# Status check - notified asynchronously
+synapse send codex "What is your current status?"
 
-# Task delegation - default notify (returns immediately, notified on completion)
+# Task delegation - notified on completion (default --notify)
 synapse send gemini "Research React best practices"
+
+# Blocking wait - ONLY when you cannot proceed without the result
+synapse send codex "What port is service X running on?" --wait
 
 # Notification - explicitly no reply needed
 synapse send gemini "FYI: Build completed" --silent

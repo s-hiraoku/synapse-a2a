@@ -221,11 +221,16 @@ def _validate_worktree_name(name: str) -> str:
     return name
 
 
-def create_worktree(name: str | None = None) -> WorktreeInfo:
+def create_worktree(
+    name: str | None = None,
+    base_branch: str | None = None,
+) -> WorktreeInfo:
     """Create a new git worktree under ``.synapse/worktrees/``.
 
     Args:
         name: Worktree name. Auto-generated if None.
+        base_branch: Git ref to base the worktree on (e.g. a remote branch).
+            Defaults to ``get_default_remote_branch()`` when None.
 
     Returns:
         WorktreeInfo with path, branch, and metadata.
@@ -235,7 +240,8 @@ def create_worktree(name: str | None = None) -> WorktreeInfo:
         ValueError: If the provided name contains unsafe characters.
     """
     git_root = get_git_root()
-    base_branch = get_default_remote_branch()
+    if base_branch is None:
+        base_branch = get_default_remote_branch()
 
     name = generate_worktree_name() if name is None else _validate_worktree_name(name)
 
