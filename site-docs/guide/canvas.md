@@ -549,7 +549,7 @@ Cards can be downloaded or copied to the clipboard directly from the Canvas UI, 
 
 Every card in the History view and the Canvas spotlight view includes two action buttons in the card header:
 
-- **Copy to clipboard** (<i class="ph ph-copy-simple"></i>) — copies the card content to the system clipboard as plain text. A brief "Copied!" tooltip confirms the action.
+- **Copy to clipboard** (<i class="ph ph-copy"></i>) — copies the card content to the system clipboard as Markdown. A brief "Copied to clipboard" toast confirms the action.
 - **Download** (<i class="ph ph-download-simple"></i>) — triggers a browser download of the card content in its native format.
 
 ### HTTP API

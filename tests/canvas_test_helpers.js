@@ -258,7 +258,7 @@ const NS_STUB_CODE = `
     runMermaid: function() {}, downloadCard: function() {},
     createDownloadButton: function() { return document.createElement("button"); },
     copyCardToClipboard: function() {},
-    createCopyButton: function() { return document.createElement("button"); },
+    createCopyButton: function() { var btn = document.createElement("button"); btn.className = "canvas-copy-btn"; return btn; },
     renderLiveFeed: function() {}, trackAgent: function() {},
     getFilteredCards: function() { return []; },
     getSortedCards: function() { return []; },

@@ -33,7 +33,7 @@ function buildHarness(allCards, filteredCards) {
     function downloadCard() {}
     function createDownloadButton() { return document.createElement("button"); }
     function copyCardToClipboard() {}
-    function createCopyButton() { return document.createElement("button"); }
+    function createCopyButton() { var btn = document.createElement("button"); btn.className = "canvas-copy-btn"; return btn; }
     function statusColor() { return "#999"; }
     function formatTimeShort(value) { return value; }
     function formatTime(value) { return value; }

@@ -49,7 +49,7 @@ function buildHarness(initialCards, systemAgents) {
     function downloadCard() {}
     function createDownloadButton() { return document.createElement("button"); }
     function copyCardToClipboard() {}
-    function createCopyButton() { return document.createElement("button"); }
+    function createCopyButton() { var btn = document.createElement("button"); btn.className = "canvas-copy-btn"; return btn; }
     ${NS_STUB_CODE}
     ns.cards = cards;
     ns.systemAgents = systemAgents;
