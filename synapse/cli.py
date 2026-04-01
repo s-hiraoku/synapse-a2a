@@ -3370,6 +3370,10 @@ def cmd_team_start(args: argparse.Namespace) -> None:
     worktree_opt = getattr(args, "worktree", None)
     branch_opt = getattr(args, "branch", None)
 
+    # Default to worktree when 2+ agents (unless explicitly opted out)
+    if worktree_opt is None and len(agents) >= 2:
+        worktree_opt = True
+
     # Prepare all agents via shared spawn infrastructure.
     # This handles port allocation, worktree creation, and auto-approve
     # flag injection uniformly.
@@ -5438,9 +5442,9 @@ Extended Specification:
         "-w",
         nargs="?",
         const=True,
-        default=True,
+        default=None,
         metavar="NAME",
-        help="Create git worktree per agent for isolated work (default: enabled; optional NAME prefix)",
+        help="Create git worktree per agent for isolated work (default: enabled for 2+ agents; optional NAME prefix)",
     )
     p_team_start.add_argument(
         "--no-worktree",

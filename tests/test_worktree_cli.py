@@ -331,7 +331,7 @@ class TestTeamStartWorktreeDefault:
             "-w",
             nargs="?",
             const=True,
-            default=True,
+            default=None,
             metavar="NAME",
         )
         parser.add_argument(
@@ -341,14 +341,21 @@ class TestTeamStartWorktreeDefault:
         )
         return parser
 
-    def test_team_start_defaults_worktree_true(self) -> None:
-        """team start with no --worktree flag should default to True."""
+    def test_team_start_parser_default_is_none(self) -> None:
+        """Parser default is None (runtime resolves based on agent count)."""
         parser = self._get_team_start_parser()
         args = parser.parse_args(["claude", "gemini"])
-        assert args.worktree is True
+        assert args.worktree is None
 
     def test_team_start_no_worktree_opt_out(self) -> None:
         """team start with --no-worktree should disable."""
         parser = self._get_team_start_parser()
         args = parser.parse_args(["claude", "gemini", "--no-worktree"])
         assert args.worktree is False
+
+    def test_team_start_single_agent_no_worktree(self) -> None:
+        """Single agent should not get worktree by default."""
+        parser = self._get_team_start_parser()
+        args = parser.parse_args(["claude"])
+        # Parser returns None; runtime should NOT auto-enable for 1 agent
+        assert args.worktree is None
