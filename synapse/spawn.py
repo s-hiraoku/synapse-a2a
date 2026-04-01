@@ -154,8 +154,8 @@ def prepare_spawn(
         if port is None:
             raise RuntimeError(pm.format_exhaustion_error(profile))
 
-    # 3. Create worktree if requested (--branch implies --worktree)
-    if branch and not worktree:
+    # 3. Create worktree if requested (--branch implies --worktree unless opted out)
+    if branch and worktree is None:
         worktree = True
 
     worktree_info = None

@@ -653,10 +653,13 @@ class TestRecommendedWorktree:
         """delegation_strategy=spawn → recommended_worktree=True."""
         server = _create_server(tmp_path, agent_type="claude")
         numstat = "\n".join(f"50\t10\tdir{i}/file{i}.py" for i in range(10))
+        status = "\n".join(f" M dir{i}/file{i}.py" for i in range(10))
         with patch("synapse.mcp.server.Path.cwd", return_value=tmp_path):
             with patch(
                 "synapse.mcp.server.subprocess.run",
-                side_effect=_git_run_side_effect(numstat_stdout=numstat),
+                side_effect=_git_run_side_effect(
+                    status_stdout=status, numstat_stdout=numstat
+                ),
             ):
                 payload = server.call_tool(
                     "analyze_task",
