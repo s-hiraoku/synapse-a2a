@@ -78,16 +78,26 @@ window.SynapseCanvas = (function() {
   var _lastSystemJSON = "";
 
   // ----------------------------------------------------------------
-  // Download card as file
+  // Card export helpers (shared by download & copy-to-clipboard)
   // ----------------------------------------------------------------
-  function downloadCard(cardId, format) {
+  function fetchCardExport(cardId, format, label) {
     var url = "/api/cards/" + encodeURIComponent(cardId) + "/download";
     if (format) url += "?format=" + encodeURIComponent(format);
-    fetch(url).then(function (resp) {
+    return fetch(url).then(function (resp) {
       if (!resp.ok) {
-        showToast("Download failed: " + resp.status, "error");
-        return;
+        showToast(label + " failed: " + resp.status, "error");
+        return null;
       }
+      return resp;
+    }).catch(function (err) {
+      showToast(label + " failed: " + err.message, "error");
+      return null;
+    });
+  }
+
+  function downloadCard(cardId, format) {
+    fetchCardExport(cardId, format, "Download").then(function (resp) {
+      if (!resp) return;
       var disposition = resp.headers.get("Content-Disposition") || "";
       var match = disposition.match(/filename="([^"]+)"/);
       var filename = match ? match[1] : "download";
@@ -102,24 +112,47 @@ window.SynapseCanvas = (function() {
         document.body.removeChild(a);
         URL.revokeObjectURL(objUrl);
       });
-    }).catch(function (err) {
-      showToast("Download failed: " + err.message, "error");
     });
   }
 
-  function createDownloadButton(getCardId) {
+  function copyCardToClipboard(cardId, format) {
+    fetchCardExport(cardId, format || "md", "Copy").then(function (resp) {
+      if (!resp) return;
+      return resp.text().then(function (text) {
+        return navigator.clipboard.writeText(text);
+      }).then(function () {
+        showToast("Copied to clipboard", "Copied");
+      });
+    });
+  }
+
+  function createActionButton(opts, getCardId) {
     var btn = document.createElement("button");
-    btn.className = "canvas-dl-btn";
-    btn.title = "Download";
+    btn.className = opts.className;
+    btn.title = opts.title;
     btn.type = "button";
-    btn.setAttribute("aria-label", "Download");
-    btn.innerHTML = '<i class="ph ph-download-simple"></i>';
+    btn.setAttribute("aria-label", opts.title);
+    btn.innerHTML = '<i class="ph ' + opts.icon + '"></i>';
     btn.addEventListener("click", function (e) {
       e.stopPropagation();
       var id = typeof getCardId === "function" ? getCardId() : getCardId;
-      if (id) downloadCard(id);
+      if (id) opts.action(id);
     });
     return btn;
+  }
+
+  function createDownloadButton(getCardId) {
+    return createActionButton(
+      { className: "canvas-dl-btn", title: "Download", icon: "ph-download-simple", action: downloadCard },
+      getCardId
+    );
+  }
+
+  function createCopyButton(getCardId) {
+    return createActionButton(
+      { className: "canvas-copy-btn", title: "Copy to clipboard", icon: "ph-copy", action: copyCardToClipboard },
+      getCardId
+    );
   }
 
   var _sortedCardsCache = null;
@@ -640,6 +673,7 @@ window.SynapseCanvas = (function() {
     title.textContent = card.title || "Untitled";
     header.appendChild(title);
 
+    header.appendChild(createCopyButton(card.card_id));
     header.appendChild(createDownloadButton(card.card_id));
 
     el.appendChild(header);
@@ -1380,6 +1414,8 @@ window.SynapseCanvas = (function() {
 
   ns.downloadCard = downloadCard;
   ns.createDownloadButton = createDownloadButton;
+  ns.copyCardToClipboard = copyCardToClipboard;
+  ns.createCopyButton = createCopyButton;
   ns.cardsByRecency = cardsByRecency;
   ns.getSortedCards = getSortedCards;
   ns.isEditableTarget = isEditableTarget;

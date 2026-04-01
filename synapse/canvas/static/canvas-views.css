@@ -652,7 +652,8 @@ body.splitter-dragging {
   animation: glow-pulse 1.5s ease-in-out infinite;
 }
 
-/* ── Download Button ────────────────────────── */
+/* ── Card Action Buttons (Copy / Download) ──── */
+.canvas-copy-btn,
 .canvas-dl-btn {
   display: inline-flex;
   align-items: center;
@@ -667,10 +668,12 @@ body.splitter-dragging {
   transition: color 200ms ease, background 200ms ease;
   flex-shrink: 0;
 }
+.canvas-copy-btn:hover,
 .canvas-dl-btn:hover {
   color: var(--color-accent);
   background: var(--surface-hover);
 }
+.canvas-copy-btn:focus-visible,
 .canvas-dl-btn:focus-visible {
   color: var(--color-accent);
   background: var(--surface-hover);

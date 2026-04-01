@@ -4,6 +4,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.18.2
+
+- **Added**: Canvas clipboard copy — copy card content to clipboard as Markdown via new button in card headers and spotlight view
+
 ### v0.18.1
 
 - **Fixed**: TUI artifact removal for OpenCode (Bubble Tea) and Gemini CLI (Ink) — block elements, geometric shapes, frame content lines, and input prompts are now stripped from agent responses (#480)

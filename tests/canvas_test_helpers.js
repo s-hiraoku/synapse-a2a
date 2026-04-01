@@ -257,6 +257,8 @@ const NS_STUB_CODE = `
     loadSystemPanel: function() {}, connectSSE: function() {},
     runMermaid: function() {}, downloadCard: function() {},
     createDownloadButton: function() { return document.createElement("button"); },
+    copyCardToClipboard: function() {},
+    createCopyButton: function() { var btn = document.createElement("button"); btn.className = "canvas-copy-btn"; return btn; },
     renderLiveFeed: function() {}, trackAgent: function() {},
     getFilteredCards: function() { return []; },
     getSortedCards: function() { return []; },
