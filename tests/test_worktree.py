@@ -598,10 +598,11 @@ class TestCleanupWorktree:
         mock_remove: MagicMock,
     ) -> None:
         """When merge=True but merge fails (conflict), worktree should be kept."""
+        mock_merge.return_value = False
         info = self._make_info()
-        result = cleanup_worktree(info, merge=False)
+        result = cleanup_worktree(info, merge=True)
         assert result is False
-        mock_merge.assert_not_called()
+        mock_merge.assert_called_once()
         mock_remove.assert_not_called()
 
     @patch("synapse.worktree.remove_worktree")

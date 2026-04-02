@@ -364,8 +364,6 @@ def cmd_kill(args: argparse.Namespace) -> None:
             print(f"Sent SIGTERM to {display_name} (PID: {pid})")
         except ProcessLookupError:
             print(f"Process {pid} already exited. Cleaning up registry...")
-            registry.unregister(agent_id)
-            return
 
         # 4. Wait for process to exit, then escalate to SIGKILL if needed
         time.sleep(escalation_wait)
