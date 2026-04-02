@@ -79,10 +79,10 @@ synapse workflow sync                            # Re-generate skills from all w
 # Spawn/Teams (auto-approve enabled by default)
 synapse spawn claude --name Tester --role "test writer"
 synapse spawn claude --worktree feature-auth
-synapse spawn codex --worktree --branch renovate/major-eslint-monorepo  # Base branch for worktree
+synapse spawn codex --branch renovate/major-eslint-monorepo   # --branch auto-enables --worktree
 synapse spawn claude --no-auto-approve             # Disable auto-approve
-synapse team start claude gemini
-synapse team start claude gemini --worktree
+synapse team start claude gemini                   # Defaults to --worktree isolation
+synapse team start claude gemini --no-worktree     # Opt out of worktree default
 synapse team start claude gemini --worktree --branch feature/api  # Base branch for all worktrees
 synapse team start claude gemini --no-auto-approve # Disable for all agents
 
@@ -106,6 +106,7 @@ synapse mcp serve                          # Start MCP server over stdio (option
 # analyze_task       — Analyze user prompt and suggest team/task split (Smart Suggest)
 #                      Input: {"prompt": "user instruction text", "files": [...], "agent_type": "claude"}
 #                      Returns delegation_strategy: "self" | "subagent" | "spawn"
+#                      Returns recommended_worktree: true when spawn strategy or high file conflicts
 #                      Context includes diff_stats, file_conflicts, dependencies, parallelizable
 #                      Triggers configurable via .synapse/suggest.yaml
 

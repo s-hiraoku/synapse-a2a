@@ -241,6 +241,9 @@ class TestTeamStartExecution:
             agents=["claude", "gemini"],
             layout="horizontal",
             all_new=True,
+            worktree=False,
+            branch=None,
+            no_auto_approve=False,
         )
 
         with patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"):
@@ -260,6 +263,9 @@ class TestTeamStartExecution:
             agents=["claude", "gemini"],
             layout="horizontal",
             all_new=False,
+            worktree=False,
+            branch=None,
+            no_auto_approve=False,
         )
 
         with patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"):
@@ -287,6 +293,9 @@ class TestTeamStartExecution:
             agents=["claude", "gemini"],
             layout="split",
             all_new=False,
+            worktree=False,
+            branch=None,
+            no_auto_approve=False,
         )
 
         with patch("synapse.terminal_jump.detect_terminal_app", return_value="Ghostty"):
@@ -309,6 +318,9 @@ class TestTeamStartExecution:
             agents=["claude", "gemini", "codex"],
             layout="split",
             all_new=True,
+            worktree=False,
+            branch=None,
+            no_auto_approve=False,
         )
 
         with patch("synapse.terminal_jump.detect_terminal_app", return_value="Ghostty"):
@@ -332,7 +344,8 @@ class TestTeamStartExecution:
             layout="split",
             all_new=True,
             no_auto_approve=False,
-            worktree=None,
+            worktree=False,
+            branch=None,
         )
 
         captured_agents: list[list[str]] = []
@@ -381,6 +394,9 @@ class TestTeamStartExecution:
             agents=["claude:Alice", "gemini:Alice"],
             layout="split",
             all_new=True,
+            worktree=False,
+            branch=None,
+            no_auto_approve=False,
         )
 
         with (
@@ -402,6 +418,9 @@ class TestTeamStartExecution:
             agents=["claude:Alice", "gemini:Bob"],
             layout="split",
             all_new=True,
+            worktree=False,
+            branch=None,
+            no_auto_approve=False,
         )
 
         with (
@@ -425,6 +444,9 @@ class TestTeamStartExecution:
             agents=["silent-snake", "gemini:Alice"],
             layout="split",
             all_new=True,
+            worktree=False,
+            branch=None,
+            no_auto_approve=False,
         )
 
         with (
@@ -458,6 +480,7 @@ class TestTeamStartExecution:
             all_new=True,
             no_auto_approve=False,
             worktree=None,
+            branch=None,
         )
 
         captured_agents: list[list[str]] = []

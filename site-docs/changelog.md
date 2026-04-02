@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.19.0
+
+- **Added**: `analyze_task` returns `recommended_worktree` for context-aware worktree decisions
+- **Added**: `synapse team start` defaults to `--worktree` isolation (`--no-worktree` to opt out)
+- **Added**: `--branch` auto-enables `--worktree` in `synapse spawn`
+- **Docs**: Full documentation update for worktree auto-recommendation across README, guides, and site-docs
+
 ### v0.18.4
 
 - **Docs**: Synchronized package, plugin, and GitHub Pages version references for the `0.18.4` release

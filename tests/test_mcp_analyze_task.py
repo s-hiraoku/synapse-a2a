@@ -642,3 +642,77 @@ class TestDependencyDetection:
 
         assert payload["context"]["parallelizable"] is False
         assert payload["delegation_strategy"] == "self"
+
+
+class TestRecommendedWorktree:
+    """Tests for recommended_worktree field in analyze_task results."""
+
+    def test_recommended_worktree_true_when_spawn_strategy(
+        self, tmp_path: Path
+    ) -> None:
+        """delegation_strategy=spawn → recommended_worktree=True."""
+        server = _create_server(tmp_path, agent_type="claude")
+        numstat = "\n".join(f"50\t10\tdir{i}/file{i}.py" for i in range(10))
+        status = "\n".join(f" M dir{i}/file{i}.py" for i in range(10))
+        with patch("synapse.mcp.server.Path.cwd", return_value=tmp_path):
+            with patch(
+                "synapse.mcp.server.subprocess.run",
+                side_effect=_git_run_side_effect(
+                    status_stdout=status, numstat_stdout=numstat
+                ),
+            ):
+                payload = server.call_tool(
+                    "analyze_task",
+                    {"prompt": "Refactor 10 files across 10 directories"},
+                )
+
+        assert payload["delegation_strategy"] == "spawn"
+        assert payload["recommended_worktree"] is True
+
+    def test_recommended_worktree_true_when_high_file_conflicts(
+        self, tmp_path: Path
+    ) -> None:
+        """file_conflicts.risk=high → recommended_worktree=True."""
+        server = _create_server(tmp_path, agent_type="claude")
+
+        with patch("synapse.mcp.server.Path.cwd", return_value=tmp_path):
+            with patch(
+                "synapse.mcp.server.subprocess.run",
+                side_effect=_git_run_side_effect(),
+            ):
+                with patch.object(
+                    server,
+                    "_detect_file_conflicts",
+                    return_value={
+                        "locked_by_others": {"src/main.py": "synapse-gemini-8110"},
+                        "risk": "high",
+                    },
+                ):
+                    payload = server.call_tool(
+                        "analyze_task",
+                        {
+                            "prompt": "Fix bug in src/main.py",
+                            "files": ["src/main.py"],
+                        },
+                    )
+
+        assert payload["context"]["file_conflicts"]["risk"] == "high"
+        assert payload["recommended_worktree"] is True
+
+    def test_recommended_worktree_false_when_self_strategy_no_conflicts(
+        self, tmp_path: Path
+    ) -> None:
+        """delegation_strategy=self, no conflicts → recommended_worktree=False."""
+        server = _create_server(tmp_path, agent_type="claude")
+        with patch("synapse.mcp.server.Path.cwd", return_value=tmp_path):
+            with patch(
+                "synapse.mcp.server.subprocess.run",
+                side_effect=_git_run_side_effect(),
+            ):
+                payload = server.call_tool(
+                    "analyze_task",
+                    {"prompt": "Fix a typo in README"},
+                )
+
+        assert payload["delegation_strategy"] == "self"
+        assert payload["recommended_worktree"] is False

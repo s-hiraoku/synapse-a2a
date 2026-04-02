@@ -62,6 +62,16 @@ STEP 2: Collaboration Decision Framework
   - Auto-approve: `spawn` and `team start` automatically inject CLI permission bypass
     flags. Use `--no-auto-approve` to disable.
 
+  WORKTREE DECISION — When to use --worktree:
+  `synapse team start` enables worktree by default (use --no-worktree to opt out).
+  For `synapse spawn`, follow these rules:
+  - `--branch` is specified → worktree auto-enabled (branch implies isolation)
+  - `analyze_task` returned recommended_worktree == true → use --worktree
+  - `analyze_task` returned file_conflicts.risk == "high" → use --worktree
+  - delegation_strategy == "spawn" with multiple files → use --worktree
+  - Single agent, no conflicts, read-only task → skip worktree
+  - User explicitly said --no-worktree → respect their choice
+
   [ASK FOR HELP] synapse send <target> "..." --wait
   - You are stuck or unsure about your approach
   - You need expertise outside your role

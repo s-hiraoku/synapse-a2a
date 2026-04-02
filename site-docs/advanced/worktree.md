@@ -42,23 +42,30 @@ synapse spawn claude --worktree feature-auth --name Auth --role "auth implementa
 synapse spawn gemini -w
 
 # Specify base branch (worktree branches off from the given branch)
-synapse spawn codex --worktree --branch renovate/major-eslint-monorepo
+# --branch implies --worktree, so -w is not required
+synapse spawn codex --branch renovate/major-eslint-monorepo
 synapse spawn claude -w feature-auth -b develop
 ```
 
+!!! note "`--branch` implies `--worktree`"
+    When you pass `--branch` / `-b` to `synapse spawn`, worktree mode is enabled automatically. You do not need to add `--worktree` / `-w` separately.
+
 ### Team Start with Worktree
 
-Each agent gets its own worktree automatically:
+`synapse team start` **defaults to worktree mode** (`--worktree` is implied). Each agent gets its own worktree automatically. Use `--no-worktree` to opt out.
 
 ```bash
-# Auto names
-synapse team start claude gemini --worktree
+# Default: each agent gets a worktree (no flag needed)
+synapse team start claude gemini
+
+# Explicit opt-out — agents share the main working directory
+synapse team start claude gemini --no-worktree
 
 # Name prefix (generates task-claude-0, task-gemini-1)
 synapse team start claude gemini --worktree task
 
 # All agents branch off a specific base branch
-synapse team start claude gemini --worktree --branch feature/api-v2
+synapse team start claude gemini --branch feature/api-v2
 ```
 
 ### Profile Shortcut
@@ -168,11 +175,11 @@ git branch -d worktree-bold-hawk
 | **Rate-limit distribution across models** | Spawn different model types in worktrees to avoid single-provider limits |
 
 ```bash
-# Typical multi-agent workflow with worktree
-synapse team start claude gemini --worktree
+# Typical multi-agent workflow (worktree is the default for team start)
+synapse team start claude gemini
 
-# Fix a Renovate PR with a dedicated agent
-synapse spawn codex --worktree --branch renovate/major-eslint-monorepo
+# Fix a Renovate PR with a dedicated agent (--branch implies --worktree)
+synapse spawn codex --branch renovate/major-eslint-monorepo
 
 # Review in parallel while you keep working
 synapse spawn gemini --worktree --name Reviewer --role "code reviewer"
@@ -191,6 +198,10 @@ synapse send Reviewer "Review the auth module changes" --notify
 !!! tip "Rule of thumb"
     If two agents might `git add` the same file at the same time, use worktree.
     Otherwise, file-safety locks or simple coordination is enough.
+
+### Auto-Recommendation via `analyze_task`
+
+The MCP `analyze_task` tool returns a `recommended_worktree` field in its response. When the task analysis determines that worktree isolation would be beneficial (e.g., multiple agents editing overlapping files), this field is set to `true`. Clients can use this signal to automatically enable `--worktree` when spawning agents.
 
 ### Branch management in worktrees
 
