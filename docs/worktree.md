@@ -34,6 +34,12 @@ Unlike Claude Code's built-in `--worktree` (which only works for Claude Code and
    - **No changes AND no new commits** → auto-delete worktree and branch
    - **Changes or commits exist (interactive)** → prompt to keep or remove
    - **Changes or commits exist (non-interactive/headless)** → keep worktree, print path and branch
+5. **Auto-merge** (default on `synapse kill`):
+   - Uncommitted changes are auto-committed as WIP
+   - `git merge worktree-<name> --no-edit` is attempted on the parent branch
+   - On success: worktree and branch are removed
+   - On conflict: branch is preserved with a warning message
+   - Use `synapse kill <agent> --no-merge` to skip auto-merge
 
 ### Environment Variables
 
@@ -225,11 +231,40 @@ gemini  -       8110  READY   synapse-a2a
 | Supported Agents | All | Claude Code only |
 | Cleanup | Synapse exit/kill (uncommitted changes + commit detection) | Claude Code session end |
 
+### Merge Strategy Comparison
+
+Claude Code と Synapse ではワーカー完了後のマージ戦略が根本的に異なる。
+
+| Aspect | Claude Code Agent (`isolation: "worktree"`) | Synapse (`synapse kill`) |
+|--------|----------------------------------------------|--------------------------|
+| **Auto-merge** | しない — ブランチを保持し人間に判断を委ねる | **する** — `synapse kill` 時にデフォルトで自動マージ |
+| **Uncommitted changes** | worktree に残置。remove 時は破棄 | 自動 commit (`wip: uncommitted changes from <name>`) |
+| **コンフリクト時** | 手動解消（Git ツールを使用） | `git merge --abort` → ブランチ保持 + 警告表示。親エージェントが解消 |
+| **設計思想** | 「人間が判断」— レビューしてからマージ | 「親エージェントが判断」— ワーカーの成果を確実に取り込む |
+| **マージ責任** | ユーザー（人間） | kill を実行したエージェント（親/マネージャー） |
+| **opt-out** | N/A（そもそも auto-merge なし） | `synapse kill <agent> --no-merge` |
+
+```text
+Claude Code:
+  subagent完了 → 変更あり？ → YES → ブランチ保持 → 人間がレビュー → 手動マージ
+                            → NO  → 自動削除
+
+Synapse:
+  synapse kill → 変更あり？ → YES → 自動マージ試行 → 成功 → 削除
+                                                   → 失敗 → ブランチ保持 + 親が解消
+                            → NO  → 自動削除
+```
+
+**使い分けの指針:**
+- **Claude Code worktree**: レビュー重視。変更内容を人間が確認してからマージしたい場合
+- **Synapse worktree**: 自動化重視。マルチエージェントワークフローでワーカーの成果を確実に統合したい場合
+- コンフリクトリスクが高い場合は `synapse file-safety lock` でファイルをロックし、競合を事前に回避する
+
 ## Module Reference
 
-- `synapse/worktree.py` — Core worktree operations (`create_worktree`, `cleanup_worktree`, `has_worktree_changes`, `has_new_commits`, `has_uncommitted_changes`, `get_default_remote_branch`)
+- `synapse/worktree.py` — Core worktree operations (`create_worktree`, `cleanup_worktree`, `merge_worktree`, `has_worktree_changes`, `has_new_commits`, `has_uncommitted_changes`, `get_default_remote_branch`)
 - `synapse/spawn.py` — `spawn_agent(worktree=...)` parameter
-- `synapse/cli.py` — `--worktree` / `-w` flag
+- `synapse/cli.py` — `--worktree` / `-w` flag, `--no-merge` flag on kill
 - `synapse/registry.py` — `worktree_path`, `worktree_branch`, `worktree_base_branch` fields
 - `synapse/terminal_jump.py` — `extra_env` passthrough
 - `synapse/a2a_compat.py` — `SpawnRequest.worktree`, `SpawnResponse.worktree_*`

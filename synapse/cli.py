@@ -244,7 +244,7 @@ def _send_shutdown_request(agent_info: dict, timeout_seconds: int = 30) -> bool:
         return False
 
 
-def _try_cleanup_worktree(agent_info: dict) -> None:
+def _try_cleanup_worktree(agent_info: dict, merge: bool = False) -> None:
     """Clean up a worktree if the agent was running in one.
 
     Any exception is caught and logged so that callers (cmd_kill,
@@ -261,7 +261,7 @@ def _try_cleanup_worktree(agent_info: dict) -> None:
         wt_base = agent_info.get("worktree_base_branch", "")
         wt_info = worktree_info_from_registry(wt_path, wt_branch, wt_base)
         is_tty = sys.stdin.isatty() and sys.stdout.isatty()
-        cleanup_worktree(wt_info, interactive=is_tty)
+        cleanup_worktree(wt_info, interactive=is_tty, merge=merge)
     except Exception:
         logging.getLogger(__name__).warning(
             "Worktree cleanup failed for %s", wt_path, exc_info=True
@@ -386,7 +386,8 @@ def cmd_kill(args: argparse.Namespace) -> None:
 
     registry.unregister(agent_id)
 
-    _try_cleanup_worktree(agent_info)
+    no_merge = getattr(args, "no_merge", False)
+    _try_cleanup_worktree(agent_info, merge=not no_merge)
 
 
 def cmd_jump(args: argparse.Namespace) -> None:
@@ -4402,6 +4403,12 @@ Tip: Use 'synapse list' to see running agents with their names and IDs.""",
         "-f",
         action="store_true",
         help="Kill without confirmation prompt",
+    )
+    p_kill.add_argument(
+        "--no-merge",
+        action="store_true",
+        default=False,
+        help="Skip auto-merge of worktree branch (default: merge automatically)",
     )
     p_kill.set_defaults(func=cmd_kill)
 

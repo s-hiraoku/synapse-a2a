@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.1] - 2026-04-03
+
+### Added
+
+- **Worktree auto-merge on kill**: `synapse kill` now automatically merges worktree branches back to the parent branch by default (#493)
+- Uncommitted changes in worktrees are auto-committed as WIP before merge
+- `--no-merge` flag on `synapse kill` to skip auto-merge and preserve the branch
+
+### Documentation
+
+- Added merge strategy comparison (Claude Code vs Synapse) to `docs/worktree.md`
+- Updated `README.md`, `docs/synapse-reference.md`, and `docs/agent-teams-adoption-spec.md` with `--no-merge` flag
+- Synchronized `site-docs/` with auto-merge documentation
+
+### Tests
+
+- Added `TestMergeWorktree` (5 tests) and cleanup merge tests (3 tests) in `test_worktree.py`
+- Added kill merge tests (2 tests) in `test_cli_kill_jump.py`
+
 ## [0.19.0] - 2026-04-02
 
 ### Added
@@ -3022,6 +3041,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.4...HEAD
+[0.19.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.0...v0.19.1
 [0.19.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.4...v0.19.0
 [0.18.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.3...v0.18.4
 [0.18.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.18.2...v0.18.3

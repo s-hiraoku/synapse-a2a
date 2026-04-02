@@ -225,6 +225,77 @@ def test_kill_ambiguous(registry, capsys):
 
 
 # ============================================================================
+# Tests for cmd_kill with worktree merge
+# ============================================================================
+
+
+def test_kill_default_merges_worktree(registry):
+    """Kill should call _try_cleanup_worktree with merge=True by default."""
+    from synapse.cli import cmd_kill
+
+    registry.register(
+        "synapse-claude-8100",
+        "claude",
+        8100,
+        name="my-worker",
+        worktree_path="/repo/.synapse/worktrees/test-wt",
+        worktree_branch="worktree-test-wt",
+        worktree_base_branch="origin/main",
+    )
+
+    args = argparse.Namespace(target="my-worker", force=True, no_merge=False)
+
+    with patch("synapse.cli.AgentRegistry", return_value=registry):
+        with patch("os.kill"):
+            with patch.object(registry, "unregister"):
+                with patch("synapse.cli._try_cleanup_worktree") as mock_cleanup:
+                    agent_data = registry.get_agent("synapse-claude-8100")
+                    agent_data["pid"] = 12345
+                    with patch.object(
+                        registry,
+                        "get_live_agents",
+                        return_value={"synapse-claude-8100": agent_data},
+                    ):
+                        cmd_kill(args)
+
+                    mock_cleanup.assert_called_once()
+                    assert mock_cleanup.call_args[1]["merge"] is True
+
+
+def test_kill_no_merge_flag(registry):
+    """Kill with --no-merge should call _try_cleanup_worktree with merge=False."""
+    from synapse.cli import cmd_kill
+
+    registry.register(
+        "synapse-claude-8100",
+        "claude",
+        8100,
+        name="my-worker",
+        worktree_path="/repo/.synapse/worktrees/test-wt",
+        worktree_branch="worktree-test-wt",
+        worktree_base_branch="origin/main",
+    )
+
+    args = argparse.Namespace(target="my-worker", force=True, no_merge=True)
+
+    with patch("synapse.cli.AgentRegistry", return_value=registry):
+        with patch("os.kill"):
+            with patch.object(registry, "unregister"):
+                with patch("synapse.cli._try_cleanup_worktree") as mock_cleanup:
+                    agent_data = registry.get_agent("synapse-claude-8100")
+                    agent_data["pid"] = 12345
+                    with patch.object(
+                        registry,
+                        "get_live_agents",
+                        return_value={"synapse-claude-8100": agent_data},
+                    ):
+                        cmd_kill(args)
+
+                    mock_cleanup.assert_called_once()
+                    assert mock_cleanup.call_args[1]["merge"] is False
+
+
+# ============================================================================
 # Tests for cmd_jump
 # ============================================================================
 

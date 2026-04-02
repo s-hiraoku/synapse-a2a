@@ -22,8 +22,9 @@ synapse claude --no-setup                      # Skip interactive setup
 synapse list                                   # Rich TUI with auto-refresh
 synapse list --json                            # JSON array output for AI/scripts
 synapse status my-claude                       # Detailed single-agent status
-synapse kill my-claude                         # Graceful shutdown
-synapse kill my-claude -f                      # Force kill
+synapse kill my-claude                         # Graceful shutdown (auto-merges worktree branch)
+synapse kill my-claude -f                      # Force kill (auto-merges worktree branch)
+synapse kill my-claude --no-merge              # Skip worktree auto-merge
 synapse jump my-claude                         # Jump to terminal
 synapse rename claude --name my-claude         # Assign name
 

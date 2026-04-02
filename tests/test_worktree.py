@@ -19,6 +19,7 @@ from synapse.worktree import (
     has_new_commits,
     has_uncommitted_changes,
     has_worktree_changes,
+    merge_worktree,
     remove_worktree,
     worktree_info_from_registry,
 )
@@ -506,9 +507,13 @@ class TestCleanupWorktree:
         )
 
     @patch("synapse.worktree.remove_worktree", return_value=True)
-    @patch("synapse.worktree.has_worktree_changes", return_value=False)
+    @patch("synapse.worktree.has_new_commits", return_value=False)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
     def test_cleanup_auto_remove_when_clean(
-        self, mock_changes: MagicMock, mock_remove: MagicMock
+        self,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
+        mock_remove: MagicMock,
     ) -> None:
         info = self._make_info()
         result = cleanup_worktree(info, interactive=False)
@@ -516,9 +521,13 @@ class TestCleanupWorktree:
         mock_remove.assert_called_once_with(info.path, info.branch, force=False)
 
     @patch("synapse.worktree.remove_worktree")
-    @patch("synapse.worktree.has_worktree_changes", return_value=True)
+    @patch("synapse.worktree.has_new_commits", return_value=True)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
     def test_cleanup_keeps_dirty_non_interactive(
-        self, mock_changes: MagicMock, mock_remove: MagicMock
+        self,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
+        mock_remove: MagicMock,
     ) -> None:
         info = self._make_info()
         result = cleanup_worktree(info, interactive=False)
@@ -526,12 +535,14 @@ class TestCleanupWorktree:
         mock_remove.assert_not_called()
 
     @patch("synapse.worktree.remove_worktree", return_value=True)
-    @patch("synapse.worktree.has_worktree_changes", return_value=True)
+    @patch("synapse.worktree.has_new_commits", return_value=True)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
     @patch("builtins.input", return_value="y")
     def test_cleanup_interactive_confirms_removal(
         self,
         mock_input: MagicMock,
-        mock_changes: MagicMock,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
         mock_remove: MagicMock,
     ) -> None:
         info = self._make_info()
@@ -540,15 +551,175 @@ class TestCleanupWorktree:
         mock_remove.assert_called_once_with(info.path, info.branch, force=True)
 
     @patch("synapse.worktree.remove_worktree")
-    @patch("synapse.worktree.has_worktree_changes", return_value=True)
+    @patch("synapse.worktree.has_new_commits", return_value=True)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
     @patch("builtins.input", return_value="n")
     def test_cleanup_interactive_declines_removal(
         self,
         mock_input: MagicMock,
-        mock_changes: MagicMock,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
         mock_remove: MagicMock,
     ) -> None:
         info = self._make_info()
         result = cleanup_worktree(info, interactive=True)
         assert result is False
         mock_remove.assert_not_called()
+
+    @patch("synapse.worktree.remove_worktree", return_value=True)
+    @patch("synapse.worktree.merge_worktree", return_value=True)
+    @patch("synapse.worktree.has_new_commits", return_value=True)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
+    def test_cleanup_with_merge_success(
+        self,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
+        mock_merge: MagicMock,
+        mock_remove: MagicMock,
+    ) -> None:
+        """When merge=True and merge succeeds, worktree should be removed."""
+        info = self._make_info()
+        result = cleanup_worktree(info, merge=True)
+        assert result is True
+        mock_merge.assert_called_once_with(
+            info, _has_uncommitted=False, _has_commits=True
+        )
+        mock_remove.assert_called_once_with(info.path, info.branch, force=False)
+
+    @patch("synapse.worktree.remove_worktree")
+    @patch("synapse.worktree.merge_worktree")
+    @patch("synapse.worktree.has_new_commits", return_value=True)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
+    def test_cleanup_with_merge_conflict(
+        self,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
+        mock_merge: MagicMock,
+        mock_remove: MagicMock,
+    ) -> None:
+        """When merge=True but merge fails (conflict), worktree should be kept."""
+        info = self._make_info()
+        result = cleanup_worktree(info, merge=False)
+        assert result is False
+        mock_merge.assert_not_called()
+        mock_remove.assert_not_called()
+
+    @patch("synapse.worktree.remove_worktree")
+    @patch("synapse.worktree.merge_worktree")
+    @patch("synapse.worktree.has_new_commits", return_value=True)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
+    def test_cleanup_with_merge_false(
+        self,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
+        mock_merge: MagicMock,
+        mock_remove: MagicMock,
+    ) -> None:
+        """When merge=False, should use existing behavior (no merge attempted)."""
+        info = self._make_info()
+        result = cleanup_worktree(info, merge=False)
+        assert result is False
+        mock_merge.assert_not_called()
+
+
+# ============================================================
+# merge_worktree
+# ============================================================
+
+
+class TestMergeWorktree:
+    def _make_info(self) -> WorktreeInfo:
+        return WorktreeInfo(
+            name="test-wt",
+            path=Path("/repo/.synapse/worktrees/test-wt"),
+            branch="worktree-test-wt",
+            base_branch="origin/main",
+            created_at=1000.0,
+        )
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_merge_success(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """Successful merge should return True."""
+        info = self._make_info()
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = merge_worktree(info, _has_uncommitted=False, _has_commits=True)
+        assert result is True
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args
+        assert "merge" in call_args[0][0]
+        assert info.branch in call_args[0][0]
+        assert "--no-edit" in call_args[0][0]
+        assert call_args[1].get("cwd") == str(Path("/repo"))
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_merge_auto_commit_wip(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """Should auto-commit uncommitted changes before merging."""
+        info = self._make_info()
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = merge_worktree(
+            info, auto_commit_wip=True, _has_uncommitted=True, _has_commits=False
+        )
+        assert result is True
+        # Should have: git add -u, git commit, git merge (3 calls)
+        assert mock_run.call_count == 3
+        first_call = mock_run.call_args_list[0]
+        assert "add" in first_call[0][0]
+        assert "-u" in first_call[0][0]
+        assert first_call[1].get("cwd") == str(info.path)
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_merge_skip_wip_when_disabled(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """Should not auto-commit when auto_commit_wip=False."""
+        info = self._make_info()
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = merge_worktree(
+            info, auto_commit_wip=False, _has_uncommitted=True, _has_commits=True
+        )
+        assert result is True
+        # Should only have git merge call, no git add/commit
+        assert mock_run.call_count == 1
+        assert "merge" in mock_run.call_args[0][0]
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_merge_conflict(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """On conflict, should abort merge and return False."""
+        info = self._make_info()
+        merge_result = MagicMock(returncode=1, stdout="", stderr="CONFLICT")
+        abort_result = MagicMock(returncode=0, stdout="", stderr="")
+        mock_run.side_effect = [merge_result, abort_result]
+
+        result = merge_worktree(info, _has_uncommitted=False, _has_commits=True)
+        assert result is False
+        assert mock_run.call_count == 2
+        abort_call = mock_run.call_args_list[1]
+        assert "--abort" in abort_call[0][0]
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    def test_merge_no_new_commits(
+        self,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """When no new commits and no uncommitted changes, should return True without merging."""
+        info = self._make_info()
+        result = merge_worktree(info, _has_uncommitted=False, _has_commits=False)
+        assert result is True

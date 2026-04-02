@@ -99,7 +99,7 @@ flowchart LR
 | **Task History** | Automatic task tracking with search, export, and statistics (enabled by default) |
 | **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
-| **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force) |
+| **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force). Worktree branches are auto-merged back to the base branch on kill (uncommitted changes are WIP-committed first; conflicts preserve the branch with a warning). Use `--no-merge` to skip auto-merge |
 | **Delegate Mode** | `--delegate-mode` makes an agent a manager that delegates instead of editing files |
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. Defaults to `--worktree` isolation (opt out with `--no-worktree`). `--all-new` to start all in new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij) |
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --silent` to quickly interrupt an agent |
@@ -345,15 +345,17 @@ synapse send Tester "Write integration tests for auth module" --notify
 # Share discoveries via shared memory for all agents to use
 synapse memory save auth-pattern "OAuth2 flow uses refresh tokens" --tags auth --notify
 
-# MANDATORY: Always clean up agents you spawn
+# MANDATORY: Always clean up agents you spawn (worktree branches auto-merge back)
 synapse kill Tester -f
+# Skip auto-merge if you want to review the branch first
+synapse kill Tester -f --no-merge
 ```
 
 Key principles:
 - **Cross-model preference**: Spawn different model types (Claude, Gemini, Codex) to leverage diverse strengths and distribute rate limit pressure
 - **Worker autonomy**: Any agent can spawn helpers and delegate, not just managers
 - **Check before spawning**: Run `synapse list` first to reuse existing READY agents before spawning new ones
-- **Mandatory cleanup**: Always `synapse kill <name> -f` agents you spawned after their work completes
+- **Mandatory cleanup**: Always `synapse kill <name> -f` agents you spawned after their work completes. Worktree branches are auto-merged; use `--no-merge` to skip
 - **Feature usage**: Actively use shared memory, file safety, worktree, broadcast, and history
 
 ### 8. Cross-Worktree Knowledge Transfer (Advanced)
@@ -681,8 +683,9 @@ Save this agent definition for reuse? [y/N]:
 | `synapse <profile>` | Start in foreground |
 | `synapse start <profile>` | Start in background |
 | `synapse stop <profile\|id>` | Stop agent (can specify ID) |
-| `synapse kill <target>` | Graceful shutdown (sends shutdown request, then SIGTERM after 30s) |
-| `synapse kill <target> -f` | Force kill (immediate SIGKILL) |
+| `synapse kill <target>` | Graceful shutdown (sends shutdown request, then SIGTERM after 30s). Auto-merges worktree branch |
+| `synapse kill <target> -f` | Force kill (immediate SIGKILL). Auto-merges worktree branch |
+| `synapse kill <target> --no-merge` | Kill without auto-merging worktree branch |
 | `synapse jump <target>` | Jump to agent's terminal |
 | `synapse rename <target>` | Assign name/role to agent |
 | `synapse set-summary <target> [text]` | Set persistent agent summary (120 chars). `--auto` generates from git context, `--clear` removes |

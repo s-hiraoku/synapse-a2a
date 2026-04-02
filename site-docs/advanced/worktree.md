@@ -97,7 +97,8 @@ Response includes worktree metadata:
   "port": 8110,
   "status": "submitted",
   "worktree_path": "/repo/.synapse/worktrees/bold-hawk",
-  "worktree_branch": "worktree-bold-hawk"
+  "worktree_branch": "worktree-bold-hawk",
+  "worktree_base_branch": "origin/main"
 }
 ```
 
@@ -111,6 +112,12 @@ Response includes worktree metadata:
     - No changes AND no new commits → auto-delete worktree and branch
     - Changes or new commits exist (interactive) → prompt to keep or force-remove
     - Changes or new commits exist (non-interactive) → keep worktree, print path and branch
+6. **Auto-merge** (default on `synapse kill`):
+    - Uncommitted changes are auto-committed as WIP
+    - `git merge worktree-<name> --no-edit` is attempted on the parent branch
+    - On success: worktree and branch are removed
+    - On conflict: branch is preserved with a warning message
+    - Use `synapse kill <agent> --no-merge` to skip auto-merge
 
 The base branch is determined in the following order:
 
@@ -133,21 +140,22 @@ gemini  -       8110  READY   synapse-a2a
 
 ## Post-Work Merge
 
-After agents complete their work:
+By default, `synapse kill` performs **auto-merge**: uncommitted changes are committed as WIP, and the worktree branch is merged into the parent branch. If the merge succeeds, the worktree and branch are removed automatically.
 
 ```bash
-# Kill workers (worktree auto-cleaned if no changes and no new commits)
+# Kill with auto-merge (default)
 synapse kill Auth -f
 synapse kill gemini -f
 
-# If worktrees were kept (had uncommitted changes or new commits):
-# Merge changes from worktree branches
-git merge worktree-feature-auth
-git merge worktree-bold-hawk
+# Skip auto-merge — keep worktree branch for manual review
+synapse kill Auth -f --no-merge
 
-# Clean up branches
+# If auto-merge failed due to conflicts, the branch is preserved.
+# Resolve manually:
+git merge worktree-feature-auth
+# ... fix conflicts ...
+git commit
 git branch -d worktree-feature-auth
-git branch -d worktree-bold-hawk
 ```
 
 ## Synapse vs Claude Code Worktree
@@ -157,11 +165,40 @@ git branch -d worktree-bold-hawk
 | Directory | `.synapse/worktrees/` | `.claude/worktrees/` |
 | Managed by | Synapse | Claude Code |
 | Supported agents | All (Claude, Gemini, Codex, OpenCode, Copilot) | Claude Code only |
-| Cleanup | On agent exit or `synapse kill` | On Claude Code session end |
+| Cleanup | On agent exit or `synapse kill` (uncommitted changes + commit detection) | On Claude Code session end |
 | Flag position | Before `--` (Synapse flag) | After `--` (tool flag) |
 
 !!! tip "Which to use?"
     Use Synapse's `--worktree` for multi-agent workflows. Use Claude Code's `-- --worktree` only when you need Claude Code-specific worktree behavior. Do not combine both — it would create nested worktrees.
+
+### Merge Strategy Comparison
+
+Claude Code and Synapse have fundamentally different merge strategies after worker completion.
+
+| Aspect | Claude Code (`isolation: "worktree"`) | Synapse (`synapse kill`) |
+|--------|----------------------------------------------|--------------------------|
+| **Auto-merge** | No — preserves branch for human review | **Yes** — auto-merges on `synapse kill` by default |
+| **Uncommitted changes** | Left in worktree; discarded on remove | Auto-committed as WIP (`wip: uncommitted changes from <name>`) |
+| **On conflict** | Manual resolution (Git tools) | `git merge --abort` → branch preserved + warning. Parent agent resolves |
+| **Design philosophy** | "Human decides" — review before merge | "Parent agent decides" — reliably integrate worker results |
+| **Merge responsibility** | User (human) | Agent that runs kill (parent/manager) |
+| **Opt-out** | N/A (no auto-merge) | `synapse kill <agent> --no-merge` |
+
+```text
+Claude Code:
+  subagent done → changes? → YES → preserve branch → human reviews → manual merge
+                           → NO  → auto-delete
+
+Synapse:
+  synapse kill → changes? → YES → auto-merge attempt → success → delete
+                                                      → failure → preserve branch + parent resolves
+                          → NO  → auto-delete
+```
+
+!!! tip "Choosing the right strategy"
+    - **Claude Code worktree**: Review-oriented. Use when you want a human to review changes before merging.
+    - **Synapse worktree**: Automation-oriented. Use when you want worker results reliably integrated in multi-agent workflows.
+    - For high conflict risk, use `synapse file-safety lock` to lock files and prevent conflicts proactively.
 
 ## When To Use (and When Not To)
 
