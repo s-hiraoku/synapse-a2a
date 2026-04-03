@@ -378,7 +378,7 @@ synapse team start claude -- --worktree
 **サブエージェント委任コマンド。** 親が子エージェントを生成し、サブタスクを委任します（コンテキスト保護・効率化・精度向上のため）。ライフサイクル: spawn → send → evaluate → kill。ユーザーがエージェント数を指定した場合はそれに従い（最優先）、指定がなければ親がタスク構造から判断します。詳細は `guides/usage.md` の「2.2.3 エージェント単体起動」を参照。
 
 ```bash
-synapse spawn <profile|saved_agent_id|saved_agent_name> [--port PORT] [--name NAME] [--role ROLE] [--skill-set SET] [--terminal TERM] [--worktree [NAME]] [--task MESSAGE] [--task-file PATH] [--task-timeout N] [--wait|--notify|--silent] [-- tool_args...]
+synapse spawn <profile|saved_agent_id|saved_agent_name> [--port PORT] [--name NAME] [--role ROLE] [--skill-set SET] [--terminal TERM] [--worktree [NAME]] [--branch BRANCH] [--no-auto-approve] [--task MESSAGE] [--task-file PATH] [--task-timeout N] [--wait|--notify|--silent] [-- tool_args...]
 ```
 
 | 引数 | 必須 | 説明 |
@@ -611,7 +611,7 @@ synapse interrupt <target> <message> [--from AGENT_ID] [--force]
 | `--from`, `-f` | No | 送信元エージェントID（省略可: 自動検出） |
 | `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信（同一リポジトリのワークツリー間では不要） |
 
-**動作**: 優先度 4 で fire-and-forget メッセージを送信します。応答は待ちません。送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。ただし、同一リポジトリのワークツリー関係は自動検出されるため `--force` は不要です。異なるプロジェクトの場合のみ `--force` でバイパスしてください。
+**動作**: 優先度 5 で fire-and-forget メッセージを送信します。応答は待ちません。送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。ただし、同一リポジトリのワークツリー関係は自動検出されるため `--force` は不要です。異なるプロジェクトの場合のみ `--force` でバイパスしてください。
 
 **例**:
 
