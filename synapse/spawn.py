@@ -485,7 +485,7 @@ def wait_for_agent(
     """
     import time
 
-    from synapse.port_manager import is_process_alive
+    from synapse.registry import is_process_running
 
     registry = AgentRegistry()
     deadline = time.monotonic() + timeout
@@ -495,7 +495,7 @@ def wait_for_agent(
         if agent_id in agents:
             info = agents[agent_id]
             pid = info.get("pid")
-            if pid and is_process_alive(pid):
+            if pid and is_process_running(pid):
                 return info
         time.sleep(poll_interval)
 

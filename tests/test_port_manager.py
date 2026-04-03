@@ -91,6 +91,21 @@ class TestIsProcessAlive:
         # PID 99999999 is very unlikely to exist
         assert is_process_alive(99999999) is False
 
+    def test_permission_error_means_process_alive(self):
+        """Should treat PermissionError as evidence the process exists."""
+        with patch("synapse.port_manager.is_process_running", return_value=True):
+            assert is_process_alive(12345) is True
+
+    def test_process_lookup_error_means_process_dead(self):
+        """Should return False when the PID no longer exists."""
+        with patch("synapse.port_manager.is_process_running", return_value=False):
+            assert is_process_alive(12345) is False
+
+    def test_successful_probe_means_process_alive(self):
+        """Should return True when os.kill(pid, 0) succeeds."""
+        with patch("synapse.port_manager.is_process_running", return_value=True):
+            assert is_process_alive(12345) is True
+
 
 class TestPortManager:
     """Tests for PortManager class."""
@@ -125,6 +140,22 @@ class TestPortManager:
         with patch("synapse.port_manager.is_port_available", return_value=True):
             port = port_manager.get_available_port("claude")
             assert port == 8100  # Should reclaim the port
+
+    def test_get_available_port_keeps_registry_entry_on_permission_error(
+        self, port_manager, registry
+    ):
+        """Should not unregister entries when the process exists but is protected."""
+        registry.register("synapse-claude-8100", "claude", 8100)
+        file_path = registry.registry_dir / "synapse-claude-8100.json"
+
+        with (
+            patch("synapse.port_manager.is_process_running", return_value=True),
+            patch("synapse.port_manager.is_port_available", return_value=True),
+        ):
+            port = port_manager.get_available_port("claude")
+
+        assert port == 8101
+        assert file_path.exists()
 
     def test_get_available_port_exhausted(self, port_manager, registry):
         """Should return None when all ports are in use."""
