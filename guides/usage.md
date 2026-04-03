@@ -358,7 +358,7 @@ flowchart TB
 | `synapse start <profile>` | バックグラウンド起動 |
 | `synapse stop <profile\|id>` | エージェント停止（ID指定も可） |
 | `synapse team start <specs...>` | 1番目=handoff、他=新ペイン。デフォルトで worktree 分離有効（`--no-worktree` でオプトアウト）。`--all-new` で全員新ペイン |
-| `synapse kill <target>` | グレースフルシャットダウン（デフォルト30秒、`-f` で即時終了） |
+| `synapse kill <target>` | グレースフルシャットダウン（デフォルト30秒、`-f` で即時終了）。worktree ブランチは自動マージ（`--no-merge` でスキップ） |
 | `synapse jump <target>` | エージェントのターミナルにジャンプ |
 | `synapse rename <target>` | エージェントに名前・ロールを設定 |
 | `synapse init` | Synapse 設定の初期化（`.synapse/settings.json` 作成） |
@@ -423,6 +423,7 @@ synapse stop claude --all
 synapse kill claude
 synapse kill my-claude    # カスタム名で指定
 synapse kill claude -f    # 即時終了（SIGKILL）
+synapse kill claude --no-merge  # worktree 自動マージをスキップ
 
 # エージェントのターミナルにジャンプ
 synapse jump claude
@@ -765,10 +766,10 @@ synapse gemini --worktree review --name Reviewer --role "code reviewer"
 
 - `.gitignore` に記載されたファイル（`.env`、`.venv/`、`node_modules/`）は worktree にコピーされません。必要に応じて `uv sync`、`npm install`、`.env` のコピーを実行してください。
 - 終了時: 未コミットの変更 **およびベースブランチ以降の新規コミット** がない worktree は自動削除されます。変更またはコミットがある場合、対話モードでは保持/削除の確認プロンプトが表示され、非対話モード（headless）では worktree を保持してパスとブランチを出力します。
-- ブランチのクリーンアップ: kill 後、worktree ブランチが残る場合があります。メインブランチにマージするか、不要なら削除してください:
+- ブランチの自動マージ: `synapse kill` 実行時、worktree ブランチはデフォルトで親ブランチに自動マージされます（未コミットの変更は WIP コミットされます）。コンフリクト発生時はブランチが保持され警告が表示されます。`--no-merge` で自動マージをスキップできます:
   ```bash
-  git merge worktree-feature-auth    # マージ
-  git branch -d worktree-feature-auth # 削除
+  synapse kill my-claude               # 自動マージ（デフォルト）
+  synapse kill my-claude --no-merge    # ブランチを保持
   ```
 
 #### 技術的な注意事項

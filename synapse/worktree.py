@@ -418,7 +418,6 @@ def merge_worktree(
         _has_commits: Pre-computed result from has_new_commits().
             If None, will be checked.
     """
-    git_root = get_git_root()
     uncommitted = (
         _has_uncommitted
         if _has_uncommitted is not None
@@ -469,6 +468,7 @@ def merge_worktree(
     if not commits:
         return True
 
+    git_root = get_git_root()
     merge_result = subprocess.run(
         ["git", "merge", info.branch, "--no-edit"],
         capture_output=True,
@@ -531,6 +531,7 @@ def cleanup_worktree(
     Args:
         info: WorktreeInfo for the worktree to clean up.
         interactive: Whether to prompt the user.
+        merge: If True, merge the worktree branch before removal.
 
     Returns:
         True if worktree was removed, False if kept.

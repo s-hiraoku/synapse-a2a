@@ -1176,13 +1176,14 @@ Current settings (merged from all scopes):
 実行中のエージェントをグレースフルシャットダウンします。
 
 ```bash
-synapse kill <TARGET> [--force]
+synapse kill <TARGET> [--force] [--no-merge]
 ```
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
 | `TARGET` | Yes | エージェント名、ID（`synapse-claude-8100`）、type-port（`claude-8100`）、またはタイプ |
 | `--force`, `-f` | No | 確認なしで即時終了（SIGKILL） |
+| `--no-merge` | No | worktree ブランチの自動マージをスキップ（ブランチを保持） |
 
 **ターゲット解決の優先順位**:
 1. カスタム名（`my-claude`）— 最優先
@@ -1207,7 +1208,10 @@ synapse kill synapse-claude-8100        # フルIDで指定
 synapse kill claude-8100                # type-port で指定
 synapse kill claude                     # タイプで指定（単一インスタンスの場合）
 synapse kill claude -f                  # 確認なし即時終了
+synapse kill claude --no-merge          # worktree 自動マージをスキップ
 ```
+
+> **Worktree 自動マージ**: worktree で起動したエージェントを kill すると、デフォルトでブランチが親ブランチに自動マージされます（未コミットの変更は WIP コミットされます）。コンフリクト発生時はブランチが保持され警告が表示されます。`--no-merge` で自動マージをスキップできます。
 
 ---
 
