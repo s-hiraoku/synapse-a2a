@@ -4,11 +4,18 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.19.2
+
+- **Fixed**: Unified `is_process_alive` with `is_process_running` to fix `PermissionError` mishandling (#495)
+- **Fixed**: Deferred `get_git_root()` in `merge_worktree` to avoid unnecessary subprocess
+- **Docs**: Updated guides with `--no-merge` flag and auto-merge behavior
+
 ### v0.19.1
 
 - **Added**: Worktree auto-merge on `synapse kill` — worker branches are automatically merged back (#493)
 - **Added**: Uncommitted changes auto-committed as WIP before merge
 - **Added**: `--no-merge` flag to skip auto-merge
+- **Fixed**: `is_process_alive()` no longer treats `PermissionError` as process dead — fixes false-negative liveness checks (#495)
 - **Docs**: Merge strategy comparison (Claude Code vs Synapse), updated references across all docs
 
 ### v0.19.0
