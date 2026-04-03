@@ -513,13 +513,13 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 | `--silent` | No | ワンウェイモード - 送りっぱなし、返信・通知不要 |
 | `--callback` | No | タスク完了時（completed/failed）に送信側で実行するコマンド（--silent時のみ） |
 | `--task`, `-T` | No | ボードタスクを自動作成し、送信メッセージと紐付ける。受信側は自動 claim、A2A タスク完了時に自動 complete |
-| `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信 |
+| `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信（同一リポジトリのワークツリー間では不要） |
 
 **Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは `--notify`（非同期通知）になります。
 **Note**: `--silent` でも受信側完了時に sender 側 history のステータスは best-effort で更新されます（`sent` → `completed` / `failed` / `canceled`、通知不達時は `sent` のまま）。
 **Note**: メッセージの入力元は **positional / `--message-file` / `--stdin` のいずれか1つ** を指定します。
 **Note**: `--task` / `-T` を指定すると、送信時にボードタスクを自動作成し、A2A タスクと紐付けます。受信側は自動 claim し、A2A タスク完了時にボードタスクも自動 complete されます。PTY 表示には `[Task: XXXXXXXX]` タグが付与されます。
-**Note**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
+**Note**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。ただし、ワークツリーの関係（親リポジトリ ↔ 子ワークツリー、兄弟ワークツリー）は自動検出されるため `--force` は不要です。異なるプロジェクトの場合のみ `--force` でバイパスしてください。
 
 **レスポンスモードの使い分け**:
 
@@ -551,7 +551,7 @@ synapse send gemini "止まれ" -p 5
 synapse send codex --message-file ./message.txt --silent
 echo "from stdin" | synapse send codex --stdin --silent
 synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --silent
-synapse send codex "設計して" --force                           # 作業ディレクトリ不一致でも送信
+synapse send codex "設計して" --force                           # 異なるプロジェクトのエージェントに送信（同一リポのワークツリーなら不要）
 synapse send claude "Hello!" --from synapse-codex-8121         # 明示指定（サンドボックス環境向け）
 synapse send codex "認証を実装して" --task                     # ボードタスク自動作成＆紐付け
 synapse send codex "バグ修正して" -T --silent                  # -T は --task の短縮形
@@ -604,16 +604,16 @@ synapse interrupt <target> <message> [--from AGENT_ID] [--force]
 | `target` | Yes | 送信先エージェント（名前、ID、タイプ等） |
 | `message` | Yes | 割り込みメッセージ |
 | `--from`, `-f` | No | 送信元エージェントID（省略可: 自動検出） |
-| `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信 |
+| `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信（同一リポジトリのワークツリー間では不要） |
 
-**動作**: 優先度 4 で fire-and-forget メッセージを送信します。応答は待ちません。送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。`--force` でバイパスできます。
+**動作**: 優先度 4 で fire-and-forget メッセージを送信します。応答は待ちません。送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。ただし、同一リポジトリのワークツリー関係は自動検出されるため `--force` は不要です。異なるプロジェクトの場合のみ `--force` でバイパスしてください。
 
 **例**:
 
 ```bash
 synapse interrupt claude "Stop and review"
 synapse interrupt gemini "Check status"                           # --from 自動検出
-synapse interrupt claude "Stop" --force   # 作業ディレクトリ不一致でも送信
+synapse interrupt claude "Stop" --force   # 異なるプロジェクトのエージェントに送信
 ```
 
 ---

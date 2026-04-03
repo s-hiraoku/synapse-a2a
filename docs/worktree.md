@@ -154,7 +154,7 @@ synapse spawn gemini --worktree api --name APIDev --role "implement API endpoint
 ### 4. クロスワークツリーのナレッジ転送
 
 メインリポジトリのエージェントからワークツリー内のエージェントにスキルや知見を共有する。
-ワークツリーのエージェントは異なるディレクトリで動作するため、`--force` が必要。
+Synapse はワークツリーの関係（親リポジトリ、子ワークツリー、兄弟ワークツリー）を自動検出するため、同一リポジトリのワークツリー間では `--force` は不要。
 バッククォートやコードブロックを含むメッセージは `--message-file` でシェル展開を回避する。
 
 ```bash
@@ -168,11 +168,11 @@ cat > /tmp/instructions.md << 'EOF'
 Run `/release patch` to bump the patch version.
 EOF
 
-# --message-file + --force でワークツリー境界を越えて送信
-synapse send Cody --message-file /tmp/instructions.md --force --silent
+# --message-file でワークツリー境界を越えて送信（--force 不要）
+synapse send Cody --message-file /tmp/instructions.md --silent
 ```
 
-`synapse memory save` はディレクトリに依存しないため、`--force` なしで全エージェントと知識を共有できる代替手段です。
+`synapse memory save` はディレクトリに依存しないため、全エージェントと知識を共有できる代替手段です。
 
 ### 5. Claude Code の --worktree との使い分け
 

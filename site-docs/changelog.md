@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.19.3
+
+- **Added**: Auto-merge worktree branch on kill (#496)
+- **Fixed**: `synapse send` no longer blocks messages to worktree agents without `--force` (#497)
+
 ### v0.19.2
 
 - **Fixed**: Unified `is_process_alive` with `is_process_running` to fix `PermissionError` mishandling (#495)

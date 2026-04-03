@@ -361,6 +361,33 @@ def _normalize_working_dir(path_str: str | None) -> str | None:
         return os.path.abspath(os.path.expanduser(path_str))
 
 
+_WORKTREE_SEGMENT = os.sep + ".synapse" + os.sep + "worktrees" + os.sep
+
+
+def _get_worktree_parent_dir(path: str | None) -> str | None:
+    """If *path* is under ``.synapse/worktrees/``, return the parent repo root."""
+    if not path:
+        return None
+    idx = path.find(_WORKTREE_SEGMENT)
+    if idx == -1:
+        return None
+    return path[:idx]
+
+
+def _are_worktree_related(path_a: str, path_b: str) -> bool:
+    """Return True if two paths belong to the same repo via worktree relationship."""
+    parent_a = _get_worktree_parent_dir(path_a)
+    parent_b = _get_worktree_parent_dir(path_b)
+    # Both are worktrees of the same parent
+    if parent_a and parent_b:
+        return parent_a == parent_b
+    # a is parent repo, b is its worktree
+    if parent_b and parent_b == path_a:
+        return True
+    # a is worktree, b is its parent repo
+    return bool(parent_a and parent_a == path_b)
+
+
 def _agents_in_current_working_dir(
     agents: dict[str, dict],
     cwd: str,
@@ -371,12 +398,18 @@ def _agents_in_current_working_dir(
     if not normalized_cwd:
         return []
 
-    return [
-        agent
-        for agent in agents.values()
-        if agent.get("agent_id") != exclude_id
-        and _normalize_working_dir(agent.get("working_dir")) == normalized_cwd
-    ]
+    result = []
+    for agent in agents.values():
+        if agent.get("agent_id") == exclude_id:
+            continue
+        norm_dir = _normalize_working_dir(agent.get("working_dir"))
+        if not norm_dir:
+            continue
+        if norm_dir == normalized_cwd or _are_worktree_related(
+            normalized_cwd, norm_dir
+        ):
+            result.append(agent)
+    return result
 
 
 def _warn_working_dir_mismatch(
@@ -393,6 +426,14 @@ def _warn_working_dir_mismatch(
     normalized_target = _normalize_working_dir(target_dir)
 
     if normalized_cwd == normalized_target:
+        return False
+
+    # Worktree agents belong to the same repo -- no mismatch
+    if (
+        normalized_cwd
+        and normalized_target
+        and _are_worktree_related(normalized_cwd, normalized_target)
+    ):
         return False
 
     display_name = target_agent.get("name") or target_agent.get("agent_id", "unknown")

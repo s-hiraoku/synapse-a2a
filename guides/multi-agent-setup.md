@@ -317,17 +317,17 @@ synapse kill Helper -f
 
 ### クロスワークツリー送信
 
-ワークツリー内のエージェントは異なるディレクトリで動作するため、通常の `synapse send` はブロックされます。
-`--force` でディレクトリチェックをバイパスし、バッククォートやコードブロックを含むメッセージは `--message-file` でシェル展開を回避します。
+ワークツリー内のエージェントは異なるディレクトリで動作しますが、Synapse はワークツリーの関係（親リポジトリ ↔ 子ワークツリー、兄弟ワークツリー）を自動検出するため、同一リポジトリのワークツリー間では `--force` は不要です。
+バッククォートやコードブロックを含むメッセージは `--message-file` でシェル展開を回避します。
 
 ```bash
-# ワークツリーのエージェントに指示を送信
+# ワークツリーのエージェントに指示を送信（--force 不要）
 cat > /tmp/instructions.md << 'EOF'
 ## 実装手順
 `/release patch` でバージョンをバンプしてください。
 EOF
 
-synapse send Helper --message-file /tmp/instructions.md --force --silent
+synapse send Helper --message-file /tmp/instructions.md --silent
 ```
 
 ディレクトリに依存しない代替手段として `synapse memory save` も使用できます。

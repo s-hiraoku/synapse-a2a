@@ -5,7 +5,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from synapse.tools.a2a import _normalize_working_dir, _warn_working_dir_mismatch
+from synapse.tools.a2a import (
+    _are_worktree_related,
+    _get_worktree_parent_dir,
+    _normalize_working_dir,
+    _warn_working_dir_mismatch,
+)
 
 
 @pytest.fixture
@@ -38,6 +43,18 @@ def agents_registry():
             "working_dir": "/project-b",
             "name": "フリーレン",
             "endpoint": "http://localhost:8120",
+        },
+        "synapse-codex-8121": {
+            "agent_id": "synapse-codex-8121",
+            "agent_type": "codex",
+            "port": 8121,
+            "status": "READY",
+            "working_dir": "/project-a/.synapse/worktrees/bold-newt",
+            "name": "bold-newt",
+            "endpoint": "http://localhost:8121",
+            "worktree_path": "/project-a/.synapse/worktrees/bold-newt",
+            "worktree_branch": "worktree-bold-newt",
+            "worktree_base_branch": "main",
         },
     }
 
@@ -328,3 +345,132 @@ class TestNormalizeWorkingDir:
         assert _normalize_working_dir(str(link)) == _normalize_working_dir(
             str(real_dir)
         )
+
+
+class TestGetWorktreeParentDir:
+    """Tests for _get_worktree_parent_dir helper."""
+
+    def test_none_returns_none(self):
+        assert _get_worktree_parent_dir(None) is None
+
+    def test_empty_returns_none(self):
+        assert _get_worktree_parent_dir("") is None
+
+    def test_plain_path_returns_none(self):
+        assert _get_worktree_parent_dir("/project-a") is None
+
+    def test_worktree_path_returns_parent(self):
+        assert (
+            _get_worktree_parent_dir("/project-a/.synapse/worktrees/bold-newt")
+            == "/project-a"
+        )
+
+    def test_synapse_without_worktrees_returns_none(self):
+        assert _get_worktree_parent_dir("/project-a/.synapse/config") is None
+
+
+class TestAreWorktreeRelated:
+    """Tests for _are_worktree_related helper."""
+
+    def test_parent_to_worktree(self):
+        assert _are_worktree_related(
+            "/project-a", "/project-a/.synapse/worktrees/bold-newt"
+        )
+
+    def test_worktree_to_parent(self):
+        assert _are_worktree_related(
+            "/project-a/.synapse/worktrees/bold-newt", "/project-a"
+        )
+
+    def test_sibling_worktrees(self):
+        assert _are_worktree_related(
+            "/project-a/.synapse/worktrees/calm-fox",
+            "/project-a/.synapse/worktrees/bold-newt",
+        )
+
+    def test_unrelated_paths(self):
+        assert not _are_worktree_related("/project-a", "/project-b")
+
+    def test_worktree_different_repo(self):
+        assert not _are_worktree_related(
+            "/project-b/.synapse/worktrees/bold-newt", "/project-a"
+        )
+
+
+class TestWorktreeWorkingDirMismatch:
+    """Tests for worktree-aware working dir mismatch detection."""
+
+    def test_parent_to_worktree_no_warning(self, agents_registry, capsys):
+        """Sender in parent repo, target is worktree agent: no warning."""
+        target = agents_registry["synapse-codex-8121"]
+        with patch("os.getcwd", return_value="/project-a"):
+            result = _warn_working_dir_mismatch(target, agents_registry)
+
+        assert result is False
+        assert capsys.readouterr().err == ""
+
+    def test_worktree_to_parent_no_warning(self, agents_registry, capsys):
+        """Sender in worktree, target is parent repo agent: no warning."""
+        target = agents_registry["synapse-claude-8100"]
+        with patch(
+            "os.getcwd",
+            return_value="/project-a/.synapse/worktrees/bold-newt",
+        ):
+            result = _warn_working_dir_mismatch(target, agents_registry)
+
+        assert result is False
+        assert capsys.readouterr().err == ""
+
+    def test_sibling_worktrees_no_warning(self, agents_registry, capsys):
+        """Sender in one worktree, target in sibling worktree: no warning."""
+        target = agents_registry["synapse-codex-8121"]
+        with patch(
+            "os.getcwd",
+            return_value="/project-a/.synapse/worktrees/calm-fox",
+        ):
+            result = _warn_working_dir_mismatch(target, agents_registry)
+
+        assert result is False
+        assert capsys.readouterr().err == ""
+
+    def test_worktree_different_repo_warns(self, capsys):
+        """Worktree of different repo should still warn."""
+        agents = {
+            "synapse-codex-8121": {
+                "agent_id": "synapse-codex-8121",
+                "agent_type": "codex",
+                "port": 8121,
+                "status": "READY",
+                "working_dir": "/project-a/.synapse/worktrees/bold-newt",
+                "name": "bold-newt",
+                "endpoint": "http://localhost:8121",
+            },
+        }
+        target = agents["synapse-codex-8121"]
+        with patch("os.getcwd", return_value="/project-b"):
+            result = _warn_working_dir_mismatch(target, agents)
+
+        assert result is True
+        assert "Warning:" in capsys.readouterr().err
+
+    def test_worktree_agents_in_current_dir(self, agents_registry):
+        """Worktree agents should appear in same-dir agent list from parent."""
+        from synapse.tools.a2a import _agents_in_current_working_dir
+
+        result = _agents_in_current_working_dir(agents_registry, "/project-a")
+        agent_ids = {a["agent_id"] for a in result}
+        assert "synapse-codex-8121" in agent_ids  # worktree agent
+        assert "synapse-claude-8100" in agent_ids  # same-dir agent
+        assert "synapse-gemini-8110" in agent_ids  # same-dir agent
+
+    def test_agents_in_worktree_includes_parent(self, agents_registry):
+        """Parent agents should appear in same-dir list from worktree CWD."""
+        from synapse.tools.a2a import _agents_in_current_working_dir
+
+        result = _agents_in_current_working_dir(
+            agents_registry, "/project-a/.synapse/worktrees/bold-newt"
+        )
+        agent_ids = {a["agent_id"] for a in result}
+        assert "synapse-claude-8100" in agent_ids  # parent dir agent
+        assert "synapse-gemini-8110" in agent_ids  # parent dir agent
+        assert "synapse-codex-8121" in agent_ids  # same worktree (exact match)

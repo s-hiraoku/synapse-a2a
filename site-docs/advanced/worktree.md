@@ -286,7 +286,10 @@ synapse spawn codex --worktree --branch renovate/major-eslint-monorepo --name Te
 
 ## Cross-Worktree Communication
 
-Agents in worktrees operate in a different working directory than the main repo. Synapse blocks sends by default to prevent accidental cross-project messages. Use `--force` (or `--message-file` for complex content) to bridge the gap.
+Synapse automatically detects that worktree agents belong to the same repository. Sends between the main repo and its worktrees (or between two worktrees of the same repo) work without any extra flags — **`--force` is not required**.
+
+!!! note "Worktree-aware path matching (v0.19.3+)"
+    Prior to v0.19.3, Synapse treated worktree directories as unrelated projects and blocked sends by default. The working-directory check now recognizes `.synapse/worktrees/` paths and allows sends automatically. `--force` is still available for genuinely cross-project messaging.
 
 See [Scenario 9: Cross-Worktree Knowledge Transfer](../guide/cross-agent-scenarios.md#scenario-9-cross-worktree-knowledge-transfer) for a complete walkthrough.
 
