@@ -464,7 +464,7 @@ class TestGetPaneCount:
     """Tests for terminal pane count detection helpers."""
 
     def test_get_zellij_pane_count_uses_env_counter(self) -> None:
-        """Should return current env count and increment it."""
+        """Should return current env count (read-only)."""
         from synapse.terminal_jump import _get_zellij_pane_count
 
         with patch.dict(
@@ -474,16 +474,16 @@ class TestGetPaneCount:
         ):
             count = _get_zellij_pane_count()
             assert count == 4
-            assert os.environ["SYNAPSE_ZELLIJ_PANE_COUNT"] == "5"
+            # Read-only — counter unchanged
+            assert os.environ["SYNAPSE_ZELLIJ_PANE_COUNT"] == "4"
 
     def test_get_zellij_pane_count_defaults_to_one(self) -> None:
-        """Should default to one pane and seed the counter."""
+        """Should default to one pane when env not set."""
         from synapse.terminal_jump import _get_zellij_pane_count
 
         with patch.dict(os.environ, {}, clear=True):
             count = _get_zellij_pane_count()
             assert count == 1
-            assert os.environ["SYNAPSE_ZELLIJ_PANE_COUNT"] == "2"
 
 
 class TestGetTmuxAutoSplit:

@@ -148,14 +148,15 @@ class TestRunPaneCommandsDelay:
 class TestZellijPaneCount:
     """Zellij pane count uses an env-backed monotonic counter."""
 
-    def test_env_var_counter(self) -> None:
-        """Existing counter should be returned, then incremented."""
+    def test_env_var_counter_read(self) -> None:
+        """Existing counter should be returned without incrementing."""
         from synapse.terminal_jump import _get_zellij_pane_count
 
         with patch.dict("os.environ", {"SYNAPSE_ZELLIJ_PANE_COUNT": "2"}, clear=False):
             count = _get_zellij_pane_count()
             assert count == 2
-            assert __import__("os").environ["SYNAPSE_ZELLIJ_PANE_COUNT"] == "3"
+            # Read-only — counter not changed
+            assert __import__("os").environ["SYNAPSE_ZELLIJ_PANE_COUNT"] == "2"
 
     def test_default_returns_1(self) -> None:
         """Missing or invalid counter should start from 1."""
@@ -164,4 +165,14 @@ class TestZellijPaneCount:
         with patch.dict("os.environ", {}, clear=True):
             count = _get_zellij_pane_count()
             assert count == 1
-            assert __import__("os").environ["SYNAPSE_ZELLIJ_PANE_COUNT"] == "2"
+
+    def test_bump_increments_by_n(self) -> None:
+        """Bump should increment the counter by the given number of panes."""
+        from synapse.terminal_jump import (
+            _bump_zellij_pane_count,
+            _get_zellij_pane_count,
+        )
+
+        with patch.dict("os.environ", {"SYNAPSE_ZELLIJ_PANE_COUNT": "1"}, clear=False):
+            _bump_zellij_pane_count(3)
+            assert _get_zellij_pane_count() == 4
