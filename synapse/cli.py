@@ -1336,6 +1336,26 @@ def _resolve_cli_message(args: argparse.Namespace) -> str:
     return str(args.message)
 
 
+def _resolve_task_message(args: argparse.Namespace) -> str | None:
+    """Resolve spawn task content from --task or --task-file."""
+    task = getattr(args, "task", None)
+    task_file = getattr(args, "task_file", None)
+
+    if task is not None:
+        return str(task)
+
+    if task_file:
+        if task_file == "-":
+            return sys.stdin.read()
+        path = Path(task_file)
+        if not path.exists():
+            print(f"Error: Task file not found: {task_file}", file=sys.stderr)
+            sys.exit(1)
+        return path.read_text(encoding="utf-8")
+
+    return None
+
+
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to an agent."""
     message = _resolve_cli_message(args)
@@ -3463,6 +3483,7 @@ def cmd_spawn(args: argparse.Namespace) -> None:
     from synapse.spawn import spawn_agent, wait_for_agent
 
     tool_args = getattr(args, "tool_args", [])
+    task_message = _resolve_task_message(args)
     target = args.profile
     resolved_profile = target
     resolved_name = args.name
@@ -3514,8 +3535,8 @@ def cmd_spawn(args: argparse.Namespace) -> None:
         if result.worktree_path:
             print(f"  worktree: {result.worktree_path} ({result.worktree_branch})")
 
-        # Check if agent registers within a short window
-        info = wait_for_agent(result.agent_id, timeout=3.0, poll_interval=0.5)
+        wait_timeout = getattr(args, "task_timeout", 30) if task_message else 3.0
+        info = wait_for_agent(result.agent_id, timeout=wait_timeout, poll_interval=0.5)
         if info is None:
             print(
                 f"Warning: {result.agent_id} not yet registered after spawn.\n"
@@ -3524,6 +3545,16 @@ def cmd_spawn(args: argparse.Namespace) -> None:
                 f'    synapse send {result.agent_id} "<message>" --wait',
                 file=sys.stderr,
             )
+            return
+
+        if task_message is not None:
+            cmd = _build_a2a_cmd(
+                "send",
+                task_message,
+                target=result.agent_id,
+                response_mode=getattr(args, "response_mode", None),
+            )
+            _run_a2a_command(cmd)
     except (FileNotFoundError, RuntimeError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
@@ -5746,6 +5777,27 @@ Outputs '{agent_id} {port}' on success for scripting use.""",
         "--terminal",
         help="Terminal app to use (default: auto-detect)",
     )
+    task_group = p_spawn.add_mutually_exclusive_group()
+    task_group.add_argument(
+        "--task",
+        dest="task",
+        default=None,
+        help="Send a task message after the spawned agent becomes ready",
+    )
+    task_group.add_argument(
+        "--task-file",
+        dest="task_file",
+        default=None,
+        help="Read the task message from a file ('-' to read from stdin)",
+    )
+    p_spawn.add_argument(
+        "--task-timeout",
+        dest="task_timeout",
+        type=int,
+        default=30,
+        help="Seconds to wait for the spawned agent before sending the task (default: 30)",
+    )
+    _add_response_mode_flags(p_spawn)
     p_spawn.add_argument(
         "--worktree",
         "-w",
