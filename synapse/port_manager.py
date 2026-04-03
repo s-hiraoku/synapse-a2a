@@ -1,8 +1,9 @@
 """Port management for Synapse A2A multi-instance support."""
 
-import os
 import socket
 from typing import TYPE_CHECKING
+
+from synapse.registry import is_process_running
 
 if TYPE_CHECKING:
     from synapse.registry import AgentRegistry
@@ -73,11 +74,7 @@ def is_process_alive(pid: int) -> bool:
     Returns:
         True if process exists, False otherwise.
     """
-    try:
-        os.kill(pid, 0)  # Signal 0 checks if process exists
-        return True
-    except (OSError, ProcessLookupError):
-        return False
+    return is_process_running(pid)
 
 
 class PortManager:

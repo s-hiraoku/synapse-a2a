@@ -680,7 +680,7 @@ class TestWaitForAgent:
 
         with (
             patch("synapse.spawn.AgentRegistry") as mock_reg_cls,
-            patch("synapse.port_manager.is_process_alive", return_value=True),
+            patch("synapse.registry.is_process_running", return_value=True),
         ):
             mock_reg = MagicMock()
             mock_reg.list_agents.return_value = {"synapse-claude-8100": agent_info}
@@ -713,7 +713,7 @@ class TestWaitForAgent:
 
         with (
             patch("synapse.spawn.AgentRegistry") as mock_reg_cls,
-            patch("synapse.port_manager.is_process_alive", return_value=False),
+            patch("synapse.registry.is_process_running", return_value=False),
         ):
             mock_reg = MagicMock()
             mock_reg.list_agents.return_value = {"synapse-claude-8100": agent_info}
