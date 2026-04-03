@@ -18,6 +18,8 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse status <target>` | Detailed status for a single agent |
 | `synapse kill <target>` | Graceful shutdown (30 s timeout) |
 | `synapse kill <target> -f` | Force kill (immediate SIGKILL) |
+| `synapse merge <agent>` | Merge worktree agent branch into current branch |
+| `synapse merge --all` | Merge all worktree agent branches |
 | `synapse jump <target>` | Jump to agent terminal |
 
 ### Communication
@@ -184,6 +186,10 @@ synapse kill my-claude -f     # Force
 # Spawn in a new terminal pane
 synapse spawn claude
 synapse spawn gemini --name Helper --role "search specialist"
+
+# Spawn and send a task immediately (waits for agent to be ready)
+synapse spawn claude --name Reviewer --task "Review src/auth.py for security issues" --notify
+synapse spawn codex --task-file /tmp/instructions.md --wait
 
 # With worktree isolation
 synapse spawn claude --worktree feature-auth

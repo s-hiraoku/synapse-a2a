@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.4] - 2026-04-03
+
+### Added
+
+- `synapse spawn --task` / `--task-file`: send task message automatically after agent becomes READY (#494)
+- `synapse merge` command: merge worktree agent branches with `--all`, `--dry-run`, `--resolve-with` (#493)
+
+### Documentation
+
+- Updated README, guides, site-docs with `--task` and `synapse merge` usage
+
 ## [0.19.3] - 2026-04-03
 
 ### Added
@@ -3067,7 +3078,12 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
+<<<<<<< HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.4...HEAD
+[0.19.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.3...v0.19.4
+=======
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.3...HEAD
+>>>>>>> origin/main
 [0.19.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.2...v0.19.3
 [0.19.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.1...v0.19.2
 [0.19.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.0...v0.19.1

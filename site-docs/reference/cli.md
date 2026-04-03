@@ -105,6 +105,25 @@ synapse kill <target>        # Graceful shutdown (30s timeout)
 synapse kill <target> -f     # Force kill (immediate SIGKILL)
 ```
 
+### Merge
+
+```bash
+synapse merge <agent>        # Merge a worktree agent's branch into the current branch
+synapse merge --all          # Merge all worktree agent branches
+```
+
+Merges worktree agent branches into the current branch. The agent must have a worktree branch (created via `--worktree` at spawn time). This is the same merge logic used by `synapse kill` auto-merge, but can be run independently while the agent is still alive or after it has exited.
+
+| Flag | Description |
+|------|-------------|
+| `<agent>` | Target agent (name, ID, type-port, or type) |
+| `--all` | Merge all live worktree agent branches in the current repo |
+| `--dry-run` | Preview the merge without making changes |
+| `--resolve-with <agent>` | Delegate conflict resolution to the specified agent (cannot be used with `--all`) |
+
+!!! tip "Conflict resolution"
+    When `--resolve-with` is specified and the merge encounters conflicts, Synapse sends the conflict details to the resolver agent via A2A, waits for the resolution, and completes the merge automatically.
+
 ### Jump
 
 ```bash
@@ -269,6 +288,12 @@ When a saved agent is used, its profile, name, role, and skill set are resolved 
 | `--name NAME` | Agent name |
 | `--role ROLE` | Agent role (supports `@path` file reference) |
 | `--terminal TERM` | Terminal app override |
+| `--task MESSAGE` | Send a task message after the spawned agent becomes ready |
+| `--task-file PATH` | Read the task message from a file (`-` for stdin). Mutually exclusive with `--task` |
+| `--task-timeout SECONDS` | Seconds to wait for the spawned agent before sending the task (default: 30) |
+| `--wait` | Wait synchronously for the task response (blocks until done) |
+| `--notify` | Return immediately, receive PTY notification on task completion |
+| `--silent` | Fire-and-forget (no notification) |
 | `--worktree [NAME]`, `-w` | Create git worktree for isolated work |
 | `--branch BRANCH`, `-b` | Base branch for worktree creation (implies `--worktree`) |
 

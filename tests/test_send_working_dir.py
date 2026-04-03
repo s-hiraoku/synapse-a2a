@@ -266,7 +266,7 @@ class TestCmdSendWithForce:
         from synapse.tools.a2a import cmd_send
 
         args = MagicMock()
-        args.target = "codex"
+        args.target = "フリーレン"
         args.message = "hello"
         args.message_file = None
         args.stdin = False
@@ -293,7 +293,7 @@ class TestCmdSendWithForce:
         from synapse.tools.a2a import cmd_send
 
         args = MagicMock()
-        args.target = "codex"
+        args.target = "フリーレン"
         args.message = "hello"
         args.message_file = None
         args.stdin = False

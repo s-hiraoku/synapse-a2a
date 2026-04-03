@@ -105,7 +105,7 @@ flowchart LR
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --silent` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
 | **Saved Agent Definitions** | `synapse agents add/list/show/delete` — Save reusable agent templates (profile + name + role + skill set) with persistent **Agent IDs**. `synapse spawn` accepts Agent IDs/names in addition to profile names |
-| **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Use `--worktree` / `-w` for Synapse-native git worktree isolation (all agents, `.synapse/worktrees/`). `--branch` / `-b` auto-enables `--worktree` and sets the base branch (defaults to `origin/main`). Use `--no-worktree` to opt out. Legacy `-- --worktree` also supported for Claude Code only |
+| **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. Use `--worktree` / `-w` for Synapse-native git worktree isolation (all agents, `.synapse/worktrees/`). `--branch` / `-b` auto-enables `--worktree` and sets the base branch (defaults to `origin/main`). Use `--no-worktree` to opt out. `--task "message"` / `--task-file path` auto-sends a task after the agent becomes READY (with `--task-timeout`, `--wait`/`--notify`/`--silent`). Legacy `-- --worktree` also supported for Claude Code only |
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 | **Learning Mode** | Two independent flags: `SYNAPSE_LEARNING_MODE_ENABLED=true` enables Prompt Improvement section; `SYNAPSE_LEARNING_MODE_TRANSLATION=true` enables JP-to-EN Learning section. Either flag activates `learning.md` injection and Tips. Response uses normal formatting (no separators); structured formatting (━━━ separators, section headers) applies only to feedback sections (Prompt Improvement, JP-to-EN Learning, Tips) |
 | **Proactive Mode** | `SYNAPSE_PROACTIVE_MODE_ENABLED=true` guides agents to use Synapse features (shared memory, canvas, file safety, delegation, broadcast) based on a task-size x feature matrix. Small tasks skip most features; medium tasks use them selectively; large tasks require full coordination. Per-feature skip conditions prevent unnecessary overhead. Follows the learning_mode pattern: env var activation + `.synapse/proactive.md` instruction file appended at startup. Off by default |
@@ -339,11 +339,18 @@ synapse spawn gemini --worktree --name Tester --role "test writer"
 # Spawn on a specific branch (--branch auto-enables --worktree)
 synapse spawn codex --branch renovate/major-eslint-monorepo --name Fixer --role "dependency updater"
 
-# Delegate work to the spawned agent (prefer --notify over --wait)
+# Spawn + send task in one step (polls for READY then auto-sends)
+synapse spawn gemini --worktree --name Tester --role "test writer" \
+  --task "Write integration tests for auth module" --notify
+
+# Or delegate manually after spawn (prefer --notify over --wait)
 synapse send Tester "Write integration tests for auth module" --notify
 
 # Share discoveries via shared memory for all agents to use
 synapse memory save auth-pattern "OAuth2 flow uses refresh tokens" --tags auth --notify
+
+# Merge worktree branch without stopping the agent (integrate intermediate results)
+synapse merge Tester
 
 # MANDATORY: Always clean up agents you spawn (worktree branches auto-merge back)
 synapse kill Tester -f
@@ -686,6 +693,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse kill <target>` | Graceful shutdown (sends shutdown request, then SIGTERM after 30s). Auto-merges worktree branch |
 | `synapse kill <target> -f` | Force kill (immediate SIGKILL). Auto-merges worktree branch |
 | `synapse kill <target> --no-merge` | Kill without auto-merging worktree branch |
+| `synapse merge <agent>` | Merge worktree branch without killing the agent. `--all` for all agents, `--dry-run` to preview |
 | `synapse jump <target>` | Jump to agent's terminal |
 | `synapse rename <target>` | Assign name/role to agent |
 | `synapse set-summary <target> [text]` | Set persistent agent summary (120 chars). `--auto` generates from git context, `--clear` removes |
@@ -734,7 +742,8 @@ Save this agent definition for reuse? [y/N]:
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
 | `synapse team start` | Launch agents (1st=handoff, rest=new panes). Defaults to `--worktree` isolation; opt out with `--no-worktree`. `--all-new` for all new panes |
-| `synapse spawn <profile\|saved-agent>` | Spawn a single agent in a new terminal pane. Accepts saved agent IDs/names. `--worktree` / `-w` for Synapse-native worktree isolation (all agents). `--branch` / `-b` auto-enables `--worktree` and sets the base branch (default: `origin/main`). `--no-worktree` to opt out |
+| `synapse spawn <profile\|saved-agent>` | Spawn a single agent in a new terminal pane. Accepts saved agent IDs/names. `--worktree` / `-w` for Synapse-native worktree isolation (all agents). `--branch` / `-b` auto-enables `--worktree` and sets the base branch (default: `origin/main`). `--no-worktree` to opt out. `--task "msg"` / `--task-file path` to auto-send a task after READY |
+| `synapse merge <agent>` | Merge a worktree agent's branch into the current branch. `--all` to merge all worktree agents. `--dry-run` to preview. `--resolve-with <agent>` to delegate conflict resolution (Phase 2) |
 | `synapse agents list` | List saved agent definitions |
 | `synapse agents show <id_or_name>` | Show details for a saved agent |
 | `synapse agents add <id>` | Add or update a saved agent definition (requires `--name`, `--profile`) |

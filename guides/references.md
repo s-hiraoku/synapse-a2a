@@ -378,7 +378,7 @@ synapse team start claude -- --worktree
 **サブエージェント委任コマンド。** 親が子エージェントを生成し、サブタスクを委任します（コンテキスト保護・効率化・精度向上のため）。ライフサイクル: spawn → send → evaluate → kill。ユーザーがエージェント数を指定した場合はそれに従い（最優先）、指定がなければ親がタスク構造から判断します。詳細は `guides/usage.md` の「2.2.3 エージェント単体起動」を参照。
 
 ```bash
-synapse spawn <profile|saved_agent_id|saved_agent_name> [--port PORT] [--name NAME] [--role ROLE] [--skill-set SET] [--terminal TERM] [--worktree [NAME]] [-- tool_args...]
+synapse spawn <profile|saved_agent_id|saved_agent_name> [--port PORT] [--name NAME] [--role ROLE] [--skill-set SET] [--terminal TERM] [--worktree [NAME]] [--branch BRANCH] [--no-auto-approve] [--task MESSAGE] [--task-file PATH] [--task-timeout N] [--wait|--notify|--silent] [-- tool_args...]
 ```
 
 | 引数 | 必須 | 説明 |
@@ -392,6 +392,10 @@ synapse spawn <profile|saved_agent_id|saved_agent_name> [--port PORT] [--name NA
 | `--worktree [NAME]`, `-w` | No | Synapse ネイティブ worktree 分離（`.synapse/worktrees/<name>/`）。NAME 省略時は自動生成。全エージェント対応 |
 | `--branch BRANCH`, `-b` | No | worktree のベースブランチを指定（デフォルト: `origin/main`）。**`--worktree` を自動的に有効化** |
 | `--no-worktree` | No | worktree 分離を無効化 |
+| `--task MESSAGE` | No | spawn 後、エージェントが READY になったら自動的にタスクメッセージを送信（`--task-file` と排他） |
+| `--task-file PATH` | No | ファイルからタスクメッセージを読み込み（`-` で stdin から読み込み）。`--task` と排他 |
+| `--task-timeout N` | No | タスク送信前のエージェント READY 待機秒数（デフォルト: 30） |
+| `--wait` / `--notify` / `--silent` | No | タスク送信時のレスポンスモード（`synapse send` と同じ） |
 | `-- tool_args...` | No | `--` の後の引数はすべて起動される CLI ツールに渡される（例: `-- --dangerously-skip-permissions`） |
 
 **動作**:
@@ -399,6 +403,7 @@ synapse spawn <profile|saved_agent_id|saved_agent_name> [--port PORT] [--name NA
 - 自動的に `--no-setup --headless` フラグを付与（対話型セットアップと承認のスキップ）
 - 起動成功後、エージェント ID とポートを出力
 - 親エージェントは `synapse list` で READY 確認後にタスクを送信し、結果評価後に `synapse kill -f` で終了させる
+- `--task` / `--task-file` を指定すると、READY 待機（`--task-timeout` 秒、デフォルト30秒）後に自動的に `synapse send` を実行。spawn → send のワンステップ化
 - `--name` が既存エージェントと重複する場合は起動前にエラー終了
 
 **保存済みエージェント解決**:
@@ -606,7 +611,7 @@ synapse interrupt <target> <message> [--from AGENT_ID] [--force]
 | `--from`, `-f` | No | 送信元エージェントID（省略可: 自動検出） |
 | `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信（同一リポジトリのワークツリー間では不要） |
 
-**動作**: 優先度 4 で fire-and-forget メッセージを送信します。応答は待ちません。送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。ただし、同一リポジトリのワークツリー関係は自動検出されるため `--force` は不要です。異なるプロジェクトの場合のみ `--force` でバイパスしてください。
+**動作**: 優先度 5 で fire-and-forget メッセージを送信します。応答は待ちません。送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。ただし、同一リポジトリのワークツリー関係は自動検出されるため `--force` は不要です。異なるプロジェクトの場合のみ `--force` でバイパスしてください。
 
 **例**:
 
@@ -1211,7 +1216,38 @@ synapse kill claude -f                  # 確認なし即時終了
 synapse kill claude --no-merge          # worktree 自動マージをスキップ
 ```
 
-> **Worktree 自動マージ**: worktree で起動したエージェントを kill すると、デフォルトでブランチが親ブランチに自動マージされます（未コミットの変更は WIP コミットされます）。コンフリクト発生時はブランチが保持され警告が表示されます。`--no-merge` で自動マージをスキップできます。
+> **Worktree 自動マージ**: worktree で起動したエージェントを kill すると、デフォルトでブランチが親ブランチに自動マージされます（未コミットの変更は WIP コミットされます）。コンフリクト発生時はブランチが保持され警告が表示されます。`--no-merge` で自動マージをスキップできます。エージェントを停止せずにマージしたい場合は `synapse merge` を使用してください。
+
+---
+
+### 1.14.1 synapse merge
+
+エージェントを停止せずに worktree ブランチを現在のブランチにマージします。
+
+```bash
+synapse merge <TARGET> [--dry-run] [--resolve-with <AGENT>]
+synapse merge --all [--dry-run]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `TARGET` | Yes（`--all` 未指定時） | マージ対象のエージェント名、ID、またはタイプ |
+| `--all` | No | すべての worktree エージェントのブランチをマージ |
+| `--dry-run` | No | 実際にマージせずにプレビュー表示 |
+| `--resolve-with <AGENT>` | No | コンフリクト発生時に指定エージェントに解消を委任（Phase 2）。`--all` とは併用不可 |
+
+**`synapse kill --no-merge` + `synapse merge` の使い分け**:
+- `synapse kill`: エージェントを停止し、デフォルトでブランチを自動マージ
+- `synapse merge`: エージェントを**停止せずに**ブランチをマージ（作業を続行しながら中間成果を統合）
+
+**例**:
+
+```bash
+synapse merge my-claude                    # エージェントのブランチをマージ
+synapse merge --all                        # 全 worktree ブランチをマージ
+synapse merge my-claude --dry-run          # マージのプレビュー
+synapse merge my-claude --resolve-with gemini  # コンフリクト解消を Gemini に委任
+```
 
 ---
 

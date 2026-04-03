@@ -142,6 +142,8 @@ gemini  -       8110  READY   synapse-a2a
 
 By default, `synapse kill` performs **auto-merge**: uncommitted changes are committed as WIP, and the worktree branch is merged into the parent branch. If the merge succeeds, the worktree and branch are removed automatically.
 
+You can also merge worktree branches independently using the **`synapse merge`** command -- without killing the agent first or after the agent has already exited:
+
 ```bash
 # Kill with auto-merge (default)
 synapse kill Auth -f
@@ -150,6 +152,18 @@ synapse kill gemini -f
 # Skip auto-merge — keep worktree branch for manual review
 synapse kill Auth -f --no-merge
 
+# Merge a specific agent's worktree branch (without killing)
+synapse merge Auth
+
+# Merge all worktree agent branches at once
+synapse merge --all
+
+# Preview what would be merged (no changes applied)
+synapse merge Auth --dry-run
+
+# Delegate conflict resolution to another agent
+synapse merge Auth --resolve-with Claud
+
 # If auto-merge failed due to conflicts, the branch is preserved.
 # Resolve manually:
 git merge worktree-feature-auth
@@ -157,6 +171,10 @@ git merge worktree-feature-auth
 git commit
 git branch -d worktree-feature-auth
 ```
+
+!!! tip "When to use `synapse merge` vs auto-merge on kill"
+    - **Auto-merge on kill** (default): Best for fire-and-forget workflows where you want the agent's work integrated immediately when it finishes.
+    - **`synapse merge`**: Best when you want to review the agent's work before merging, merge at a specific point during the agent's lifecycle, or merge branches from agents that have already exited.
 
 ## Synapse vs Claude Code Worktree
 

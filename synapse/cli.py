@@ -586,6 +586,57 @@ def cmd_status(args: argparse.Namespace) -> None:
     cmd.run(args.target, json_output=getattr(args, "json_output", False))
 
 
+def cmd_merge(args: argparse.Namespace) -> None:
+    """Merge worktree agent branches into the current branch."""
+    from synapse.commands.merge import merge_all, merge_single
+
+    target = getattr(args, "target", None)
+    merge_all_flag = getattr(args, "all", False)
+    dry_run = getattr(args, "dry_run", False)
+    resolve_with = getattr(args, "resolve_with", None)
+
+    if not target and not merge_all_flag:
+        print("Specify a target agent or use --all.")
+        sys.exit(1)
+
+    if target and merge_all_flag:
+        print("Error: Cannot specify both a target agent and --all.")
+        sys.exit(1)
+
+    if merge_all_flag and resolve_with:
+        print("Error: --resolve-with cannot be used together with --all.")
+        sys.exit(1)
+
+    registry = AgentRegistry()
+
+    if merge_all_flag:
+        _success_count, failure_count = merge_all(registry, dry_run=dry_run)
+        if failure_count:
+            sys.exit(1)
+        return
+
+    if target is None:
+        # Unreachable: the guard above ensures target or --all. Defensive check for mypy.
+        sys.exit(1)
+    agent_info = registry.resolve_agent(target)
+    if agent_info is None:
+        print(f"Agent not found: {target}")
+        print("Run 'synapse list' to see running agents.")
+        sys.exit(1)
+
+    if resolve_with and registry.resolve_agent(resolve_with) is None:
+        print(f"Resolver agent not found: {resolve_with}")
+        sys.exit(1)
+
+    if not merge_single(
+        agent_info,
+        dry_run=dry_run,
+        resolve_with=resolve_with,
+        registry=registry,
+    ):
+        sys.exit(1)
+
+
 def cmd_logs(args: argparse.Namespace) -> None:
     """Show logs for an agent."""
     profile = args.profile
@@ -1334,6 +1385,26 @@ def _resolve_cli_message(args: argparse.Namespace) -> str:
         return path.read_text(encoding="utf-8")
 
     return str(args.message)
+
+
+def _resolve_task_message(args: argparse.Namespace) -> str | None:
+    """Resolve spawn task content from --task or --task-file."""
+    task = getattr(args, "task", None)
+    task_file = getattr(args, "task_file", None)
+
+    if task is not None:
+        return str(task)
+
+    if task_file:
+        if task_file == "-":
+            return sys.stdin.read()
+        path = Path(task_file)
+        if not path.exists():
+            print(f"Error: Task file not found: {task_file}", file=sys.stderr)
+            sys.exit(1)
+        return path.read_text(encoding="utf-8")
+
+    return None
 
 
 def cmd_send(args: argparse.Namespace) -> None:
@@ -3463,6 +3534,7 @@ def cmd_spawn(args: argparse.Namespace) -> None:
     from synapse.spawn import spawn_agent, wait_for_agent
 
     tool_args = getattr(args, "tool_args", [])
+    task_message = _resolve_task_message(args)
     target = args.profile
     resolved_profile = target
     resolved_name = args.name
@@ -3514,8 +3586,8 @@ def cmd_spawn(args: argparse.Namespace) -> None:
         if result.worktree_path:
             print(f"  worktree: {result.worktree_path} ({result.worktree_branch})")
 
-        # Check if agent registers within a short window
-        info = wait_for_agent(result.agent_id, timeout=3.0, poll_interval=0.5)
+        wait_timeout = getattr(args, "task_timeout", 30) if task_message else 3.0
+        info = wait_for_agent(result.agent_id, timeout=wait_timeout, poll_interval=0.5)
         if info is None:
             print(
                 f"Warning: {result.agent_id} not yet registered after spawn.\n"
@@ -3524,6 +3596,17 @@ def cmd_spawn(args: argparse.Namespace) -> None:
                 f'    synapse send {result.agent_id} "<message>" --wait',
                 file=sys.stderr,
             )
+            return
+
+        if task_message is not None:
+            cmd = _build_a2a_cmd(
+                "send",
+                task_message,
+                target=result.agent_id,
+                response_mode=getattr(args, "response_mode", None),
+                force=bool(result.worktree_path),
+            )
+            _run_a2a_command(cmd, exit_on_error=True)
     except (FileNotFoundError, RuntimeError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
@@ -4409,6 +4492,17 @@ Tip: Use 'synapse list' to see running agents with their names and IDs.""",
         help="Skip auto-merge of worktree branch (default: merge automatically)",
     )
     p_kill.set_defaults(func=cmd_kill)
+
+    # merge
+    p_merge = subparsers.add_parser(
+        "merge",
+        help="Merge worktree agent branch",
+    )
+    p_merge.add_argument("target", nargs="?", default=None)
+    p_merge.add_argument("--all", action="store_true", default=False)
+    p_merge.add_argument("--dry-run", action="store_true", default=False)
+    p_merge.add_argument("--resolve-with", dest="resolve_with", default=None)
+    p_merge.set_defaults(func=cmd_merge)
 
     # jump
     p_jump = subparsers.add_parser(
@@ -5746,6 +5840,27 @@ Outputs '{agent_id} {port}' on success for scripting use.""",
         "--terminal",
         help="Terminal app to use (default: auto-detect)",
     )
+    task_group = p_spawn.add_mutually_exclusive_group()
+    task_group.add_argument(
+        "--task",
+        dest="task",
+        default=None,
+        help="Send a task message after the spawned agent becomes ready",
+    )
+    task_group.add_argument(
+        "--task-file",
+        dest="task_file",
+        default=None,
+        help="Read the task message from a file ('-' to read from stdin)",
+    )
+    p_spawn.add_argument(
+        "--task-timeout",
+        dest="task_timeout",
+        type=int,
+        default=30,
+        help="Seconds to wait for the spawned agent before sending the task (default: 30)",
+    )
+    _add_response_mode_flags(p_spawn)
     p_spawn.add_argument(
         "--worktree",
         "-w",

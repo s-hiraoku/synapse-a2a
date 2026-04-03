@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.19.4
+
+- **Added**: `synapse spawn --task` — send a task message immediately after the spawned agent becomes ready (#494)
+- **Added**: `--task-file` and `--task-timeout` flags for `synapse spawn`
+- **Added**: `--wait` / `--notify` / `--silent` response modes for spawn task delivery
+- **Added**: `synapse merge` command — merge worktree agent branches independently (#493)
+- **Added**: `--all`, `--dry-run`, and `--resolve-with` flags for `synapse merge`
+
 ### v0.19.3
 
 - **Added**: Auto-merge worktree branch on kill (#496)
