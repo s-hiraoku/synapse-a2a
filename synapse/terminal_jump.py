@@ -954,22 +954,13 @@ def _get_ghostty_split_direction(layout: str = "auto") -> str:
 
 
 def _get_zellij_pane_count() -> int | None:
-    """Return the number of panes in the current zellij tab.
-
-    Returns None if not inside zellij or if the command fails.
-    """
+    """Return a best-effort pane count using an env-backed counter."""
     try:
-        result = subprocess.run(
-            ["zellij", "action", "query-tab-names"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return len(result.stdout.strip().splitlines())
-    except Exception:
-        pass
-    return None
+        count = int(os.environ.get("SYNAPSE_ZELLIJ_PANE_COUNT", "1"))
+    except (TypeError, ValueError):
+        count = 1
+    os.environ["SYNAPSE_ZELLIJ_PANE_COUNT"] = str(count + 1)
+    return count
 
 
 def create_tmux_panes(
