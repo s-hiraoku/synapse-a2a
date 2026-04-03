@@ -297,9 +297,13 @@ synapse broadcast "Status update — how far along are you?" --wait
 **4. After all agents finish, merge worktree branches:**
 
 ```bash
-git merge worktree-Cody
-git merge worktree-Rex
-git merge worktree-Gem
+# Merge all worktree branches at once
+synapse merge --all
+
+# Or merge individually with conflict resolution
+synapse merge Cody
+synapse merge Rex
+synapse merge Gem --resolve-with Cody   # Delegate conflicts to Cody
 ```
 
 ### Expected Result
@@ -417,8 +421,8 @@ synapse send Cody "Scan the codebase for injection vulnerabilities. \
   Check: raw SQL queries, unsanitized user input in templates, shell commands with user input. \
   Report findings as HIGH/MEDIUM/LOW." --wait
 
-synapse spawn codex --name Rex --role "dependency security"
-synapse send Rex "Review requirements.txt and uv.lock for known CVEs. \
+synapse spawn codex --name Rex --role "dependency security" \
+  --task "Review requirements.txt and uv.lock for known CVEs. \
   Flag any dependencies older than 6 months. Report findings." --wait
 ```
 
@@ -694,7 +698,7 @@ For tasks with **3+ phases** or **10+ file changes**, agents MUST follow this ga
 1. Run `synapse list` to check available agents
 2. Run `synapse memory search "<topic>"` to check shared knowledge
 3. Build an **Agent Assignment Plan** (see below) before writing any code
-4. If no suitable agent exists, spawn a specialist with `synapse spawn`
+4. If no suitable agent exists, spawn a specialist with `synapse spawn` (use `--task` to send the assignment immediately)
 5. Prefer a different model type for subtasks (diversity improves quality)
 
 !!! warning "Do NOT skip this step"
@@ -724,6 +728,10 @@ When spawning or delegating, prefer a **different model type** than your own. Th
 # Claude spawning a Gemini helper (cross-model)
 synapse spawn gemini --name Reviewer --role "code reviewer"
 
+# Spawn and send a task in one command (no separate synapse send needed)
+synapse spawn gemini --name Reviewer --role "code reviewer" \
+  --task "Review src/auth.py for security issues" --notify
+
 # Gemini spawning a Codex helper (cross-model)
 synapse spawn codex -w --name Impl --role "implementation"
 ```
@@ -739,9 +747,9 @@ Worker agents are not passive -- they can and should proactively collaborate:
 - **Clean up after yourself** -- always kill agents you spawn when done: `synapse kill <name> -f`
 
 ```bash
-# A worker agent spawning its own helper
-synapse spawn gemini --name Helper --role "test writer"
-synapse send Helper "Write unit tests for auth.py" --silent
+# A worker agent spawning its own helper (spawn + task in one step)
+synapse spawn gemini --name Helper --role "test writer" \
+  --task "Write unit tests for auth.py" --silent
 
 # After the helper finishes
 synapse kill Helper -f

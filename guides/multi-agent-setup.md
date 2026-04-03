@@ -307,10 +307,9 @@ synapse spawn gemini --worktree --name Tester --role "テスト担当"
 マネージャーだけでなく、ワーカーエージェントもサブタスクの委任・生成が可能です:
 
 ```bash
-# ワーカーが独立したサブタスクのためにヘルパーを生成
-synapse spawn codex --worktree --name Helper --role "補助実装"
-
-synapse send Helper "auth.py のユニットテストを書いて" --silent
+# ワーカーが独立したサブタスクのためにヘルパーを生成（--task でワンステップ化）
+synapse spawn codex --worktree --name Helper --role "補助実装" \
+  --task "auth.py のユニットテストを書いて" --silent
 # 完了後は必ず kill（必須）
 synapse kill Helper -f
 ```

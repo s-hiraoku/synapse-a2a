@@ -82,6 +82,12 @@ synapse spawn claude --name Tester --role "test writer"
 synapse spawn claude --worktree feature-auth
 synapse spawn codex --branch renovate/major-eslint-monorepo   # --branch auto-enables --worktree
 synapse spawn claude --no-auto-approve             # Disable auto-approve
+synapse spawn gemini --task "Write tests for auth" --notify    # Spawn + auto-send task
+synapse spawn claude --task-file /tmp/instructions.md --wait   # Task from file
+synapse merge my-agent                             # Merge worktree branch (agent stays running)
+synapse merge --all                                # Merge all worktree branches
+synapse merge my-agent --dry-run                   # Preview merge without executing
+synapse merge my-agent --resolve-with gemini       # Delegate conflict resolution to another agent
 synapse team start claude gemini                   # Defaults to --worktree isolation
 synapse team start claude gemini --no-worktree     # Opt out of worktree default
 synapse team start claude gemini --worktree --branch feature/api  # Base branch for all worktrees

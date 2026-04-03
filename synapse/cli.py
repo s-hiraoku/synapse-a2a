@@ -611,7 +611,9 @@ def cmd_merge(args: argparse.Namespace) -> None:
             sys.exit(1)
         return
 
-    assert target is not None  # guaranteed by the guard above
+    if target is None:
+        # Unreachable: the guard above ensures target or --all. Defensive check for mypy.
+        sys.exit(1)
     agent_info = registry.resolve_agent(target)
     if agent_info is None:
         print(f"Agent not found: {target}")

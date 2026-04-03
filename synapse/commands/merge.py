@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -171,5 +172,7 @@ def _get_conflict_diff(branch: str, git_root: Path) -> str:
         cwd=str(git_root),
     )
     if result.returncode != 0:
+        if result.stderr:
+            print(f"Warning: git diff failed: {result.stderr.strip()}", file=sys.stderr)
         return ""
     return result.stdout
