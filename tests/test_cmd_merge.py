@@ -223,10 +223,12 @@ class TestMergeSingleAgent:
 
 
 class TestMergeAll:
+    @patch("synapse.commands.merge.get_git_root", return_value=Path("/repo"))
     @patch("synapse.commands.merge.merge_single", side_effect=[True, True])
     def test_merge_all_merges_worktree_agents(
         self,
         mock_merge_single: MagicMock,
+        _mock_git_root: MagicMock,
     ) -> None:
         from synapse.commands.merge import merge_all
 
@@ -241,10 +243,12 @@ class TestMergeAll:
         assert (success_count, failure_count) == (2, 0)
         assert mock_merge_single.call_count == 2
 
+    @patch("synapse.commands.merge.get_git_root", return_value=Path("/repo"))
     @patch("synapse.commands.merge.merge_single", return_value=True)
     def test_merge_all_skips_non_worktree_agents(
         self,
         mock_merge_single: MagicMock,
+        _mock_git_root: MagicMock,
     ) -> None:
         from synapse.commands.merge import merge_all
 
@@ -264,8 +268,10 @@ class TestMergeAll:
         assert (success_count, failure_count) == (1, 0)
         mock_merge_single.assert_called_once()
 
+    @patch("synapse.commands.merge.get_git_root", return_value=Path("/repo"))
     def test_merge_all_no_worktree_agents(
         self,
+        _mock_git_root: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         from synapse.commands.merge import merge_all
@@ -285,10 +291,12 @@ class TestMergeAll:
         captured = capsys.readouterr()
         assert "no worktree agents" in captured.out.lower()
 
+    @patch("synapse.commands.merge.get_git_root", return_value=Path("/repo"))
     @patch("synapse.commands.merge.merge_single", side_effect=[True, False])
     def test_merge_all_partial_failure(
         self,
         mock_merge_single: MagicMock,
+        _mock_git_root: MagicMock,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         from synapse.commands.merge import merge_all

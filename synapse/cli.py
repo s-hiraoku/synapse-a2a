@@ -599,6 +599,10 @@ def cmd_merge(args: argparse.Namespace) -> None:
         print("Specify a target agent or use --all.")
         sys.exit(1)
 
+    if target and merge_all_flag:
+        print("Error: Cannot specify both a target agent and --all.")
+        sys.exit(1)
+
     if merge_all_flag and resolve_with:
         print("Error: --resolve-with cannot be used together with --all.")
         sys.exit(1)
@@ -3600,8 +3604,9 @@ def cmd_spawn(args: argparse.Namespace) -> None:
                 task_message,
                 target=result.agent_id,
                 response_mode=getattr(args, "response_mode", None),
+                force=bool(result.worktree_path),
             )
-            _run_a2a_command(cmd)
+            _run_a2a_command(cmd, exit_on_error=True)
     except (FileNotFoundError, RuntimeError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

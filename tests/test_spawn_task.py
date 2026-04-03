@@ -141,8 +141,11 @@ class TestSpawnTaskExecution:
             "Write tests",
             target=result.agent_id,
             response_mode="wait",
+            force=False,
         )
-        mock_run.assert_called_once_with(["python", "-m", "synapse.tools.a2a", "send"])
+        mock_run.assert_called_once_with(
+            ["python", "-m", "synapse.tools.a2a", "send"], exit_on_error=True
+        )
         captured = capsys.readouterr()
         assert f"{result.agent_id} {result.port}" in captured.out
 

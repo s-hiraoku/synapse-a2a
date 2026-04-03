@@ -117,7 +117,7 @@ Merges worktree agent branches into the current branch. The agent must have a wo
 | Flag | Description |
 |------|-------------|
 | `<agent>` | Target agent (name, ID, type-port, or type) |
-| `--all` | Merge all worktree agent branches sequentially |
+| `--all` | Merge all live worktree agent branches in the current repo |
 | `--dry-run` | Preview the merge without making changes |
 | `--resolve-with <agent>` | Delegate conflict resolution to the specified agent (cannot be used with `--all`) |
 

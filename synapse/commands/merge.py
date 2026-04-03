@@ -80,10 +80,14 @@ def merge_all(
     *,
     dry_run: bool = False,
 ) -> tuple[int, int]:
-    """Merge all live agents that have worktree metadata."""
+    """Merge all live agents that have worktree metadata in the current repo."""
+    git_root = str(get_git_root())
     agents = list(registry.get_live_agents().values())
     worktree_agents = [
-        info for info in agents if _get_worktree_info_from_agent(info) is not None
+        info
+        for info in agents
+        if _get_worktree_info_from_agent(info) is not None
+        and str(info.get("worktree_path", "")).startswith(git_root)
     ]
 
     if not worktree_agents:
