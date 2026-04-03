@@ -35,10 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `README.md`, `docs/synapse-reference.md`, and `docs/agent-teams-adoption-spec.md` with `--no-merge` flag
 - Synchronized `site-docs/` with auto-merge documentation
 
-### Fixed
-
-- **Unify `is_process_alive` with `is_process_running`**: `port_manager.py` `is_process_alive()` now delegates to `registry.py` `is_process_running()`, fixing a `PermissionError` mishandling that caused live agents to be incorrectly unregistered (#495)
-
 ### Tests
 
 - Added `TestMergeWorktree` (5 tests) and cleanup merge tests (3 tests) in `test_worktree.py`
