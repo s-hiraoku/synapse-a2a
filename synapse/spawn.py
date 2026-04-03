@@ -415,7 +415,7 @@ def _run_pane_commands(
     for index, cmd in enumerate(commands):
         if index > 0 and delay > 0:
             time.sleep(delay)
-        subprocess.run(shlex.split(cmd), check=check)
+        subprocess.run(shlex.split(cmd), check=check, timeout=10)
 
 
 def _post_spawn_tile(terminal: str, count: int) -> None:

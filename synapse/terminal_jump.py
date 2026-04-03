@@ -956,7 +956,7 @@ def _get_ghostty_split_direction(layout: str = "auto") -> str:
 def _get_zellij_pane_count() -> int:
     """Return a best-effort pane count using an env-backed counter."""
     try:
-        return int(os.environ.get("SYNAPSE_ZELLIJ_PANE_COUNT", "1"))
+        return max(1, int(os.environ.get("SYNAPSE_ZELLIJ_PANE_COUNT", "1")))
     except (TypeError, ValueError):
         return 1
 
