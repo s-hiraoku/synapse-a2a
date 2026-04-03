@@ -586,6 +586,51 @@ def cmd_status(args: argparse.Namespace) -> None:
     cmd.run(args.target, json_output=getattr(args, "json_output", False))
 
 
+def cmd_merge(args: argparse.Namespace) -> None:
+    """Merge worktree agent branches into the current branch."""
+    from synapse.commands.merge import merge_all, merge_single
+
+    target = getattr(args, "target", None)
+    merge_all_flag = getattr(args, "all", False)
+    dry_run = getattr(args, "dry_run", False)
+    resolve_with = getattr(args, "resolve_with", None)
+
+    if not target and not merge_all_flag:
+        print("Specify a target agent or use --all.")
+        sys.exit(1)
+
+    if merge_all_flag and resolve_with:
+        print("Error: --resolve-with cannot be used together with --all.")
+        sys.exit(1)
+
+    registry = AgentRegistry()
+
+    if merge_all_flag:
+        _success_count, failure_count = merge_all(registry, dry_run=dry_run)
+        if failure_count:
+            sys.exit(1)
+        return
+
+    assert target is not None  # guaranteed by the guard above
+    agent_info = registry.resolve_agent(target)
+    if agent_info is None:
+        print(f"Agent not found: {target}")
+        print("Run 'synapse list' to see running agents.")
+        sys.exit(1)
+
+    if resolve_with and registry.resolve_agent(resolve_with) is None:
+        print(f"Resolver agent not found: {resolve_with}")
+        sys.exit(1)
+
+    if not merge_single(
+        agent_info,
+        dry_run=dry_run,
+        resolve_with=resolve_with,
+        registry=registry,
+    ):
+        sys.exit(1)
+
+
 def cmd_logs(args: argparse.Namespace) -> None:
     """Show logs for an agent."""
     profile = args.profile
@@ -4409,6 +4454,17 @@ Tip: Use 'synapse list' to see running agents with their names and IDs.""",
         help="Skip auto-merge of worktree branch (default: merge automatically)",
     )
     p_kill.set_defaults(func=cmd_kill)
+
+    # merge
+    p_merge = subparsers.add_parser(
+        "merge",
+        help="Merge worktree agent branch",
+    )
+    p_merge.add_argument("target", nargs="?", default=None)
+    p_merge.add_argument("--all", action="store_true", default=False)
+    p_merge.add_argument("--dry-run", action="store_true", default=False)
+    p_merge.add_argument("--resolve-with", dest="resolve_with", default=None)
+    p_merge.set_defaults(func=cmd_merge)
 
     # jump
     p_jump = subparsers.add_parser(
