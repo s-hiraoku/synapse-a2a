@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tile layout pane creation for spawn and team start (#502)
   - Added caller-level tmux tiling (`select-layout tiled`) after individual worktree/different-args spawns
   - Added inter-command delay to prevent terminal split race conditions
-  - Fixed worktree spawn path using `check=False` (silent pane creation failures)
+  - Changed worktree spawn path from `check=False` to `check=True` to surface pane creation failures
   - Replaced unreliable Zellij pane count (`query-tab-names`) with env var counter
 
 ## [0.19.4] - 2026-04-03
