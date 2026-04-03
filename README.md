@@ -360,7 +360,7 @@ Key principles:
 
 ### 8. Cross-Worktree Knowledge Transfer (Advanced)
 
-Share skills, config, or investigation results with agents running in different worktrees. Because worktree agents operate in a different directory, `--force` is required. Use `--message-file` for messages containing backticks or code blocks to avoid shell expansion issues.
+Share skills, config, or investigation results with agents running in different worktrees. Synapse automatically detects worktree relationships (parent, child, and sibling worktrees of the same repo), so `--force` is **not** needed for related worktree agents. Use `--message-file` for messages containing backticks or code blocks to avoid shell expansion issues.
 
 ```bash
 # Spawn a worker in its own worktree
@@ -375,11 +375,11 @@ cat > /tmp/instructions.md << 'EOF'
 Run `/release patch` to bump the patch version.
 EOF
 
-# Send across worktree boundaries
-synapse send Cody --message-file /tmp/instructions.md --force --silent
+# Send across worktree boundaries (no --force needed for related worktrees)
+synapse send Cody --message-file /tmp/instructions.md --silent
 ```
 
-Alternatives: `--attach` sends files without needing `--message-file`. `synapse memory save` is directory-agnostic and doesn't require `--force`.
+Alternatives: `--attach` sends files without needing `--message-file`. `synapse memory save` is directory-agnostic and works across all agents.
 
 ### Comparison with SSH Remote
 
@@ -969,7 +969,7 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 | `--wait` | - | Synchronous blocking - wait for receiver to reply with `synapse reply` |
 | `--notify` | - | Async notification - get notified when task completes (default) |
 | `--silent` | - | Fire and forget - no reply or notification needed |
-| `--force` | - | Bypass working directory mismatch check (send even if target is in a different directory) |
+| `--force` | - | Bypass working directory mismatch check (only needed for truly different projects; worktree agents of the same repo are auto-detected) |
 
 `--wait` and `--notify` spawn a sender-side task that produces structured A2A reply artifacts derived from the PTY output delta captured since task start. Synapse uses this delta, not the raw terminal tail, to reduce status-line noise in replies. TUI response cleaning (`clean_copilot_response()`) now runs for all agents, stripping Ink TUI artifacts (spinners, box-drawing borders, status bar, input echo) before finalization. In server mode, startup/runtime logs stay off stderr so they do not leak into the agent TUI. Quota-exhaustion output such as `402 You have no quota` is classified as a failed task instead of a normal reply.
 
@@ -987,7 +987,7 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 
 Default is `--notify` (async notification on completion).
 
-**Working directory check:** `synapse send` verifies that the sender's current working directory matches the target agent's `working_dir`. If they differ, a warning is shown with available agents in the current directory (or a `synapse spawn` suggestion) and the command exits with code 1. Use `--force` to bypass this check.
+**Working directory check:** `synapse send` verifies that the sender's current working directory matches the target agent's `working_dir`. Worktree relationships are automatically detected — parent repo, child worktree, and sibling worktrees of the same repo are all allowed without `--force`. For truly different projects, a warning is shown with available agents in the current directory (or a `synapse spawn` suggestion) and the command exits with code 1. Use `--force` to bypass this check.
 
 **Examples:**
 
@@ -1017,7 +1017,7 @@ synapse send claude-8100 "Hello"
 # Emergency stop
 synapse send claude "Stop!" --priority 5
 
-# Bypass working directory mismatch check
+# Bypass working directory mismatch check (only needed for different projects)
 synapse send claude "Review this" --force
 
 # Explicit --from (only needed in sandboxed environments like Codex)

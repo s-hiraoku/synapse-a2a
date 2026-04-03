@@ -869,7 +869,7 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--wai
 | `--wait` | - | - | 同期待機モード - 送信側がブロックして `synapse reply` を待つ |
 | `--notify` | - | - | 非同期通知モード - タスク完了時に通知を受け取る（デフォルト） |
 | `--silent` | - | - | ワンウェイモード - 送りっぱなし、返信・通知不要 |
-| `--force` | - | false | 作業ディレクトリの不一致チェックをバイパスして送信 |
+| `--force` | - | false | 作業ディレクトリの不一致チェックをバイパスして送信（同一リポジトリのワークツリー間では不要） |
 
 **Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは `--notify`（非同期通知）になります。待たない場合は `--silent` を指定してください。`--silent` でも受信側完了時に sender 側 history のステータスは best-effort で更新されます（`sent` → `completed` / `failed` / `canceled`、通知不達時は `sent` のまま）。
 
@@ -885,7 +885,7 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--wai
 
 デフォルトは `--notify`（非同期通知）です。
 
-**作業ディレクトリの不一致チェック**: `synapse send` は送信元の CWD とターゲットエージェントの `working_dir` が一致するか自動的に確認します。異なる場合は警告を表示し、終了コード 1 で終了します。同一ディレクトリのエージェント一覧、または `synapse spawn` の提案が表示されます。`--force` でチェックをバイパスできます。
+**作業ディレクトリの不一致チェック**: `synapse send` は送信元の CWD とターゲットエージェントの `working_dir` が一致するか自動的に確認します。ワークツリーの関係（親リポジトリ ↔ 子ワークツリー、兄弟ワークツリー）は自動検出されるため、同一リポジトリのワークツリー間では `--force` は不要です。異なるプロジェクトの場合は警告を表示し、終了コード 1 で終了します。`--force` でバイパスできます。
 
 **例**:
 
@@ -909,7 +909,7 @@ cat ./message.txt | synapse send codex --message-file - --silent
 # 添付ファイル付き（同期待機）
 synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --wait
 
-# 作業ディレクトリが異なるエージェントに強制送信
+# 異なるプロジェクトのエージェントに強制送信（同一リポのワークツリーなら不要）
 synapse send codex "設計して" --force
 
 # 明示指定（サンドボックス環境向け）

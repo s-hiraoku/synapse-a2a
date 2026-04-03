@@ -583,7 +583,7 @@ CI failures are detected, categorized, and fixed automatically. The developer ge
 
 ### Why different agents?
 
-Agents spawned with `--worktree` operate in isolated directories under `.synapse/worktrees/`. They have their own branch and working copy, which means they're in a **different working directory** than the sender. Synapse detects this mismatch and blocks sends by default to prevent accidental cross-project messages. Using `--force` (or `--message-file` for complex content) bridges the gap safely.
+Agents spawned with `--worktree` operate in isolated directories under `.synapse/worktrees/`. They have their own branch and working copy, which means they're in a **different working directory** than the sender. Synapse automatically recognizes that worktree directories belong to the same repository, so **sends work without `--force`**. Use `--message-file` for complex content containing backticks or special characters.
 
 This pattern is common when a manager agent discovers something useful — a workflow, a skill, a debugging technique — and needs to share it with workers in other worktrees.
 
@@ -596,7 +596,7 @@ sequenceDiagram
 
     Manager->>Manager: Learns a new workflow (e.g., /release skill)
     Manager->>Manager: Writes instructions to a temp file
-    Manager->>Worker: synapse send Cody --message-file /tmp/instructions.md --force --silent
+    Manager->>Worker: synapse send Cody --message-file /tmp/instructions.md --silent
     Worker->>Worker: Reads instructions and applies the knowledge
     Worker-->>Manager: synapse reply "Got it — I'll use /release for version bumps"
 ```
@@ -638,16 +638,15 @@ EOF
 **4. Send across worktree boundaries:**
 
 ```bash
-# Direct inline send will be blocked:
-#   Warning: Target agent "Cody" is in a different directory
-#   Use --force to send anyway.
+# Worktree agents are recognized automatically — no --force needed:
+synapse send Cody --message-file /tmp/release-instructions.md --silent
 
-# Use --message-file + --force to send safely:
-synapse send Cody --message-file /tmp/release-instructions.md --force --silent
+# Inline message also works:
+synapse send Cody "Use /release patch to bump the version" --silent
 ```
 
 !!! info "Why `--message-file`?"
-    Messages containing backticks, quotes, or code blocks can be mangled by shell expansion. `--message-file` reads the content as-is, bypassing the shell entirely. You can also pipe via `--stdin`: `echo "message" | synapse send Cody --stdin --force`.
+    Messages containing backticks, quotes, or code blocks can be mangled by shell expansion. `--message-file` reads the content as-is, bypassing the shell entirely. You can also pipe via `--stdin`: `echo "message" | synapse send Cody --stdin`.
 
 ### Expected Result
 
@@ -668,8 +667,8 @@ The worker receives the instructions in its PTY and can apply the knowledge imme
 | Sharing investigation results | Forward a root cause analysis to the fixer |
 | Distributing templates | Send a code template for the agent to follow |
 
-!!! tip "Alternatives to `--force`"
-    If you frequently send to worktree agents, consider using `--attach` instead — it sends files directly without needing `--message-file`. For structured knowledge, `synapse memory save` is directory-agnostic and doesn't require `--force`.
+!!! tip "Alternatives to inline messages"
+    Use `--attach` to send files directly without needing `--message-file`. For structured knowledge, `synapse memory save` is directory-agnostic and works across all agents regardless of directory.
 
 ---
 

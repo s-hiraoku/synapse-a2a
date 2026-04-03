@@ -264,6 +264,9 @@ Use `--force` to bypass:
 synapse send claude "message" --force
 ```
 
+!!! note "Worktree agents are exempt"
+    Agents in `.synapse/worktrees/` are automatically recognized as belonging to the same repository. Sends between the main repo and its worktrees (or between worktrees of the same repo) do **not** trigger the mismatch warning — no `--force` needed.
+
 ## @Agent Pattern
 
 Type directly in the agent's terminal:
@@ -300,7 +303,10 @@ Communicate with agents working in different directories using the `--force` fla
 synapse send worker "Can you check the API compatibility?" --force
 ```
 
-This is especially common with worktree agents. For a detailed example using `--force` and `--message-file` to send instructions across worktree boundaries, see [Scenario 9: Cross-Worktree Knowledge Transfer](cross-agent-scenarios.md#scenario-9-cross-worktree-knowledge-transfer).
+!!! note "Worktree agents don't need `--force`"
+    Worktree agents (under `.synapse/worktrees/`) are automatically recognized as part of the same repo. `--force` is only needed for genuinely different projects.
+
+For a detailed example of cross-worktree communication, see [Scenario 9: Cross-Worktree Knowledge Transfer](cross-agent-scenarios.md#scenario-9-cross-worktree-knowledge-transfer).
 
 ### Response Polling (Agent-to-Agent)
 
