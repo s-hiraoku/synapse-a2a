@@ -400,6 +400,103 @@ def has_worktree_changes(info: WorktreeInfo) -> bool:
     )
 
 
+def merge_worktree(
+    info: WorktreeInfo,
+    auto_commit_wip: bool = True,
+    *,
+    _has_uncommitted: bool | None = None,
+    _has_commits: bool | None = None,
+) -> bool:
+    """Merge a worktree branch into the current branch.
+
+    Args:
+        info: WorktreeInfo for the worktree to merge.
+        auto_commit_wip: If True, auto-commit uncommitted changes before merge.
+        _has_uncommitted: Pre-computed result from has_uncommitted_changes().
+            If None, will be checked. Used by cleanup_worktree to avoid
+            redundant subprocess calls.
+        _has_commits: Pre-computed result from has_new_commits().
+            If None, will be checked.
+    """
+    git_root = get_git_root()
+    uncommitted = (
+        _has_uncommitted
+        if _has_uncommitted is not None
+        else has_uncommitted_changes(info.path)
+    )
+    commits = (
+        _has_commits
+        if _has_commits is not None
+        else has_new_commits(info.path, info.base_branch)
+    )
+
+    if auto_commit_wip and uncommitted:
+        add_result = subprocess.run(
+            ["git", "add", "-u"],
+            capture_output=True,
+            text=True,
+            cwd=str(info.path),
+        )
+        if add_result.returncode != 0:
+            logger.warning(
+                "git add failed for %s: %s",
+                info.path,
+                add_result.stderr.strip(),
+            )
+            return False
+
+        commit_result = subprocess.run(
+            [
+                "git",
+                "commit",
+                "-m",
+                f"wip: uncommitted changes from {info.name}",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(info.path),
+        )
+        if commit_result.returncode != 0:
+            logger.warning(
+                "git commit failed for %s: %s",
+                info.path,
+                commit_result.stderr.strip(),
+            )
+            return False
+        # After WIP commit, there are now new commits to merge
+        commits = True
+
+    if not commits:
+        return True
+
+    merge_result = subprocess.run(
+        ["git", "merge", info.branch, "--no-edit"],
+        capture_output=True,
+        text=True,
+        cwd=str(git_root),
+    )
+    if merge_result.returncode == 0:
+        return True
+
+    abort_result = subprocess.run(
+        ["git", "merge", "--abort"],
+        capture_output=True,
+        text=True,
+        cwd=str(git_root),
+    )
+    if abort_result.returncode != 0:
+        logger.warning("git merge --abort failed: %s", abort_result.stderr.strip())
+    print(f"[Synapse] Merge conflict for {info.branch}.")
+    print(f"  Branch preserved: {info.branch}")
+    print(f"  Resolve manually: git merge {info.branch}")
+    logger.warning(
+        "Merge conflict for %s: %s",
+        info.branch,
+        merge_result.stderr.strip(),
+    )
+    return False
+
+
 def worktree_info_from_registry(
     worktree_path: str,
     worktree_branch: str,
@@ -420,7 +517,11 @@ def worktree_info_from_registry(
     )
 
 
-def cleanup_worktree(info: WorktreeInfo, interactive: bool = False) -> bool:
+def cleanup_worktree(
+    info: WorktreeInfo,
+    interactive: bool = False,
+    merge: bool = False,
+) -> bool:
     """Clean up a worktree, optionally prompting the user.
 
     - If no uncommitted changes or new commits: auto-remove.
@@ -434,8 +535,16 @@ def cleanup_worktree(info: WorktreeInfo, interactive: bool = False) -> bool:
     Returns:
         True if worktree was removed, False if kept.
     """
-    if not has_worktree_changes(info):
+    uncommitted = has_uncommitted_changes(info.path)
+    commits = has_new_commits(info.path, info.base_branch)
+
+    if not uncommitted and not commits:
         return remove_worktree(info.path, info.branch, force=False)
+
+    if merge:
+        if merge_worktree(info, _has_uncommitted=uncommitted, _has_commits=commits):
+            return remove_worktree(info.path, info.branch, force=False)
+        return False
 
     # Changes or new commits exist
     if not interactive:

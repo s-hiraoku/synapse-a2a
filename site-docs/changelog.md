@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.19.1
+
+- **Added**: Worktree auto-merge on `synapse kill` — worker branches are automatically merged back (#493)
+- **Added**: Uncommitted changes auto-committed as WIP before merge
+- **Added**: `--no-merge` flag to skip auto-merge
+- **Docs**: Merge strategy comparison (Claude Code vs Synapse), updated references across all docs
+
 ### v0.19.0
 
 - **Added**: `analyze_task` returns `recommended_worktree` for context-aware worktree decisions

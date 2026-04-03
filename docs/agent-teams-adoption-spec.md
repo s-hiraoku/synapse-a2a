@@ -408,12 +408,15 @@ sequenceDiagram
 **CLI 統合**: `synapse kill` を修正。
 
 ```bash
-# グレースフルシャットダウン（デフォルト）
+# グレースフルシャットダウン（デフォルト、worktree ブランチは自動マージ）
 synapse kill my-claude
 
-# 即座強制終了（従来の挙動）
+# 即座強制終了（従来の挙動、worktree ブランチは自動マージ）
 synapse kill my-claude -f
 synapse kill my-claude --force
+
+# worktree 自動マージをスキップ
+synapse kill my-claude --no-merge
 ```
 
 **設定**:
