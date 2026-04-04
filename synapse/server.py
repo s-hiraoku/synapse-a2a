@@ -150,12 +150,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Auto-approve configuration: runtime WAITING detection auto-response
     auto_approve_config = profile.get("auto_approve", {})
-    if os.environ.get("SYNAPSE_AUTO_APPROVE") == "false":
-        auto_approve_config = {}
+    # Read permission responses BEFORE clearing config (needed for manual approve/deny API)
     approve_response = _decode_profile_escape(
         auto_approve_config.get("runtime_response", "")
     )
     deny_response = _decode_profile_escape(auto_approve_config.get("deny_response", ""))
+    if os.environ.get("SYNAPSE_AUTO_APPROVE") == "false":
+        auto_approve_config = {}
 
     controller = TerminalController(
         command=profile["command"],
@@ -235,6 +236,8 @@ def create_app(
     port: int,
     submit_seq: str = "\n",
     agent_type: str = "claude",
+    approve_response: str = "",
+    deny_response: str = "",
 ) -> FastAPI:
     """Create a FastAPI app with external controller and registry."""
     new_app = FastAPI(
@@ -257,6 +260,8 @@ def create_app(
         submit_seq,
         agent_id,
         reg,
+        approve_response=approve_response,
+        deny_response=deny_response,
     )
     new_app.include_router(a2a_router)
 

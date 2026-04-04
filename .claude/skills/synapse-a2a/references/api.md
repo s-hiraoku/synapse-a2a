@@ -85,7 +85,9 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 
 When a spawned agent hits a permission prompt (e.g., tool approval), the controller detects WAITING status, which maps to the A2A `input_required` task state. The agent automatically notifies its caller with the permission context and approve/deny URLs. The caller (or Canvas UI) can then approve or deny via these endpoints.
 
-**Preconditions:** Task must be in `input_required` status; returns HTTP 400 otherwise.
+**Preconditions:**
+- Returns **HTTP 404** if the task is not found
+- Returns **HTTP 400** if the task is not in `input_required` status
 
 ### Shared Memory Endpoints
 
