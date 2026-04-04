@@ -953,23 +953,18 @@ def _get_ghostty_split_direction(layout: str = "auto") -> str:
     return "right" if count % 2 == 1 else "down"
 
 
-def _get_zellij_pane_count() -> int | None:
-    """Return the number of panes in the current zellij tab.
-
-    Returns None if not inside zellij or if the command fails.
-    """
+def _get_zellij_pane_count() -> int:
+    """Return a best-effort pane count using an env-backed counter."""
     try:
-        result = subprocess.run(
-            ["zellij", "action", "query-tab-names"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return len(result.stdout.strip().splitlines())
-    except Exception:
-        pass
-    return None
+        return max(1, int(os.environ.get("SYNAPSE_ZELLIJ_PANE_COUNT", "1")))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _bump_zellij_pane_count(added: int = 1) -> None:
+    """Increment the env-backed Zellij pane counter by *added* panes."""
+    current = _get_zellij_pane_count() or 1
+    os.environ["SYNAPSE_ZELLIJ_PANE_COUNT"] = str(current + added)
 
 
 def create_tmux_panes(
@@ -1319,6 +1314,9 @@ def create_zellij_panes(
         commands.append(
             f"zellij run --close-on-exit --cwd {safe_cwd} --direction {direction} --name synapse-{profile} -- {full_cmd}"
         )
+
+    # Update pane counter by the number of agents actually spawned
+    _bump_zellij_pane_count(len(agents))
 
     return commands
 

@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.19.5
+
+- **Fixed**: Tile layout pane creation for spawn and team start (#502)
+- **Fixed**: Worktree spawn silent failures (check=False → check=True)
+- **Fixed**: Zellij pane count detection (env var counter replaces unreliable CLI)
+
 ### v0.19.4
 
 - **Added**: `synapse spawn --task` — send a task message immediately after the spawned agent becomes ready (#494)

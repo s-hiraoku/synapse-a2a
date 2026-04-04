@@ -463,25 +463,27 @@ class TestSpawnPaneTracking:
 class TestGetPaneCount:
     """Tests for terminal pane count detection helpers."""
 
-    def test_get_zellij_pane_count_parses_output(self) -> None:
-        """Should parse zellij pane count."""
+    def test_get_zellij_pane_count_uses_env_counter(self) -> None:
+        """Should return current env count (read-only)."""
         from synapse.terminal_jump import _get_zellij_pane_count
 
-        with patch("synapse.terminal_jump.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stdout="tab1\ntab2\n")
-            count = _get_zellij_pane_count()
-        assert count == 2
-
-    def test_get_zellij_pane_count_returns_none_on_error(self) -> None:
-        """Should return None if zellij command fails."""
-        from synapse.terminal_jump import _get_zellij_pane_count
-
-        with patch(
-            "synapse.terminal_jump.subprocess.run",
-            side_effect=Exception("not in zellij"),
+        with patch.dict(
+            os.environ,
+            {"SYNAPSE_ZELLIJ_PANE_COUNT": "4"},
+            clear=False,
         ):
             count = _get_zellij_pane_count()
-        assert count is None
+            assert count == 4
+            # Read-only — counter unchanged
+            assert os.environ["SYNAPSE_ZELLIJ_PANE_COUNT"] == "4"
+
+    def test_get_zellij_pane_count_defaults_to_one(self) -> None:
+        """Should default to one pane when env not set."""
+        from synapse.terminal_jump import _get_zellij_pane_count
+
+        with patch.dict(os.environ, {}, clear=True):
+            count = _get_zellij_pane_count()
+            assert count == 1
 
 
 class TestGetTmuxAutoSplit:
