@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 import threading
+import time
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -239,6 +240,7 @@ def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
     mapping: dict[str, TaskState] = {
         "STARTING": "submitted",
         "BUSY": "working",
+        "WAITING": "input_required",
         "READY": "completed",
         "DONE": "completed",
         "NOT_STARTED": "submitted",
@@ -549,6 +551,18 @@ class TaskStore:
                 task.updated_at = get_iso_timestamp()
                 return task
         return None
+
+    def update_metadata(self, task_id: str, key: str, value: Any) -> Task | None:
+        """Thread-safe metadata update for a single key."""
+        with self._lock:
+            task = self._tasks.get(task_id)
+            if not task:
+                return None
+            metadata = task.metadata or {}
+            metadata[key] = value
+            task.metadata = metadata
+            task.updated_at = get_iso_timestamp()
+            return task
 
     def claim_finalization(self, task_id: str) -> Task | None:
         """Claim exclusive rights to finalize a working task.
@@ -1115,6 +1129,8 @@ def create_a2a_router(
     agent_id: str | None = None,
     registry: AgentRegistry | None = None,
     transport: "MessageTransport | None" = None,
+    approve_response: str = "",
+    deny_response: str = "",
 ) -> APIRouter:
     """
     Create Google A2A compatible router.
@@ -1127,6 +1143,8 @@ def create_a2a_router(
         agent_id: Unique agent ID (e.g., synapse-claude-8100)
         registry: AgentRegistry instance for discovering other agents
         transport: Message transport for delivery (default: PTYTransport)
+        approve_response: PTY response to accept a runtime permission prompt
+        deny_response: PTY response to reject a runtime permission prompt
 
     Returns:
         FastAPI APIRouter with A2A endpoints
@@ -1141,6 +1159,41 @@ def create_a2a_router(
 
         transport = PTYTransport(controller, get_long_message_store(), submit_seq)
     router = APIRouter(tags=["Google A2A Compatible"])
+
+    def _run_async_from_sync(coro: Any) -> None:
+        """Dispatch an async coroutine from a sync callback thread."""
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(coro, loop)
+        else:
+            asyncio.run(coro)
+
+    def _build_permission_metadata() -> dict[str, Any]:
+        context = controller.get_context() if controller else ""
+        return {
+            "pty_context": context[-512:],
+            "agent_type": agent_type,
+            "detected_at": time.time(),
+        }
+
+    def _build_permission_notification(task: Task) -> Task:
+        permission = (task.metadata or {}).get("permission", {})
+        approve_url = f"http://localhost:{port}/tasks/{task.id}/permission/approve"
+        deny_url = f"http://localhost:{port}/tasks/{task.id}/permission/deny"
+        notification_text = (
+            f"[Task {task.id}] Status: {task.status}\n"
+            f"Permission context: {permission.get('pty_context', '')}\n"
+            f"Approve: POST {approve_url}\n"
+            f"Deny: POST {deny_url}"
+        )
+        notification_task: Task = task.model_copy()
+        notification_task.artifacts = [
+            Artifact(type="text", data={"content": notification_text})
+        ]
+        return notification_task
 
     def _finalize_working_task(
         task_id: str, full_context: str, recent_context: str
@@ -1233,6 +1286,34 @@ def create_a2a_router(
     if controller:
 
         def _on_status_change(old: str, new: str) -> None:
+            if new == "WAITING":
+                for task in task_store.list_tasks():
+                    if task.status != "working":
+                        continue
+                    permission = _build_permission_metadata()
+                    task_store.update_metadata(task.id, "permission", permission)
+                    updated = task_store.update_status(task.id, "input_required")
+                    if not updated:
+                        continue
+                    si = _extract_sender_info(updated.metadata)
+                    if not si.sender_endpoint:
+                        continue
+                    notification_task = _build_permission_notification(updated)
+                    coro = _send_response_to_sender(
+                        notification_task,
+                        si.sender_endpoint,
+                        agent_id or "unknown",
+                        sender_task_id=si.sender_task_id,
+                    )
+                    _run_async_from_sync(coro)
+                return
+
+            if old == "WAITING" and new == "PROCESSING":
+                for task in task_store.list_tasks():
+                    if task.status == "input_required":
+                        task_store.update_status(task.id, "working")
+                return
+
             if new not in ("READY", "DONE"):
                 return
             for task in task_store.list_tasks():
@@ -1262,20 +1343,13 @@ def create_a2a_router(
                     if si.sender_endpoint:
                         if resp_mode in ("wait", "notify"):
                             updated = _maybe_mark_missing_reply(updated, resp_mode)
-                        try:
-                            loop = asyncio.get_event_loop()
-                        except RuntimeError:
-                            loop = None
                         coro = _send_response_to_sender(
                             updated,
                             si.sender_endpoint,
                             agent_id or "unknown",
                             sender_task_id=si.sender_task_id,
                         )
-                        if loop and loop.is_running():
-                            asyncio.run_coroutine_threadsafe(coro, loop)
-                        else:
-                            asyncio.run(coro)
+                        _run_async_from_sync(coro)
 
         controller.on_status_change(_on_status_change)
 
@@ -1812,6 +1886,52 @@ def create_a2a_router(
                 ) from e
 
         return {"rejected": True, "task_id": task_id, "reason": reason}
+
+    async def _handle_permission_decision(
+        task_id: str, response_text: str, label: str
+    ) -> dict[str, Any]:
+        """Shared logic for permission approve/deny endpoints."""
+        task = task_store.get(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        if task.status != "input_required":
+            raise HTTPException(
+                status_code=400, detail="Task is not awaiting permission input"
+            )
+        if not controller:
+            raise HTTPException(status_code=503, detail="Agent not running")
+
+        try:
+            written = controller.write(response_text, submit_seq=submit_seq)
+            if not written:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to deliver {label}: agent process not running",
+                )
+        except OSError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to deliver {label}: {e!s}",
+            ) from e
+
+        task_store.update_status(task_id, "working")
+        return {"status": label, "task_id": task_id}
+
+    @router.post("/tasks/{task_id}/permission/approve")
+    async def approve_permission(
+        task_id: str,
+        _: Any = Depends(require_auth),
+    ) -> dict[str, Any]:
+        """Approve a runtime permission prompt for an input_required task."""
+        return await _handle_permission_decision(task_id, approve_response, "approved")
+
+    @router.post("/tasks/{task_id}/permission/deny")
+    async def deny_permission(
+        task_id: str,
+        _: Any = Depends(require_auth),
+    ) -> dict[str, Any]:
+        """Deny a runtime permission prompt for an input_required task."""
+        return await _handle_permission_decision(task_id, deny_response, "denied")
 
     # --------------------------------------------------------
     # Task Management (continued)

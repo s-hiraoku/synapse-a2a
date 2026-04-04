@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-04-05
+
+### Added
+
+- Permission detection: spawned agents automatically notify callers when stopped at a permission prompt (#492, #498)
+  - `WAITING` status now maps to `input_required` A2A task state
+  - `_on_status_change` sends `input_required` notification to `--notify`/`--wait` callers with PTY context
+  - `POST /tasks/{id}/permission/approve` and `/deny` API endpoints for remote approval
+  - `deny_response` added to all 5 agent profiles (claude, codex, gemini, opencode, copilot)
+  - Agent instructions updated with PERMISSION HANDLING section
+
+### Documentation
+
+- Added `docs/permission-detection-spec.md` — technical specification
+- Updated `docs/agent-permission-modes.md` — user guide for permission detection and status types
+
 ## [0.19.5] - 2026-04-04
 
 ### Fixed

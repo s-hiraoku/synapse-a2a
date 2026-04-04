@@ -1863,6 +1863,15 @@ flowchart LR
 | POST | `/tasks/{id}/reject` | プラン却下（理由付き） |
 | POST | `/team/start` | エージェントチームをターミナルペインで起動（A2A経由） |
 
+#### Permission Detection API
+
+| メソッド | パス | 説明 |
+|---------|------|------|
+| POST | `/tasks/{id}/permission/approve` | 権限プロンプトを承認（プロファイル固有の承認レスポンスをエージェント PTY に送信） |
+| POST | `/tasks/{id}/permission/deny` | 権限プロンプトを拒否（プロファイルの `deny_response` をエージェント PTY に送信） |
+
+> **ステータスマッピング**: エージェントが WAITING 状態に入ると、A2A タスクステータスは Google A2A 仕様に準拠して `input_required` にマッピングされます。タスクメタデータには `x-permission-prompt`（検出されたプロンプトテキスト）と `x-permission-options`（利用可能なレスポンス）が含まれます。詳細は [docs/permission-detection-spec.md](../docs/permission-detection-spec.md) を参照。
+
 #### Shared Memory API
 
 | メソッド | パス | 説明 |
