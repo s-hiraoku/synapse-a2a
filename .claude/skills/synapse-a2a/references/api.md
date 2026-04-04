@@ -76,6 +76,17 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 | `/team/start` | POST | Start multiple agents in terminal panes (agent-initiated) |
 | `/spawn` | POST | Spawn a single agent in a new terminal pane (supports `worktree` field for isolation) |
 
+### Permission Detection Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/tasks/{task_id}/permission/approve` | POST | Approve a runtime permission prompt (task must be `input_required`) |
+| `/tasks/{task_id}/permission/deny` | POST | Deny a runtime permission prompt (task must be `input_required`) |
+
+When a spawned agent hits a permission prompt (e.g., tool approval), the controller detects WAITING status, which maps to the A2A `input_required` task state. The agent automatically notifies its caller with the permission context and approve/deny URLs. The caller (or Canvas UI) can then approve or deny via these endpoints.
+
+**Preconditions:** Task must be in `input_required` status; returns HTTP 400 otherwise.
+
 ### Shared Memory Endpoints
 
 | Endpoint | Method | Description |
