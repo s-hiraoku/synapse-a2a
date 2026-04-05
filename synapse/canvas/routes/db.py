@@ -22,9 +22,11 @@ def _scan_db_files(base_dir: str) -> list[tuple[str, str]]:
     """Recursively find .db files under base_dir. Returns (relative_name, abs_path)."""
     results: list[tuple[str, str]] = []
     hidden_dbs = {"task_board.db"}
+    skip_dirs = {"worktrees"}
     if not os.path.isdir(base_dir):
         return results
-    for root, _dirs, files in os.walk(base_dir):
+    for root, dirs, files in os.walk(base_dir):
+        dirs[:] = [d for d in dirs if d not in skip_dirs]
         for f in sorted(files):
             if not f.endswith(".db") or f in hidden_dbs:
                 continue

@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.22.0
+
+- **Added**: `synapse worktree prune` — orphan worktree detection and cleanup
+- **Fixed**: Canvas Database view excludes `.synapse/worktrees/` databases
+
+
 ### v0.21.0
 
 - **Added**: LLM Wiki — Knowledge Accumulation Layer (#506). Agents build persistent, interlinked Markdown wikis at project and global scope
