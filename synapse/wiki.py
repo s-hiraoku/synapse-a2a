@@ -265,7 +265,7 @@ def cmd_wiki_lint(args: argparse.Namespace) -> None:
             f"{page_path.name}: stale - source files changed: {', '.join(changed_files)}"
         )
 
-    if not issues and not orphan_pages:
+    if not issues and not orphan_pages and not stale:
         print("Wiki lint passed.")
         return
 
@@ -328,33 +328,33 @@ def cmd_wiki_init(args: argparse.Namespace) -> None:
     index_path = wiki_dir / "index.md"
     ts = _timestamp()
 
-    index_text = index_path.read_text(encoding="utf-8")
+    index_lines = set(index_path.read_text(encoding="utf-8").splitlines())
 
     for skeleton in _INIT_SKELETONS:
         filename = skeleton["filename"]
         page_path = pages_dir / filename
+        slug = page_path.stem
+
         if page_path.exists():
             print(f"Skipped {filename} (already exists)")
-            continue
+        else:
+            fm = {
+                "type": skeleton["type"],
+                "title": skeleton["title"],
+                "created": ts,
+                "updated": ts,
+                "sources": [],
+                "links": [],
+                "confidence": "low",
+                "author": "synapse",
+            }
+            body = f"# {skeleton['title']}\n\nTODO: fill in.\n"
+            content = f"---\n{yaml.dump(fm, default_flow_style=False)}---\n{body}"
+            page_path.write_text(content, encoding="utf-8")
+            print(f"Created {filename}")
 
-        slug = page_path.stem
-        fm = {
-            "type": skeleton["type"],
-            "title": skeleton["title"],
-            "created": ts,
-            "updated": ts,
-            "sources": [],
-            "links": [],
-            "confidence": "low",
-            "author": "synapse",
-        }
-        body = f"# {skeleton['title']}\n\nTODO: fill in.\n"
-        content = f"---\n{yaml.dump(fm, default_flow_style=False)}---\n{body}"
-        page_path.write_text(content, encoding="utf-8")
-
-        if slug not in index_text:
+        index_entry = f"- [{slug}](pages/{filename}): {skeleton['title']}"
+        if index_entry not in index_lines:
             with index_path.open("a", encoding="utf-8") as f:
-                f.write(f"- [{slug}](pages/{filename}): {skeleton['title']}\n")
-            index_text += slug
-
-        print(f"Created {filename}")
+                f.write(f"{index_entry}\n")
+            index_lines.add(index_entry)

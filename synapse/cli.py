@@ -6484,6 +6484,7 @@ Scopes:
         "workflow": ("workflow_command", p_workflow),
         "agents": ("agents_command", p_agents),
         "canvas": ("canvas_command", p_canvas),
+        "worktree": ("worktree_command", p_worktree),
     }
 
     # Handle subcommands without action (print help)
