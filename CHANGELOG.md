@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] - 2026-04-05
+
+### Added
+
+- Living Wiki: `source_files` and `source_commit` frontmatter fields for tracking which source code files a wiki page documents
+- Stale page detection in `synapse wiki status` and `synapse wiki lint` — identifies pages whose tracked source files have changed
+- `synapse wiki refresh [--apply]` command — lists stale pages and optionally updates `source_commit` to current HEAD
+- `synapse wiki init` command — creates skeleton `synthesis-architecture.md` and `synthesis-patterns.md` pages with idempotent index entries
+- `learning` page type for recording bug fixes and discovered patterns
+- `GET /api/wiki/graph` Canvas endpoint — returns a Mermaid diagram of wiki page `[[wikilink]]` relationships
+
+### Documentation
+
+- Updated synapse-reference.md, README.md, llm-wiki.md with new wiki commands and features
+- Updated site-docs CLI and API reference pages
+- Added `source_files` and `source_commit` to wiki-schema.md frontmatter specification
+
+
 ## [0.22.0] - 2026-04-05
 
 ### Added
@@ -3132,6 +3150,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.22.0...HEAD
+[0.23.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.5...v0.20.0

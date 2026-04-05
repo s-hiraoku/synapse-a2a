@@ -1303,6 +1303,128 @@ curl http://localhost:3000/api/workflow/runs/a1b2c3d4-e5f6-7890-abcd-ef123456789
 
 ---
 
+## Wiki API
+
+The Canvas server exposes wiki endpoints for the [Knowledge View](../guide/canvas.md). These endpoints run on the Canvas port (default `3000`) and are available when `wiki.enabled` is `true` in settings.
+
+| Method | Endpoint | Description |
+|:------:|----------|-------------|
+| GET | `/api/wiki` | List all wiki pages with parsed frontmatter |
+| GET | `/api/wiki/enabled` | Check if the wiki feature is enabled |
+| GET | `/api/wiki/{scope}/pages/{page}` | Get a single wiki page content |
+| GET | `/api/wiki/stats` | Get wiki statistics |
+| GET | `/api/wiki/graph` | Get page link graph as Mermaid source |
+
+### GET /api/wiki -- List Pages
+
+Returns all wiki pages with parsed frontmatter metadata.
+
+```bash
+curl "http://localhost:3000/api/wiki?scope=project"
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `scope` | `project` | `project` or `global` |
+
+**Response fields (per page):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `filename` | string | Markdown filename |
+| `slug` | string | Filename without extension |
+| `type` | string | Page type (`entity`, `concept`, `decision`, `comparison`, `synthesis`, `learning`) |
+| `title` | string | Page title from frontmatter |
+| `created` | string | Creation date |
+| `updated` | string | Last update date |
+| `confidence` | string/number | Confidence level |
+| `author` | string | Author agent ID |
+| `summary` | string | First non-heading line (up to 200 chars) |
+| `link_count` | number | Number of `[[wikilink]]` references |
+| `source_count` | number | Number of sources |
+
+### GET /api/wiki/enabled -- Check Enabled
+
+```bash
+curl http://localhost:3000/api/wiki/enabled
+```
+
+**Response:**
+
+```json
+{ "enabled": true }
+```
+
+### GET /api/wiki/{scope}/pages/{page} -- Get Page
+
+Returns a single wiki page with full content and parsed frontmatter.
+
+```bash
+curl http://localhost:3000/api/wiki/project/pages/entity-controller
+```
+
+**Response fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `slug` | string | Page slug |
+| `filename` | string | Markdown filename |
+| `type` | string | Page type |
+| `title` | string | Page title |
+| `body` | string | Markdown content (without frontmatter) |
+| `links` | array | List of `[[wikilink]]` targets found in body |
+| `sources` | array | Source references from frontmatter |
+
+### GET /api/wiki/stats -- Statistics
+
+Returns wiki statistics including page count, source count, and recent activity.
+
+```bash
+curl "http://localhost:3000/api/wiki/stats?scope=project"
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `scope` | `project` | `project` or `global` |
+
+**Response fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `scope` | string | Requested scope |
+| `exists` | boolean | Whether the wiki directory exists |
+| `page_count` | number | Total pages |
+| `source_count` | number | Total source files |
+| `last_updated` | string | ISO 8601 timestamp of most recently modified page |
+| `recent_activity` | array | Last 10 log entries (timestamp, operation, detail) |
+
+### GET /api/wiki/graph -- Link Graph
+
+Returns a Mermaid graph representing `[[wikilink]]` connections between wiki pages.
+
+```bash
+curl "http://localhost:3000/api/wiki/graph?scope=project"
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `scope` | `project` | `project` or `global` |
+
+**Response:**
+
+```json
+{
+  "scope": "project",
+  "mermaid": "graph LR\n  entity-controller --> concept-file-locking\n  entity-server --> entity-controller",
+  "node_count": 3,
+  "edge_count": 2
+}
+```
+
+The `mermaid` field contains valid Mermaid graph source that can be rendered directly in the Canvas Knowledge view.
+
+---
+
 ## Error Responses
 
 All endpoints use standard HTTP status codes with JSON error details.

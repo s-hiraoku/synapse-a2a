@@ -211,3 +211,54 @@ def test_wiki_enabled_endpoint_reads_settings_file(tmp_path, monkeypatch):
 
     assert resp.status_code == 200
     assert resp.json() == {"enabled": False}
+
+
+# --- Unit C: Wiki graph endpoint ---
+
+
+def test_wiki_graph_returns_empty_when_no_wiki(tmp_path, monkeypatch):
+    client = _make_client(tmp_path, monkeypatch)
+    resp = client.get("/api/wiki/graph", params={"scope": "project"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data == {
+        "scope": "project",
+        "mermaid": "graph LR",
+        "node_count": 0,
+        "edge_count": 0,
+    }
+
+
+def test_wiki_graph_returns_mermaid_with_links(tmp_path, monkeypatch):
+    client = _make_client(tmp_path, monkeypatch)
+    _write_page(
+        tmp_path, "alpha.md", "---\ntitle: Alpha\n---\nSee [[beta]] and [[gamma]].\n"
+    )
+    _write_page(tmp_path, "beta.md", "---\ntitle: Beta\n---\nBack to [[alpha]].\n")
+
+    resp = client.get("/api/wiki/graph", params={"scope": "project"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "alpha --> beta" in data["mermaid"]
+    assert "alpha --> gamma" in data["mermaid"]
+    assert "beta --> alpha" in data["mermaid"]
+    assert data["node_count"] == 3  # alpha, beta, gamma (gamma from link only)
+    assert data["edge_count"] == 3
+
+
+def test_wiki_graph_returns_no_edges_for_pages_without_links(tmp_path, monkeypatch):
+    client = _make_client(tmp_path, monkeypatch)
+    _write_page(tmp_path, "solo.md", "---\ntitle: Solo\n---\nNo links here.\n")
+
+    resp = client.get("/api/wiki/graph", params={"scope": "project"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["node_count"] == 1
+    assert data["edge_count"] == 0
+    assert data["mermaid"] == "graph LR"
+
+
+def test_wiki_graph_invalid_scope_returns_400(tmp_path, monkeypatch):
+    client = _make_client(tmp_path, monkeypatch)
+    resp = client.get("/api/wiki/graph", params={"scope": "invalid"})
+    assert resp.status_code == 400

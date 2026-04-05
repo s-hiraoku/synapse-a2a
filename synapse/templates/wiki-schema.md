@@ -18,6 +18,7 @@
 - `decision`
 - `comparison`
 - `synthesis`
+- `learning`
 
 ## Frontmatter
 
@@ -31,6 +32,8 @@ Every page must include YAML frontmatter with:
 - `links`
 - `confidence`
 - `author`
+- `source_files` (optional) — list of source code paths this page documents
+- `source_commit` (optional) — git commit SHA when source_files were last reviewed
 
 ## Accumulation Rules
 

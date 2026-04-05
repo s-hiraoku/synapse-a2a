@@ -60,8 +60,10 @@ synapse memory search <query>
 # Wiki (LLM Wiki — Knowledge Accumulation)
 synapse wiki ingest <source-path> [--scope project|global]
 synapse wiki query "<question>" [--scope project|global]
-synapse wiki lint [--scope project|global]
-synapse wiki status [--scope project|global]
+synapse wiki lint [--scope project|global]              # Also detects stale pages (source_files changed)
+synapse wiki status [--scope project|global]            # Shows page count, staleness, and health
+synapse wiki refresh [--apply] [--scope project|global] # List stale pages; --apply updates source_commit
+synapse wiki init [--scope project|global]              # Create skeleton architecture & patterns pages
 
 # Canvas
 synapse canvas serve [--port 3000] [--no-open]

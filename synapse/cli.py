@@ -1533,6 +1533,20 @@ def cmd_wiki_status(args: argparse.Namespace) -> None:
     _cmd_wiki_status(args)
 
 
+def cmd_wiki_refresh(args: argparse.Namespace) -> None:
+    """Refresh stale wiki pages."""
+    from synapse.wiki import cmd_wiki_refresh as _cmd_wiki_refresh
+
+    _cmd_wiki_refresh(args)
+
+
+def cmd_wiki_init(args: argparse.Namespace) -> None:
+    """Initialize wiki with skeleton pages."""
+    from synapse.wiki import cmd_wiki_init as _cmd_wiki_init
+
+    _cmd_wiki_init(args)
+
+
 def cmd_worktree_prune(args: argparse.Namespace) -> None:
     """Prune orphan worktrees."""
     from synapse.worktree import prune_worktrees
@@ -5163,6 +5177,25 @@ History is enabled by default (v0.3.13+). To disable: SYNAPSE_HISTORY_ENABLED=fa
         "--scope", choices=["project", "global"], default="project"
     )
     p_wiki_status.set_defaults(func=cmd_wiki_status)
+
+    p_wiki_refresh = wiki_subparsers.add_parser(
+        "refresh", help="Detect and refresh stale pages"
+    )
+    p_wiki_refresh.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_refresh.add_argument(
+        "--apply", action="store_true", help="Update source_commit in stale pages"
+    )
+    p_wiki_refresh.set_defaults(func=cmd_wiki_refresh)
+
+    p_wiki_init = wiki_subparsers.add_parser(
+        "init", help="Initialize wiki with skeleton pages"
+    )
+    p_wiki_init.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_init.set_defaults(func=cmd_wiki_init)
 
     # worktree - Git worktree management
     p_worktree = subparsers.add_parser(
