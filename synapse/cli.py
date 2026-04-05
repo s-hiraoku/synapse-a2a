@@ -1505,6 +1505,34 @@ def cmd_instructions_send(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_wiki_ingest(args: argparse.Namespace) -> None:
+    """Ingest a source file into the wiki."""
+    from synapse.wiki import cmd_wiki_ingest as _cmd_wiki_ingest
+
+    _cmd_wiki_ingest(args)
+
+
+def cmd_wiki_query(args: argparse.Namespace) -> None:
+    """Query wiki pages from the index."""
+    from synapse.wiki import cmd_wiki_query as _cmd_wiki_query
+
+    _cmd_wiki_query(args)
+
+
+def cmd_wiki_lint(args: argparse.Namespace) -> None:
+    """Validate wiki consistency."""
+    from synapse.wiki import cmd_wiki_lint as _cmd_wiki_lint
+
+    _cmd_wiki_lint(args)
+
+
+def cmd_wiki_status(args: argparse.Namespace) -> None:
+    """Show wiki status."""
+    from synapse.wiki import cmd_wiki_status as _cmd_wiki_status
+
+    _cmd_wiki_status(args)
+
+
 def cmd_mcp_serve(args: argparse.Namespace) -> None:
     """Serve Synapse MCP resources over stdio."""
     from synapse.mcp.server import SynapseMCPServer, serve_stdio
@@ -5091,6 +5119,38 @@ History is enabled by default (v0.3.13+). To disable: SYNAPSE_HISTORY_ENABLED=fa
     )
     p_hist_export.set_defaults(func=cmd_history_export)
 
+    # wiki - LLM wiki management
+    p_wiki = subparsers.add_parser("wiki", help="LLM Wiki knowledge management")
+    wiki_subparsers = p_wiki.add_subparsers(dest="wiki_command", metavar="SUBCOMMAND")
+
+    p_wiki_ingest = wiki_subparsers.add_parser(
+        "ingest", help="Ingest a source into the wiki"
+    )
+    p_wiki_ingest.add_argument("source", help="Path to source file")
+    p_wiki_ingest.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_ingest.set_defaults(func=cmd_wiki_ingest)
+
+    p_wiki_query = wiki_subparsers.add_parser("query", help="Query the wiki")
+    p_wiki_query.add_argument("question", help="Question to search for")
+    p_wiki_query.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_query.set_defaults(func=cmd_wiki_query)
+
+    p_wiki_lint = wiki_subparsers.add_parser("lint", help="Check wiki consistency")
+    p_wiki_lint.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_lint.set_defaults(func=cmd_wiki_lint)
+
+    p_wiki_status = wiki_subparsers.add_parser("status", help="Show wiki status")
+    p_wiki_status.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_status.set_defaults(func=cmd_wiki_status)
+
     # external - External A2A agent management
     p_external = subparsers.add_parser(
         "external",
@@ -6350,6 +6410,7 @@ Scopes:
     # Map of subcommands that require a subcommand action
     subcommand_parsers = {
         "history": ("history_command", p_history),
+        "wiki": ("wiki_command", p_wiki),
         "memory": ("memory_command", p_memory),
         "external": ("external_command", p_external),
         "auth": ("auth_command", p_auth),

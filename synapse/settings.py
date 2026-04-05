@@ -594,6 +594,9 @@ class SynapseSettings:
         ):
             files.append("file-safety.md")
 
+        if self._instruction_file_exists("wiki.md"):
+            files.append("wiki.md")
+
         # Learning mode (either flag enables learning.md injection)
         if self._is_any_learning_enabled() and self._instruction_file_exists(
             "learning.md"
@@ -662,6 +665,8 @@ class SynapseSettings:
         # File safety
         if self._is_file_safety_enabled():
             add_if_exists("file-safety.md")
+
+        add_if_exists("wiki.md")
 
         # Learning mode (either flag enables learning.md injection)
         if self._is_any_learning_enabled():

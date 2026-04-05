@@ -1065,3 +1065,59 @@ def test_workflow_route_in_js() -> None:
     assert "renderWorkflowDetail" in js
     assert "loadWorkflowRuns" in js
     assert "workflow_update" in js
+
+
+def test_knowledge_assets_registered() -> None:
+    """Canvas should register the Knowledge JS and CSS assets."""
+    assert "canvas-knowledge.css" in CANVAS_CSS_FILES
+    assert "canvas-knowledge.js" in CANVAS_JS_FILES
+
+
+def test_knowledge_nav_link_exists() -> None:
+    """index.html should have a nav link with data-route='knowledge'."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    assert 'data-route="knowledge"' in html
+
+
+def test_knowledge_nav_order() -> None:
+    """Knowledge nav should appear after Workflow and before Database."""
+    html = Path("synapse/canvas/templates/index.html").read_text(encoding="utf-8")
+    workflow_pos = html.index('data-route="workflow"')
+    knowledge_pos = html.index('data-route="knowledge"')
+    database_pos = html.index('data-route="database"')
+    assert workflow_pos < knowledge_pos < database_pos
+
+
+def test_knowledge_css_classes_exist() -> None:
+    """Canvas CSS should define Knowledge view selectors."""
+    css = read_canvas_css()
+    for selector in [
+        ".knowledge-view",
+        ".knowledge-tabs",
+        ".knowledge-tab",
+        ".knowledge-stats",
+        ".knowledge-filters",
+        ".knowledge-page-list",
+        ".knowledge-page-card",
+        ".knowledge-detail",
+        ".knowledge-activity",
+        ".wiki-link",
+        ".knowledge-empty",
+    ]:
+        assert selector in css, f"Missing Knowledge CSS selector: {selector}"
+
+
+def test_knowledge_route_in_js() -> None:
+    """Canvas JS should handle the Knowledge route and expose its helpers."""
+    js = _read_canvas_js()
+    assert '"knowledge"' in js
+    assert "loadKnowledgeView" in js
+    assert "fetchWikiPages" in js
+    assert "fetchWikiStats" in js
+    assert "fetchWikiPage" in js
+    assert "renderKnowledgeView" in js
+    assert "renderPageList" in js
+    assert "renderPageDetail" in js
+    assert "renderActivityLog" in js
+    assert "/api/wiki/enabled" in js
+    assert "/api/wiki/stats" in js

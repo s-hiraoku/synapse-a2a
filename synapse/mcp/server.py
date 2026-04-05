@@ -196,6 +196,11 @@ class SynapseMCPServer:
                 name="File Safety Instructions",
                 description="Multi-agent file locking and modification safety rules.",
             ),
+            "wiki.md": MCPResource(
+                uri="synapse://instructions/wiki",
+                name="Wiki Instructions",
+                description="LLM Wiki knowledge accumulation rules and conventions.",
+            ),
             "shared-memory.md": MCPResource(
                 uri="synapse://instructions/shared-memory",
                 name="Shared Memory Instructions",
@@ -314,6 +319,7 @@ class SynapseMCPServer:
 
         filename_map = {
             "synapse://instructions/file-safety": "file-safety.md",
+            "synapse://instructions/wiki": "wiki.md",
             "synapse://instructions/shared-memory": "shared-memory.md",
             "synapse://instructions/learning": "learning.md",
             "synapse://instructions/proactive": "proactive.md",
