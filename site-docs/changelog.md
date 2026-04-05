@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.21.0
+
+- **Added**: LLM Wiki — Knowledge Accumulation Layer (#506). Agents build persistent, interlinked Markdown wikis at project and global scope
+- **Added**: `synapse wiki ingest/query/lint/status` CLI commands
+- **Added**: Canvas Knowledge view (`#/knowledge`) with Project/Global tabs, page list, detail, wikilinks
+- **Added**: MCP instruction `synapse://instructions/wiki` for automatic wiki schema injection
+- **Fixed**: Wiki code simplified — deduplicated frontmatter parsing, added TTL cache, fixed TOCTOU
+
 ### v0.20.0
 
 - **Added**: Permission detection — spawned agents automatically notify callers when stopped at a permission prompt (#492, #498)
