@@ -26,6 +26,13 @@ agent_profile: str = "claude"
 submit_sequence: str = "\n"  # Default submit sequence
 
 
+def _decode_profile_escape(value: str | None) -> str:
+    """Decode YAML-style escape sequences from profile strings."""
+    if not value:
+        return ""
+    return value.encode().decode("unicode_escape")
+
+
 def load_profile(profile_name: str) -> dict:
     """Load agent profile configuration from YAML file."""
     profile_path = os.path.join(
@@ -92,9 +99,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         sys.exit(1)
 
     # Load submit sequence from profile (decode escape sequences)
-    submit_sequence = (
-        profile.get("submit_sequence", "\n").encode().decode("unicode_escape")
-    )
+    submit_sequence = _decode_profile_escape(profile.get("submit_sequence", "\n"))
 
     # Parse idle detection config (with backward compatibility)
     idle_detection = profile.get("idle_detection", {})
@@ -145,6 +150,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Auto-approve configuration: runtime WAITING detection auto-response
     auto_approve_config = profile.get("auto_approve", {})
+    # Read permission responses BEFORE clearing config (needed for manual approve/deny API)
+    approve_response = _decode_profile_escape(
+        auto_approve_config.get("runtime_response", "")
+    )
+    deny_response = _decode_profile_escape(auto_approve_config.get("deny_response", ""))
     if os.environ.get("SYNAPSE_AUTO_APPROVE") == "false":
         auto_approve_config = {}
 
@@ -186,6 +196,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         submit_sequence,
         current_agent_id,
         registry,
+        approve_response=approve_response,
+        deny_response=deny_response,
     )
     app.include_router(a2a_router)
 
@@ -224,6 +236,8 @@ def create_app(
     port: int,
     submit_seq: str = "\n",
     agent_type: str = "claude",
+    approve_response: str = "",
+    deny_response: str = "",
 ) -> FastAPI:
     """Create a FastAPI app with external controller and registry."""
     new_app = FastAPI(
@@ -239,7 +253,16 @@ def create_app(
             return {"status": "NOT_STARTED", "context": ""}
         return {"status": ctrl.status, "context": ctrl.get_context()[-2000:]}
 
-    a2a_router = create_a2a_router(ctrl, agent_type, port, submit_seq, agent_id, reg)
+    a2a_router = create_a2a_router(
+        ctrl,
+        agent_type,
+        port,
+        submit_seq,
+        agent_id,
+        reg,
+        approve_response=approve_response,
+        deny_response=deny_response,
+    )
     new_app.include_router(a2a_router)
 
     return new_app

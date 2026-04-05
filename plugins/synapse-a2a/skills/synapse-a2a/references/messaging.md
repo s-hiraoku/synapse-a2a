@@ -193,7 +193,7 @@ synapse send codex "STOP" --priority 5
 | Status | Meaning | Color |
 |--------|---------|-------|
 | READY | Idle, waiting for input | Green |
-| WAITING | Awaiting user input (selection, confirmation); auto-expires after `waiting_expiry` seconds (default 10s) | Cyan |
+| WAITING | Awaiting user input (selection, confirmation, permission prompt); maps to A2A `input_required` task state; auto-expires after `waiting_expiry` seconds (default 10s) | Cyan |
 | PROCESSING | Busy handling a task | Yellow |
 | DONE | Task completed (auto-clears after 10s) | Blue |
 | SHUTTING_DOWN | Graceful shutdown in progress | Red |
@@ -230,7 +230,7 @@ synapse status my-claude --json   # Machine-readable
 ### What Each Status Means for Senders
 
 - **READY**: Safe to send messages.
-- **WAITING**: Agent needs user input -- use terminal jump to respond (auto-clears after `waiting_expiry`).
+- **WAITING**: Agent needs user input (permission prompt, selection, confirmation). Spawned agents automatically notify their caller when entering WAITING. Callers can approve/deny via `POST /tasks/{id}/permission/approve` or `/deny`. Auto-clears after `waiting_expiry`.
 - **PROCESSING**: Busy. Wait, or use `--priority 5` for emergency interrupt.
 - **DONE**: Recently completed. Will return to READY shortly.
 

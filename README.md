@@ -98,6 +98,7 @@ flowchart LR
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), CURRENT task preview, terminal jump |
 | **Task History** | Automatic task tracking with search, export, and statistics (enabled by default) |
 | **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
+| **Permission Detection** | WAITING status maps to A2A `input_required` with `x-permission-prompt` metadata. Approve/deny via `POST /tasks/{id}/permission/approve` and `/deny` endpoints. Each profile defines a `deny_response` for rejection. See [Permission Modes](docs/agent-permission-modes.md) |
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force). Worktree branches are auto-merged back to the base branch on kill (uncommitted changes are WIP-committed first; conflicts preserve the branch with a warning). Use `--no-merge` to skip auto-merge |
 | **Delegate Mode** | `--delegate-mode` makes an agent a manager that delegates instead of editing files |

@@ -35,3 +35,4 @@ waiting_detection:
 auto_approve:
   cli_flag: "--yolo"
   runtime_response: "\r"
+  deny_response: "\x1b"

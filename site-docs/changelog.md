@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.20.0
+
+- **Added**: Permission detection — spawned agents automatically notify callers when stopped at a permission prompt (#492, #498)
+- **Added**: `POST /tasks/{id}/permission/approve` and `/deny` API endpoints for remote approval
+- **Added**: `deny_response` profile config for all 5 agent types
+- **Docs**: Permission detection spec and user guide
+
 ### v0.19.5
 
 - **Fixed**: Tile layout pane creation for spawn and team start (#502)

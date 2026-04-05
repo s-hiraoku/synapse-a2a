@@ -185,6 +185,15 @@ Compound signal: PROCESSING→READY suppressed when `task_active` flag set or fi
 
 **WAITING auto-approve**: When an agent enters WAITING status (permission prompt detected), the controller automatically sends the profile-specific approval response (e.g., `y\r` for Claude, `\r` for Gemini). Enabled by default for spawned agents; disable with `--no-auto-approve` or `SYNAPSE_AUTO_APPROVE=false`. Safety: max 20 consecutive, 2s cooldown. See [docs/agent-permission-modes.md](agent-permission-modes.md).
 
+**WAITING → input_required (A2A)**: When an agent enters WAITING status, the A2A task status is mapped to `input_required` per the Google A2A spec. The task metadata includes `x-permission-prompt` (the detected prompt text) and `x-permission-options` (available responses). Callers can approve or deny via the permission endpoints below. See [docs/permission-detection-spec.md](permission-detection-spec.md).
+
+### Permission Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/tasks/{id}/permission/approve` | Approve a permission prompt (sends profile-specific approval response to the agent PTY) |
+| POST | `/tasks/{id}/permission/deny` | Deny a permission prompt (sends the profile's `deny_response` to the agent PTY) |
+
 ## Readiness Gate
 
 `/tasks/send` blocked until agent completes initialization. Timeout: 30s. Bypasses: priority 5 and reply messages.
@@ -221,6 +230,7 @@ See test files in `tests/` directory. Key test groups:
 - Memory: `test_shared_memory.py`, `test_cli_memory.py`
 - MCP: `test_mcp_bootstrap.py`, `test_mcp_list_agents.py`, `test_mcp_analyze_task.py`
 - Smart Suggest / Plan: `test_plan_accept.py`
+- Permission: `test_permission_notify.py`, `test_permission_api.py`
 - Status: `test_cmd_status.py`, `test_compound_signal.py`
 - Live CLI E2E: `test_live_e2e_agents.py` (opt-in via `SYNAPSE_LIVE_E2E=1`; filter profiles with `SYNAPSE_LIVE_E2E_PROFILES=claude,copilot`)
 

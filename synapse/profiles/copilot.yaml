@@ -51,3 +51,4 @@ waiting_detection:
 auto_approve:
   cli_flag: "--allow-all"
   runtime_response: "1\r"
+  deny_response: "\x1b"
