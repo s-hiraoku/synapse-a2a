@@ -20,6 +20,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse kill <target> -f` | Force kill (immediate SIGKILL) |
 | `synapse merge <agent>` | Merge worktree agent branch into current branch |
 | `synapse merge --all` | Merge all worktree agent branches |
+| `synapse worktree prune` | Remove orphan worktrees (missing directories) |
 | `synapse jump <target>` | Jump to agent terminal |
 
 ### Communication

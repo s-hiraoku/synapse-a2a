@@ -94,6 +94,7 @@ synapse merge my-agent                             # Merge worktree branch (agen
 synapse merge --all                                # Merge all worktree branches
 synapse merge my-agent --dry-run                   # Preview merge without executing
 synapse merge my-agent --resolve-with gemini       # Delegate conflict resolution to another agent
+synapse worktree prune                             # Remove orphan worktrees (dir gone, git ref remains)
 synapse team start claude gemini                   # Defaults to --worktree isolation
 synapse team start claude gemini --no-worktree     # Opt out of worktree default
 synapse team start claude gemini --worktree --branch feature/api  # Base branch for all worktrees

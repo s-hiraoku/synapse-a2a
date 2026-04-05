@@ -579,3 +579,90 @@ def cleanup_worktree(
         pass
 
     return False
+
+
+# ============================================================
+# Prune orphan worktrees
+# ============================================================
+
+
+def _parse_prunable_worktrees(
+    porcelain_output: str, synapse_wt_prefix: str
+) -> list[str]:
+    """Parse ``git worktree list --porcelain`` and return prunable synapse worktree names."""
+    prunable: list[str] = []
+    current_path: str | None = None
+    is_prunable = False
+
+    for line in porcelain_output.splitlines():
+        if line.startswith("worktree "):
+            current_path = line[len("worktree ") :]
+            is_prunable = False
+        elif line.startswith("prunable"):
+            is_prunable = True
+        elif line == "":
+            if (
+                is_prunable
+                and current_path
+                and current_path.startswith(synapse_wt_prefix)
+            ):
+                name = current_path[len(synapse_wt_prefix) :]
+                if name:
+                    prunable.append(name)
+            current_path = None
+            is_prunable = False
+
+    return prunable
+
+
+def prune_worktrees() -> list[str]:
+    """Remove orphan worktrees under ``.synapse/worktrees/``.
+
+    Detects worktrees that git marks as *prunable* (directory missing),
+    runs ``git worktree prune`` to clean up git's internal references,
+    and deletes the corresponding ``worktree-<name>`` branches.
+
+    Returns:
+        List of pruned worktree names.
+    """
+    git_root = get_git_root()
+    synapse_wt_prefix = str(git_root / ".synapse" / "worktrees") + "/"
+
+    result = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        logger.warning("git worktree list failed: %s", result.stderr.strip())
+        return []
+
+    prunable = _parse_prunable_worktrees(result.stdout, synapse_wt_prefix)
+    if not prunable:
+        return []
+
+    # Remove stale git worktree references
+    prune_result = subprocess.run(
+        ["git", "worktree", "prune"],
+        capture_output=True,
+        text=True,
+    )
+    if prune_result.returncode != 0:
+        logger.warning("git worktree prune failed: %s", prune_result.stderr.strip())
+        return []
+
+    # Best-effort batch branch cleanup
+    branches = [f"worktree-{name}" for name in prunable]
+    branch_result = subprocess.run(
+        ["git", "branch", "-d", *branches],
+        capture_output=True,
+        text=True,
+    )
+    if branch_result.returncode != 0:
+        logger.warning(
+            "event=prune_branch_delete_failed error=%s",
+            branch_result.stderr.strip(),
+        )
+
+    logger.info("event=worktrees_pruned count=%d names=%s", len(prunable), prunable)
+    return prunable

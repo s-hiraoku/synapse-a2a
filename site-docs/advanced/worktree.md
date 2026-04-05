@@ -316,8 +316,41 @@ See [Scenario 9: Cross-Worktree Knowledge Transfer](../guide/cross-agent-scenari
 - Files in `.gitignore` are **not copied** to worktrees (e.g., `.env`, `node_modules/`)
 - Each worktree may need dependency installation (`uv sync`, `npm install`)
 - Add `.synapse/worktrees/` to your `.gitignore`
-- Crashed agents may leave worktrees behind — clean up with `git worktree remove -f`
+- Crashed agents may leave worktrees behind — clean up with `synapse worktree prune` (see below) or `git worktree remove -f`
 - The same branch cannot be checked out in multiple worktrees simultaneously
+
+## Pruning Orphan Worktrees
+
+When an agent crashes or is force-killed, its worktree directory may be removed while git still tracks the worktree reference internally. These "orphan" worktrees clutter `git worktree list` output and leave behind stale branches.
+
+The `synapse worktree prune` command detects and cleans up these orphans:
+
+```bash
+synapse worktree prune
+```
+
+**What it does:**
+
+1. Scans `git worktree list` for worktrees under `.synapse/worktrees/` whose directories no longer exist
+2. Runs `git worktree prune` to remove stale git internal references
+3. Deletes the corresponding `worktree-<name>` branches
+
+**Example output:**
+
+```
+$ synapse worktree prune
+  Pruned: bold-hawk
+  Pruned: feature-auth
+```
+
+If no orphan worktrees are found, it prints:
+
+```
+[Synapse] No orphan worktrees found.
+```
+
+!!! tip "When to use"
+    Run `synapse worktree prune` after unexpected crashes or when `git worktree list` shows entries pointing to missing directories. It is safe to run at any time — active worktrees with existing directories are never removed.
 
 ## Directory Structure
 

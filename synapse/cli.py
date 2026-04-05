@@ -1533,6 +1533,19 @@ def cmd_wiki_status(args: argparse.Namespace) -> None:
     _cmd_wiki_status(args)
 
 
+def cmd_worktree_prune(args: argparse.Namespace) -> None:
+    """Prune orphan worktrees."""
+    from synapse.worktree import prune_worktrees
+
+    pruned = prune_worktrees()
+    if not pruned:
+        print("[Synapse] No orphan worktrees found.")
+        return
+    for name in pruned:
+        print(f"  Pruned: {name}")
+    print(f"[Synapse] Pruned {len(pruned)} orphan worktree(s).")
+
+
 def cmd_mcp_serve(args: argparse.Namespace) -> None:
     """Serve Synapse MCP resources over stdio."""
     from synapse.mcp.server import SynapseMCPServer, serve_stdio
@@ -5150,6 +5163,23 @@ History is enabled by default (v0.3.13+). To disable: SYNAPSE_HISTORY_ENABLED=fa
         "--scope", choices=["project", "global"], default="project"
     )
     p_wiki_status.set_defaults(func=cmd_wiki_status)
+
+    # worktree - Git worktree management
+    p_worktree = subparsers.add_parser(
+        "worktree",
+        help="Manage git worktrees",
+        description="Manage Synapse git worktrees.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Examples:\n  synapse worktree prune",
+    )
+    worktree_subparsers = p_worktree.add_subparsers(
+        dest="worktree_command", metavar="SUBCOMMAND"
+    )
+
+    p_wt_prune = worktree_subparsers.add_parser(
+        "prune", help="Remove orphan worktrees whose directories no longer exist"
+    )
+    p_wt_prune.set_defaults(func=cmd_worktree_prune)
 
     # external - External A2A agent management
     p_external = subparsers.add_parser(

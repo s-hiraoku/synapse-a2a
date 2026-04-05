@@ -124,6 +124,16 @@ Merges worktree agent branches into the current branch. The agent must have a wo
 !!! tip "Conflict resolution"
     When `--resolve-with` is specified and the merge encounters conflicts, Synapse sends the conflict details to the resolver agent via A2A, waits for the resolution, and completes the merge automatically.
 
+### Worktree
+
+```bash
+synapse worktree prune       # Remove orphan worktrees whose directories no longer exist
+```
+
+Detects worktrees under `.synapse/worktrees/` that git marks as prunable (directory missing), runs `git worktree prune` to clean up git's internal references, and deletes the corresponding `worktree-<name>` branches. Active worktrees with existing directories are never affected.
+
+See [Worktree Isolation — Pruning Orphan Worktrees](../advanced/worktree.md#pruning-orphan-worktrees) for details.
+
 ### Jump
 
 ```bash
