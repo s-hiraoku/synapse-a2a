@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.19.6
+
+- **Changed**: Expanded CLAUDE.md architecture table with 20+ modules
+- **Changed**: Post-impl workflow: renamed target, added timeouts and commit step
+- **Docs**: Updated test badge count (3287 → 3710) across all READMEs
+- **Docs**: Added contents table to docs/README.md, a2a-communication.md to guides
+
 ### v0.19.5
 
 - **Fixed**: Tile layout pane creation for spawn and team start (#502)

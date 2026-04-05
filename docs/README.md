@@ -6,6 +6,26 @@ For user guides, see the [`/guides`](../guides/) directory.
 
 ## Contents
 
+| Document | Description |
+|----------|-------------|
+| `synapse-reference.md` | Full command reference (split from CLAUDE.md) |
+| `worktree.md` | Synapse-native git worktree isolation guide |
+| `shared-memory-spec.md` | Shared Memory specification |
+| `proactive-mode-spec.md` | Proactive Mode specification |
+| `agent-permission-modes.md` | Agent permission modes |
+| `transport-display-spec.md` | Transport display specification |
+| `channel-protocol.md` | Channel Protocol specification |
+| `a2a-uds-local-transport.md` | A2A UDS local transport |
+| `TASK_OWNERSHIP_DESIGN.md` | Task ownership design |
+| `symphony-analysis.md` | Symphony analysis |
+| `design/canvas.md` | Canvas design document |
+| `design/canvas-workflow.md` | Canvas workflow design |
+| `design/ecc-integration.md` | ECC integration design |
+| `design/generative-ui-landscape.md` | Generative UI landscape analysis |
+| `design/mcp-bootstrap.md` | MCP bootstrap design |
+| `design/mcp-startup-approval-notes.md` | MCP startup approval notes |
+| `design/smart-suggest-plan-canvas.md` | Smart Suggest + Plan Canvas design |
+
 ## Operational Notes
 
 - Save-on-exit prompt for interactive agents:

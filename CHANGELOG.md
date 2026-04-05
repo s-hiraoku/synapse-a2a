@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.6] - 2026-04-05
+
+### Changed
+
+- Expanded CLAUDE.md architecture table with 20+ previously undocumented modules
+- Updated post-impl workflow: target `claude-agent` → `claude`, added timeouts, added commit step before PR creation
+- Added `auto_spawn: true` to post-impl workflow
+
+### Documentation
+
+- Updated test badge count from 3287 to 3710 across all READMEs (en, ja, es, fr, ko, zh)
+- Added contents table to docs/README.md with 17 document entries
+- Added a2a-communication.md section to guides/README.md
+- Added Worktree, FileSafety, WorkflowRunner, Transport, Canvas, and other modules to README.md architecture table
+
 ## [0.19.5] - 2026-04-04
 
 ### Fixed

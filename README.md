@@ -6,7 +6,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-3287%20passed-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-3710%20passed-brightgreen.svg)](#testing)
 [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-blue)](https://deepwiki.com/s-hiraoku/synapse-a2a)
 
 > A framework that enables inter-agent collaboration via the Google A2A Protocol while keeping CLI agents (Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI) **exactly as they are**
@@ -558,10 +558,18 @@ Each agent is:
 | TerminalController | `synapse/controller.py` | PTY management, READY/PROCESSING detection |
 | Shell | `synapse/shell.py` | Interactive shell with @Agent pattern routing |
 | AgentRegistry | `synapse/registry.py` | Agent registration and lookup |
+| Worktree | `synapse/worktree.py` | Synapse-native git worktree isolation for all agents |
+| FileSafety | `synapse/file_safety.py` | Multi-agent file locking and change tracking |
 | SkillManager | `synapse/skills.py` | Skill discovery, deploy, import, skill sets |
 | SkillManagerCmd | `synapse/commands/skill_manager.py` | Skill management TUI and CLI |
 | AgentProfileStore | `synapse/agent_profiles.py` | Saved agent definitions (reusable templates for spawn) |
 | WorkflowRunDB | `synapse/workflow_db.py` | SQLite persistence for workflow execution history |
+| WorkflowRunner | `synapse/workflow_runner.py` | Step-by-step workflow executor |
+| Observation | `synapse/observation.py` | PTY/A2A signal capture for self-learning pipeline |
+| PatternAnalyzer | `synapse/pattern_analyzer.py` | Observation pattern analysis |
+| Instinct | `synapse/instinct.py` | Learned instinct persistence |
+| Transport | `synapse/transport.py` | Transport abstraction layer |
+| Canvas | `synapse/canvas/` | Shared visual output surface (server, protocol, store, export, routes) |
 | MCP Server | `synapse/mcp/` | MCP bootstrap resource server (instructions, settings, agent card) |
 
 ### Startup Sequence

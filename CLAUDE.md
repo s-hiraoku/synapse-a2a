@@ -25,26 +25,49 @@ pytest -k "test_bar" -v                   # Pattern match
 
 ```
 synapse/
-├── cli.py           # Entry point
-├── controller.py    # PTY management, status detection
-├── server.py        # FastAPI A2A endpoints
-├── a2a_compat.py    # A2A protocol (Agent Card, Task API)
-├── a2a_client.py    # Client for other A2A agents
-├── registry.py      # File-based agent discovery
-├── shell.py         # Interactive shell with @Agent routing
-├── shared_memory.py # Cross-agent knowledge base (SQLite)
-├── spawn.py         # Agent spawning
-├── workflow_db.py   # Workflow run persistence (SQLite)
-├── mcp/             # MCP server (bootstrap instruction distribution)
-├── canvas/          # Shared visual output surface
-│   ├── server.py    #   FastAPI app factory & middleware
-│   ├── routes/      #   Route modules (admin, cards, db, workflow)
-│   └── static/      #   Modular CSS (7 files) & JS (8 files)
-├── commands/        # CLI command implementations
-├── profiles/        # YAML configs per agent type
-├── proto/           # gRPC Protocol Buffers
-├── tools/           # A2A CLI tools (a2a.py + a2a_helpers.py)
-└── templates/       # Project template files
+├── cli.py              # Entry point
+├── controller.py       # PTY management, status detection
+├── server.py           # FastAPI A2A endpoints
+├── a2a_compat.py       # A2A protocol (Agent Card, Task API)
+├── a2a_client.py       # Client for other A2A agents
+├── registry.py         # File-based agent discovery
+├── shell.py            # Interactive shell with @Agent routing
+├── shared_memory.py    # Cross-agent knowledge base (SQLite)
+├── spawn.py            # Agent spawning
+├── worktree.py         # Synapse-native git worktree isolation
+├── workflow.py         # Workflow definition & execution
+├── workflow_db.py      # Workflow run persistence (SQLite)
+├── workflow_runner.py  # Step-by-step workflow executor
+├── agent_profiles.py   # Saved agent definitions (reusable templates)
+├── transport.py        # Transport abstraction layer
+├── observation.py      # PTY/A2A signal observation for learning
+├── pattern_analyzer.py # Observation pattern analysis
+├── instinct.py         # Learned instinct persistence
+├── evolve.py           # Instinct → skill candidate evolution
+├── skills.py           # Skill discovery, deploy, import, skill sets
+├── history.py          # Task history tracking
+├── file_safety.py      # Multi-agent file locking & change tracking
+├── reply_stack.py      # Reply routing stack
+├── hooks.py            # Quality gate hooks (on_idle, on_task_completed)
+├── settings.py         # Runtime settings management
+├── config.py           # Configuration loading
+├── mcp/                # MCP server (bootstrap instruction distribution)
+├── canvas/             # Shared visual output surface
+│   ├── server.py       #   FastAPI app factory & middleware
+│   ├── protocol.py     #   Canvas Message Protocol
+│   ├── store.py        #   Card storage
+│   ├── export.py       #   Card download/export
+│   ├── ogp.py          #   OGP link preview enrichment
+│   ├── routes/         #   Route modules (admin, cards, db, workflow)
+│   ├── templates/      #   HTML templates (index.html)
+│   └── static/         #   Modular CSS (8 files) & JS (8 files)
+├── commands/           # CLI command implementations
+│   ├── merge.py        #   Worktree merge command
+│   └── renderers/      #   Output renderers (rich_renderer)
+├── profiles/           # YAML configs per agent type
+├── proto/              # gRPC Protocol Buffers
+├── tools/              # A2A CLI tools (a2a.py + a2a_helpers.py)
+└── templates/          # Project template files
 ```
 
 ## Core Design Principles
