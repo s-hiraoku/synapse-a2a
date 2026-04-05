@@ -7,6 +7,7 @@ window.SynapseCanvas = (function() {
   function broadcastThemeToIframes() { return ns.broadcastThemeToIframes.apply(ns, arguments); }
   function loadWorkflows() { return ns.loadWorkflows.apply(ns, arguments); }
   function loadDatabaseList() { return ns.loadDatabaseList.apply(ns, arguments); }
+  function loadKnowledgeView() { return ns.loadKnowledgeView.apply(ns, arguments); }
 
   var _dashExpandState = {};
   var _dashboardRendered = false;
@@ -55,7 +56,7 @@ window.SynapseCanvas = (function() {
   const SPOTLIGHT_SWAP_DELAY = 420;
 
   // Route labels for topbar
-  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", workflow: "Workflow", system: "System", admin: "Agent Control", database: "Database" };
+  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", workflow: "Workflow", knowledge: "Knowledge", system: "System", admin: "Agent Control", database: "Database" };
 
   // Current route
   let currentRoute = "canvas";
@@ -1086,6 +1087,7 @@ window.SynapseCanvas = (function() {
     if (hash === "#/history") return "history";
     if (hash === "#/system") return "system";
     if (hash === "#/workflow") return "workflow";
+    if (hash === "#/knowledge") return "knowledge";
     if (hash === "#/admin") return "admin";
     if (hash === "#/database") return "database";
     return "canvas";
@@ -1134,6 +1136,7 @@ window.SynapseCanvas = (function() {
 
   function navigate() {
     currentRoute = getRoute();
+    var knowledgeView = document.getElementById("knowledge-view");
 
     // Update nav links — Canvas parent stays active when History sub-route is shown
     navLinks.forEach(link => {
@@ -1154,6 +1157,7 @@ window.SynapseCanvas = (function() {
     historyView.classList.add("view-hidden");
     systemView.classList.add("view-hidden");
     if (workflowView) workflowView.classList.add("view-hidden");
+    if (knowledgeView) knowledgeView.classList.add("view-hidden");
     if (adminView) adminView.classList.add("view-hidden");
     if (databaseView) databaseView.classList.add("view-hidden");
 
@@ -1183,6 +1187,10 @@ window.SynapseCanvas = (function() {
       if (workflowView) workflowView.classList.remove("view-hidden");
       filterBar.style.display = "none";
       loadWorkflows();
+    } else if (currentRoute === "knowledge") {
+      if (knowledgeView) knowledgeView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      loadKnowledgeView();
     } else if (currentRoute === "admin") {
       if (adminView) adminView.classList.remove("view-hidden");
       filterBar.style.display = "none";

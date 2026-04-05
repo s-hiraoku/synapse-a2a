@@ -15,6 +15,7 @@ CANVAS_CSS_FILES = (
     "canvas-markdown.css",
     "canvas-templates.css",
     "canvas-views.css",
+    "canvas-knowledge.css",
 )
 
 CANVAS_JS_FILES = (
@@ -25,6 +26,7 @@ CANVAS_JS_FILES = (
     "canvas-admin.js",
     "canvas-workflow.js",
     "canvas-database.js",
+    "canvas-knowledge.js",
     "canvas-init.js",
 )
 

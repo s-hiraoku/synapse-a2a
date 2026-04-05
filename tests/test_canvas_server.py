@@ -911,14 +911,44 @@ class TestNewFormats:
 class TestSystemPanel:
     """Tests for the system panel data endpoint."""
 
+    @staticmethod
+    def _clear_wiki_cache():
+        from synapse.canvas.routes.wiki import _wiki_enabled_cache
+
+        _wiki_enabled_cache["value"] = None
+        _wiki_enabled_cache["ts"] = 0.0
+
     def test_system_endpoint_returns_data(self, client):
         """GET /api/system should return system panel data."""
+        self._clear_wiki_cache()
         resp = client.get("/api/system")
         assert resp.status_code == 200
         data = resp.json()
         assert "agents" in data
         assert "file_locks" in data
         assert isinstance(data["agents"], list)
+        assert data["wiki_enabled"] is True
+
+    def test_system_endpoint_includes_wiki_enabled_from_settings(
+        self, tmp_path, monkeypatch
+    ):
+        """GET /api/system should surface wiki enablement for the frontend."""
+        self._clear_wiki_cache()
+        from synapse.canvas.server import create_app
+
+        monkeypatch.chdir(tmp_path)
+        settings_dir = tmp_path / ".synapse"
+        settings_dir.mkdir(parents=True, exist_ok=True)
+        (settings_dir / "settings.json").write_text(
+            '{"wiki": {"enabled": false}}',
+            encoding="utf-8",
+        )
+
+        app = create_app(db_path=str(tmp_path / "canvas.db"))
+        resp = TestClient(app).get("/api/system")
+
+        assert resp.status_code == 200
+        assert resp.json()["wiki_enabled"] is False
 
     def test_system_saved_agents_split_user_and_active_project_scopes(
         self, client, tmp_path, monkeypatch

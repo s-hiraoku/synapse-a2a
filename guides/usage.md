@@ -260,6 +260,14 @@ flowchart TB
         learn["learn"]
         instinct["instinct"]
         evolve["evolve"]
+        wiki["wiki"]
+    end
+
+    subgraph Wiki["wiki サブコマンド"]
+        wiki_ingest["ingest"]
+        wiki_query["query"]
+        wiki_lint["lint"]
+        wiki_status["status"]
     end
 
     subgraph Memory["memory サブコマンド"]
@@ -349,6 +357,7 @@ flowchart TB
     agents --> Agents
     tasks --> Tasks
     session --> SessionCmds
+    wiki --> Wiki
     workflow --> WorkflowCmds
 ```
 
@@ -372,6 +381,7 @@ flowchart TB
 | `synapse instructions` | インストラクション管理 |
 | `synapse external` | 外部エージェント管理 |
 | `synapse memory` | 共有メモリ管理（エージェント間の知識共有） |
+| `synapse wiki` | LLM Wiki 管理（知識蓄積レイヤー: `ingest`, `query`, `lint`, `status`） |
 | `synapse agents` | 保存済みエージェント定義の管理 |
 | `synapse approve/reject` | プランの承認/却下 |
 | `synapse skills` | スキル管理（インタラクティブTUI / サブコマンド） |
@@ -1747,7 +1757,8 @@ synapse spawn codex --name Helper --role "実装補助"
 
 | 機能 | コマンド | 用途 |
 |------|---------|------|
-| 共有メモリ | `synapse memory save/search` | チーム全体の知識構築 |
+| 共有メモリ | `synapse memory save/search` | チーム全体の知識共有 |
+| LLM Wiki | `synapse wiki ingest/query/lint/status` | 構造化された知識蓄積（ページ間リンク、confidence） |
 | ファイル安全 | `synapse file-safety lock/unlock` | マルチエージェント環境での排他制御 |
 | ワークツリー | `synapse spawn --worktree` | ファイル編集の分離 |
 | ブロードキャスト | `synapse broadcast` | チーム全体への通知 |
