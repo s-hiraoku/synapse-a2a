@@ -34,11 +34,12 @@ synapse/
 ├── shell.py         # Interactive shell with @Agent routing
 ├── shared_memory.py # Cross-agent knowledge base (SQLite)
 ├── spawn.py         # Agent spawning
+├── wiki.py          # LLM Wiki CLI commands (ingest, query, lint, status)
 ├── workflow_db.py   # Workflow run persistence (SQLite)
 ├── mcp/             # MCP server (bootstrap instruction distribution)
 ├── canvas/          # Shared visual output surface
 │   ├── server.py    #   FastAPI app factory & middleware
-│   ├── routes/      #   Route modules (admin, cards, db, workflow)
+│   ├── routes/      #   Route modules (admin, cards, db, wiki, workflow)
 │   └── static/      #   Modular CSS (7 files) & JS (8 files)
 ├── commands/        # CLI command implementations
 ├── profiles/        # YAML configs per agent type

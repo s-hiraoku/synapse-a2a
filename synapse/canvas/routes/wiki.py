@@ -2,39 +2,21 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import yaml
 from fastapi import APIRouter, HTTPException
 
 from synapse.settings import load_settings, merge_settings
+from synapse.wiki import WIKILINK_PATTERN, get_wiki_dir, parse_frontmatter
 
 wiki_router = APIRouter()
 
-
-def _get_wiki_dir(scope: str) -> Path:
-    """Get wiki directory for the given scope."""
-    if scope == "global":
-        return Path.home() / ".synapse" / "wiki"
-
-    synapse_dir = os.environ.get("SYNAPSE_DIR", os.path.join(os.getcwd(), ".synapse"))
-    return Path(synapse_dir) / "wiki"
-
-
-def _parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
-    """Parse YAML frontmatter from markdown content."""
-    match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
-    if not match:
-        return {}, content
-
-    try:
-        frontmatter = yaml.safe_load(match.group(1)) or {}
-    except yaml.YAMLError:
-        frontmatter = {}
-
-    return frontmatter, content[match.end() :]
+# Cache wiki.enabled to avoid re-reading settings files on every request.
+_wiki_enabled_cache: dict[str, Any] = {"value": None, "ts": 0.0}
+_ENABLED_CACHE_TTL = 30.0  # seconds
 
 
 def _scan_wiki_pages(wiki_dir: Path) -> list[dict[str, Any]]:
@@ -46,7 +28,7 @@ def _scan_wiki_pages(wiki_dir: Path) -> list[dict[str, Any]]:
     pages: list[dict[str, Any]] = []
     for md_file in sorted(pages_dir.glob("*.md")):
         content = md_file.read_text(encoding="utf-8")
-        frontmatter, body = _parse_frontmatter(content)
+        fm, body = parse_frontmatter(content)
 
         summary = ""
         for line in body.strip().split("\n"):
@@ -55,14 +37,20 @@ def _scan_wiki_pages(wiki_dir: Path) -> list[dict[str, Any]]:
                 summary = stripped[:200]
                 break
 
-        sources = frontmatter.get("sources", [])
+        sources = fm.get("sources", [])
         pages.append(
             {
                 "filename": md_file.name,
                 "slug": md_file.stem,
-                **frontmatter,
+                "type": fm.get("type"),
+                "title": fm.get("title"),
+                "created": fm.get("created"),
+                "updated": fm.get("updated"),
+                "confidence": fm.get("confidence"),
+                "author": fm.get("author"),
+                "tags": fm.get("tags"),
                 "summary": summary,
-                "link_count": len(re.findall(r"\[\[([^\]]+)\]\]", body)),
+                "link_count": len(WIKILINK_PATTERN.findall(body)),
                 "source_count": len(sources) if isinstance(sources, list) else 0,
             }
         )
@@ -72,6 +60,13 @@ def _scan_wiki_pages(wiki_dir: Path) -> list[dict[str, Any]]:
 
 def is_wiki_enabled() -> bool:
     """Return whether the wiki feature is enabled in merged raw settings."""
+    now = time.monotonic()
+    if (
+        _wiki_enabled_cache["value"] is not None
+        and now - float(_wiki_enabled_cache["ts"]) < _ENABLED_CACHE_TTL
+    ):
+        return bool(_wiki_enabled_cache["value"])
+
     user_settings = load_settings(
         Path(os.path.expanduser("~")) / ".synapse" / "settings.json"
     )
@@ -85,9 +80,14 @@ def is_wiki_enabled() -> bool:
     )
 
     wiki_settings = merged.get("wiki", {})
-    if isinstance(wiki_settings, dict):
-        return bool(wiki_settings.get("enabled", True))
-    return True
+    enabled = (
+        bool(wiki_settings.get("enabled", True))
+        if isinstance(wiki_settings, dict)
+        else True
+    )
+    _wiki_enabled_cache["value"] = enabled
+    _wiki_enabled_cache["ts"] = now
+    return enabled
 
 
 @wiki_router.get("/api/wiki")
@@ -98,7 +98,7 @@ async def list_wiki_pages(scope: str = "project") -> dict[str, Any]:
             status_code=400, detail="scope must be 'project' or 'global'"
         )
 
-    wiki_dir = _get_wiki_dir(scope)
+    wiki_dir = get_wiki_dir(scope)
     if not wiki_dir.exists():
         return {"scope": scope, "pages": [], "exists": False}
 
@@ -119,23 +119,31 @@ async def get_wiki_page(scope: str, page: str) -> dict[str, Any]:
             status_code=400, detail="scope must be 'project' or 'global'"
         )
 
-    wiki_dir = _get_wiki_dir(scope)
+    wiki_dir = get_wiki_dir(scope)
     safe_page = Path(page).name
     if not safe_page.endswith(".md"):
         safe_page = f"{safe_page}.md"
 
     page_path = wiki_dir / "pages" / safe_page
-    if not page_path.is_file():
-        raise HTTPException(status_code=404, detail=f"Page not found: {page}")
+    try:
+        content = page_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Page not found: {page}") from None
 
-    content = page_path.read_text(encoding="utf-8")
-    frontmatter, body = _parse_frontmatter(content)
+    fm, body = parse_frontmatter(content)
     return {
         "slug": page_path.stem,
         "filename": page_path.name,
-        **frontmatter,
+        "type": fm.get("type"),
+        "title": fm.get("title"),
+        "created": fm.get("created"),
+        "updated": fm.get("updated"),
+        "confidence": fm.get("confidence"),
+        "author": fm.get("author"),
+        "sources": fm.get("sources"),
+        "tags": fm.get("tags"),
         "body": body,
-        "links": re.findall(r"\[\[([^\]]+)\]\]", body),
+        "links": WIKILINK_PATTERN.findall(body),
     }
 
 
@@ -147,7 +155,7 @@ async def wiki_stats(scope: str = "project") -> dict[str, Any]:
             status_code=400, detail="scope must be 'project' or 'global'"
         )
 
-    wiki_dir = _get_wiki_dir(scope)
+    wiki_dir = get_wiki_dir(scope)
     if not wiki_dir.exists():
         return {
             "scope": scope,
@@ -162,7 +170,7 @@ async def wiki_stats(scope: str = "project") -> dict[str, Any]:
     sources_dir = wiki_dir / "sources"
     page_files = sorted(pages_dir.glob("*.md")) if pages_dir.is_dir() else []
     source_count = (
-        len([path for path in sources_dir.iterdir() if path.is_file()])
+        sum(1 for path in sources_dir.iterdir() if path.is_file())
         if sources_dir.is_dir()
         else 0
     )
@@ -196,7 +204,9 @@ async def wiki_stats(scope: str = "project") -> dict[str, Any]:
         "exists": True,
         "page_count": len(page_files),
         "source_count": source_count,
-        "last_updated": datetime.fromtimestamp(last_updated).isoformat()
+        "last_updated": datetime.fromtimestamp(
+            last_updated, tz=timezone.utc
+        ).isoformat()
         if last_updated
         else None,
         "recent_activity": recent_activity,

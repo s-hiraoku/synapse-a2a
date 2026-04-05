@@ -129,6 +129,7 @@
   }
 
   function getPageSummary(page) {
+    if (page.summary) return String(page.summary);
     var body = String(page.body || page.content || "");
     var firstLine = body.split("\n").find(function(line) { return line.trim(); });
     return firstLine || "No summary available.";
@@ -583,8 +584,7 @@
     }, 0);
   }
 
-  ensureKnowledgeShell();
-  checkWikiEnabled();
+  // Defer init to first navigation — avoid HTTP request and DOM mutation on every page load.
 
   ns.fetchWikiPages = fetchWikiPages;
   ns.fetchWikiStats = fetchWikiStats;

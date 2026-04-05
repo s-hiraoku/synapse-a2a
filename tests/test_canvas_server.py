@@ -911,8 +911,16 @@ class TestNewFormats:
 class TestSystemPanel:
     """Tests for the system panel data endpoint."""
 
+    @staticmethod
+    def _clear_wiki_cache():
+        from synapse.canvas.routes.wiki import _wiki_enabled_cache
+
+        _wiki_enabled_cache["value"] = None
+        _wiki_enabled_cache["ts"] = 0.0
+
     def test_system_endpoint_returns_data(self, client):
         """GET /api/system should return system panel data."""
+        self._clear_wiki_cache()
         resp = client.get("/api/system")
         assert resp.status_code == 200
         data = resp.json()
@@ -925,6 +933,7 @@ class TestSystemPanel:
         self, tmp_path, monkeypatch
     ):
         """GET /api/system should surface wiki enablement for the frontend."""
+        self._clear_wiki_cache()
         from synapse.canvas.server import create_app
 
         monkeypatch.chdir(tmp_path)

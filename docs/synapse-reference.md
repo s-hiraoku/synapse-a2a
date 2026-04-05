@@ -57,6 +57,12 @@ synapse memory save <key> <content> [--tags tag1,tag2]
 synapse memory list [--author <id>] [--tags <tags>]
 synapse memory search <query>
 
+# Wiki (LLM Wiki — Knowledge Accumulation)
+synapse wiki ingest <source-path> [--scope project|global]
+synapse wiki query "<question>" [--scope project|global]
+synapse wiki lint [--scope project|global]
+synapse wiki status [--scope project|global]
+
 # Canvas
 synapse canvas serve [--port 3000] [--no-open]
 synapse canvas post mermaid "graph TD; A-->B" --title "Flow"
@@ -213,6 +219,8 @@ Compound signal: PROCESSING→READY suppressed when `task_active` flag set or fi
 ~/.synapse/history/      # history.db (task history, user-global)
 ~/.synapse/canvas.db     # Canvas card storage (user-global)
 ~/.synapse/memory.db     # Shared memory (user-global)
+~/.synapse/wiki/         # Global Wiki (cross-project knowledge)
+.synapse/wiki/           # Project-local Wiki (pages, sources, schema, index, log)
 .synapse/                # Project-local (file_safety.db, workflow_runs.db, observations.db, instincts.db, etc.)
 ```
 

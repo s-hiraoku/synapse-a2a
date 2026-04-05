@@ -52,22 +52,18 @@ Related to [[beta]] and [[gamma]].
     resp = client.get("/api/wiki", params={"scope": "project"})
 
     assert resp.status_code == 200
-    assert resp.json() == {
-        "scope": "project",
-        "exists": True,
-        "pages": [
-            {
-                "filename": "alpha.md",
-                "slug": "alpha",
-                "title": "Alpha",
-                "sources": ["src-1"],
-                "tags": ["test"],
-                "summary": "First summary line.",
-                "link_count": 2,
-                "source_count": 1,
-            }
-        ],
-    }
+    data = resp.json()
+    assert data["scope"] == "project"
+    assert data["exists"] is True
+    assert len(data["pages"]) == 1
+    page = data["pages"][0]
+    assert page["filename"] == "alpha.md"
+    assert page["slug"] == "alpha"
+    assert page["title"] == "Alpha"
+    assert page["tags"] == ["test"]
+    assert page["summary"] == "First summary line."
+    assert page["link_count"] == 2
+    assert page["source_count"] == 1
 
 
 def test_get_wiki_page_returns_page_content(tmp_path, monkeypatch):
@@ -87,14 +83,13 @@ Body paragraph with [[alpha]] and [[beta]].
     resp = client.get("/api/wiki/project/pages/overview")
 
     assert resp.status_code == 200
-    assert resp.json() == {
-        "slug": "overview",
-        "filename": "overview.md",
-        "title": "Overview",
-        "sources": ["source-1"],
-        "body": "Body paragraph with [[alpha]] and [[beta]].\n",
-        "links": ["alpha", "beta"],
-    }
+    data = resp.json()
+    assert data["slug"] == "overview"
+    assert data["filename"] == "overview.md"
+    assert data["title"] == "Overview"
+    assert data["sources"] == ["source-1"]
+    assert data["body"] == "Body paragraph with [[alpha]] and [[beta]].\n"
+    assert data["links"] == ["alpha", "beta"]
 
 
 def test_get_wiki_page_returns_404_for_missing_page(tmp_path, monkeypatch):
@@ -157,7 +152,7 @@ def test_get_wiki_page_prevents_path_traversal(tmp_path, monkeypatch):
 
 
 def test_parse_frontmatter_handles_valid_missing_and_malformed_content():
-    from synapse.canvas.routes.wiki import _parse_frontmatter
+    from synapse.wiki import parse_frontmatter as _parse_frontmatter
 
     valid_fm, valid_body = _parse_frontmatter(
         """---
@@ -185,7 +180,15 @@ Still body
     assert malformed_body == "Still body\n"
 
 
+def _clear_wiki_enabled_cache():
+    from synapse.canvas.routes.wiki import _wiki_enabled_cache
+
+    _wiki_enabled_cache["value"] = None
+    _wiki_enabled_cache["ts"] = 0.0
+
+
 def test_wiki_enabled_endpoint_defaults_to_true(tmp_path, monkeypatch):
+    _clear_wiki_enabled_cache()
     client = _make_client(tmp_path, monkeypatch)
 
     resp = client.get("/api/wiki/enabled")
@@ -195,6 +198,7 @@ def test_wiki_enabled_endpoint_defaults_to_true(tmp_path, monkeypatch):
 
 
 def test_wiki_enabled_endpoint_reads_settings_file(tmp_path, monkeypatch):
+    _clear_wiki_enabled_cache()
     client = _make_client(tmp_path, monkeypatch)
     settings_dir = tmp_path / ".synapse"
     settings_dir.mkdir(parents=True, exist_ok=True)

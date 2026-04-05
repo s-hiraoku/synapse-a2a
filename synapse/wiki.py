@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 from datetime import datetime, timezone
@@ -13,13 +14,15 @@ import yaml
 
 WIKI_PAGE_TYPES = {"entity", "concept", "decision", "comparison", "synthesis"}
 WIKILINK_PATTERN = re.compile(r"\[\[([^\]]+)\]\]")
+_FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 def get_wiki_dir(scope: str = "project") -> Path:
     """Get wiki directory path for given scope."""
     if scope == "global":
         return Path.home() / ".synapse" / "wiki"
-    return Path.cwd() / ".synapse" / "wiki"
+    synapse_dir = os.environ.get("SYNAPSE_DIR", str(Path.cwd() / ".synapse"))
+    return Path(synapse_dir) / "wiki"
 
 
 def _read_template(relative_path: str) -> str:
@@ -53,19 +56,25 @@ def _timestamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
 
 
-def _parse_frontmatter(path: Path) -> tuple[dict[str, Any], str]:
-    text = path.read_text(encoding="utf-8")
-    if not text.startswith("---\n"):
-        return {}, text
+def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
+    """Parse YAML frontmatter from markdown content.
 
-    parts = text.split("---\n", 2)
-    if len(parts) < 3:
-        return {}, text
+    Returns (frontmatter_dict, body_content).
+    """
+    match = _FRONTMATTER_RE.match(content)
+    if not match:
+        return {}, content
+    try:
+        fm = yaml.safe_load(match.group(1)) or {}
+    except yaml.YAMLError:
+        fm = {}
+    if not isinstance(fm, dict):
+        return {}, content[match.end() :]
+    return fm, content[match.end() :]
 
-    loaded = yaml.safe_load(parts[1]) or {}
-    if not isinstance(loaded, dict):
-        return {}, parts[2]
-    return loaded, parts[2]
+
+def _parse_frontmatter_from_path(path: Path) -> tuple[dict[str, Any], str]:
+    return parse_frontmatter(path.read_text(encoding="utf-8"))
 
 
 def _iter_page_paths(wiki_dir: Path) -> list[Path]:
@@ -84,7 +93,7 @@ def _collect_status(wiki_dir: Path) -> tuple[int, int, str | None, int]:
     page_slugs = {_page_slug(path) for path in page_paths}
 
     for path in page_paths:
-        frontmatter, body = _parse_frontmatter(path)
+        frontmatter, body = _parse_frontmatter_from_path(path)
         if any(
             not frontmatter.get(field)
             for field in ("type", "title", "created", "updated")
@@ -162,7 +171,7 @@ def cmd_wiki_lint(args: argparse.Namespace) -> None:
     issues: list[str] = []
 
     for path in page_paths:
-        frontmatter, body = _parse_frontmatter(path)
+        frontmatter, body = _parse_frontmatter_from_path(path)
         missing_fields = sorted(
             field for field in required_fields if not frontmatter.get(field)
         )
