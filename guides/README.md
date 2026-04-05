@@ -17,7 +17,7 @@
 - **Agent Card 対応**: `/.well-known/agent.json` による標準的なサービスディスカバリ
 - **外部エージェント連携**: 外部で動作する A2A 互換エージェントとの接続
 - **エンタープライズ機能**: API Key 認証、Webhook 通知、gRPC サポート
-- **3200 件以上のテストによる品質保証**: A2A 準拠性を継続的に検証
+- **3710 件以上のテストによる品質保証**: A2A 準拠性を継続的に検証
 
 ---
 
@@ -31,6 +31,7 @@ flowchart TD
     subgraph Getting_Started["入門"]
         Setup["multi-agent-setup.md<br/>セットアップガイド"]
         Usage["usage.md<br/>使い方詳細"]
+        A2AComm["a2a-communication.md<br/>A2A 通信ガイド"]
     end
 
     subgraph Configuration["設定"]
@@ -108,6 +109,13 @@ flowchart TD
 - Priority（優先度）の意味
 - 運用パターン例
 - プロアクティブコラボレーション（判断フレームワーク、クロスモデル生成、ワーカー自律性）
+
+### [a2a-communication.md](a2a-communication.md)
+**A2A 通信ガイド**
+
+- エージェント間通信の3つの方法（@agent パターン、synapse send、synapse broadcast）
+- 応答動作の `a2a.flow` 設定
+- 通信フローの詳細
 
 ---
 
