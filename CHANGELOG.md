@@ -5,25 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [0.21.0] - 2026-04-05
 
 ### Added
 
-- permission detection for spawned agents (#492, #498)
 - LLM Wiki — Knowledge Accumulation Layer (#506)
+- `synapse wiki ingest/query/lint/status` CLI commands
+- Canvas Knowledge view (`#/knowledge`) with Project/Global tabs
+- MCP instruction `synapse://instructions/wiki`
 
 ### Fixed
 
-- add CHANGELOG link definition for v0.20.0, restore skill sync
-- address CodeRabbit review — critical approve_response bug, docs fixes
-- simplify wiki code and update docs/skills/site
+- Deduplicated wiki frontmatter parsing, added TTL cache for `is_wiki_enabled()`
+- Fixed timezone-aware timestamps and TOCTOU in wiki API
+
 
 ## [0.20.0] - 2026-04-05
 

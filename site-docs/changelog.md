@@ -12,6 +12,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Added**: MCP instruction `synapse://instructions/wiki` for automatic wiki schema injection
 - **Fixed**: Wiki code simplified — deduplicated frontmatter parsing, added TTL cache, fixed TOCTOU
 
+
 ### v0.20.0
 
 - **Added**: Permission detection — spawned agents automatically notify callers when stopped at a permission prompt (#492, #498)
