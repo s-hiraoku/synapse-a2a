@@ -3,7 +3,7 @@ site_url: https://s-hiraoku.github.io/synapse-a2a/
 site_description: Multi-agent collaboration framework using Google A2A Protocol
 site_author: s-hiraoku
 repo_url: https://github.com/s-hiraoku/synapse-a2a
-repo_name: s-hiraoku/synapse-a2a v0.19.6
+repo_name: s-hiraoku/synapse-a2a v0.23.0
 docs_dir: site-docs
 
 theme:
@@ -132,6 +132,7 @@ nav:
       - History & Tracing: guide/history.md
     - Proactive Mode: guide/proactive-mode.md
     - MCP Bootstrap Setup: guide/mcp-setup.md
+    - Permission Modes: guide/agent-permission-modes.md
     - Settings & Configuration: guide/settings.md
   - Reference:
     - CLI Commands: reference/cli.md
@@ -139,6 +140,7 @@ nav:
     - API Endpoints: reference/api.md
     - Configuration: reference/configuration.md
     - Profile YAML Schema: reference/profiles-yaml.md
+    - Permission Detection Spec: reference/permission-detection-spec.md
     - Port Ranges: reference/ports.md
   - Advanced:
     - External Agents: advanced/external-agents.md
@@ -147,5 +149,7 @@ nav:
     - Worktree Isolation: advanced/worktree.md
     - Generative UI Landscape: advanced/generative-ui.md
     - Enterprise: advanced/enterprise.md
+  - Design:
+    - LLM Wiki: design/llm-wiki.md
   - Troubleshooting: troubleshooting.md
   - Changelog: changelog.md

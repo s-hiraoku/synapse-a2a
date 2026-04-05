@@ -4,12 +4,34 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
-### v0.19.6
+### v0.23.0
 
-- **Changed**: Expanded CLAUDE.md architecture table with 20+ modules
-- **Changed**: Post-impl workflow: renamed target, added timeouts and commit step
-- **Docs**: Updated test badge count (3287 → 3710) across all READMEs
-- **Docs**: Added contents table to docs/README.md, a2a-communication.md to guides
+- **Added**: Living Wiki — source file tracking (`source_files`/`source_commit` frontmatter), stale page detection, `synapse wiki refresh` command
+- **Added**: `synapse wiki init` — scaffold architecture and patterns skeleton pages
+- **Added**: `learning` page type for recording bug fixes and discovered patterns
+- **Added**: `GET /api/wiki/graph` Canvas endpoint — Mermaid knowledge graph of wiki page links
+
+### v0.22.0
+
+- **Added**: `synapse worktree prune` — orphan worktree detection and cleanup
+- **Fixed**: Canvas Database view excludes `.synapse/worktrees/` databases
+
+
+### v0.21.0
+
+- **Added**: LLM Wiki — Knowledge Accumulation Layer (#506). Agents build persistent, interlinked Markdown wikis at project and global scope
+- **Added**: `synapse wiki ingest/query/lint/status` CLI commands
+- **Added**: Canvas Knowledge view (`#/knowledge`) with Project/Global tabs, page list, detail, wikilinks
+- **Added**: MCP instruction `synapse://instructions/wiki` for automatic wiki schema injection
+- **Fixed**: Wiki code simplified — deduplicated frontmatter parsing, added TTL cache, fixed TOCTOU
+
+
+### v0.20.0
+
+- **Added**: Permission detection — spawned agents automatically notify callers when stopped at a permission prompt (#492, #498)
+- **Added**: `POST /tasks/{id}/permission/approve` and `/deny` API endpoints for remote approval
+- **Added**: `deny_response` profile config for all 5 agent types
+- **Docs**: Permission detection spec and user guide
 
 ### v0.19.5
 

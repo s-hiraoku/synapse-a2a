@@ -5,20 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.19.6] - 2026-04-05
+## [0.23.0] - 2026-04-05
 
-### Changed
+### Added
 
-- Expanded CLAUDE.md architecture table with 20+ previously undocumented modules
-- Updated post-impl workflow: target `claude-agent` → `claude`, added timeouts, added commit step before PR creation
-- Added `auto_spawn: true` to post-impl workflow
+- Living Wiki: `source_files` and `source_commit` frontmatter fields for tracking which source code files a wiki page documents
+- Stale page detection in `synapse wiki status` and `synapse wiki lint` — identifies pages whose tracked source files have changed
+- `synapse wiki refresh [--apply]` command — lists stale pages and optionally updates `source_commit` to current HEAD
+- `synapse wiki init` command — creates skeleton `synthesis-architecture.md` and `synthesis-patterns.md` pages with idempotent index entries
+- `learning` page type for recording bug fixes and discovered patterns
+- `GET /api/wiki/graph` Canvas endpoint — returns a Mermaid diagram of wiki page `[[wikilink]]` relationships
 
 ### Documentation
 
-- Updated test badge count from 3287 to 3710 across all READMEs (en, ja, es, fr, ko, zh)
-- Added contents table to docs/README.md with 17 document entries
-- Added a2a-communication.md section to guides/README.md
-- Added Worktree, FileSafety, WorkflowRunner, Transport, Canvas, and other modules to README.md architecture table
+- Updated synapse-reference.md, README.md, llm-wiki.md with new wiki commands and features
+- Updated site-docs CLI and API reference pages
+- Added `source_files` and `source_commit` to wiki-schema.md frontmatter specification
+
+## [0.22.0] - 2026-04-05
+
+### Added
+
+- `synapse worktree prune` CLI command — detects and removes orphan worktrees whose directories no longer exist
+- `synapse worktree` subcommand group for worktree management
+
+### Fixed
+
+- Canvas Database view no longer lists `.db` files from `.synapse/worktrees/` directories
+
+
+## [0.21.0] - 2026-04-05
+
+### Added
+
+- LLM Wiki — Knowledge Accumulation Layer (#506)
+- `synapse wiki ingest/query/lint/status` CLI commands
+- Canvas Knowledge view (`#/knowledge`) with Project/Global tabs
+- MCP instruction `synapse://instructions/wiki`
+
+### Fixed
+
+- Deduplicated wiki frontmatter parsing, added TTL cache for `is_wiki_enabled()`
+- Fixed timezone-aware timestamps and TOCTOU in wiki API
+
+
+## [0.20.0] - 2026-04-05
+
+### Added
+
+- Permission detection: spawned agents automatically notify callers when stopped at a permission prompt (#492, #498)
+  - `WAITING` status now maps to `input_required` A2A task state
+  - `_on_status_change` sends `input_required` notification to `--notify`/`--wait` callers with PTY context
+  - `POST /tasks/{id}/permission/approve` and `/deny` API endpoints for remote approval
+  - `deny_response` added to all 5 agent profiles (claude, codex, gemini, opencode, copilot)
+  - Agent instructions updated with PERMISSION HANDLING section
+
+### Documentation
+
+- Added `docs/permission-detection-spec.md` — technical specification
+- Updated `docs/agent-permission-modes.md` — user guide for permission detection and status types
 
 ## [0.19.5] - 2026-04-04
 
@@ -3103,7 +3148,11 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.5...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.22.0...v0.23.0
+[0.22.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.21.0...v0.22.0
+[0.21.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.20.0...v0.21.0
+[0.20.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.5...v0.20.0
 [0.19.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.4...v0.19.5
 [0.19.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.3...v0.19.4
 [0.19.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.19.2...v0.19.3

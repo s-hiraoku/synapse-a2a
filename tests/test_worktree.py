@@ -20,6 +20,7 @@ from synapse.worktree import (
     has_uncommitted_changes,
     has_worktree_changes,
     merge_worktree,
+    prune_worktrees,
     remove_worktree,
     worktree_info_from_registry,
 )
@@ -724,3 +725,166 @@ class TestMergeWorktree:
         info = self._make_info()
         result = merge_worktree(info, _has_uncommitted=False, _has_commits=False)
         assert result is True
+
+
+# ============================================================
+# prune_worktrees
+# ============================================================
+
+
+class TestPruneWorktrees:
+    """Tests for orphan worktree detection and cleanup."""
+
+    # Sample `git worktree list --porcelain` output with prunable entries
+    _PORCELAIN_WITH_PRUNABLE = (
+        "worktree /repo\n"
+        "HEAD abc1234\n"
+        "branch refs/heads/main\n"
+        "\n"
+        "worktree /repo/.synapse/worktrees/bold-newt\n"
+        "HEAD def5678\n"
+        "branch refs/heads/worktree-bold-newt\n"
+        "prunable gitdir file points to non-existent location\n"
+        "\n"
+        "worktree /repo/.synapse/worktrees/lean-wren\n"
+        "HEAD aaa1111\n"
+        "branch refs/heads/worktree-lean-wren\n"
+        "prunable gitdir file points to non-existent location\n"
+        "\n"
+    )
+
+    _PORCELAIN_NO_PRUNABLE = (
+        "worktree /repo\n"
+        "HEAD abc1234\n"
+        "branch refs/heads/main\n"
+        "\n"
+        "worktree /repo/.synapse/worktrees/active-fox\n"
+        "HEAD bbb2222\n"
+        "branch refs/heads/worktree-active-fox\n"
+        "\n"
+    )
+
+    _PORCELAIN_ONLY_MAIN = "worktree /repo\nHEAD abc1234\nbranch refs/heads/main\n\n"
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_prune_removes_orphan_worktrees(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """Prunable worktrees under .synapse/worktrees/ should be cleaned up."""
+        mock_run.side_effect = [
+            # git worktree list --porcelain
+            MagicMock(returncode=0, stdout=self._PORCELAIN_WITH_PRUNABLE, stderr=""),
+            # git worktree prune
+            MagicMock(returncode=0, stdout="", stderr=""),
+            # git branch -d (batched)
+            MagicMock(returncode=0, stdout="", stderr=""),
+        ]
+
+        pruned = prune_worktrees()
+        assert pruned == ["bold-newt", "lean-wren"]
+
+        calls = mock_run.call_args_list
+        # 1) list, 2) prune, 3) batch branch -d
+        assert calls[1][0][0] == ["git", "worktree", "prune"]
+        assert calls[2][0][0] == [
+            "git",
+            "branch",
+            "-d",
+            "worktree-bold-newt",
+            "worktree-lean-wren",
+        ]
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_prune_nothing_to_prune(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """When no prunable worktrees exist, return empty list and skip prune."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout=self._PORCELAIN_NO_PRUNABLE, stderr=""
+        )
+
+        pruned = prune_worktrees()
+        assert pruned == []
+        # Only the list command should have been called
+        assert mock_run.call_count == 1
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_prune_only_main_worktree(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """When only the main worktree exists, return empty list."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout=self._PORCELAIN_ONLY_MAIN, stderr=""
+        )
+
+        pruned = prune_worktrees()
+        assert pruned == []
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_prune_skips_non_synapse_worktrees(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """Prunable worktrees outside .synapse/worktrees/ should be ignored."""
+        porcelain = (
+            "worktree /repo\n"
+            "HEAD abc1234\n"
+            "branch refs/heads/main\n"
+            "\n"
+            "worktree /other/path/my-wt\n"
+            "HEAD ccc3333\n"
+            "branch refs/heads/my-wt\n"
+            "prunable gitdir file points to non-existent location\n"
+            "\n"
+        )
+        mock_run.return_value = MagicMock(returncode=0, stdout=porcelain, stderr="")
+
+        pruned = prune_worktrees()
+        assert pruned == []
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_prune_branch_delete_failure_is_non_fatal(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """Branch deletion failure should not prevent reporting pruned worktrees."""
+        mock_run.side_effect = [
+            # git worktree list --porcelain
+            MagicMock(returncode=0, stdout=self._PORCELAIN_WITH_PRUNABLE, stderr=""),
+            # git worktree prune
+            MagicMock(returncode=0, stdout="", stderr=""),
+            # git branch -d (batched) -> partial failure
+            MagicMock(returncode=1, stdout="", stderr="error: branch not found"),
+        ]
+
+        pruned = prune_worktrees()
+        # Both are still reported as pruned (git worktree prune already removed them)
+        assert pruned == ["bold-newt", "lean-wren"]
+
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_prune_git_worktree_list_fails(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+    ) -> None:
+        """If git worktree list fails, return empty list."""
+        mock_run.return_value = MagicMock(
+            returncode=128, stdout="", stderr="fatal: not a git repository"
+        )
+
+        pruned = prune_worktrees()
+        assert pruned == []

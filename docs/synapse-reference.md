@@ -57,6 +57,14 @@ synapse memory save <key> <content> [--tags tag1,tag2]
 synapse memory list [--author <id>] [--tags <tags>]
 synapse memory search <query>
 
+# Wiki (LLM Wiki — Knowledge Accumulation)
+synapse wiki ingest <source-path> [--scope project|global]
+synapse wiki query "<question>" [--scope project|global]
+synapse wiki lint [--scope project|global]              # Also detects stale pages (source_files changed)
+synapse wiki status [--scope project|global]            # Shows page count, staleness, and health
+synapse wiki refresh [--apply] [--scope project|global] # List stale pages; --apply updates source_commit
+synapse wiki init [--scope project|global]              # Create skeleton architecture & patterns pages
+
 # Canvas
 synapse canvas serve [--port 3000] [--no-open]
 synapse canvas post mermaid "graph TD; A-->B" --title "Flow"
@@ -88,6 +96,7 @@ synapse merge my-agent                             # Merge worktree branch (agen
 synapse merge --all                                # Merge all worktree branches
 synapse merge my-agent --dry-run                   # Preview merge without executing
 synapse merge my-agent --resolve-with gemini       # Delegate conflict resolution to another agent
+synapse worktree prune                             # Remove orphan worktrees (dir gone, git ref remains)
 synapse team start claude gemini                   # Defaults to --worktree isolation
 synapse team start claude gemini --no-worktree     # Opt out of worktree default
 synapse team start claude gemini --worktree --branch feature/api  # Base branch for all worktrees
@@ -185,6 +194,15 @@ Compound signal: PROCESSING→READY suppressed when `task_active` flag set or fi
 
 **WAITING auto-approve**: When an agent enters WAITING status (permission prompt detected), the controller automatically sends the profile-specific approval response (e.g., `y\r` for Claude, `\r` for Gemini). Enabled by default for spawned agents; disable with `--no-auto-approve` or `SYNAPSE_AUTO_APPROVE=false`. Safety: max 20 consecutive, 2s cooldown. See [docs/agent-permission-modes.md](agent-permission-modes.md).
 
+**WAITING → input_required (A2A)**: When an agent enters WAITING status, the A2A task status is mapped to `input_required` per the Google A2A spec. The task metadata includes `x-permission-prompt` (the detected prompt text) and `x-permission-options` (available responses). Callers can approve or deny via the permission endpoints below. See [docs/permission-detection-spec.md](permission-detection-spec.md).
+
+### Permission Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/tasks/{id}/permission/approve` | Approve a permission prompt (sends profile-specific approval response to the agent PTY) |
+| POST | `/tasks/{id}/permission/deny` | Deny a permission prompt (sends the profile's `deny_response` to the agent PTY) |
+
 ## Readiness Gate
 
 `/tasks/send` blocked until agent completes initialization. Timeout: 30s. Bypasses: priority 5 and reply messages.
@@ -204,6 +222,8 @@ Compound signal: PROCESSING→READY suppressed when `task_active` flag set or fi
 ~/.synapse/history/      # history.db (task history, user-global)
 ~/.synapse/canvas.db     # Canvas card storage (user-global)
 ~/.synapse/memory.db     # Shared memory (user-global)
+~/.synapse/wiki/         # Global Wiki (cross-project knowledge)
+.synapse/wiki/           # Project-local Wiki (pages, sources, schema, index, log)
 .synapse/                # Project-local (file_safety.db, workflow_runs.db, observations.db, instincts.db, etc.)
 ```
 
@@ -221,6 +241,7 @@ See test files in `tests/` directory. Key test groups:
 - Memory: `test_shared_memory.py`, `test_cli_memory.py`
 - MCP: `test_mcp_bootstrap.py`, `test_mcp_list_agents.py`, `test_mcp_analyze_task.py`
 - Smart Suggest / Plan: `test_plan_accept.py`
+- Permission: `test_permission_notify.py`, `test_permission_api.py`
 - Status: `test_cmd_status.py`, `test_compound_signal.py`
 - Live CLI E2E: `test_live_e2e_agents.py` (opt-in via `SYNAPSE_LIVE_E2E=1`; filter profiles with `SYNAPSE_LIVE_E2E_PROFILES=claude,copilot`)
 

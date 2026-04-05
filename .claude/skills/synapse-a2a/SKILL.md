@@ -1,6 +1,6 @@
 ---
 name: synapse-a2a
-description: "Synapse A2A agent communication -- sending messages, spawning agents, delegating tasks, sharing memory, and coordinating file edits. Use this skill when: running synapse send/reply/broadcast/interrupt, spawning agents with synapse spawn or synapse team start, sharing knowledge with synapse memory, locking files with synapse file-safety, checking agent status with synapse list/status, or orchestrating any multi-agent workflow. For AI/programmatic use, prefer synapse list --json, synapse status <target> --json, or the MCP list_agents tool instead of interactive synapse list."
+description: "Synapse A2A agent communication -- sending messages, spawning agents, delegating tasks, sharing memory, managing the LLM wiki, and coordinating file edits. Use this skill when: running synapse send/reply/broadcast/interrupt, spawning agents with synapse spawn or synapse team start, sharing knowledge with synapse memory, managing wiki pages with synapse wiki, locking files with synapse file-safety, checking agent status with synapse list/status, or orchestrating any multi-agent workflow. For AI/programmatic use, prefer synapse list --json, synapse status <target> --json, or the MCP list_agents tool instead of interactive synapse list."
 ---
 
 # Synapse A2A Communication
@@ -41,6 +41,10 @@ Inter-agent communication framework via Google A2A Protocol.
 | Open Canvas | `synapse canvas open` (auto-starts server, opens browser) |
 | Sync workflow skills | `synapse workflow sync` (regenerate skills from workflow YAMLs, remove orphans) |
 | Run workflow (auto-spawn) | `synapse workflow run <name> --auto-spawn` (spawn missing agents on the fly) |
+| Wiki ingest | `synapse wiki ingest <source> [--scope project\|global]` (ingest a source file into the wiki) |
+| Wiki query | `synapse wiki query "<question>" [--scope project\|global]` (search wiki pages) |
+| Wiki lint | `synapse wiki lint [--scope project\|global]` (validate wiki consistency) |
+| Wiki status | `synapse wiki status [--scope project\|global]` (show wiki index stats) |
 
 ## Collaboration Decision Framework
 
@@ -78,6 +82,7 @@ Skip this gate for small/medium tasks where the overhead exceeds the benefit.
 | **Agent Control** | Browser-based agent management via Canvas `#/admin` view (select agents, send messages, view responses, double-click agent row to jump to terminal) | `synapse canvas open` → navigate to `#/admin` |
 | **Workflow View** | Browser-based workflow management via Canvas `#/workflow` view (list workflows, inspect steps, trigger runs, monitor progress with live SSE updates; run history persisted to SQLite across restarts) | `synapse canvas open` → navigate to `#/workflow` |
 | **Plan Cards** | Mermaid DAG + step list with dependency visualization | `synapse canvas plan` |
+| **LLM Wiki** | Structured knowledge base for ingesting, querying, and validating project/global docs | `synapse wiki ingest/query/lint/status` |
 | **Smart Suggest** | MCP tool that analyzes prompts and suggests team/task splits for large work | MCP tool: `analyze_task` |
 | **Proactive Mode** | Task-size-based feature usage guide (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
 | **MCP Bootstrap** | Distribute instructions via MCP resources for compatible clients (opt-in, including Copilot via tools-only). MCP tools: `bootstrap_agent`, `list_agents`, `analyze_task` | `synapse mcp serve` / `python -m synapse.mcp` |

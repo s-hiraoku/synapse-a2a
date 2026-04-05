@@ -38,3 +38,4 @@ waiting_detection:
 auto_approve:
   cli_flag: "--dangerously-skip-permissions"
   runtime_response: "y\r"
+  deny_response: "n\r"

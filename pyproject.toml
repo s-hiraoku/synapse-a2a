@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "synapse-a2a"
-version = "0.19.6"
+version = "0.23.0"
 description = "Agent-to-Agent communication protocol for CLI agents"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -58,7 +58,7 @@ synapse-hook = "synapse.shell_hook:main"
 include = ["synapse*"]
 
 [tool.setuptools.package-data]
-synapse = ["templates/.synapse/*", "profiles/*.yaml", "profiles/**/*", "canvas/templates/*", "canvas/static/*"]
+synapse = ["templates/*", "templates/.synapse/*", "profiles/*.yaml", "profiles/**/*", "canvas/templates/*", "canvas/static/*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

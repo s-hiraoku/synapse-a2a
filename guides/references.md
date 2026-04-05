@@ -1470,6 +1470,75 @@ synapse memory stats
 
 ---
 
+### 1.21 synapse wiki
+
+LLM Wiki（知識蓄積レイヤー）を管理します。エージェントが段階的にナレッジベースを構築・維持するための CLI コマンド群です。Wiki ディレクトリは初回アクセス時に自動作成されます。
+
+```bash
+synapse wiki <subcommand>
+```
+
+**ストレージ**:
+
+| スコープ | パス |
+|---------|------|
+| Project（デフォルト） | `.synapse/wiki/` |
+| Global | `~/.synapse/wiki/` |
+
+**設定**: `wiki.enabled` in `.synapse/settings.json`（デフォルト: `true`）
+
+#### 1.21.1 synapse wiki ingest
+
+ソースファイルを Wiki に取り込みます。`sources/` にファイルをコピーし、`log.md` に記録を追記します。エージェントが起動中の場合、要約ページの作成や関連ページの更新が行われます。
+
+```bash
+synapse wiki ingest <source-path> [--scope project|global]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `source-path` | Yes | 取り込むソースファイルのパス |
+| `--scope` | No | スコープ（`project`（デフォルト）または `global`） |
+
+#### 1.21.2 synapse wiki query
+
+Wiki に質問します。`index.md` をパースして関連ページ候補を返します。エージェントが起動中の場合、関連ページを読んで回答を合成します。
+
+```bash
+synapse wiki query "<question>" [--scope project|global]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `question` | Yes | 質問テキスト |
+| `--scope` | No | スコープ（`project`（デフォルト）または `global`） |
+
+#### 1.21.3 synapse wiki lint
+
+Wiki の整合性チェックを実行します。frontmatter 検証、孤立リンク検出、orphan ページ列挙を行います。
+
+```bash
+synapse wiki lint [--scope project|global]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--scope` | No | スコープ（`project`（デフォルト）または `global`） |
+
+#### 1.21.4 synapse wiki status
+
+Wiki の状態を表示します（ページ数、ソース数、最終更新日時、健康度スコア）。
+
+```bash
+synapse wiki status [--scope project|global]
+```
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `--scope` | No | スコープ（`project`（デフォルト）または `global`） |
+
+---
+
 ### 1.22 synapse session
 
 チーム構成のスナップショットを保存・復元します。実行中のエージェント構成を名前付きで保存し、後から同じ構成を再現できます。
@@ -1862,6 +1931,15 @@ flowchart LR
 | POST | `/tasks/{id}/approve` | プラン承認 |
 | POST | `/tasks/{id}/reject` | プラン却下（理由付き） |
 | POST | `/team/start` | エージェントチームをターミナルペインで起動（A2A経由） |
+
+#### Permission Detection API
+
+| メソッド | パス | 説明 |
+|---------|------|------|
+| POST | `/tasks/{id}/permission/approve` | 権限プロンプトを承認（プロファイル固有の承認レスポンスをエージェント PTY に送信） |
+| POST | `/tasks/{id}/permission/deny` | 権限プロンプトを拒否（プロファイルの `deny_response` をエージェント PTY に送信） |
+
+> **ステータスマッピング**: エージェントが WAITING 状態に入ると、A2A タスクステータスは Google A2A 仕様に準拠して `input_required` にマッピングされます。タスクメタデータには `x-permission-prompt`（検出されたプロンプトテキスト）と `x-permission-options`（利用可能なレスポンス）が含まれます。詳細は [docs/permission-detection-spec.md](../docs/permission-detection-spec.md) を参照。
 
 #### Shared Memory API
 

@@ -34,3 +34,4 @@ auto_approve:
   cli_flag: null
   env_flag: "OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS=true"
   runtime_response: "a\r"
+  deny_response: "d\r"

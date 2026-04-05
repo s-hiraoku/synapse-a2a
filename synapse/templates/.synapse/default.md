@@ -226,6 +226,36 @@ SAME WORKING DIRECTORY — Leverage nearby agents:
   - Prefer same-dir agents over spawning new ones (lower overhead)
 
 ================================================================================
+PERMISSION HANDLING — When Spawned Agents Need Approval
+================================================================================
+
+When you spawn or send tasks to agents running WITHOUT auto-approve (e.g.,
+`--no-auto-approve`), the target agent may stop at a permission prompt (WAITING
+status / `input_required` task state). The agent cannot notify you — its PTY is
+blocked. Instead, its Synapse server automatically sends you an `input_required`
+notification.
+
+WHEN YOU RECEIVE AN input_required NOTIFICATION:
+  1. Read the permission context (pty_context) to understand what tool/action is
+     requested (e.g., "Allow Bash: rm -rf /tmp/test? [Y/n]")
+  2. Evaluate: is this expected for the task you delegated?
+  3. If safe:
+       curl -X POST http://<agent-endpoint>/tasks/<task_id>/permission/approve
+  4. If unsafe:
+       curl -X POST http://<agent-endpoint>/tasks/<task_id>/permission/deny
+  5. If unsure: Ask the user
+
+HOW THE NOTIFICATION ARRIVES:
+  - `--notify` mode: You receive an A2A message with status "input_required"
+    and metadata.permission.pty_context showing what the agent is waiting for
+  - `--wait` mode: The wait returns with input_required status
+  - `--silent` mode: No notification (check manually with synapse list)
+
+MONITORING SPAWNED AGENTS:
+  Run `synapse list` — agents showing WAITING status need approval.
+  Check task status: `synapse status <agent> --json` or GET /tasks/{id}
+
+================================================================================
 BRANCH MANAGEMENT
 ================================================================================
 

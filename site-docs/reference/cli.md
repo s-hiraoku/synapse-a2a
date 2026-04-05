@@ -124,6 +124,16 @@ Merges worktree agent branches into the current branch. The agent must have a wo
 !!! tip "Conflict resolution"
     When `--resolve-with` is specified and the merge encounters conflicts, Synapse sends the conflict details to the resolver agent via A2A, waits for the resolution, and completes the merge automatically.
 
+### Worktree
+
+```bash
+synapse worktree prune       # Remove orphan worktrees whose directories no longer exist
+```
+
+Detects worktrees under `.synapse/worktrees/` that git marks as prunable (directory missing), runs `git worktree prune` to clean up git's internal references, and deletes the corresponding `worktree-<name>` branches. Active worktrees with existing directories are never affected.
+
+See [Worktree Isolation — Pruning Orphan Worktrees](../advanced/worktree.md#pruning-orphan-worktrees) for details.
+
 ### Jump
 
 ```bash
@@ -730,6 +740,84 @@ MCP tools exposed: `bootstrap_agent`, `list_agents`, `analyze_task`. The `analyz
 
 !!! warning "Experimental"
     This command is in early development (Phase 1). The interface may change in future releases.
+
+## LLM Wiki
+
+### Ingest
+
+```bash
+synapse wiki ingest <source-path> [--scope project|global]
+```
+
+Copies a source file into `wiki/sources/` and logs the ingest operation. The agent is expected to read the source, create or update wiki pages, and maintain `index.md`.
+
+| Flag | Description |
+|------|-------------|
+| `<source-path>` | Path to the source file to ingest |
+| `--scope` | `project` (default) or `global` |
+
+### Query
+
+```bash
+synapse wiki query "<question>" [--scope project|global]
+```
+
+Parses `index.md` and returns related page candidates. The agent synthesizes an answer from the matched pages.
+
+| Flag | Description |
+|------|-------------|
+| `--scope` | `project` (default) or `global` |
+
+### Lint
+
+```bash
+synapse wiki lint [--scope project|global]
+```
+
+Validates wiki integrity: frontmatter field checks, orphan `[[wikilink]]` detection, orphan page detection, and stale page detection (pages with `source_files`/`source_commit` whose tracked files have changed).
+
+| Flag | Description |
+|------|-------------|
+| `--scope` | `project` (default) or `global` |
+
+### Status
+
+```bash
+synapse wiki status [--scope project|global]
+```
+
+Displays wiki statistics: page count, source count, last updated timestamp, health score, and stale page count.
+
+| Flag | Description |
+|------|-------------|
+| `--scope` | `project` (default) or `global` |
+
+### Refresh
+
+```bash
+synapse wiki refresh [--scope project|global] [--apply]
+```
+
+Detects stale wiki pages by comparing `source_commit` against the current HEAD. With `--apply`, updates the `source_commit` field in all stale pages to the current HEAD.
+
+| Flag | Description |
+|------|-------------|
+| `--scope` | `project` (default) or `global` |
+| `--apply` | Update `source_commit` to current HEAD for all stale pages |
+
+### Init
+
+```bash
+synapse wiki init [--scope project|global]
+```
+
+Initializes the wiki directory structure (`pages/`, `sources/`, `schema.md`, `index.md`, `log.md`) and creates skeleton pages (`synthesis-architecture.md`, `synthesis-patterns.md`). Existing files are not overwritten.
+
+| Flag | Description |
+|------|-------------|
+| `--scope` | `project` (default) or `global` |
+
+See [LLM Wiki Design](../design/llm-wiki.md) for the full design document.
 
 ## Self-Learning Pipeline
 

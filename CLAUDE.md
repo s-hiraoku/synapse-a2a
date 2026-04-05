@@ -34,6 +34,7 @@ synapse/
 ├── shell.py            # Interactive shell with @Agent routing
 ├── shared_memory.py    # Cross-agent knowledge base (SQLite)
 ├── spawn.py            # Agent spawning
+├── wiki.py             # LLM Wiki CLI commands (ingest, query, lint, status, refresh, init)
 ├── worktree.py         # Synapse-native git worktree isolation
 ├── workflow.py         # Workflow definition & execution
 ├── workflow_db.py      # Workflow run persistence (SQLite)
@@ -58,9 +59,9 @@ synapse/
 │   ├── store.py        #   Card storage
 │   ├── export.py       #   Card download/export
 │   ├── ogp.py          #   OGP link preview enrichment
-│   ├── routes/         #   Route modules (admin, cards, db, workflow)
+│   ├── routes/         #   Route modules (admin, cards, db, wiki, workflow)
 │   ├── templates/      #   HTML templates (index.html)
-│   └── static/         #   Modular CSS (8 files) & JS (8 files)
+│   └── static/         #   Modular CSS & JS assets
 ├── commands/           # CLI command implementations
 │   ├── merge.py        #   Worktree merge command
 │   └── renderers/      #   Output renderers (rich_renderer)

@@ -1505,6 +1505,61 @@ def cmd_instructions_send(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_wiki_ingest(args: argparse.Namespace) -> None:
+    """Ingest a source file into the wiki."""
+    from synapse.wiki import cmd_wiki_ingest as _cmd_wiki_ingest
+
+    _cmd_wiki_ingest(args)
+
+
+def cmd_wiki_query(args: argparse.Namespace) -> None:
+    """Query wiki pages from the index."""
+    from synapse.wiki import cmd_wiki_query as _cmd_wiki_query
+
+    _cmd_wiki_query(args)
+
+
+def cmd_wiki_lint(args: argparse.Namespace) -> None:
+    """Validate wiki consistency."""
+    from synapse.wiki import cmd_wiki_lint as _cmd_wiki_lint
+
+    _cmd_wiki_lint(args)
+
+
+def cmd_wiki_status(args: argparse.Namespace) -> None:
+    """Show wiki status."""
+    from synapse.wiki import cmd_wiki_status as _cmd_wiki_status
+
+    _cmd_wiki_status(args)
+
+
+def cmd_wiki_refresh(args: argparse.Namespace) -> None:
+    """Refresh stale wiki pages."""
+    from synapse.wiki import cmd_wiki_refresh as _cmd_wiki_refresh
+
+    _cmd_wiki_refresh(args)
+
+
+def cmd_wiki_init(args: argparse.Namespace) -> None:
+    """Initialize wiki with skeleton pages."""
+    from synapse.wiki import cmd_wiki_init as _cmd_wiki_init
+
+    _cmd_wiki_init(args)
+
+
+def cmd_worktree_prune(args: argparse.Namespace) -> None:
+    """Prune orphan worktrees."""
+    from synapse.worktree import prune_worktrees
+
+    pruned = prune_worktrees()
+    if not pruned:
+        print("[Synapse] No orphan worktrees found.")
+        return
+    for name in pruned:
+        print(f"  Pruned: {name}")
+    print(f"[Synapse] Pruned {len(pruned)} orphan worktree(s).")
+
+
 def cmd_mcp_serve(args: argparse.Namespace) -> None:
     """Serve Synapse MCP resources over stdio."""
     from synapse.mcp.server import SynapseMCPServer, serve_stdio
@@ -5091,6 +5146,74 @@ History is enabled by default (v0.3.13+). To disable: SYNAPSE_HISTORY_ENABLED=fa
     )
     p_hist_export.set_defaults(func=cmd_history_export)
 
+    # wiki - LLM wiki management
+    p_wiki = subparsers.add_parser("wiki", help="LLM Wiki knowledge management")
+    wiki_subparsers = p_wiki.add_subparsers(dest="wiki_command", metavar="SUBCOMMAND")
+
+    p_wiki_ingest = wiki_subparsers.add_parser(
+        "ingest", help="Ingest a source into the wiki"
+    )
+    p_wiki_ingest.add_argument("source", help="Path to source file")
+    p_wiki_ingest.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_ingest.set_defaults(func=cmd_wiki_ingest)
+
+    p_wiki_query = wiki_subparsers.add_parser("query", help="Query the wiki")
+    p_wiki_query.add_argument("question", help="Question to search for")
+    p_wiki_query.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_query.set_defaults(func=cmd_wiki_query)
+
+    p_wiki_lint = wiki_subparsers.add_parser("lint", help="Check wiki consistency")
+    p_wiki_lint.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_lint.set_defaults(func=cmd_wiki_lint)
+
+    p_wiki_status = wiki_subparsers.add_parser("status", help="Show wiki status")
+    p_wiki_status.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_status.set_defaults(func=cmd_wiki_status)
+
+    p_wiki_refresh = wiki_subparsers.add_parser(
+        "refresh", help="Detect and refresh stale pages"
+    )
+    p_wiki_refresh.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_refresh.add_argument(
+        "--apply", action="store_true", help="Update source_commit in stale pages"
+    )
+    p_wiki_refresh.set_defaults(func=cmd_wiki_refresh)
+
+    p_wiki_init = wiki_subparsers.add_parser(
+        "init", help="Initialize wiki with skeleton pages"
+    )
+    p_wiki_init.add_argument(
+        "--scope", choices=["project", "global"], default="project"
+    )
+    p_wiki_init.set_defaults(func=cmd_wiki_init)
+
+    # worktree - Git worktree management
+    p_worktree = subparsers.add_parser(
+        "worktree",
+        help="Manage git worktrees",
+        description="Manage Synapse git worktrees.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Examples:\n  synapse worktree prune",
+    )
+    worktree_subparsers = p_worktree.add_subparsers(
+        dest="worktree_command", metavar="SUBCOMMAND"
+    )
+
+    p_wt_prune = worktree_subparsers.add_parser(
+        "prune", help="Remove orphan worktrees whose directories no longer exist"
+    )
+    p_wt_prune.set_defaults(func=cmd_worktree_prune)
+
     # external - External A2A agent management
     p_external = subparsers.add_parser(
         "external",
@@ -6350,6 +6473,7 @@ Scopes:
     # Map of subcommands that require a subcommand action
     subcommand_parsers = {
         "history": ("history_command", p_history),
+        "wiki": ("wiki_command", p_wiki),
         "memory": ("memory_command", p_memory),
         "external": ("external_command", p_external),
         "auth": ("auth_command", p_auth),
@@ -6360,6 +6484,7 @@ Scopes:
         "workflow": ("workflow_command", p_workflow),
         "agents": ("agents_command", p_agents),
         "canvas": ("canvas_command", p_canvas),
+        "worktree": ("worktree_command", p_worktree),
     }
 
     # Handle subcommands without action (print help)

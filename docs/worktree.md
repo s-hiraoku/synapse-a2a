@@ -112,6 +112,22 @@ synapse merge Auth --resolve-with gemini
 
 `synapse kill` と異なり、エージェントは稼働を継続します。中間成果を統合したい場合や、長時間稼働エージェントの定期マージに便利です。
 
+### worktree prune（孤立ワークツリーの削除）
+
+ワークツリーのディレクトリが削除されたにもかかわらず Git 参照が残っている「孤立ワークツリー」を検出・削除します。
+
+```bash
+# 孤立ワークツリーを検出して削除
+synapse worktree prune
+```
+
+動作の流れ:
+1. `git worktree list --porcelain` を解析し、`.synapse/worktrees/` 配下の prunable エントリを検出
+2. `git worktree prune` を実行して Git の参照を削除
+3. 対応する `worktree-<name>` ブランチを削除
+
+孤立ワークツリーが見つからない場合は "No orphan worktrees found." と表示されます。
+
 ### API（プログラマティック spawn）
 
 ```bash
@@ -289,9 +305,9 @@ Synapse:
 
 ## Module Reference
 
-- `synapse/worktree.py` — Core worktree operations (`create_worktree`, `cleanup_worktree`, `merge_worktree`, `has_worktree_changes`, `has_new_commits`, `has_uncommitted_changes`, `get_default_remote_branch`)
+- `synapse/worktree.py` — Core worktree operations (`create_worktree`, `cleanup_worktree`, `merge_worktree`, `has_worktree_changes`, `has_new_commits`, `has_uncommitted_changes`, `get_default_remote_branch`, `prune_worktrees`, `_parse_prunable_worktrees`)
 - `synapse/spawn.py` — `spawn_agent(worktree=...)` parameter
-- `synapse/cli.py` — `--worktree` / `-w` flag, `--no-merge` flag on kill, `synapse merge` command
+- `synapse/cli.py` — `--worktree` / `-w` flag, `--no-merge` flag on kill, `synapse merge` command, `synapse worktree prune` subcommand (`cmd_worktree_prune`)
 - `synapse/commands/merge.py` — `merge_single`, `merge_all` implementations
 - `synapse/registry.py` — `worktree_path`, `worktree_branch`, `worktree_base_branch` fields
 - `synapse/terminal_jump.py` — `extra_env` passthrough
