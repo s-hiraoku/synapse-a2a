@@ -10,7 +10,7 @@ Read-only split-panel view at `#/workflow` with workflow execution support.
 - **Workflow list panel**: Table of available workflows (name, step count, scope, description)
 - **Detail panel**: Selected workflow's steps, Mermaid DAG visualization, Run button
 - **Execution**: `POST /api/workflow/run/{name}` triggers async background execution; Canvas sends steps directly to target agents with `sender_id=canvas-workflow`
-- **Wait mode polling**: Steps with `response_mode: wait` poll the target agent's task endpoint until the task reaches a terminal state (completed/failed), with a 10-minute timeout per step
+- **Wait mode polling**: Steps with `response_mode: wait` poll the target agent's task endpoint until the task reaches a terminal state (completed/failed/canceled) or `input_required`, with a 10-minute timeout per step. When the sender process has no A2A server (e.g. CLI `synapse workflow run`), the runner falls back to target-side polling automatically
 - **409 retry**: If the target agent returns HTTP 409 (busy), the runner retries the send with a brief interval before reporting failure
 - **Real-time progress**: SSE `workflow_update` events update step status icons
 - **Persistent execution history**: Active runs cached in memory, completed runs persisted to SQLite (`.synapse/workflow_runs.db`). History survives server restarts. `get_runs`/`get_run` fall back to DB when runs are not in memory cache
