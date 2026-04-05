@@ -6,13 +6,21 @@ import argparse
 import os
 import re
 import shutil
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-WIKI_PAGE_TYPES = {"entity", "concept", "decision", "comparison", "synthesis"}
+WIKI_PAGE_TYPES = {
+    "entity",
+    "concept",
+    "decision",
+    "comparison",
+    "synthesis",
+    "learning",
+}
 WIKILINK_PATTERN = re.compile(r"\[\[([^\]]+)\]\]")
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
@@ -85,7 +93,57 @@ def _page_slug(path: Path) -> str:
     return path.stem
 
 
-def _collect_status(wiki_dir: Path) -> tuple[int, int, str | None, int]:
+def _git_head_short(cwd: Path | None = None) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=str(cwd) if cwd else None,
+        )
+        return result.stdout.strip() if result.returncode == 0 else None
+    except (OSError, FileNotFoundError):
+        return None
+
+
+def detect_stale_pages(wiki_dir: Path) -> list[tuple[Path, list[str]]]:
+    """Detect wiki pages whose tracked source files have changed since source_commit."""
+    results: list[tuple[Path, list[str]]] = []
+    for path in _iter_page_paths(wiki_dir):
+        fm, _ = _parse_frontmatter_from_path(path)
+        source_files = fm.get("source_files")
+        source_commit = fm.get("source_commit")
+        if not isinstance(source_files, list) or not isinstance(source_commit, str):
+            continue
+        if not source_files or not source_commit:
+            continue
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only", f"{source_commit}..HEAD", "--"]
+                + source_files,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                continue
+        except (OSError, FileNotFoundError):
+            continue
+        if result.stdout.strip():
+            results.append((path, result.stdout.strip().splitlines()))
+    return results
+
+
+def _update_frontmatter_field(path: Path, field: str, value: Any) -> None:
+    """Update a single field in a page's YAML frontmatter."""
+    content = path.read_text(encoding="utf-8")
+    fm, body = parse_frontmatter(content)
+    fm[field] = value
+    path.write_text(
+        f"---\n{yaml.dump(fm, default_flow_style=False)}---\n{body}", encoding="utf-8"
+    )
+
+
+def _collect_status(wiki_dir: Path) -> tuple[int, int, str | None, int, int]:
     page_paths = _iter_page_paths(wiki_dir)
     source_paths = [path for path in (wiki_dir / "sources").glob("*") if path.is_file()]
     lint_penalties = 0
@@ -112,7 +170,11 @@ def _collect_status(wiki_dir: Path) -> tuple[int, int, str | None, int]:
                 latest_updated = updated_text
 
     health_score = max(0, 100 - (lint_penalties * 10))
-    return len(page_paths), len(source_paths), latest_updated, health_score
+    try:
+        stale_count = len(detect_stale_pages(wiki_dir))
+    except (OSError, subprocess.SubprocessError):
+        stale_count = 0
+    return len(page_paths), len(source_paths), latest_updated, health_score, stale_count
 
 
 def cmd_wiki_ingest(args: argparse.Namespace) -> None:
@@ -194,7 +256,16 @@ def cmd_wiki_lint(args: argparse.Namespace) -> None:
         path.name for path in page_paths if inbound_links.get(_page_slug(path), 0) == 0
     )
 
-    if not issues and not orphan_pages:
+    try:
+        stale = detect_stale_pages(wiki_dir)
+    except (OSError, subprocess.SubprocessError):
+        stale = []
+    for page_path, changed_files in stale:
+        print(
+            f"{page_path.name}: stale - source files changed: {', '.join(changed_files)}"
+        )
+
+    if not issues and not orphan_pages and not stale:
         print("Wiki lint passed.")
         return
 
@@ -209,8 +280,81 @@ def cmd_wiki_lint(args: argparse.Namespace) -> None:
 def cmd_wiki_status(args: argparse.Namespace) -> None:
     """Show wiki stats: page count, source count, last updated, health score."""
     wiki_dir = ensure_wiki_dir(args.scope)
-    page_count, source_count, latest_updated, health_score = _collect_status(wiki_dir)
+    page_count, source_count, latest_updated, health_score, stale_count = (
+        _collect_status(wiki_dir)
+    )
     print(f"Pages: {page_count}")
     print(f"Sources: {source_count}")
     print(f"Last updated: {latest_updated or 'N/A'}")
     print(f"Health score: {health_score}")
+    print(f"Stale pages: {stale_count}")
+
+
+def cmd_wiki_refresh(args: argparse.Namespace) -> None:
+    """Detect and refresh stale wiki pages."""
+    wiki_dir = ensure_wiki_dir(args.scope)
+    stale = detect_stale_pages(wiki_dir)
+    if not stale:
+        print("All pages are up to date.")
+        return
+    for page_path, changed_files in stale:
+        print(f"STALE: {page_path.name}")
+        print(f"  Changed: {', '.join(changed_files)}")
+    if args.apply:
+        head = _git_head_short()
+        for page_path, _ in stale:
+            _update_frontmatter_field(page_path, "source_commit", head)
+        print(f"Updated source_commit to {head}")
+
+
+_INIT_SKELETONS = [
+    {
+        "filename": "synthesis-architecture.md",
+        "type": "synthesis",
+        "title": "Architecture Overview",
+    },
+    {
+        "filename": "synthesis-patterns.md",
+        "type": "synthesis",
+        "title": "Key Patterns",
+    },
+]
+
+
+def cmd_wiki_init(args: argparse.Namespace) -> None:
+    """Initialize wiki with skeleton pages."""
+    wiki_dir = ensure_wiki_dir(args.scope)
+    pages_dir = wiki_dir / "pages"
+    index_path = wiki_dir / "index.md"
+    ts = _timestamp()
+
+    index_lines = set(index_path.read_text(encoding="utf-8").splitlines())
+
+    for skeleton in _INIT_SKELETONS:
+        filename = skeleton["filename"]
+        page_path = pages_dir / filename
+        slug = page_path.stem
+
+        if page_path.exists():
+            print(f"Skipped {filename} (already exists)")
+        else:
+            fm = {
+                "type": skeleton["type"],
+                "title": skeleton["title"],
+                "created": ts,
+                "updated": ts,
+                "sources": [],
+                "links": [],
+                "confidence": "low",
+                "author": "synapse",
+            }
+            body = f"# {skeleton['title']}\n\nTODO: fill in.\n"
+            content = f"---\n{yaml.dump(fm, default_flow_style=False)}---\n{body}"
+            page_path.write_text(content, encoding="utf-8")
+            print(f"Created {filename}")
+
+        index_entry = f"- [{slug}](pages/{filename}): {skeleton['title']}"
+        if index_entry not in index_lines:
+            with index_path.open("a", encoding="utf-8") as f:
+                f.write(f"{index_entry}\n")
+            index_lines.add(index_entry)

@@ -34,7 +34,7 @@ synapse/
 ├── shell.py         # Interactive shell with @Agent routing
 ├── shared_memory.py # Cross-agent knowledge base (SQLite)
 ├── spawn.py         # Agent spawning
-├── wiki.py          # LLM Wiki CLI commands (ingest, query, lint, status)
+├── wiki.py          # LLM Wiki CLI commands (ingest, query, lint, status, refresh, init)
 ├── workflow_db.py   # Workflow run persistence (SQLite)
 ├── mcp/             # MCP server (bootstrap instruction distribution)
 ├── canvas/          # Shared visual output surface

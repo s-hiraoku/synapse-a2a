@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from synapse.mcp.server import SynapseMCPServer
 from synapse.settings import SynapseSettings
@@ -30,6 +30,8 @@ def _page(
     links: list[str] | None = None,
     summary: str = "Summary text.",
     include_title: bool = True,
+    source_files: list[str] | None = None,
+    source_commit: str | None = None,
 ) -> str:
     lines = [
         "---",
@@ -43,9 +45,15 @@ def _page(
             f"updated: {updated}",
             "sources:",
             "  - note.txt",
-            "links:",
         ]
     )
+    if source_files is not None:
+        lines.append("source_files:")
+        for sf in source_files:
+            lines.append(f"  - {sf}")
+    if source_commit is not None:
+        lines.append(f"source_commit: {source_commit}")
+    lines.append("links:")
     for link in links or []:
         lines.append(f"  - {link}")
     lines.extend(
@@ -242,3 +250,305 @@ def test_settings_and_mcp_server_expose_wiki_instruction_resource(
 
     assert "synapse://instructions/wiki" in resources
     assert "Wiki instructions here." in text
+
+
+# --- Unit A: Stale detection + refresh ---
+
+
+def test_detect_stale_pages_returns_empty_when_no_source_files(tmp_path: Path) -> None:
+    from synapse.wiki import detect_stale_pages, ensure_wiki_dir
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        wiki_dir = ensure_wiki_dir("project")
+
+    (wiki_dir / "pages" / "concept-nosource.md").write_text(
+        _page("No Source"),
+        encoding="utf-8",
+    )
+
+    result = detect_stale_pages(wiki_dir)
+    assert result == []
+
+
+def test_detect_stale_pages_detects_changed_source(tmp_path: Path) -> None:
+    from synapse.wiki import detect_stale_pages, ensure_wiki_dir
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        wiki_dir = ensure_wiki_dir("project")
+
+    (wiki_dir / "pages" / "concept-tracked.md").write_text(
+        _page("Tracked", source_files=["src/foo.py"], source_commit="abc1234"),
+        encoding="utf-8",
+    )
+
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "src/foo.py\n"
+    mock_result.stderr = ""
+
+    with patch("synapse.wiki.subprocess.run", return_value=mock_result):
+        result = detect_stale_pages(wiki_dir)
+
+    assert len(result) == 1
+    assert result[0][0].name == "concept-tracked.md"
+    assert "src/foo.py" in result[0][1]
+
+
+def test_detect_stale_pages_skips_unchanged_source(tmp_path: Path) -> None:
+    from synapse.wiki import detect_stale_pages, ensure_wiki_dir
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        wiki_dir = ensure_wiki_dir("project")
+
+    (wiki_dir / "pages" / "concept-clean.md").write_text(
+        _page("Clean", source_files=["src/bar.py"], source_commit="abc1234"),
+        encoding="utf-8",
+    )
+
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = ""
+    mock_result.stderr = ""
+
+    with patch("synapse.wiki.subprocess.run", return_value=mock_result):
+        result = detect_stale_pages(wiki_dir)
+
+    assert result == []
+
+
+def test_detect_stale_pages_handles_git_failure_gracefully(tmp_path: Path) -> None:
+    from synapse.wiki import detect_stale_pages, ensure_wiki_dir
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        wiki_dir = ensure_wiki_dir("project")
+
+    (wiki_dir / "pages" / "concept-fail.md").write_text(
+        _page("Fail", source_files=["src/baz.py"], source_commit="abc1234"),
+        encoding="utf-8",
+    )
+
+    with patch("synapse.wiki.subprocess.run", side_effect=OSError("git not found")):
+        result = detect_stale_pages(wiki_dir)
+
+    assert result == []
+
+
+def test_cmd_wiki_status_includes_stale_count(tmp_path: Path, capsys) -> None:
+    from synapse.wiki import cmd_wiki_status, ensure_wiki_dir
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        wiki_dir = ensure_wiki_dir("project")
+
+    (wiki_dir / "pages" / "concept-stale.md").write_text(
+        _page("Stale", source_files=["src/foo.py"], source_commit="abc1234"),
+        encoding="utf-8",
+    )
+
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "src/foo.py\n"
+    mock_result.stderr = ""
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        with patch("synapse.wiki.subprocess.run", return_value=mock_result):
+            cmd_wiki_status(_args())
+
+    out = capsys.readouterr().out
+    assert "Stale pages: 1" in out
+
+
+def test_cmd_wiki_lint_shows_stale_warnings(tmp_path: Path, capsys) -> None:
+    from synapse.wiki import cmd_wiki_lint, ensure_wiki_dir
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        wiki_dir = ensure_wiki_dir("project")
+
+    (wiki_dir / "pages" / "concept-stalepage.md").write_text(
+        _page("Stale Page", source_files=["src/foo.py"], source_commit="abc1234"),
+        encoding="utf-8",
+    )
+
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "src/foo.py\n"
+    mock_result.stderr = ""
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        with patch("synapse.wiki.subprocess.run", return_value=mock_result):
+            cmd_wiki_lint(_args())
+
+    out = capsys.readouterr().out
+    assert "stale" in out.lower()
+    assert "src/foo.py" in out
+
+
+def test_cmd_wiki_refresh_lists_stale_pages(tmp_path: Path, capsys) -> None:
+    from synapse.wiki import cmd_wiki_refresh, ensure_wiki_dir
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        wiki_dir = ensure_wiki_dir("project")
+
+    (wiki_dir / "pages" / "concept-old.md").write_text(
+        _page("Old Page", source_files=["src/foo.py"], source_commit="abc1234"),
+        encoding="utf-8",
+    )
+
+    mock_result = MagicMock()
+    mock_result.returncode = 0
+    mock_result.stdout = "src/foo.py\n"
+    mock_result.stderr = ""
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        with patch("synapse.wiki.subprocess.run", return_value=mock_result):
+            cmd_wiki_refresh(argparse.Namespace(scope="project", apply=False))
+
+    out = capsys.readouterr().out
+    assert "STALE:" in out
+    assert "concept-old.md" in out
+
+
+def test_cmd_wiki_refresh_apply_updates_source_commit(tmp_path: Path, capsys) -> None:
+    from synapse.wiki import cmd_wiki_refresh, ensure_wiki_dir, parse_frontmatter
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        wiki_dir = ensure_wiki_dir("project")
+
+    page_path = wiki_dir / "pages" / "concept-update.md"
+    page_path.write_text(
+        _page("Update Page", source_files=["src/foo.py"], source_commit="abc1234"),
+        encoding="utf-8",
+    )
+
+    mock_diff = MagicMock()
+    mock_diff.returncode = 0
+    mock_diff.stdout = "src/foo.py\n"
+    mock_diff.stderr = ""
+
+    mock_head = MagicMock()
+    mock_head.returncode = 0
+    mock_head.stdout = "def5678\n"
+    mock_head.stderr = ""
+
+    def mock_run(cmd, **kwargs):
+        if "rev-parse" in cmd:
+            return mock_head
+        return mock_diff
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        with patch("synapse.wiki.subprocess.run", side_effect=mock_run):
+            cmd_wiki_refresh(argparse.Namespace(scope="project", apply=True))
+
+    out = capsys.readouterr().out
+    assert "Updated source_commit to def5678" in out
+
+    content = page_path.read_text(encoding="utf-8")
+    fm, _ = parse_frontmatter(content)
+    assert fm["source_commit"] == "def5678"
+
+
+def test_cmd_wiki_refresh_no_stale_pages(tmp_path: Path, capsys) -> None:
+    from synapse.wiki import cmd_wiki_refresh, ensure_wiki_dir
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        ensure_wiki_dir("project")
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        cmd_wiki_refresh(argparse.Namespace(scope="project", apply=False))
+
+    out = capsys.readouterr().out
+    assert "All pages are up to date." in out
+
+
+# --- Unit B: Learning page type + wiki init ---
+
+
+def test_learning_page_type_is_valid():
+    from synapse.wiki import WIKI_PAGE_TYPES
+
+    assert "learning" in WIKI_PAGE_TYPES
+
+
+def test_cmd_wiki_lint_accepts_learning_type(tmp_path, capsys):
+    from synapse.wiki import cmd_wiki_lint, ensure_wiki_dir
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        wiki_dir = ensure_wiki_dir("project")
+    pages_dir = wiki_dir / "pages"
+    (pages_dir / "learning-test.md").write_text(
+        _page("Test Learning", page_type="learning"),
+        encoding="utf-8",
+    )
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        cmd_wiki_lint(_args())
+    out = capsys.readouterr().out
+    assert "invalid type" not in out.lower()
+
+
+def test_cmd_wiki_init_creates_skeleton_pages(tmp_path, capsys):
+    from synapse.wiki import cmd_wiki_init
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        cmd_wiki_init(_args())
+    wiki_dir = tmp_path / ".synapse" / "wiki"
+    arch = wiki_dir / "pages" / "synthesis-architecture.md"
+    patterns = wiki_dir / "pages" / "synthesis-patterns.md"
+    index = wiki_dir / "index.md"
+    assert arch.exists()
+    assert patterns.exists()
+    # Check frontmatter
+    from synapse.wiki import parse_frontmatter
+
+    fm, body = parse_frontmatter(arch.read_text(encoding="utf-8"))
+    assert fm["type"] == "synthesis"
+    assert fm["title"] == "Architecture Overview"
+    assert "TODO" in body
+    # Check index entries
+    index_text = index.read_text(encoding="utf-8")
+    assert "synthesis-architecture" in index_text
+    assert "synthesis-patterns" in index_text
+    # Check output
+    out = capsys.readouterr().out
+    assert "Created synthesis-architecture.md" in out
+    assert "Created synthesis-patterns.md" in out
+
+
+def test_cmd_wiki_init_skips_existing_pages(tmp_path, capsys):
+    from synapse.wiki import cmd_wiki_init, ensure_wiki_dir
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        wiki_dir = ensure_wiki_dir("project")
+    # Pre-create one page with custom content
+    pages_dir = wiki_dir / "pages"
+    custom = "---\ntitle: Custom\n---\nMy custom content.\n"
+    (pages_dir / "synthesis-architecture.md").write_text(custom, encoding="utf-8")
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        cmd_wiki_init(_args())
+    # Existing file should be unchanged
+    assert (pages_dir / "synthesis-architecture.md").read_text(
+        encoding="utf-8"
+    ) == custom
+    # Other file should be created
+    assert (pages_dir / "synthesis-patterns.md").exists()
+    out = capsys.readouterr().out
+    assert "Skipped synthesis-architecture.md" in out
+    assert "Created synthesis-patterns.md" in out
+
+
+def test_cmd_wiki_init_is_idempotent(tmp_path, capsys):
+    from synapse.wiki import cmd_wiki_init
+
+    with patch("synapse.wiki.Path.cwd", return_value=tmp_path):
+        cmd_wiki_init(_args())
+        capsys.readouterr()  # clear first run output
+        cmd_wiki_init(_args())
+    out = capsys.readouterr().out
+    # Second run should skip both
+    assert "Skipped" in out
+    # No duplicate index entries — each skeleton produces one line containing the slug
+    index_text = (tmp_path / ".synapse" / "wiki" / "index.md").read_text(
+        encoding="utf-8"
+    )
+    lines_with_slug = [
+        line for line in index_text.splitlines() if "synthesis-architecture" in line
+    ]
+    assert len(lines_with_slug) == 1

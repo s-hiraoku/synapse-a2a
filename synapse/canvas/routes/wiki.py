@@ -211,3 +211,36 @@ async def wiki_stats(scope: str = "project") -> dict[str, Any]:
         else None,
         "recent_activity": recent_activity,
     }
+
+
+@wiki_router.get("/api/wiki/graph")
+async def wiki_graph(scope: str = "project") -> dict[str, Any]:
+    """Return a Mermaid graph of wiki page links."""
+    if scope not in {"project", "global"}:
+        raise HTTPException(
+            status_code=400, detail="scope must be 'project' or 'global'"
+        )
+
+    wiki_dir = get_wiki_dir(scope)
+    pages_dir = wiki_dir / "pages"
+    if not pages_dir.is_dir():
+        return {"scope": scope, "mermaid": "graph LR", "node_count": 0, "edge_count": 0}
+
+    edges: list[str] = []
+    nodes: set[str] = set()
+    for md_file in sorted(pages_dir.glob("*.md")):
+        slug = md_file.stem
+        nodes.add(slug)
+        content = md_file.read_text(encoding="utf-8")
+        _, body = parse_frontmatter(content)
+        for target in WIKILINK_PATTERN.findall(body):
+            edges.append(f"  {slug} --> {target}")
+            nodes.add(target)
+
+    lines = ["graph LR"] + sorted(edges)
+    return {
+        "scope": scope,
+        "mermaid": "\n".join(lines),
+        "node_count": len(nodes),
+        "edge_count": len(edges),
+    }

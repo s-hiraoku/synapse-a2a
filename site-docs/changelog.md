@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.23.0
+
+- **Added**: Living Wiki — source file tracking (`source_files`/`source_commit` frontmatter), stale page detection, `synapse wiki refresh` command
+- **Added**: `synapse wiki init` — scaffold architecture and patterns skeleton pages
+- **Added**: `learning` page type for recording bug fixes and discovered patterns
+- **Added**: `GET /api/wiki/graph` Canvas endpoint — Mermaid knowledge graph of wiki page links
+
 ### v0.22.0
 
 - **Added**: `synapse worktree prune` — orphan worktree detection and cleanup
