@@ -1,21 +1,31 @@
 name: post-impl
 description: >
   Post-implementation workflow: docs/simplify/sync in parallel,
-  then release, create PR, and monitor with pr-guardian.
+  then release, commit all changes, create PR, and monitor with pr-guardian.
+auto_spawn: true
 steps:
-  - target: claude-agent
+  - target: claude
     message: "/parallel-docs-simplify-sync"
     priority: 3
     response_mode: wait
-  - target: claude-agent
+    timeout: 600
+  - target: claude
     message: "/release"
     priority: 3
     response_mode: wait
-  - target: claude-agent
-    message: "PRを作成してください。ベースブランチはmainです。"
+    timeout: 300
+  - target: claude
+    message: "変更をコミットしてください。実装内容に応じて分割コミットでも単一コミットでも構いません。Conventional Commits形式でお願いします。"
     priority: 3
     response_mode: wait
-  - target: claude-agent
+    timeout: 300
+  - target: claude
+    message: "PRを作成してください。ベースブランチはmainです。タイトルと本文は実装内容から自動生成してください。"
+    priority: 3
+    response_mode: wait
+    timeout: 300
+  - target: claude
     message: "/pr-guardian"
     priority: 3
     response_mode: wait
+    timeout: 3600

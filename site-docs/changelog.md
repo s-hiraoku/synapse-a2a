@@ -9,6 +9,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Fixed**: `response_mode: wait` now correctly waits for task completion in `synapse workflow run` (#513)
 - **Fixed**: Polling loop exits early on `input_required` status
 
+
 ### v0.23.0
 
 - **Added**: Living Wiki — source file tracking (`source_files`/`source_commit` frontmatter), stale page detection, `synapse wiki refresh` command

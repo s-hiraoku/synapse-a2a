@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated canvas-workflow design doc with target-side polling fallback and `input_required` exit behavior
 
+
 ## [0.23.0] - 2026-04-05
 
 ### Added
