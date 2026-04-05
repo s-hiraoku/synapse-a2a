@@ -594,7 +594,7 @@ class SynapseSettings:
         ):
             files.append("file-safety.md")
 
-        if self._instruction_file_exists("wiki.md"):
+        if self._is_wiki_enabled() and self._instruction_file_exists("wiki.md"):
             files.append("wiki.md")
 
         # Learning mode (either flag enables learning.md injection)
@@ -666,7 +666,8 @@ class SynapseSettings:
         if self._is_file_safety_enabled():
             add_if_exists("file-safety.md")
 
-        add_if_exists("wiki.md")
+        if self._is_wiki_enabled():
+            add_if_exists("wiki.md")
 
         # Learning mode (either flag enables learning.md injection)
         if self._is_any_learning_enabled():
@@ -747,6 +748,13 @@ class SynapseSettings:
     def _is_shared_memory_enabled(self) -> bool:
         """Check if shared memory is enabled via env var or settings."""
         return self._is_env_flag_enabled("SYNAPSE_SHARED_MEMORY_ENABLED")
+
+    def _is_wiki_enabled(self) -> bool:
+        """Check if wiki is enabled. Defaults to True (opt-out, not opt-in)."""
+        value = os.environ.get("SYNAPSE_WIKI_ENABLED", "").lower()
+        if not value:
+            value = self.env.get("SYNAPSE_WIKI_ENABLED", "true").lower()
+        return value not in ("false", "0")
 
     def _is_proactive_mode_enabled(self) -> bool:
         """Check if proactive mode is enabled via env var or settings."""

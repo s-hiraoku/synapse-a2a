@@ -260,6 +260,14 @@ flowchart TB
         learn["learn"]
         instinct["instinct"]
         evolve["evolve"]
+        wiki["wiki"]
+    end
+
+    subgraph Wiki["wiki サブコマンド"]
+        wiki_ingest["ingest"]
+        wiki_query["query"]
+        wiki_lint["lint"]
+        wiki_status["status"]
     end
 
     subgraph Memory["memory サブコマンド"]
@@ -349,6 +357,7 @@ flowchart TB
     agents --> Agents
     tasks --> Tasks
     session --> SessionCmds
+    wiki --> Wiki
     workflow --> WorkflowCmds
 ```
 
