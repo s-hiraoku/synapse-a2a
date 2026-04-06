@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated synapse-reference.md and README.md with KKP mitigation details for Copilot PTY behavior
 
+
 ## [0.23.1] - 2026-04-06
 
 ### Fixed

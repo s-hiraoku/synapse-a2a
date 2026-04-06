@@ -9,6 +9,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Fixed**: Copilot CLI Enter key reliability — detect and disable Kitty Keyboard Protocol (KKP)
 - **Fixed**: Thread-safe PTY write via `_disable_kkp()` helper with `RLock`
 
+
 ### v0.23.1
 
 - **Fixed**: `response_mode: wait` now correctly waits for task completion in `synapse workflow run` (#513)
