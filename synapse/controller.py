@@ -70,6 +70,12 @@ _COPILOT_COMPACT_PASTE_RE = re.compile(r"\[Paste #\d+(?: - \d+ lines)?\]")
 _COPILOT_SAVED_PASTE_RE = re.compile(
     r"\[Saved pasted content to workspace \([^)]+\) id=\d+\]"
 )
+# Kitty Keyboard Protocol (KKP) — Copilot CLI enables this on startup.
+# When active, terminals encode Enter as CSI 13 u instead of \r, which
+# can cause our injected \r to be ignored.  We detect KKP activation
+# in PTY output and immediately disable it by popping the mode stack.
+_KKP_ENABLE_RE = re.compile(rb"\x1b\[>[0-9;]*u")
+_KKP_DISABLE_SEQ = b"\x1b[<u"  # Pop keyboard mode (restore previous)
 _COPILOT_SUBMIT_NUDGE_DELAY = 0.1
 _COPILOT_LONG_SUBMIT_NUDGE_DELAY = 0.2
 _COPILOT_PASTE_ECHO_POLL = 0.05
@@ -221,7 +227,7 @@ class TerminalController:
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.status = "PROCESSING"
         self.lock = threading.Lock()
-        self._write_lock = threading.Lock()
+        self._write_lock = threading.RLock()
         self.running = False
         self.thread: threading.Thread | None = None
         self.registry = registry or AgentRegistry()
@@ -273,6 +279,8 @@ class TerminalController:
         self._inject_write_fd: int | None = None
         # Whether ICRNL has been cleared on the PTY (avoid repeated syscalls)
         self._icrnl_cleared = False
+        # Whether Kitty Keyboard Protocol has been disabled on the PTY
+        self._kkp_disabled = False
         if submit_retry_delay is not None:
             try:
                 submit_retry_delay = float(submit_retry_delay)
@@ -698,6 +706,16 @@ class TerminalController:
                         self._append_output(data)
 
                         self._check_idle_state(data)
+
+                        # Detect and disable Kitty Keyboard Protocol.
+                        # Copilot CLI enables KKP on startup which changes
+                        # how Enter is encoded, causing our \r to be ignored.
+                        if (
+                            not self._kkp_disabled
+                            and self.agent_type == "copilot"
+                            and _KKP_ENABLE_RE.search(data)
+                        ):
+                            self._disable_kkp("disabled via pop")
 
                         # Debug logging for PTY output analysis
                         # Enable with SYNAPSE_DEBUG_PTY=1 to see raw PTY output
@@ -1337,6 +1355,24 @@ class TerminalController:
             for p in (_COPILOT_COMPACT_PASTE_RE, _COPILOT_SAVED_PASTE_RE)
         )
 
+    def _disable_kkp(self, reason: str) -> None:
+        """Disable Kitty Keyboard Protocol on the PTY if not already done.
+
+        KKP changes Enter encoding from \\r to CSI 13 u, which can cause
+        our injected \\r to be ignored by Copilot's Ink TUI.  Thread-safe
+        via _write_lock to avoid interleaving with other PTY writes.
+        """
+        if self._kkp_disabled or self.master_fd is None:
+            return
+        try:
+            with self._write_lock:
+                if not self._kkp_disabled:  # Double-check under lock
+                    self._write_all(_KKP_DISABLE_SEQ)
+                    self._kkp_disabled = True
+                    logger.debug(f"[{self.agent_id}] KKP {reason}")
+        except OSError:
+            pass
+
     def _wait_for_copilot_paste_echo(self, pre_paste_context: str) -> None:
         """Wait for Copilot's Ink TUI to reflect the pasted text before Enter.
 
@@ -1475,6 +1511,10 @@ class TerminalController:
                             self._icrnl_cleared = True
                         except (termios.error, OSError):
                             pass
+                    # Proactively disable Kitty Keyboard Protocol before
+                    # submit if it hasn't been caught by the output monitor.
+                    if not self._kkp_disabled and self.agent_type == "copilot":
+                        self._disable_kkp("proactively disabled")
                     self._write_all(submit_bytes)
                     if (
                         self._submit_retry_delay is not None

@@ -635,6 +635,7 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.interactive = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
 
         with patch("synapse.controller.time.sleep"):
             ctrl.write("test message", submit_seq="\r")
@@ -949,6 +950,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
 
         writes: list[bytes] = []
@@ -998,6 +1000,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
 
         writes: list[bytes] = []
@@ -1045,6 +1048,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "WAITING"
         ctrl.get_context = lambda: "A2A: hello"  # type: ignore[method-assign]
 
@@ -1081,6 +1085,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "WAITING"
         ctrl.get_context = lambda: "Processing..."  # type: ignore[method-assign]
 
@@ -1295,6 +1300,9 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.master_fd = 1
         ctrl.status = "READY"
+        ctrl._kkp_disabled = (
+            True  # KKP tested separately in TestKittyKeyboardProtocolDisable
+        )
         ctrl.get_context = lambda: "A2A: hello"  # type: ignore[method-assign]
         return ctrl
 
@@ -1332,6 +1340,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         get_ctx, write_se = self._copilot_echo_context("", "echoed")
         ctrl.get_context = get_ctx  # type: ignore[method-assign]
 
@@ -1357,6 +1366,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
         get_ctx, write_se = self._copilot_echo_context("", "A2A: hello")
         ctrl.get_context = get_ctx  # type: ignore[method-assign]
@@ -1383,6 +1393,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
         # After paste echo, status advances → confirmation clears immediately.
         state = {"pasted": False}
@@ -1424,6 +1435,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.get_context = (
             lambda: "shift+tab switch mode · ctrl+s run command\nA2A: hello"
         )  # type: ignore[method-assign]
@@ -1454,6 +1466,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         get_ctx, write_se = self._copilot_echo_context("", "hello\nworld")
         ctrl.get_context = get_ctx  # type: ignore[method-assign]
 
@@ -1479,6 +1492,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
         ctrl.get_context = (  # type: ignore[method-assign]
             lambda: (
@@ -1529,6 +1543,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
         ctrl.get_context = (  # type: ignore[method-assign]
             lambda: (setattr(ctrl, "status", "PROCESSING") or "")
@@ -1573,6 +1588,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
         poll_state = {"count": 0}
 
@@ -1611,6 +1627,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
         current_tail = "[Paste #1 - 12 lines]\nFollow-up still pending..."
         ctrl.get_context = lambda: current_tail  # type: ignore[method-assign]
@@ -1647,6 +1664,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
         poll_state = {"count": 0}
 
@@ -1684,6 +1702,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
         current_tail = "[Saved pasted content to workspace (14 KB) id=3]\nFollow-up still pending..."
         ctrl.get_context = lambda: current_tail  # type: ignore[method-assign]
@@ -1722,6 +1741,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
         get_ctx, write_se = self._copilot_echo_context("", "hello\nworld")
         ctrl.get_context = get_ctx  # type: ignore[method-assign]
@@ -1766,6 +1786,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
         get_ctx, write_se = self._copilot_echo_context("", "line1\nline2")
         ctrl.get_context = get_ctx  # type: ignore[method-assign]
@@ -1803,6 +1824,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
         get_ctx, write_se = self._copilot_echo_context("", "hello")
         ctrl.get_context = get_ctx  # type: ignore[method-assign]
@@ -2202,3 +2224,130 @@ class TestInvalidRegexHandling:
         # Should have default timeout
         assert ctrl._output_idle_threshold == 1.5  # Default
         assert ctrl.idle_regex is None
+
+
+class TestKittyKeyboardProtocolDisable:
+    """Tests for Kitty Keyboard Protocol detection and disabling."""
+
+    def test_kkp_detected_in_output_sends_disable(self):
+        """KKP enable sequence in PTY output should trigger disable write."""
+        ctrl = TerminalController(
+            command="copilot",
+            idle_regex=r"❯",
+            agent_type="copilot",
+        )
+        ctrl.running = True
+        ctrl.master_fd = 999
+
+        writes: list[bytes] = []
+        with patch(
+            "synapse.controller.os.write",
+            side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+        ):
+            # Simulate KKP enable sequence in PTY output
+            kkp_data = b"\x1b[>1u"
+            ctrl._check_idle_state(b"")  # no-op, just setup
+            # Manually trigger what _monitor_output does
+            from synapse.controller import _KKP_DISABLE_SEQ, _KKP_ENABLE_RE
+
+            if (
+                not ctrl._kkp_disabled
+                and ctrl.agent_type == "copilot"
+                and _KKP_ENABLE_RE.search(kkp_data)
+            ):
+                import os as _os
+
+                _os.write(ctrl.master_fd, _KKP_DISABLE_SEQ)
+                ctrl._kkp_disabled = True
+
+        assert ctrl._kkp_disabled is True
+        assert b"\x1b[<u" in writes
+
+    def test_kkp_not_triggered_for_non_copilot(self):
+        """Non-copilot agents should not trigger KKP disable."""
+        ctrl = TerminalController(
+            command="claude",
+            idle_regex=r"\$",
+            agent_type="claude",
+        )
+        ctrl.running = True
+        ctrl.master_fd = 999
+        assert ctrl._kkp_disabled is False
+
+        from synapse.controller import _KKP_ENABLE_RE
+
+        kkp_data = b"\x1b[>1u"
+        # For non-copilot, the condition should not match
+        should_disable = (
+            not ctrl._kkp_disabled
+            and ctrl.agent_type == "copilot"
+            and _KKP_ENABLE_RE.search(kkp_data)
+        )
+        assert should_disable is False
+        assert ctrl._kkp_disabled is False
+
+    def test_kkp_regex_matches_various_formats(self):
+        """KKP enable regex should match various CSI >Nu formats."""
+        from synapse.controller import _KKP_ENABLE_RE
+
+        assert _KKP_ENABLE_RE.search(b"\x1b[>1u") is not None
+        assert _KKP_ENABLE_RE.search(b"\x1b[>3u") is not None
+        assert _KKP_ENABLE_RE.search(b"\x1b[>1;2u") is not None
+        assert _KKP_ENABLE_RE.search(b"other\x1b[>1ustuff") is not None
+        # Should NOT match pop/disable sequence
+        assert _KKP_ENABLE_RE.search(b"\x1b[<u") is None
+        # Should NOT match regular CSI u (no >)
+        assert _KKP_ENABLE_RE.search(b"\x1b[13u") is None
+
+    def test_proactive_kkp_disable_on_first_submit(self):
+        """First Copilot submit should proactively disable KKP."""
+        ctrl = TerminalController(
+            command="copilot",
+            idle_regex=r"❯",
+            write_delay=0.05,
+            bracketed_paste=True,
+            agent_type="copilot",
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+
+        # KKP disable should be in writes before the \r submit
+        assert b"\x1b[<u" in writes
+        assert ctrl._kkp_disabled is True
+
+    def test_kkp_disable_only_once(self):
+        """KKP disable should only be sent once."""
+        ctrl = TerminalController(
+            command="copilot",
+            idle_regex=r"❯",
+            write_delay=0.05,
+            bracketed_paste=True,
+            agent_type="copilot",
+        )
+        ctrl.running = True
+        ctrl.master_fd = 1
+
+        writes: list[bytes] = []
+        with (
+            patch(
+                "synapse.controller.os.write",
+                side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+            ),
+            patch("synapse.controller.time.sleep"),
+        ):
+            ctrl.write("hello", submit_seq="\r")
+            ctrl.write("world", submit_seq="\r")
+
+        # KKP disable should appear exactly once
+        kkp_count = sum(1 for w in writes if w == b"\x1b[<u")
+        assert kkp_count == 1

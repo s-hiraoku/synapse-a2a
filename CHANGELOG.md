@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.2] - 2026-04-07
+
+### Fixed
+
+- Copilot CLI Enter key reliability: detect and disable Kitty Keyboard Protocol (KKP) which re-encodes Enter from `\r` to CSI 13 u, causing injected submits to be silently ignored
+- Thread-safe KKP disable via `_disable_kkp()` helper with `RLock` to prevent PTY write interleaving between monitor and write threads
+
+### Documentation
+
+- Updated synapse-reference.md and README.md with KKP mitigation details for Copilot PTY behavior
+
+
 ## [0.23.1] - 2026-04-06
 
 ### Fixed
@@ -3160,7 +3172,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.1...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.2...HEAD
+[0.23.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.1...v0.23.2
 [0.23.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.20.0...v0.21.0
