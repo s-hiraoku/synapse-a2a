@@ -1367,7 +1367,7 @@ class TerminalController:
         try:
             with self._write_lock:
                 if not self._kkp_disabled:  # Double-check under lock
-                    os.write(self.master_fd, _KKP_DISABLE_SEQ)
+                    self._write_all(_KKP_DISABLE_SEQ)
                     self._kkp_disabled = True
                     logger.debug(f"[{self.agent_id}] KKP {reason}")
         except OSError:
@@ -1513,11 +1513,7 @@ class TerminalController:
                             pass
                     # Proactively disable Kitty Keyboard Protocol before
                     # submit if it hasn't been caught by the output monitor.
-                    if (
-                        not self._kkp_disabled
-                        and self.agent_type == "copilot"
-                        and self._bracketed_paste
-                    ):
+                    if not self._kkp_disabled and self.agent_type == "copilot":
                         self._disable_kkp("proactively disabled")
                     self._write_all(submit_bytes)
                     if (

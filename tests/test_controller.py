@@ -635,6 +635,7 @@ class TestInterAgentMessageWrite:
         ctrl.running = True
         ctrl.interactive = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
 
         with patch("synapse.controller.time.sleep"):
             ctrl.write("test message", submit_seq="\r")
@@ -949,6 +950,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
 
         writes: list[bytes] = []
@@ -998,6 +1000,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "READY"
 
         writes: list[bytes] = []
@@ -1045,6 +1048,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "WAITING"
         ctrl.get_context = lambda: "A2A: hello"  # type: ignore[method-assign]
 
@@ -1081,6 +1085,7 @@ class TestInterAgentMessageWrite:
         )
         ctrl.running = True
         ctrl.master_fd = 1
+        ctrl._kkp_disabled = True
         ctrl.status = "WAITING"
         ctrl.get_context = lambda: "Processing..."  # type: ignore[method-assign]
 
