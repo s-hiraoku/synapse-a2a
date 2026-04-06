@@ -433,6 +433,102 @@ class TestA2AClientWaitForCompletion:
         assert task.status == "completed"
         assert len(task.artifacts) == 1
 
+    @responses.activate
+    def test_wait_falls_back_to_target_polling_when_no_sender_endpoint(
+        self, a2a_client
+    ):
+        """Should poll target task when wait mode has no sender endpoint."""
+        responses.add(
+            responses.POST,
+            "http://localhost:8001/tasks/send-priority?priority=1",
+            json={
+                "task": {"id": "target-task-1", "status": "working", "artifacts": []}
+            },
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "http://localhost:8001/tasks/target-task-1",
+            json={"id": "target-task-1", "status": "working", "artifacts": []},
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "http://localhost:8001/tasks/target-task-1",
+            json={"id": "target-task-1", "status": "completed", "artifacts": []},
+            status=200,
+        )
+
+        task = a2a_client.send_to_local(
+            endpoint="http://localhost:8001",
+            message="Hello",
+            wait_for_completion=True,
+            timeout=10,
+            response_mode="wait",
+            sender_info={},
+        )
+
+        assert task is not None
+        assert task.status == "completed"
+        assert (
+            len(
+                [
+                    call
+                    for call in responses.calls
+                    if call.request.method == "GET"
+                    and call.request.url == "http://localhost:8001/tasks/target-task-1"
+                ]
+            )
+            == 2
+        )
+
+    @responses.activate
+    def test_wait_falls_back_when_sender_info_is_none(self, a2a_client):
+        """Should poll target task when sender info is missing."""
+        responses.add(
+            responses.POST,
+            "http://localhost:8001/tasks/send-priority?priority=1",
+            json={
+                "task": {"id": "target-task-2", "status": "working", "artifacts": []}
+            },
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "http://localhost:8001/tasks/target-task-2",
+            json={"id": "target-task-2", "status": "completed", "artifacts": []},
+            status=200,
+        )
+
+        task = a2a_client.send_to_local(
+            endpoint="http://localhost:8001",
+            message="Hello",
+            wait_for_completion=True,
+            timeout=10,
+            response_mode="wait",
+            sender_info=None,
+        )
+
+        assert task is not None
+        assert task.status == "completed"
+
+    @responses.activate
+    def test_wait_returns_early_on_input_required(self, a2a_client):
+        """Should stop waiting if task requests input."""
+        responses.add(
+            responses.GET,
+            "http://localhost:8001/tasks/task-ir",
+            json={"id": "task-ir", "status": "input_required", "artifacts": []},
+            status=200,
+        )
+
+        task = a2a_client._wait_for_local_completion(
+            endpoint="http://localhost:8001", task_id="task-ir", timeout=5
+        )
+
+        assert task is not None
+        assert task.status == "input_required"
+
 
 # ============================================================
 # A2ATask Tests

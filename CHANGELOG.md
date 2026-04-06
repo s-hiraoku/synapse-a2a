@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.1] - 2026-04-06
+
+### Fixed
+
+- `response_mode: wait` now correctly waits for task completion when the sender has no A2A server (e.g. `synapse workflow run` subprocess). Falls back to polling the target's task endpoint directly (#513)
+- Polling loop exits early on `input_required` status instead of waiting until timeout
+
+### Documentation
+
+- Updated canvas-workflow design doc with target-side polling fallback and `input_required` exit behavior
+
+
 ## [0.23.0] - 2026-04-05
 
 ### Added
@@ -3148,7 +3160,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.1...HEAD
 [0.23.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.20.0...v0.21.0
@@ -3312,6 +3324,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 [0.2.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.3...v0.2.4
+[0.23.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.0...v0.23.1
 [0.2.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.2.0...v0.2.1

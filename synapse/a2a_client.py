@@ -461,19 +461,38 @@ class A2AClient:
             assert task_data is not None
             task = A2ATask.from_dict(task_data)
 
-            if wait_for_completion and response_mode == "wait" and sender_task_id:
-                # Poll SENDER's server for the sender_task_id (where reply will arrive)
-                # not the target's server
-                sender_endpoint = (
-                    sender_info.get("sender_endpoint") if sender_info else None
-                )
-                sender_uds = sender_info.get("sender_uds_path") if sender_info else None
-                if sender_endpoint:
+            if wait_for_completion and response_mode == "wait":
+                if sender_task_id:
+                    # Poll SENDER's server for the sender_task_id (where reply will arrive)
+                    # not the target's server
+                    sender_endpoint = (
+                        sender_info.get("sender_endpoint") if sender_info else None
+                    )
+                    sender_uds = (
+                        sender_info.get("sender_uds_path") if sender_info else None
+                    )
+                    if sender_endpoint:
+                        completed_task = self._wait_for_local_completion(
+                            sender_endpoint,
+                            sender_task_id,
+                            timeout,
+                            uds_path=sender_uds if sender_uds else None,
+                        )
+                        if completed_task is not None:
+                            task = completed_task
+                else:
+                    # No sender server (e.g. workflow subprocess).
+                    # Fall back to polling the TARGET's task directly.
+                    logger.debug(
+                        "No sender_task_id; polling target task %s at %s",
+                        task.id,
+                        endpoint,
+                    )
                     completed_task = self._wait_for_local_completion(
-                        sender_endpoint,
-                        sender_task_id,
+                        endpoint,
+                        task.id,
                         timeout,
-                        uds_path=sender_uds if sender_uds else None,
+                        uds_path=uds_path,
                     )
                     if completed_task is not None:
                         task = completed_task
@@ -528,6 +547,9 @@ class A2AClient:
                 task = A2ATask.from_dict(data, fallback_id=task_id)
 
                 if task.status in COMPLETED_TASK_STATES:
+                    return task
+                if task.status == "input_required":
+                    logger.debug("Task %s is input_required; stop waiting", task_id)
                     return task
 
             except (requests.exceptions.RequestException, httpx.HTTPError):
