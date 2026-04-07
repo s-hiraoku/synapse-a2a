@@ -96,7 +96,7 @@ os.environ["SYNAPSE_SPAWN_PANES"] += f",{new_pane}"
 ## 影響範囲
 
 - `synapse/terminal_jump.py`: `_get_tmux_auto_split()` にスポーンゾーンフィルタ追加、`create_tmux_panes()` に初回/2回目以降の分岐、`_pane_title()` でペインタイトル自動設定
-- `synapse/spawn.py`: `_get_tmux_pane_ids()`, `_get_new_tmux_pane_id()` 追加、スポーンゾーン追跡ロジック、`_post_spawn_tile()` で自動タイル適用、`spawn_agent()` が spawn 後に `_post_spawn_tile()` を呼び出し
+- `synapse/spawn.py`: `_get_tmux_pane_ids()` でペイン差分検出、`_set_tmux_spawn_panes()` でスポーンゾーン追跡、`_post_spawn_tile()` で `SYNAPSE_SPAWN_PANES` を参照して自動タイル適用、`spawn_agent()` が spawn 後に `_post_spawn_tile()` を呼び出し
 - `tests/test_auto_layout.py`: 29テスト（全ターミナル対応）
 
 ## layout パラメータとの関係

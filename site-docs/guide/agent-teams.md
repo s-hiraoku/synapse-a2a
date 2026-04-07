@@ -293,7 +293,7 @@ When using `synapse spawn` to add agents one at a time, panes are organized usin
 1. **First spawn** — splits the current pane horizontally to create a dedicated spawn zone
 2. **Subsequent spawns** — automatically apply tmux tile layout when 2+ agents exist in the spawn zone, leaving your working pane untouched
 
-!!! tip "Auto-Tile (since v0.23.3)"
+!!! tip "Auto-Tile (since v0.23.4)"
     Tile layout is applied automatically — no extra flags needed. When a second or subsequent agent is spawned, Synapse detects the existing spawn zone panes via `SYNAPSE_SPAWN_PANES` and applies an optimal tile arrangement.
 
 The largest pane in the spawn zone is selected for splitting, with direction determined by aspect ratio:

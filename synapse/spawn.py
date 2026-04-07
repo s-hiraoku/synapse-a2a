@@ -429,9 +429,10 @@ def _post_spawn_tile(terminal: str, count: int) -> None:
     if terminal == "tmux":
         spawn_panes = _get_tmux_spawn_panes()
         total = len(spawn_panes.split(",")) if spawn_panes else 0
-        # Any spawned pane(s) plus the original caller pane = 2+ visible
-        # panes, so re-tile whenever the spawn zone is non-empty.
-        if total >= 1:
+        # total counts *spawned* panes only (the original caller pane is
+        # not tracked).  Tile when 2+ spawned panes exist, i.e. 3+ visible
+        # panes — the first spawn should not trigger a re-tile.
+        if total >= 2:
             subprocess.run(
                 ["tmux", "select-layout", "tiled"],
                 check=False,

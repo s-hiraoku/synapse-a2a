@@ -88,17 +88,15 @@ class TestPostSpawnTilingTmux:
 
     @patch("synapse.spawn._get_tmux_spawn_panes", return_value="%1")
     @patch("synapse.spawn.subprocess.run")
-    def test_tiling_with_single_spawn_pane(
+    def test_no_tiling_with_single_spawn_pane(
         self, mock_run: MagicMock, _mock_panes: MagicMock
     ) -> None:
-        """One spawned pane + original pane = 2 visible panes, should tile."""
+        """First spawn (1 spawned pane) should NOT tile — only 2nd+ spawn does."""
         from synapse.spawn import _post_spawn_tile
 
         _post_spawn_tile("tmux", 1)
 
-        mock_run.assert_called_once_with(
-            ["tmux", "select-layout", "tiled"], check=False, timeout=5
-        )
+        mock_run.assert_not_called()
 
     @patch("synapse.spawn._post_spawn_tile")
     @patch("synapse.spawn.execute_spawn")
