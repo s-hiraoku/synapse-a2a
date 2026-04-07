@@ -288,10 +288,13 @@ The delegate mode instruction template can be customized in [settings](settings.
 
 ## Spawn Zone Tiling
 
-When using `synapse spawn` to add agents one at a time, panes are organized using a **spawn zone** concept:
+When using `synapse spawn` to add agents one at a time, panes are organized using a **spawn zone** concept with **automatic tiling**:
 
 1. **First spawn** — splits the current pane horizontally to create a dedicated spawn zone
-2. **Subsequent spawns** — tile within the spawn zone only, leaving your working pane untouched
+2. **Subsequent spawns** — automatically apply tmux tile layout when 2+ agents exist in the spawn zone, leaving your working pane untouched
+
+!!! tip "Auto-Tile (since v0.23.3)"
+    Tile layout is applied automatically — no extra flags needed. When a second or subsequent agent is spawned, Synapse detects the existing spawn zone panes via `SYNAPSE_SPAWN_PANES` and applies an optimal tile arrangement.
 
 The largest pane in the spawn zone is selected for splitting, with direction determined by aspect ratio:
 
@@ -510,6 +513,7 @@ synapse kill Cody -f
 | **Usage** | Manual orchestration by human | Programmatic delegation by agent |
 | **Visibility** | Always visible in panes/tabs | Usually headless/minimized |
 | **Lifecycle** | Long-running session | Task-oriented (spawn-work-kill) |
+| **Tiling** | Layout via `--layout` flag | Auto-tile when 2+ agents in spawn zone |
 | **Isolation** | Shared or isolated worktrees | Shared or isolated worktrees |
 
 ### Use Worktrees for Workers

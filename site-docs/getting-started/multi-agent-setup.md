@@ -61,8 +61,8 @@ synapse team start claude gemini --all-new
     ```
 <!-- markdownlint-enable MD046 -->
 
-!!! tip "Spawn Zone Tiling"
-    When using `synapse spawn` to add agents one at a time, panes are automatically organized using a spawn zone. Your working pane stays untouched while spawned agents tile intelligently in a dedicated area. See [Spawn Zone Tiling](../guide/agent-teams.md#spawn-zone-tiling) for details.
+!!! tip "Spawn Zone Auto-Tiling"
+    When using `synapse spawn` to add agents one at a time, panes are automatically organized using a spawn zone. When 2+ agents exist in the spawn zone, tmux tile layout is applied automatically — no extra flags needed. Your working pane stays untouched while spawned agents tile intelligently in a dedicated area. See [Spawn Zone Tiling](../guide/agent-teams.md#spawn-zone-tiling) for details.
 
 !!! warning "Ghostty Limitation"
     Ghostty uses AppleScript to target the **currently focused window/tab**. Do not switch tabs while `team start` is running, or agents may be created in the wrong tab.

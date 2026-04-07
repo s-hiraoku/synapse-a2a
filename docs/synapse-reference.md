@@ -85,7 +85,7 @@ synapse session restore <name>
 synapse workflow run <name>
 synapse workflow sync                            # Re-generate skills from all workflow YAMLs
 
-# Spawn/Teams (auto-approve enabled by default)
+# Spawn/Teams (auto-approve enabled by default, auto-tile on 2+ spawns)
 synapse spawn claude --name Tester --role "test writer"
 synapse spawn claude --worktree feature-auth
 synapse spawn codex --branch renovate/major-eslint-monorepo   # --branch auto-enables --worktree

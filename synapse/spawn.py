@@ -419,15 +419,28 @@ def _run_pane_commands(
 
 
 def _post_spawn_tile(terminal: str, count: int) -> None:
-    """Apply caller-level tiling for terminals that need it after individual spawns."""
+    """Apply caller-level tiling for terminals that need it after individual spawns.
+
+    For tmux, also considers the total number of panes in the spawn zone
+    (tracked via ``SYNAPSE_SPAWN_PANES``).  This allows ``synapse spawn``
+    called multiple times to trigger tiling once a second pane exists,
+    even though each invocation only spawns one agent.
+    """
+    if terminal == "tmux":
+        spawn_panes = _get_tmux_spawn_panes()
+        total = len(spawn_panes.split(",")) if spawn_panes else 0
+        # Any spawned pane(s) plus the original caller pane = 2+ visible
+        # panes, so re-tile whenever the spawn zone is non-empty.
+        if total >= 1:
+            subprocess.run(
+                ["tmux", "select-layout", "tiled"],
+                check=False,
+                timeout=5,
+            )
+            return
+    # Non-tmux fallback: use count as before
     if count < 2:
         return
-    if terminal == "tmux":
-        subprocess.run(
-            ["tmux", "select-layout", "tiled"],
-            check=False,
-            timeout=5,
-        )
 
 
 def spawn_agent(
@@ -491,6 +504,10 @@ def spawn_agent(
         terminal=terminal,
         all_new=True,
     )
+
+    # Re-tile the spawn zone for consecutive individual spawns (#507).
+    terminal_used = results[0].terminal_used
+    _post_spawn_tile(terminal_used, 1)
 
     return results[0]
 

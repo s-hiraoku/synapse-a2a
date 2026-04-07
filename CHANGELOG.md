@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.4] - 2026-04-07
+
+### Fixed
+
+- `synapse spawn` called multiple times now automatically applies `tmux select-layout tiled` when 2+ agents exist in the spawn zone, matching `team start` behavior (#507)
+
+### Changed
+
+- `_post_spawn_tile()` now uses `SYNAPSE_SPAWN_PANES` tracking to determine total spawn zone pane count instead of relying solely on per-invocation count
+
+### Tests
+
+- Added 4 new tests: spawn zone-based tiling with existing panes, single spawn pane tiling, spawn_agent post-tile trigger, and first-spawn no-tiling
+
+### Documentation
+
+- Updated README, guides, site-docs, and spawn-zone-tiling docs to reflect automatic tile layout for individual `synapse spawn` calls
+
 ## [0.23.3] - 2026-04-07
 
 ### Fixed
