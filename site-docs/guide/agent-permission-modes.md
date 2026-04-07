@@ -100,8 +100,8 @@ CLI フラグ（`--dangerously-skip-permissions`）は Feature Request として
 
 | 制御 | デフォルト | 説明 |
 |------|-----------|------|
-| `max_consecutive` | 20 | 連続自動承認の上限。超過で自動承認停止 |
-| `cooldown` | 2.0秒 | 承認間の最小間隔。高速ループ防止 |
+| `max_consecutive` | 0（無制限） | 連続自動承認の上限。0 = 無制限、正の整数で上限設定 |
+| `cooldown` | 0.0秒 | 承認間の最小間隔。0.0 = クールダウンなし |
 | 安定化遅延 | 0.3秒 | WAITING UI のレンダリング完了を待つ |
 | 環境変数 | `SYNAPSE_AUTO_APPROVE=false` | グローバル無効化 |
 
@@ -113,8 +113,8 @@ CLI フラグ（`--dangerously-skip-permissions`）は Feature Request として
 auto_approve:
   cli_flag: "--dangerously-skip-permissions"  # 起動時に注入する CLI フラグ
   runtime_response: "y\r"                      # WAITING 時に送信する応答
-  max_consecutive: 20                          # 連続承認上限
-  cooldown: 2.0                                # 承認間隔（秒）
+  max_consecutive: 0                            # 連続承認上限（0 = 無制限）
+  cooldown: 0.0                                # 承認間隔（秒、0.0 = なし）
 ```
 
 ### 無効化方法

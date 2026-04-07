@@ -92,6 +92,6 @@ CLI flag, Synapse's controller detects the WAITING status and automatically
 sends the approval response (profile-specific: `y\r`, `\r`, `1\r`, `a\r`).
 
 Safety controls:
-- Max 20 consecutive auto-approvals (configurable per profile)
-- 2s cooldown between approvals
+- Unlimited consecutive auto-approvals by default (`max_consecutive=0`; set to a positive integer to cap)
+- No cooldown between approvals by default (`cooldown=0.0`)
 - `SYNAPSE_AUTO_APPROVE=false` env var disables globally

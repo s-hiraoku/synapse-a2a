@@ -1585,13 +1585,13 @@ For Copilot specifically, bracketed paste is enabled because Copilot CLI 1.0.12+
 
 ### WAITING Detection
 
-WAITING detection is enabled in all five profiles (claude, codex, gemini, opencode, copilot). The [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) false positive issue was resolved by matching only against fresh PTY output (`new_data`) and adding auto-expiry (`waiting_expiry`, default 10s) with buffer tail re-check.
+WAITING detection is enabled in all five profiles (claude, codex, gemini, opencode, copilot). The [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) false positive issue was resolved by matching only against fresh PTY output (`new_data`) and adding auto-expiry (`waiting_expiry`, default 10s) with buffer tail re-check. PTY output is now passed through `strip_ansi()` before regex matching, ensuring reliable detection for TUI-based agents (ratatui, Ink, Bubble Tea) where ANSI escape sequences previously interfered with pattern matching.
 
 Detects agents waiting for user input (selection UI, Y/n prompts) using agent-specific regex patterns:
 
 - **Claude**: `❯ Option` cursor, `☐/☑` checkboxes, `[Y/n]` prompts
-- **Gemini**: `● 1. Option` selection UI, `Action Required` header, `Allow once/for this session/for this file`, `No, suggest changes`
-- **Codex**: `›` selector with numbered items, `Yes, proceed`, `Yes, and don't ask again`, `No, and tell Codex`, `Press enter to confirm`
+- **Gemini**: `● 1. Option` selection UI, `Action Required` header, `Allow once/for this session/for this file`, `No, suggest changes`, `Apply this change`, `Do you want to proceed`
+- **Codex**: `›` selector with numbered items, `Yes, proceed`, `Yes, and don't ask again`, `No, and tell Codex`, `Press enter to confirm`, `Press [Ee]nter to confirm`, `Would you like to`
 - **OpenCode**: `Permission Required` header, horizontal button bar (`Allow (a)`, `Allow for session (s)`, `Deny (d)`)
 - **Copilot**: Numbered choices, selection indicators, `[y/N]` or `(y/n)` prompts, `approve ... for the rest of the running session`, `No, and tell Copilot`. A repeated WAITING state only confirms after the prompt text clears.
 

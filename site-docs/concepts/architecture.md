@@ -182,7 +182,7 @@ Both signals are checked together. If *either* signal is active (and not expired
 
 ### WAITING Detection
 
-WAITING detection uses a **fresh-output-only** strategy: the regex pattern is matched only against newly received PTY data, not the entire output buffer. This eliminates false positives from old prompt patterns that remain in the scrollback. WAITING auto-expires when the pattern disappears from the visible buffer tail after `WAITING_EXPIRY_SECONDS` (10 s default).
+WAITING detection uses a **fresh-output-only** strategy: the regex pattern is matched only against newly received PTY data, not the entire output buffer. This eliminates false positives from old prompt patterns that remain in the scrollback. ANSI escape sequences are stripped from the PTY data before regex matching, so TUI-rendered prompts (ratatui, Ink, Bubble Tea) correctly match the plain-text patterns defined in profile YAML files. WAITING auto-expires when the pattern disappears from the visible buffer tail after `WAITING_EXPIRY_SECONDS` (10 s default).
 
 ## Readiness Gate
 

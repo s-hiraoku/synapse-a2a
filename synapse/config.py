@@ -75,11 +75,12 @@ WAITING_EXPIRY_SECONDS: float = 10.0
 # Auto-Approve Constants
 # ============================================================
 
-# Max consecutive auto-approvals before stopping (safety valve)
-AUTO_APPROVE_MAX_CONSECUTIVE: int = 20
+# Max consecutive auto-approvals before stopping (0 = unlimited).
+# Spawned agents are managed by the parent — unlimited by default.
+AUTO_APPROVE_MAX_CONSECUTIVE: int = 0
 
-# Minimum seconds between consecutive auto-approvals
-AUTO_APPROVE_COOLDOWN: float = 2.0
+# Minimum seconds between consecutive auto-approvals (0.0 = no cooldown)
+AUTO_APPROVE_COOLDOWN: float = 0.0
 
 # Delay before sending auto-approve response (let WAITING UI render)
 AUTO_APPROVE_STABILIZE_DELAY: float = 0.3
