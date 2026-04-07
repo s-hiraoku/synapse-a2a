@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.23.3
+
+- **Fixed**: WAITING detection strips ANSI escape sequences for reliable TUI approval prompt matching (#508)
+- **Changed**: Auto-approve defaults to unlimited for spawned agents (#508)
+- **Changed**: pr-guardian uses `gh run watch` hybrid approach, reducing polling cycles (#518)
+
 ### v0.23.2
 
 - **Fixed**: Copilot CLI Enter key reliability — detect and disable Kitty Keyboard Protocol (KKP)

@@ -1339,14 +1339,15 @@ synapse list
 
 ### WAITING 检测
 
-> **注意**：WAITING 检测目前因启动时误报而被禁用。详见 [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140)。
+WAITING 检测已在所有五个配置文件中启用（claude、codex、gemini、opencode、copilot）。[#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) 误报问题已通过仅匹配新 PTY 输出（`new_data`）和添加自动过期（`waiting_expiry`，默认 10 秒）解决。PTY 输出现在通过 `strip_ansi()` 处理后再进行正则匹配，确保 TUI 智能体（ratatui、Ink、Bubble Tea）的可靠检测。
 
-启用后，使用正则表达式模式检测等待用户输入的智能体（选择 UI、Y/n 提示）：
+使用智能体特定的正则表达式模式检测等待用户输入的智能体（选择 UI、Y/n 提示）：
 
-- **Gemini**：`● 1. Option` 选择 UI、`Allow execution` 提示
 - **Claude**：`❯ Option` 光标、`☐/☑` 复选框、`[Y/n]` 提示
-- **Codex**：缩进编号列表
-- **OpenCode**：编号选项、选择指示器、`[y/N]` 提示
+- **Gemini**：`● 1. Option` 选择 UI、`Allow execution` 提示、`Apply this change`、`Do you want to proceed`
+- **Codex**：缩进编号列表、`Press [Ee]nter to confirm`、`Would you like to`
+- **OpenCode**：`Permission Required` 标题、按钮栏（`Allow (a)`、`Allow for session (s)`、`Deny (d)`）
+- **Copilot**：编号选项、选择指示器、`[y/N]` 或 `(y/n)` 提示
 - **Copilot**：编号选项、选择指示器、`[y/N]` 或 `(y/n)` 提示
 
 ---

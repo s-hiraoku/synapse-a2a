@@ -192,7 +192,7 @@ States: READY → PROCESSING → DONE → READY (auto after 10s), WAITING, SHUTT
 
 Compound signal: PROCESSING→READY suppressed when `task_active` flag set or file locks held.
 
-**WAITING auto-approve**: When an agent enters WAITING status (permission prompt detected), the controller automatically sends the profile-specific approval response (e.g., `y\r` for Claude, `\r` for Gemini). Enabled by default for spawned agents; disable with `--no-auto-approve` or `SYNAPSE_AUTO_APPROVE=false`. Safety: max 20 consecutive, 2s cooldown. See [docs/agent-permission-modes.md](agent-permission-modes.md).
+**WAITING auto-approve**: When an agent enters WAITING status (permission prompt detected), the controller automatically sends the profile-specific approval response (e.g., `y\r` for Claude, `\r` for Gemini). PTY output is passed through `strip_ansi()` before regex matching, ensuring reliable WAITING detection for TUI-based agents (ratatui, Ink, Bubble Tea). Enabled by default for spawned agents; disable with `--no-auto-approve` or `SYNAPSE_AUTO_APPROVE=false`. Safety: unlimited consecutive approvals by default (`max_consecutive=0`), no cooldown (`cooldown=0.0`). Set `max_consecutive` to a positive integer to cap consecutive approvals. See [docs/agent-permission-modes.md](agent-permission-modes.md).
 
 **WAITING → input_required (A2A)**: When an agent enters WAITING status, the A2A task status is mapped to `input_required` per the Google A2A spec. The task metadata includes `x-permission-prompt` (the detected prompt text) and `x-permission-options` (available responses). Callers can approve or deny via the permission endpoints below. See [docs/permission-detection-spec.md](permission-detection-spec.md).
 

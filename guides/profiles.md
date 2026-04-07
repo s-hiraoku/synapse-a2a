@@ -304,7 +304,7 @@ idle_detection:
   timeout: 3.0
   task_protection_timeout: 30
 waiting_detection:
-  regex: "^\\s+\\d+\\.\\s+.+$"
+  regex: "^\\s+\\d+\\.\\s+.+$|Press [Ee]nter to confirm|Would you like to"
   require_idle: true
   idle_timeout: 0.5
   waiting_expiry: 10
@@ -318,7 +318,7 @@ env:
 - **timeout 戦略**: プロンプトパターンが会話履歴に含まれるため、タイムアウトベースで検出
 - 3.0 秒のタイムアウト
 - **compound signal**: `task_protection_timeout: 30` — A2A タスク処理中の誤 READY 遷移を抑制
-- **WAITING 検出**: 番号付き選択肢を検出 + `waiting_expiry: 10` で自動クリア
+- **WAITING 検出**: 番号付き選択肢、`Press [Ee]nter to confirm`、`Would you like to` を検出 + `waiting_expiry: 10` で自動クリア
 
 ---
 
@@ -334,7 +334,7 @@ idle_detection:
   pattern_use: "startup_only"
   timeout: 3.0
 waiting_detection:
-  regex: "[●○]\\s+\\d+\\.|Allow (execution|once|for this session)"
+  regex: "[●○]\\s+\\d+\\.|Allow (execution|once|for this session)|Apply this change|Do you want to proceed"
   require_idle: true
   idle_timeout: 0.5
   waiting_expiry: 10
@@ -346,7 +346,7 @@ env:
 
 - Google Gemini CLI 用
 - **hybrid 戦略**: 起動時は `BRACKETED_PASTE_MODE` パターン、以降はタイムアウト (3.0s) で検出
-- **WAITING 検出**: 選択肢 UI (●/○) と実行許可プロンプトを検出 + `waiting_expiry: 10` で自動クリア
+- **WAITING 検出**: 選択肢 UI (●/○)、実行許可プロンプト、`Apply this change`、`Do you want to proceed` を検出 + `waiting_expiry: 10` で自動クリア
 
 ---
 

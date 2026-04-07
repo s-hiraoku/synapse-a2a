@@ -13,6 +13,23 @@ from unittest.mock import patch
 
 import pytest
 
+
+def _make_controller(
+    auto_approve: dict | None = None,
+    waiting_detection: dict | None = None,
+):
+    """Create a TerminalController with mocked dependencies."""
+    from synapse.controller import TerminalController
+
+    with patch("synapse.controller.AgentRegistry"):
+        ctrl = TerminalController(
+            command="echo",
+            auto_approve=auto_approve,
+            waiting_detection=waiting_detection,
+        )
+    return ctrl
+
+
 # ============================================================
 # TestControllerAutoApprove — runtime WAITING auto-response
 # ============================================================
@@ -21,20 +38,9 @@ import pytest
 class TestControllerAutoApprove:
     """TerminalController auto-approve callback tests."""
 
-    def _make_controller(self, auto_approve: dict | None = None):
-        """Create a TerminalController with mocked dependencies."""
-        from synapse.controller import TerminalController
-
-        with patch("synapse.controller.AgentRegistry"):
-            ctrl = TerminalController(
-                command="echo",
-                auto_approve=auto_approve,
-            )
-        return ctrl
-
     def test_auto_approve_enabled_registers_callback(self) -> None:
         """When auto_approve config is provided, a status callback is registered."""
-        ctrl = self._make_controller(
+        ctrl = _make_controller(
             auto_approve={"runtime_response": "y\\r", "max_consecutive": 5}
         )
         assert ctrl._auto_approve_enabled is True
@@ -42,18 +48,18 @@ class TestControllerAutoApprove:
 
     def test_auto_approve_disabled_no_callback(self) -> None:
         """When auto_approve is None, no callback is registered."""
-        ctrl = self._make_controller(auto_approve=None)
+        ctrl = _make_controller(auto_approve=None)
         assert ctrl._auto_approve_enabled is False
         assert len(ctrl._status_callbacks) == 0
 
     def test_auto_approve_empty_config_no_callback(self) -> None:
         """Empty auto_approve config should not enable auto-approve."""
-        ctrl = self._make_controller(auto_approve={})
+        ctrl = _make_controller(auto_approve={})
         assert ctrl._auto_approve_enabled is False
 
     def test_callback_fires_on_waiting(self) -> None:
         """Callback should call write() when status transitions to WAITING."""
-        ctrl = self._make_controller(
+        ctrl = _make_controller(
             auto_approve={
                 "runtime_response": "y\\r",
                 "max_consecutive": 20,
@@ -66,7 +72,7 @@ class TestControllerAutoApprove:
 
     def test_callback_ignores_non_waiting(self) -> None:
         """Callback should not fire for non-WAITING transitions."""
-        ctrl = self._make_controller(
+        ctrl = _make_controller(
             auto_approve={"runtime_response": "y\\r", "cooldown": 0.0}
         )
         with patch.object(ctrl, "write") as mock_write:
@@ -77,7 +83,7 @@ class TestControllerAutoApprove:
 
     def test_cooldown_enforced(self) -> None:
         """Second WAITING within cooldown period should be skipped."""
-        ctrl = self._make_controller(
+        ctrl = _make_controller(
             auto_approve={
                 "runtime_response": "y\\r",
                 "max_consecutive": 20,
@@ -95,7 +101,7 @@ class TestControllerAutoApprove:
 
     def test_max_consecutive_enforced(self) -> None:
         """After max_consecutive approvals, auto-approve should stop."""
-        ctrl = self._make_controller(
+        ctrl = _make_controller(
             auto_approve={
                 "runtime_response": "y\\r",
                 "max_consecutive": 3,
@@ -112,7 +118,7 @@ class TestControllerAutoApprove:
 
     def test_counter_does_not_reset_on_processing(self) -> None:
         """Counter should NOT reset on WAITING→PROCESSING to prevent safety valve bypass."""
-        ctrl = self._make_controller(
+        ctrl = _make_controller(
             auto_approve={
                 "runtime_response": "y\\r",
                 "max_consecutive": 3,
@@ -140,7 +146,7 @@ class TestControllerAutoApprove:
 
     def test_runtime_response_escape_decoding(self) -> None:
         """YAML escape sequences in runtime_response should be decoded."""
-        ctrl = self._make_controller(
+        ctrl = _make_controller(
             auto_approve={"runtime_response": "y\\r", "cooldown": 0.0}
         )
         # "y\\r" in YAML → "y\r" (actual carriage return)
@@ -148,14 +154,14 @@ class TestControllerAutoApprove:
 
     def test_enter_only_response(self) -> None:
         """Gemini profile uses just Enter (\\r) as runtime_response."""
-        ctrl = self._make_controller(
+        ctrl = _make_controller(
             auto_approve={"runtime_response": "\\r", "cooldown": 0.0}
         )
         assert ctrl._auto_approve_response == "\r"
 
     def test_numbered_response(self) -> None:
         """Copilot profile uses '1\\r' as runtime_response."""
-        ctrl = self._make_controller(
+        ctrl = _make_controller(
             auto_approve={"runtime_response": "1\\r", "cooldown": 0.0}
         )
         assert ctrl._auto_approve_response == "1\r"
@@ -428,3 +434,260 @@ class TestProfileAutoApproveConfig:
         # max_consecutive and cooldown should NOT be in profile (use defaults)
         assert "max_consecutive" not in auto_approve
         assert "cooldown" not in auto_approve
+
+
+# ============================================================
+# TestDefaultConfigUnlimited — verify unlimited defaults
+# ============================================================
+
+
+class TestDefaultConfigUnlimited:
+    """Verify config.py defaults allow unlimited auto-approve."""
+
+    def test_default_max_consecutive_is_unlimited(self) -> None:
+        """AUTO_APPROVE_MAX_CONSECUTIVE should be 0 (unlimited)."""
+        from synapse.config import AUTO_APPROVE_MAX_CONSECUTIVE
+
+        assert AUTO_APPROVE_MAX_CONSECUTIVE == 0
+
+    def test_default_cooldown_is_zero(self) -> None:
+        """AUTO_APPROVE_COOLDOWN should be 0.0 (no cooldown)."""
+        from synapse.config import AUTO_APPROVE_COOLDOWN
+
+        assert AUTO_APPROVE_COOLDOWN == 0.0
+
+
+# ============================================================
+# TestUnlimitedApprovals — unlimited auto-approve behavior
+# ============================================================
+
+
+class TestUnlimitedApprovals:
+    """When max_consecutive=0, auto-approve should be unlimited."""
+
+    def test_unlimited_approvals_when_max_zero(self) -> None:
+        """max_consecutive=0 should allow unlimited approvals."""
+        ctrl = _make_controller(
+            auto_approve={
+                "runtime_response": "y\\r",
+                "max_consecutive": 0,
+                "cooldown": 0.0,
+            }
+        )
+        with patch.object(ctrl, "write") as mock_write:
+            for _ in range(50):
+                ctrl._handle_auto_approve("PROCESSING", "WAITING")
+
+        assert mock_write.call_count == 50
+        assert ctrl._auto_approve_stopped is False
+
+    def test_explicit_limit_still_works(self) -> None:
+        """Explicit max_consecutive > 0 should still enforce the limit."""
+        ctrl = _make_controller(
+            auto_approve={
+                "runtime_response": "y\\r",
+                "max_consecutive": 5,
+                "cooldown": 0.0,
+            }
+        )
+        with patch.object(ctrl, "write") as mock_write:
+            for _ in range(10):
+                ctrl._handle_auto_approve("PROCESSING", "WAITING")
+
+        assert mock_write.call_count == 5
+        assert ctrl._auto_approve_stopped is True
+
+
+# ============================================================
+# TestWaitingDetectionPatterns — regex vs actual approval text
+# ============================================================
+
+
+class TestWaitingDetectionPatterns:
+    """Verify waiting_detection regex matches actual approval prompt output."""
+
+    @pytest.mark.parametrize(
+        "profile_name,sample_outputs",
+        [
+            (
+                "codex",
+                [
+                    "› 1. Yes, proceed (y)",
+                    "Yes, and don't ask again for commands that start with `ls`",
+                    "No, and tell Codex what to do differently",
+                    "Press Enter to confirm or Esc to cancel",
+                    "Press enter to confirm or Esc to cancel",
+                    "Would you like to run the following command?",
+                    "Would you like to make the following edits?",
+                ],
+            ),
+            (
+                "gemini",
+                [
+                    "● 1. Allow once",
+                    "Allow for this session",
+                    "No, suggest changes (esc)",
+                    "Apply this change?",
+                    "Do you want to proceed?",
+                    "Allow for this file in all future sessions",
+                ],
+            ),
+            (
+                "opencode",
+                [
+                    "Permission Required",
+                    "Allow (a)",
+                    "Allow for session (s)",
+                    "Deny (d)",
+                ],
+            ),
+            (
+                "copilot",
+                [
+                    "approve touch for the rest of the running session",
+                    "No, and tell Copilot what to do differently",
+                ],
+            ),
+            (
+                "claude",
+                [
+                    "❯ Allow tool use",
+                    "☐ Read file",
+                    "[Y/n]",
+                ],
+            ),
+        ],
+    )
+    def test_regex_matches_approval_prompts(
+        self, profile_name: str, sample_outputs: list[str]
+    ) -> None:
+        """Profile regex should match known approval prompt text."""
+        import re
+
+        from synapse.server import load_profile
+
+        profile = load_profile(profile_name)
+        waiting = profile.get("waiting_detection", {})
+        regex_str = waiting.get("regex")
+        assert regex_str, f"Profile {profile_name} has no waiting_detection regex"
+
+        pattern = re.compile(regex_str, re.MULTILINE)
+        for sample in sample_outputs:
+            assert pattern.search(sample), (
+                f"Profile {profile_name} regex did not match: {sample!r}"
+            )
+
+    @pytest.mark.parametrize(
+        "profile_name,normal_outputs",
+        [
+            (
+                "codex",
+                [
+                    "I'll create a hello.py file for you.",
+                    "Running: python hello.py",
+                    "Output: Hello, world!",
+                ],
+            ),
+            (
+                "gemini",
+                [
+                    "I'll help you with that task.",
+                    "Creating the file now...",
+                    "Done! The file has been created.",
+                ],
+            ),
+            (
+                "opencode",
+                [
+                    "Let me analyze this code.",
+                    "The function looks correct.",
+                    "I've made the changes.",
+                ],
+            ),
+        ],
+    )
+    def test_regex_does_not_match_normal_output(
+        self, profile_name: str, normal_outputs: list[str]
+    ) -> None:
+        """Profile regex should NOT match normal conversation output."""
+        import re
+
+        from synapse.server import load_profile
+
+        profile = load_profile(profile_name)
+        waiting = profile.get("waiting_detection", {})
+        regex_str = waiting.get("regex")
+        pattern = re.compile(regex_str, re.MULTILINE)
+
+        for text in normal_outputs:
+            assert not pattern.search(text), (
+                f"Profile {profile_name} regex false-positive on: {text!r}"
+            )
+
+
+# ============================================================
+# TestWaitingStateDetection — _check_waiting_state integration
+# ============================================================
+
+
+class TestWaitingStateDetection:
+    """Verify _check_waiting_state detects WAITING from PTY-like output."""
+
+    def test_plain_text_detected(self) -> None:
+        """Plain approval text should be detected as WAITING."""
+        ctrl = _make_controller(
+            waiting_detection={
+                "regex": "Yes, proceed|Press [Ee]nter to confirm",
+                "require_idle": False,
+            }
+        )
+        result = ctrl._check_waiting_state(b"Yes, proceed")
+        assert result is True
+
+    def test_ansi_wrapped_text_detected(self) -> None:
+        """Approval text wrapped in ANSI escape sequences should be detected."""
+        ctrl = _make_controller(
+            waiting_detection={
+                "regex": "Yes, proceed|Allow once",
+                "require_idle": False,
+            }
+        )
+        # Simulate ratatui/Ink output with ANSI color codes
+        ansi_data = b"\x1b[38;5;2m\xe2\x80\xba \x1b[0m1. \x1b[1mYes, proceed\x1b[0m (y)"
+        result = ctrl._check_waiting_state(ansi_data)
+        assert result is True
+
+    def test_ansi_color_between_words_detected(self) -> None:
+        """ANSI codes inserted between words should not break detection."""
+        ctrl = _make_controller(
+            waiting_detection={
+                "regex": "Allow once|Permission Required",
+                "require_idle": False,
+            }
+        )
+        # "Allow once" with color reset between words
+        ansi_data = b"\x1b[32mAllow\x1b[0m \x1b[1monce\x1b[0m"
+        result = ctrl._check_waiting_state(ansi_data)
+        assert result is True
+
+    def test_no_match_returns_false(self) -> None:
+        """Non-matching output should return False."""
+        ctrl = _make_controller(
+            waiting_detection={
+                "regex": "Yes, proceed|Allow once",
+                "require_idle": False,
+            }
+        )
+        result = ctrl._check_waiting_state(b"Creating file hello.py...")
+        assert result is False
+
+    def test_empty_data_returns_false(self) -> None:
+        """Empty data should return False."""
+        ctrl = _make_controller(
+            waiting_detection={
+                "regex": "Yes, proceed",
+                "require_idle": False,
+            }
+        )
+        result = ctrl._check_waiting_state(b"")
+        assert result is False

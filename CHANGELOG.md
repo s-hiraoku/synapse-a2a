@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.3] - 2026-04-07
+
+### Fixed
+
+- WAITING detection now strips ANSI escape sequences before regex matching, fixing unreliable approval prompt detection for TUI-based agents (ratatui, Ink, Bubble Tea) (#508)
+- Updated Codex approval regex: added `Press [Ee]nter to confirm` and `Would you like to` patterns from latest codex-rs source (#508)
+- Updated Gemini approval regex: added `Apply this change` and `Do you want to proceed` patterns from latest gemini-cli source (#508)
+
+### Changed
+
+- Auto-approve limits removed for spawned agents: `MAX_CONSECUTIVE` now defaults to 0 (unlimited) and `COOLDOWN` to 0.0 (no delay) — parent manages child approval as its responsibility (#508)
+- pr-guardian: replaced sleep-based polling with `gh run watch` hybrid approach, reducing typical session cycles from 5-10 to 1-3 per PR (#518)
+
+### Tests
+
+- Added 21 new tests: ANSI-wrapped WAITING detection, per-profile regex validation against real approval prompts, unlimited approval behavior, and `_check_waiting_state` integration tests
+- Extracted shared `_make_controller` test helper to module level
+
+### Documentation
+
+- Updated docs, README, guides, and site-docs to reflect unlimited auto-approve defaults and ANSI stripping improvement
+
+
 ## [0.23.2] - 2026-04-07
 
 ### Fixed
@@ -3172,7 +3195,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.2...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.3...HEAD
+[0.23.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.1...v0.23.2
 [0.23.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.21.0...v0.22.0

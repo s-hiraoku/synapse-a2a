@@ -456,7 +456,10 @@ class TerminalController:
                 )
                 return
 
-            if self._auto_approve_count >= self._auto_approve_max:
+            if (
+                self._auto_approve_max > 0
+                and self._auto_approve_count >= self._auto_approve_max
+            ):
                 logger.warning(
                     "[%s] Auto-approve max consecutive reached (%d), stopping",
                     self.agent_id,
@@ -841,7 +844,11 @@ class TerminalController:
             return False
 
         # Check new_data only for pattern (fixes false positive from stale buffer)
-        new_text = new_data.decode("utf-8", errors="replace") if new_data else ""
+        # Strip ANSI escape sequences so TUI-rendered prompts (ratatui, Ink,
+        # Bubble Tea) match the plain-text regex from the profile YAML.
+        new_text = (
+            strip_ansi(new_data.decode("utf-8", errors="replace")) if new_data else ""
+        )
         pattern_in_new = bool(new_text and self._waiting_regex.search(new_text))
 
         if pattern_in_new:
@@ -860,7 +867,9 @@ class TerminalController:
             elapsed = time.time() - self._waiting_pattern_time
             if elapsed > self._waiting_expiry:
                 # Lightweight re-check: last 512 bytes of buffer
-                tail = self.output_buffer[-512:].decode("utf-8", errors="replace")
+                tail = strip_ansi(
+                    self.output_buffer[-512:].decode("utf-8", errors="replace")
+                )
                 if self._waiting_regex.search(tail):
                     # Pattern still visible — refresh timestamp
                     self._waiting_pattern_time = time.time()

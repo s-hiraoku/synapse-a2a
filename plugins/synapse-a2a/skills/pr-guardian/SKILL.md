@@ -21,10 +21,11 @@ Watch a PR, detect problems, fix them, repeat — until everything is green.
 
 After pushing a PR you typically wait for CI, check for merge conflicts,
 and respond to CodeRabbit review comments. Each issue requires a separate
-manual step. PR Guardian automates the entire feedback loop: it polls the
-PR status at a fixed interval, dispatches the appropriate fix skill when
-a problem is found, and exits only when all checks pass (or the iteration
-limit is reached).
+manual step. PR Guardian automates the entire feedback loop: it uses
+`gh run watch` to efficiently wait for CI completion (consuming zero
+session cycles while waiting), then polls the PR status, dispatches the
+appropriate fix skill when a problem is found, and exits only when all
+checks pass (or the iteration limit is reached).
 
 ## Quick start
 
@@ -46,7 +47,28 @@ Before starting the loop, verify:
 
 If any check fails, report the error and stop.
 
-### Step 1: Poll PR status
+### Step 1: Wait for CI with `gh run watch`
+
+Before polling, wait for all GitHub Actions workflow runs to complete
+using `gh run watch`. This blocks at the shell level until CI finishes,
+consuming zero Claude Code session cycles while waiting.
+
+```bash
+# Get the latest workflow run for the current branch
+RUN_ID=$(gh run list --branch "$(git rev-parse --abbrev-ref HEAD)" \
+  --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || echo "")
+
+if [[ -n "$RUN_ID" ]]; then
+  # Block until this run completes (exit code reflects pass/fail)
+  gh run watch "$RUN_ID" --exit-status 2>/dev/null || true
+fi
+```
+
+**Fallback**: If `gh run watch` is unavailable or fails (e.g., no
+workflow runs found yet on the first cycle after push), skip straight
+to Step 2 and let the polling script detect `checks_running > 0`.
+
+### Step 2: Poll PR status
 
 Run the bundled status script:
 
@@ -77,7 +99,7 @@ This returns a JSON object with these fields:
 - No unresolved CodeRabbit inline comments (comments marked `✅ Addressed` are excluded)
 - At least one CI check exists
 
-### Step 2: Evaluate and report
+### Step 3: Evaluate and report
 
 Print a concise status line each cycle:
 
@@ -89,12 +111,12 @@ Print a concise status line each cycle:
   → Action: fixing CodeRabbit comments
 ```
 
-### Step 3: Dispatch fixes (priority order)
+### Step 4: Dispatch fixes (priority order)
 
 When issues are found, fix them one category at a time in this order.
 Only fix one category per cycle — after fixing, go back to Step 1 to
 re-poll, because a fix may have changed the state (e.g., a push
-triggers new CI runs).
+triggers new CI runs and `gh run watch` will wait for them).
 
 **Priority 1 — Merge conflicts**
 
@@ -105,8 +127,8 @@ Merge conflicts block everything else. When `has_conflict` is true:
 
 **Priority 2 — CI failures**
 
-When `checks_failed > 0` and `checks_running == 0` (wait for running
-checks to finish before diagnosing failures):
+When `checks_failed > 0` and `checks_running == 0` (Step 1's
+`gh run watch` already waited, so running should normally be 0):
 
 1. Invoke `/fix-ci`
 2. After the fix commit is pushed, go back to Step 1
@@ -124,23 +146,27 @@ is passing:
 `"pass"` (review completed). If it is `"pending"`, wait — the review is
 still in progress and comments may not be final yet.
 
-### Step 4: Handle pending states
+### Step 5: Handle pending states
 
 The correct action is to **wait** (not fix) when:
 
-- `checks_running > 0`: CI is still running — do not diagnose yet
+- `checks_running > 0`: CI is still running — this should be rare
+  since Step 1 already waited via `gh run watch`, but can happen if
+  new runs were triggered between watch and poll
 - `coderabbit_check == "pending"`: CodeRabbit review is in progress —
-  wait for it to finish before looking at comments
+  wait with a short sleep (60-120 seconds) and re-run Step 2 only.
+  Do NOT go back to Step 1 (`gh run watch`) — CodeRabbit is not a
+  GitHub Actions run. Retry up to 5 times before moving to the next
+  full cycle
 - `coderabbit_check == "none"`: CodeRabbit hasn't started yet (common
-  right after a push) — wait at least one cycle for it to appear
+  right after a push) — same short-sleep retry as `pending`
 - `checks_total == 0` and it's the first cycle: checks haven't started
-  yet — wait for GitHub Actions to pick up the push
+  yet — go back to Step 1 where `gh run watch` will block until they appear
 
-Sleep for the poll interval and re-check. Do not invoke any fix skill
-while checks are still running or reviews are pending — you would be
-fixing based on incomplete information.
+Do not invoke any fix skill while checks are still running or reviews
+are pending — you would be fixing based on incomplete information.
 
-### Step 5: Check exit conditions
+### Step 6: Check exit conditions
 
 After each cycle, check:
 
@@ -149,24 +175,16 @@ After each cycle, check:
 3. **Same failure repeated 3 times**: The automatic fix is not working.
    Print what failed and suggest manual intervention, then exit
 
-If none of these conditions are met, sleep for the configured interval
-and go back to Step 1.
-
-### Step 6: Sleep between cycles
-
-```bash
-sleep <interval_minutes * 60>
-```
-
-The default interval is 5 minutes (300 seconds). This gives CI enough
-time to run after a fix push before the next poll.
+If none of these conditions are met, go back to Step 1. There is no
+fixed sleep between cycles — `gh run watch` in Step 1 provides the
+natural wait for CI to complete after a fix push.
 
 ## Configuration
 
-| Flag               | Default | Description                        |
-|--------------------|---------|------------------------------------|
-| `--interval`       | 5       | Minutes between polls              |
-| `--max-iterations` | 20      | Max cycles before giving up        |
+| Flag               | Default | Description                                  |
+|--------------------|---------|----------------------------------------------|
+| `--interval`       | 2       | Minutes between CodeRabbit pending retries   |
+| `--max-iterations` | 20      | Max cycles before giving up                  |
 
 ## Exit messages
 
@@ -200,13 +218,21 @@ time to run after a fix push before the next poll.
   It does not reimplement their logic — it orchestrates them.
 - Only one fix category is attempted per cycle to avoid cascading
   changes that confuse the state.
-- The skill respects both CI timing AND CodeRabbit timing: it waits
-  for running checks AND pending reviews to finish before attempting
-  fixes.
+- `gh run watch` replaces the old fixed-interval sleep loop for CI
+  waiting. This eliminates wasted polling cycles and reduces session
+  consumption from 5-10 cycles to 1-3 for a typical PR.
+- The skill respects both CI timing AND CodeRabbit timing: `gh run
+  watch` handles CI, and a short-sleep retry loop (60-120s, max 5
+  retries) handles CodeRabbit pending states.
+- **Synapse-independent**: This skill depends only on `gh` CLI and
+  standard git commands. It works outside Synapse environments.
+- If `gh run watch` is unavailable (no runs found, older gh version),
+  the skill falls back to the polling script detecting
+  `checks_running > 0` and retrying on the next cycle.
 - CodeRabbit check status (`pending`/`pass`/`fail`) is tracked
   separately from inline comment count. A `pending` check means
   the review is still running — do NOT dispatch `/fix-review` yet.
 - Each fix skill handles its own commit and push. PR Guardian only
-  handles the polling loop and dispatch.
+  handles the loop and dispatch.
 - `/fix-review` verifies each CodeRabbit finding against the current
   code before applying fixes — it does not blindly apply suggestions.

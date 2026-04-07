@@ -22,7 +22,7 @@ input_ready_pattern: "›"                       # Codex shows › when ready fo
 # Source: codex-rs/tui/src/bottom_pane/approval_overlay.rs
 # UI: › 1. Yes, proceed (y) / Yes, and don't ask again (a) / No, and tell Codex (esc)
 waiting_detection:
-  regex: "›\\s+\\d+\\.|Yes, proceed|Yes, and don't ask again|No, and tell Codex|Press enter to confirm"
+  regex: "›\\s+\\d+\\.|Yes, proceed|Yes, and don't ask again|No, and tell Codex|Press [Ee]nter to confirm|Would you like to"
   require_idle: true
   idle_timeout: 0.5
   waiting_expiry: 10                           # Auto-clear WAITING after 10s
