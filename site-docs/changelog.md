@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.23.6
+
+- **Fixed**: Reliable process cleanup — `synapse stop` escalates to SIGKILL after 5s, `controller.stop()` kills entire process group, UDS socket cleanup on unregister
+- **Fixed**: Shutdown order ensures process termination before registry removal
+
 ### v0.23.3
 
 - **Fixed**: WAITING detection strips ANSI escape sequences for reliable TUI approval prompt matching (#508)
