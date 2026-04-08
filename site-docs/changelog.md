@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.24.0
+
+- **Added**: `synapse spawn` auto-tiles panes when 2+ agents exist in spawn zone, matching `team start` behavior (#507)
+- **Changed**: `_post_spawn_tile()` uses `SYNAPSE_SPAWN_PANES` for spawn zone-aware tiling
+
 ### v0.23.5
 
 - **Fixed**: Copilot KKP re-activation detection — Ink TUI can re-push KKP after processing a prompt, causing Enter key failures on subsequent sends

@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2026-04-09
+
+### Added
+
+- `synapse spawn` automatically applies `tmux select-layout tiled` when 2+ agents exist in the spawn zone, matching `team start` behavior (#507)
+
+### Changed
+
+- `_post_spawn_tile()` uses `SYNAPSE_SPAWN_PANES` tracking for spawn zone-aware tiling
+
+### Tests
+
+- Added 4 new tests: spawn zone-based tiling with existing panes, single spawn pane tiling, spawn_agent post-tile trigger, and first-spawn no-tiling
+
+### Documentation
+
+- Updated README, guides, site-docs, and spawn-zone-tiling docs
+
 ## [0.23.5] - 2026-04-08
 
 ### Fixed
@@ -3227,7 +3245,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.5...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.5...v0.24.0
 [0.23.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.4...v0.23.5
 [0.23.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.3...v0.23.4
 [0.23.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.2...v0.23.3
