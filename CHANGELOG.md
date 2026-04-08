@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.6] - 2026-04-08
+
+### Fixed
+
+- `synapse stop` now waits up to 5s after SIGTERM and escalates to SIGKILL, preventing stale processes from holding TCP ports
+- `controller.stop()` sends SIGTERM to the entire process group via `os.killpg()` so child processes are also terminated, with `process.wait()` and SIGKILL fallback
+- `registry.unregister()` now deletes UDS socket files at `/tmp/synapse-a2a/<agent_id>.sock`, preventing stale socket accumulation
+- Shutdown order fixed: process termination now completes before registry entry removal
+
+### Tests
+
+- Added `test_stop_agent_escalates_to_sigkill` verifying SIGKILL escalation when SIGTERM is ignored
+
 ## [0.23.3] - 2026-04-07
 
 ### Fixed
@@ -3196,6 +3209,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.3...HEAD
+[0.23.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.3...v0.23.6
 [0.23.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.1...v0.23.2
 [0.23.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.22.0...v0.23.0

@@ -12,6 +12,7 @@ Refactoring Goal:
 """
 
 import argparse
+import signal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -156,13 +157,14 @@ class TestCliRefactorSpec:
             patch("synapse.cli.AgentRegistry", return_value=mock_registry),
             patch("synapse.cli.PortManager", return_value=mock_pm),
             patch("synapse.cli.os.kill") as mock_kill,
+            patch("synapse.cli.is_process_alive", return_value=False),
         ):
             # Act
             cmd_stop(mock_args)
 
             # Assert
             mock_pm.get_running_instances.assert_called_once_with("claude")
-            mock_kill.assert_called_once_with(12345, 15)  # SIGTERM
+            mock_kill.assert_called_once_with(12345, signal.SIGTERM)
             mock_registry.unregister.assert_called_once_with("synapse-claude-8100")
 
     # =========================================================================
