@@ -5,18 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.23.6] - 2026-04-08
+## [0.23.5] - 2026-04-08
 
 ### Fixed
 
-- `synapse stop` now waits up to 5s after SIGTERM and escalates to SIGKILL, preventing stale processes from holding TCP ports
-- `controller.stop()` sends SIGTERM to the entire process group via `os.killpg()` so child processes are also terminated, with `process.wait()` and SIGKILL fallback
-- `registry.unregister()` now deletes UDS socket files at `/tmp/synapse-a2a/<agent_id>.sock`, preventing stale socket accumulation
-- Shutdown order fixed: process termination now completes before registry entry removal
+- Copilot Enter key reliability: detect and handle KKP (Kitty Keyboard Protocol) re-activation after initial disable — Copilot's Ink TUI can re-push KKP after processing a prompt, causing subsequent `\r` submits to be silently re-encoded as CSI 13 u
+- Add last-resort KKP force-disable + ICRNL re-clear + final CR retry when submit confirmation exhausts all retries
+- Simplify elapsed time calculation in paste echo detection
 
 ### Tests
 
-- Added `test_stop_agent_escalates_to_sigkill` verifying SIGKILL escalation when SIGTERM is ignored
+- Added `test_kkp_re_enable_detected_after_initial_disable` for KKP re-activation detection
+- Updated 10 confirmation-failure tests to include last-resort KKP disable + CR writes
+- Renamed `test_kkp_disable_only_once` → `test_kkp_disable_only_once_for_proactive`
+
+## [0.23.4] - 2026-04-07
+
+### Fixed
+
+- `synapse spawn` called multiple times now automatically applies `tmux select-layout tiled` when 2+ agents exist in the spawn zone, matching `team start` behavior (#507)
+
+### Changed
+
+- `_post_spawn_tile()` now uses `SYNAPSE_SPAWN_PANES` tracking to determine total spawn zone pane count instead of relying solely on per-invocation count
+
+### Tests
+
+- Added 4 new tests: spawn zone-based tiling with existing panes, single spawn pane tiling, spawn_agent post-tile trigger, and first-spawn no-tiling
+
+### Documentation
+
+- Updated README, guides, site-docs, and spawn-zone-tiling docs to reflect automatic tile layout for individual `synapse spawn` calls
 
 ## [0.23.3] - 2026-04-07
 
@@ -3208,8 +3227,9 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.3...HEAD
-[0.23.6]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.3...v0.23.6
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.5...HEAD
+[0.23.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.4...v0.23.5
+[0.23.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.3...v0.23.4
 [0.23.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.1...v0.23.2
 [0.23.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.22.0...v0.23.0

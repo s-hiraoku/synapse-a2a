@@ -9,6 +9,9 @@
 
 従来の実装では `synapse spawn` が常に同一方向（水平）に分割していたため、
 3つ以上のエージェントを起動すると細長いペインが並び、視認性が低下していた。
+タイルレイアウトは `synapse team start`（一括起動）でのみ適用され、個別の `synapse spawn` 呼び出しでは機能しなかった。
+
+現在は `synapse spawn` を個別に呼んだ場合でも、2つ目以降のエージェント起動時に自動的に `tmux select-layout tiled` が適用される（新しいCLIフラグは不要）。
 
 ## 設計: スポーンゾーン
 
@@ -39,6 +42,7 @@
      - `width >= height * 2` → `-h`（水平分割）
      - それ以外 → `-v`（垂直分割）
    - 新規ペインIDを `SYNAPSE_SPAWN_PANES` に追加
+   - **自動タイル**: spawn 完了後、`_post_spawn_tile()` が `tmux select-layout tiled` を実行し、スポーンゾーン内のペインを均等配置する。これにより `synapse spawn` を個別に複数回呼んでも、`synapse team start` と同等のタイルレイアウトが自動適用される
 
 #### ペインタイトル
 
@@ -92,7 +96,7 @@ os.environ["SYNAPSE_SPAWN_PANES"] += f",{new_pane}"
 ## 影響範囲
 
 - `synapse/terminal_jump.py`: `_get_tmux_auto_split()` にスポーンゾーンフィルタ追加、`create_tmux_panes()` に初回/2回目以降の分岐、`_pane_title()` でペインタイトル自動設定
-- `synapse/spawn.py`: `_get_tmux_pane_ids()`, `_get_new_tmux_pane_id()` 追加、スポーンゾーン追跡ロジック
+- `synapse/spawn.py`: `_get_tmux_pane_ids()` でペイン差分検出、`_set_tmux_spawn_panes()` でスポーンゾーン追跡、`_post_spawn_tile()` で `SYNAPSE_SPAWN_PANES` を参照して自動タイル適用、`spawn_agent()` が spawn 後に `_post_spawn_tile()` を呼び出し
 - `tests/test_auto_layout.py`: 29テスト（全ターミナル対応）
 
 ## layout パラメータとの関係

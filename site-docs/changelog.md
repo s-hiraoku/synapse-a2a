@@ -4,10 +4,15 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
-### v0.23.6
+### v0.23.5
 
-- **Fixed**: Reliable process cleanup — `synapse stop` escalates to SIGKILL after 5s, `controller.stop()` kills entire process group, UDS socket cleanup on unregister
-- **Fixed**: Shutdown order ensures process termination before registry removal
+- **Fixed**: Copilot KKP re-activation detection — Ink TUI can re-push KKP after processing a prompt, causing Enter key failures on subsequent sends
+- **Fixed**: Last-resort KKP force-disable + ICRNL re-clear when submit confirmation exhausts all retries
+
+### v0.23.4
+
+- **Fixed**: `synapse spawn` auto-tiles panes when 2+ agents exist in spawn zone (#507) — previously only `team start` provided automatic tile layout
+- **Changed**: `_post_spawn_tile()` uses `SYNAPSE_SPAWN_PANES` tracking for spawn zone-aware tiling
 
 ### v0.23.3
 

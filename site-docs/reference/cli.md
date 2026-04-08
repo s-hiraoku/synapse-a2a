@@ -307,6 +307,8 @@ When a saved agent is used, its profile, name, role, and skill set are resolved 
 | `--worktree [NAME]`, `-w` | Create git worktree for isolated work |
 | `--branch BRANCH`, `-b` | Base branch for worktree creation (implies `--worktree`) |
 
+When 2+ agents exist in the spawn zone, tmux tile layout is applied automatically. No flags required — see [Spawn Zone Tiling](../guide/agent-teams.md#spawn-zone-tiling).
+
 ## Session Save/Restore
 
 ### Save Session

@@ -60,14 +60,69 @@ class TestPostSpawnTilingTmux:
         assert mock_run_pane_commands.call_count == 2
         mock_post_spawn_tile.assert_called_once_with("tmux", 2)
 
+    @patch("synapse.spawn._get_tmux_spawn_panes", return_value="")
     @patch("synapse.spawn.subprocess.run")
-    def test_single_agent_no_tiling(self, mock_run: MagicMock) -> None:
-        """Single-pane cases should not invoke tmux select-layout."""
+    def test_single_agent_no_tiling(
+        self, mock_run: MagicMock, _mock_panes: MagicMock
+    ) -> None:
+        """First spawn (no spawn zone) should not invoke tmux select-layout."""
         from synapse.spawn import _post_spawn_tile
 
         _post_spawn_tile("tmux", 1)
 
         mock_run.assert_not_called()
+
+    @patch("synapse.spawn._get_tmux_spawn_panes", return_value="%1,%2")
+    @patch("synapse.spawn.subprocess.run")
+    def test_tiling_with_existing_spawn_panes(
+        self, mock_run: MagicMock, _mock_panes: MagicMock
+    ) -> None:
+        """When spawn zone has 2+ panes, tiling should trigger even with count=1."""
+        from synapse.spawn import _post_spawn_tile
+
+        _post_spawn_tile("tmux", 1)
+
+        mock_run.assert_called_once_with(
+            ["tmux", "select-layout", "tiled"], check=False, timeout=5
+        )
+
+    @patch("synapse.spawn._get_tmux_spawn_panes", return_value="%1")
+    @patch("synapse.spawn.subprocess.run")
+    def test_no_tiling_with_single_spawn_pane(
+        self, mock_run: MagicMock, _mock_panes: MagicMock
+    ) -> None:
+        """First spawn (1 spawned pane) should NOT tile — only 2nd+ spawn does."""
+        from synapse.spawn import _post_spawn_tile
+
+        _post_spawn_tile("tmux", 1)
+
+        mock_run.assert_not_called()
+
+    @patch("synapse.spawn._post_spawn_tile")
+    @patch("synapse.spawn.execute_spawn")
+    @patch("synapse.spawn.prepare_spawn")
+    def test_spawn_agent_triggers_post_tile(
+        self,
+        mock_prepare: MagicMock,
+        mock_execute: MagicMock,
+        mock_post_tile: MagicMock,
+    ) -> None:
+        """spawn_agent() should call _post_spawn_tile after execute_spawn."""
+        from synapse.spawn import SpawnResult, spawn_agent
+
+        mock_prepare.return_value = _prepared_agent("claude", 8100)
+        mock_execute.return_value = [
+            SpawnResult(
+                agent_id="synapse-claude-8100",
+                port=8100,
+                terminal_used="tmux",
+                status="submitted",
+            )
+        ]
+
+        spawn_agent("claude")
+
+        mock_post_tile.assert_called_once_with("tmux", 1)
 
     @patch("synapse.spawn._post_spawn_tile")
     @patch("synapse.spawn._run_pane_commands")
