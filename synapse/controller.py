@@ -788,8 +788,15 @@ class TerminalController:
             is_waiting: Whether the agent is showing a selection UI.
 
         Returns:
-            New status string: "READY", "WAITING", "PROCESSING", or "DONE".
+            New status string: "READY", "WAITING", "PROCESSING", "DONE",
+            or "SHUTTING_DOWN".
         """
+        # SHUTTING_DOWN is sticky — once set, no idle/waiting check can
+        # revert it.  This prevents the monitor thread from overwriting
+        # the status while stop() is waiting for the process to exit.
+        if self.status == "SHUTTING_DOWN":
+            return "SHUTTING_DOWN"
+
         # Base status from idle/waiting detection
         if is_waiting:
             base_status = "WAITING"
@@ -1731,18 +1738,45 @@ class TerminalController:
                 with contextlib.suppress(ProcessLookupError):
                     proc.terminate()
 
-            # Wait for exit; escalate to SIGKILL if necessary.
-            try:
-                proc.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                if pgid is not None:
+            # Wait for the entire process group to exit, not just the
+            # parent.  os.killpg(pgid, 0) raises ProcessLookupError
+            # when no process in the group remains.
+            if pgid is not None:
+                deadline = time.monotonic() + timeout
+                while time.monotonic() < deadline:
+                    try:
+                        os.killpg(pgid, 0)
+                    except (ProcessLookupError, OSError):
+                        break  # Group is gone
+                    time.sleep(0.2)
+                else:
+                    # Timeout — escalate to SIGKILL on the whole group.
                     with contextlib.suppress(ProcessLookupError, OSError):
                         os.killpg(pgid, signal.SIGKILL)
-                else:
+                    # Brief grace period after SIGKILL.
+                    for _ in range(10):
+                        try:
+                            os.killpg(pgid, 0)
+                        except (ProcessLookupError, OSError):
+                            break
+                        time.sleep(0.2)
+                    logger.warning(
+                        f"[{self.agent_id}] process group {pgid} required "
+                        f"SIGKILL after {timeout}s timeout"
+                    )
+            else:
+                # No pgid — fall back to waiting on the main process only.
+                try:
+                    proc.wait(timeout=timeout)
+                except subprocess.TimeoutExpired:
                     with contextlib.suppress(ProcessLookupError):
                         proc.kill()
-                with contextlib.suppress(Exception):
-                    proc.wait(timeout=2)
+                    with contextlib.suppress(Exception):
+                        proc.wait(timeout=2)
+
+            # Reap the main process to avoid zombies.
+            with contextlib.suppress(Exception):
+                proc.wait(timeout=2)
 
             # Clear references to prevent re-entry and PID-reuse issues.
             self.process = None
