@@ -679,6 +679,9 @@ class TerminalController:
             preexec_fn=os.setsid,  # Create new session
             close_fds=True,
         )
+        # Capture PGID immediately after spawn so stop() never needs to
+        # re-query it (avoids race when the process has already exited).
+        self._pgid: int | None = os.getpgid(self.process.pid)
 
         # Close slave_fd in parent as it's now attached to child
         os.close(self.slave_fd)
@@ -1704,37 +1707,46 @@ class TerminalController:
         if old_status != self.status:
             self._dispatch_status_callbacks(old_status, self.status)
 
-    def stop(self, *, timeout: float = 5.0) -> None:
+    def stop(self, *, timeout: float = 30.0) -> None:
         """Stop the controlled process and clean up resources.
 
-        Sends SIGTERM to the process group, waits up to *timeout* seconds,
-        then escalates to SIGKILL if the process is still alive.
+        Sends SIGTERM to the process group (using the PGID captured at
+        spawn time), waits up to *timeout* seconds, then escalates to
+        SIGKILL if the process is still alive.
         """
         self.running = False
-        if self.process:
+        with self.lock:
+            self.status = "SHUTTING_DOWN"
+
+        proc = self.process
+        pgid = getattr(self, "_pgid", None)
+
+        if proc:
             # Send SIGTERM to the entire process group so child processes
             # (e.g. spawned CLI tools) are also terminated.
-            try:
-                pgid = os.getpgid(self.process.pid)
-                os.killpg(pgid, signal.SIGTERM)
-            except (ProcessLookupError, OSError):
-                # Process already exited or pgid lookup failed — fall back
-                # to terminating the main process only.
+            if pgid is not None:
+                with contextlib.suppress(ProcessLookupError, OSError):
+                    os.killpg(pgid, signal.SIGTERM)
+            else:
                 with contextlib.suppress(ProcessLookupError):
-                    self.process.terminate()
+                    proc.terminate()
 
             # Wait for exit; escalate to SIGKILL if necessary.
             try:
-                self.process.wait(timeout=timeout)
+                proc.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
-                try:
-                    pgid = os.getpgid(self.process.pid)
-                    os.killpg(pgid, signal.SIGKILL)
-                except (ProcessLookupError, OSError):
+                if pgid is not None:
+                    with contextlib.suppress(ProcessLookupError, OSError):
+                        os.killpg(pgid, signal.SIGKILL)
+                else:
                     with contextlib.suppress(ProcessLookupError):
-                        self.process.kill()
+                        proc.kill()
                 with contextlib.suppress(Exception):
-                    self.process.wait(timeout=2)
+                    proc.wait(timeout=2)
+
+            # Clear references to prevent re-entry and PID-reuse issues.
+            self.process = None
+            self._pgid = None
 
         # Only close master_fd if we opened it (non-interactive mode)
         # In interactive mode, pty.spawn() manages the fd
