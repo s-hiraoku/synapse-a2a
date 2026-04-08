@@ -1676,8 +1676,14 @@ class TerminalController:
         if not self.running or not self.process:
             return
 
-        # Send SIGINT to the process group
-        os.killpg(os.getpgid(self.process.pid), signal.SIGINT)
+        # Send SIGINT to the process group using the saved PGID.
+        pgid = getattr(self, "_pgid", None)
+        if pgid is not None:
+            with contextlib.suppress(ProcessLookupError, OSError):
+                os.killpg(pgid, signal.SIGINT)
+        else:
+            with contextlib.suppress(ProcessLookupError, OSError):
+                os.killpg(os.getpgid(self.process.pid), signal.SIGINT)
         with self.lock:
             old_status = self.status
             self.status = "PROCESSING"  # Interruption might cause output/processing
@@ -1782,11 +1788,13 @@ class TerminalController:
             self.process = None
             self._pgid = None
 
-        # Only close master_fd if we opened it (non-interactive mode)
-        # In interactive mode, pty.spawn() manages the fd
-        if self.master_fd and not self.interactive:
+        # Only close master_fd if we opened it (non-interactive mode).
+        # In interactive mode, pty.spawn() manages the fd.
+        # Use ``is not None`` so fd=0 is not skipped.
+        if self.master_fd is not None and not self.interactive:
             with contextlib.suppress(OSError):
                 os.close(self.master_fd)
+            self.master_fd = None
 
     def run_interactive(self) -> None:
         """
