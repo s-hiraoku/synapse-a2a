@@ -1704,15 +1704,43 @@ class TerminalController:
         if old_status != self.status:
             self._dispatch_status_callbacks(old_status, self.status)
 
-    def stop(self) -> None:
-        """Stop the controlled process and clean up resources."""
+    def stop(self, *, timeout: float = 5.0) -> None:
+        """Stop the controlled process and clean up resources.
+
+        Sends SIGTERM to the process group, waits up to *timeout* seconds,
+        then escalates to SIGKILL if the process is still alive.
+        """
         self.running = False
         if self.process:
-            self.process.terminate()
+            # Send SIGTERM to the entire process group so child processes
+            # (e.g. spawned CLI tools) are also terminated.
+            try:
+                pgid = os.getpgid(self.process.pid)
+                os.killpg(pgid, signal.SIGTERM)
+            except (ProcessLookupError, OSError):
+                # Process already exited or pgid lookup failed — fall back
+                # to terminating the main process only.
+                with contextlib.suppress(ProcessLookupError):
+                    self.process.terminate()
+
+            # Wait for exit; escalate to SIGKILL if necessary.
+            try:
+                self.process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                try:
+                    pgid = os.getpgid(self.process.pid)
+                    os.killpg(pgid, signal.SIGKILL)
+                except (ProcessLookupError, OSError):
+                    with contextlib.suppress(ProcessLookupError):
+                        self.process.kill()
+                with contextlib.suppress(Exception):
+                    self.process.wait(timeout=2)
+
         # Only close master_fd if we opened it (non-interactive mode)
         # In interactive mode, pty.spawn() manages the fd
         if self.master_fd and not self.interactive:
-            os.close(self.master_fd)
+            with contextlib.suppress(OSError):
+                os.close(self.master_fd)
 
     def run_interactive(self) -> None:
         """

@@ -236,10 +236,16 @@ class AgentRegistry:
         return file_path
 
     def unregister(self, agent_id: str) -> None:
-        """Removes the registry file."""
+        """Remove registry file and associated UDS socket."""
         file_path = self.registry_dir / f"{agent_id}.json"
         if file_path.exists():
             file_path.unlink()
+
+        # Clean up UDS socket file to prevent stale socket accumulation
+        uds_path = resolve_uds_path(agent_id)
+        if uds_path.exists():
+            with contextlib.suppress(OSError):
+                uds_path.unlink()
 
     def list_agents(self) -> dict[str, dict]:
         """Returns all currently registered agents."""

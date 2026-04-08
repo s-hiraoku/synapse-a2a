@@ -3,6 +3,7 @@
 import argparse
 import json
 import shutil
+import signal
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -272,13 +273,14 @@ class TestCmdStop:
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
             patch("synapse.cli.PortManager") as mock_pm_class,
             patch("synapse.cli.os.kill") as mock_kill,
+            patch("synapse.cli.is_process_alive", return_value=False),
         ):
             mock_pm = mock_pm_class.return_value
             mock_pm.get_running_instances.return_value = [running_info]
 
             cmd_stop(mock_args)
 
-            mock_kill.assert_called_once_with(12345, 15)  # SIGTERM = 15
+            mock_kill.assert_called_once_with(12345, signal.SIGTERM)
 
         captured = capsys.readouterr()
         assert "Stopped synapse-claude-8100" in captured.out
@@ -297,6 +299,7 @@ class TestCmdStop:
             patch("synapse.cli.AgentRegistry", return_value=temp_registry),
             patch("synapse.cli.PortManager") as mock_pm_class,
             patch("synapse.cli.os.kill") as mock_kill,
+            patch("synapse.cli.is_process_alive", return_value=False),
         ):
             mock_pm = mock_pm_class.return_value
             mock_pm.get_running_instances.return_value = running_infos
@@ -341,6 +344,7 @@ class TestCmdStop:
         with (
             patch("synapse.cli.AgentRegistry") as mock_registry_cls,
             patch("synapse.cli.os.kill") as mock_kill,
+            patch("synapse.cli.is_process_alive", return_value=False),
         ):
             mock_registry = mock_registry_cls.return_value
             mock_registry.get_agent.return_value = agent_info
@@ -348,7 +352,7 @@ class TestCmdStop:
             cmd_stop(mock_args)
 
             mock_registry.get_agent.assert_called_once_with("synapse-claude-8100")
-            mock_kill.assert_called_once_with(12345, 15)
+            mock_kill.assert_called_once_with(12345, signal.SIGTERM)
 
         captured = capsys.readouterr()
         assert "Stopped synapse-claude-8100" in captured.out
@@ -375,16 +379,38 @@ class TestStopAgent:
     """Tests for _stop_agent helper function."""
 
     def test_stop_agent_with_valid_pid(self, temp_registry, capsys):
-        """Should stop agent with valid PID."""
+        """Should stop agent with valid PID and wait for exit."""
         info = {"agent_id": "test-agent", "pid": 12345}
 
-        with patch("synapse.cli.os.kill") as mock_kill:
+        with (
+            patch("synapse.cli.os.kill") as mock_kill,
+            patch("synapse.cli.is_process_alive", return_value=False),
+        ):
             _stop_agent(temp_registry, info)
 
-            mock_kill.assert_called_once_with(12345, 15)
+            mock_kill.assert_called_once_with(12345, signal.SIGTERM)
 
         captured = capsys.readouterr()
         assert "Stopped test-agent" in captured.out
+
+    def test_stop_agent_escalates_to_sigkill(self, temp_registry, capsys):
+        """Should escalate to SIGKILL when process ignores SIGTERM."""
+        info = {"agent_id": "test-agent", "pid": 12345}
+
+        with (
+            patch("synapse.cli.os.kill") as mock_kill,
+            patch("synapse.cli.is_process_alive", return_value=True),
+            patch("synapse.cli.time.sleep"),
+        ):
+            _stop_agent(temp_registry, info)
+
+            # SIGTERM first, then SIGKILL
+            assert mock_kill.call_count == 2
+            mock_kill.assert_any_call(12345, signal.SIGTERM)
+            mock_kill.assert_any_call(12345, signal.SIGKILL)
+
+        captured = capsys.readouterr()
+        assert "SIGKILL" in captured.out
 
     def test_stop_agent_no_pid(self, temp_registry, capsys):
         """Should handle missing PID."""

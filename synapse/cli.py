@@ -139,8 +139,15 @@ def cmd_start(args: argparse.Namespace) -> None:
     _START_COMMAND.run(args)
 
 
+_STOP_SIGTERM_WAIT = 5  # seconds to wait for SIGTERM before SIGKILL
+
+
 def _stop_agent(registry: AgentRegistry, info: dict) -> None:
-    """Stop a single agent given its info dict."""
+    """Stop a single agent given its info dict.
+
+    Sends SIGTERM, waits up to _STOP_SIGTERM_WAIT seconds for the process
+    to exit, then escalates to SIGKILL if it is still alive.
+    """
     agent_id = info.get("agent_id")
     pid = info.get("pid")
 
@@ -150,9 +157,26 @@ def _stop_agent(registry: AgentRegistry, info: dict) -> None:
 
     try:
         os.kill(pid, signal.SIGTERM)
-        print(f"Stopped {agent_id} (PID: {pid})")
     except ProcessLookupError:
         print(f"Process {pid} not found. Cleaning up registry...")
+        if isinstance(agent_id, str):
+            registry.unregister(agent_id)
+        return
+
+    # Wait for process to exit after SIGTERM
+    for _ in range(_STOP_SIGTERM_WAIT * 10):
+        if not is_process_alive(pid):
+            break
+        time.sleep(0.1)
+
+    if is_process_alive(pid):
+        try:
+            os.kill(pid, signal.SIGKILL)
+            print(f"Escalated to SIGKILL for {agent_id} (PID: {pid})")
+        except ProcessLookupError:
+            pass
+    else:
+        print(f"Stopped {agent_id} (PID: {pid})")
 
     if isinstance(agent_id, str):
         registry.unregister(agent_id)
@@ -4103,8 +4127,8 @@ def cmd_run_interactive(
     # Handle Ctrl+C gracefully
     def cleanup(signum: int, frame: object) -> None:
         print("\n\x1b[32m[Synapse]\x1b[0m Shutting down...")
-        registry.unregister(agent_id)
         controller.stop()
+        registry.unregister(agent_id)
         sys.exit(0)
 
     signal.signal(signal.SIGINT, cleanup)
@@ -4199,8 +4223,8 @@ def cmd_run_interactive(
                 store=profile_store,
             )
         print("\n\x1b[32m[Synapse]\x1b[0m Shutting down...")
-        registry.unregister(agent_id)
         controller.stop()
+        registry.unregister(agent_id)
 
         _try_cleanup_worktree(
             {
