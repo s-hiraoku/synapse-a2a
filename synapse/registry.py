@@ -236,10 +236,26 @@ class AgentRegistry:
         return file_path
 
     def unregister(self, agent_id: str) -> None:
-        """Removes the registry file."""
+        """Remove registry file and associated UDS socket."""
         file_path = self.registry_dir / f"{agent_id}.json"
+
+        # Read UDS path from registry JSON before deleting it so we use
+        # the path that was recorded at registration time, not the
+        # current SYNAPSE_UDS_DIR which may differ.
+        uds_path_str: str | None = None
         if file_path.exists():
+            with contextlib.suppress(Exception):
+                with open(file_path) as f:
+                    data = json.load(f)
+                uds_path_str = data.get("uds_path")
             file_path.unlink()
+
+        # Clean up UDS socket file to prevent stale socket accumulation.
+        # Prefer the path from registry; fall back to resolve_uds_path.
+        uds_target = Path(uds_path_str) if uds_path_str else resolve_uds_path(agent_id)
+        if uds_target.exists():
+            with contextlib.suppress(OSError):
+                uds_target.unlink()
 
     def list_agents(self) -> dict[str, dict]:
         """Returns all currently registered agents."""

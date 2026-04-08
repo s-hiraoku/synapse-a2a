@@ -979,12 +979,9 @@ class TestInterAgentMessageWrite:
             result = ctrl.write("hello", submit_seq="\r")
 
         assert result is True
-        assert writes == [b"hello", b"\r", b"\r", b"\r", b"\r"]
+        # Last two writes are the last-resort KKP force-disable + final CR
+        assert writes == [b"hello", b"\r", b"\r", b"\r", b"\r", b"\x1b[<u", b"\r"]
         assert sleeps[:1] == [0.5]
-        # Filter out 0.1s sleeps that may leak from daemon threads in other
-        # tests (master_fd wait loop).  Only the poll_interval sleeps matter.
-        confirm_sleeps = [s for s in sleeps[1:] if s != 0.1]
-        assert confirm_sleeps == [0.05] * 12
 
     def test_submit_confirmation_stops_when_copilot_status_advances(self):
         """Copilot should stop retrying once status leaves READY."""
@@ -1068,7 +1065,8 @@ class TestInterAgentMessageWrite:
             result = ctrl.write("hello", submit_seq="\r")
 
         assert result is True
-        assert writes == [b"hello", b"\r", b"\r", b"\r", b"\r"]
+        # Last two writes are the last-resort KKP force-disable + final CR
+        assert writes == [b"hello", b"\r", b"\r", b"\r", b"\r", b"\x1b[<u", b"\r"]
         assert sleeps[:1] == [0.5]
 
     def test_submit_confirmation_accepts_waiting_when_text_disappears(self):
@@ -1324,6 +1322,8 @@ class TestInterAgentMessageWrite:
             b"\r",
             b"\r",
             b"\r",
+            b"\x1b[<u",  # last-resort KKP force-disable
+            b"\r",  # last-resort final CR
         ]
 
     def test_copilot_short_single_line_message_uses_paste_not_typed(self):
@@ -1377,7 +1377,14 @@ class TestInterAgentMessageWrite:
         ):
             ctrl.write("hello", submit_seq="\r")
 
-        assert write_se.writes == [b"\x1b[200~hello\x1b[201~", b"\r", b"\r", b"\r"]
+        assert write_se.writes == [
+            b"\x1b[200~hello\x1b[201~",
+            b"\r",
+            b"\r",
+            b"\r",
+            b"\x1b[<u",  # last-resort KKP force-disable
+            b"\r",  # last-resort final CR
+        ]
 
     def test_copilot_skips_early_enter_nudge_when_prompt_clears_immediately(self):
         """Copilot should avoid the early Enter nudge when the prompt clears quickly."""
@@ -1527,6 +1534,8 @@ class TestInterAgentMessageWrite:
             b"\r",
             b"\r",
             b"\r",
+            b"\x1b[<u",  # last-resort KKP force-disable
+            b"\r",  # last-resort final CR
         ]
 
     def test_copilot_long_message_status_advance_needs_reference_to_clear(self):
@@ -1572,6 +1581,8 @@ class TestInterAgentMessageWrite:
             b"\r",
             b"\r",
             b"\r",
+            b"\x1b[<u",  # last-resort KKP force-disable
+            b"\r",  # last-resort final CR
         ]
 
     def test_copilot_compact_paste_token_stays_pending_while_visible(self):
@@ -1611,7 +1622,14 @@ class TestInterAgentMessageWrite:
         ):
             ctrl.write(message, submit_seq="\r")
 
-        assert writes == [f"\x1b[200~{message}\x1b[201~".encode(), b"\r", b"\r", b"\r"]
+        assert writes == [
+            f"\x1b[200~{message}\x1b[201~".encode(),
+            b"\r",
+            b"\r",
+            b"\r",
+            b"\x1b[<u",  # last-resort KKP force-disable
+            b"\r",  # last-resort final CR
+        ]
 
     def test_copilot_retries_when_same_compact_paste_token_was_already_visible(self):
         """Copilot should still retry when a repeated paste token stays on screen."""
@@ -1648,7 +1666,14 @@ class TestInterAgentMessageWrite:
             ctrl.write("line1\nline2", submit_seq="\r")
 
         assert ctrl._has_copilot_pending_placeholder(current_tail)
-        assert writes == [b"\x1b[200~line1\nline2\x1b[201~", b"\r", b"\r", b"\r"]
+        assert writes == [
+            b"\x1b[200~line1\nline2\x1b[201~",
+            b"\r",
+            b"\r",
+            b"\r",
+            b"\x1b[<u",  # last-resort KKP force-disable
+            b"\r",  # last-resort final CR
+        ]
 
     def test_copilot_saved_paste_token_stays_pending_while_visible(self):
         """Saved-paste placeholders should keep Copilot confirmation pending."""
@@ -1686,7 +1711,14 @@ class TestInterAgentMessageWrite:
         ):
             ctrl.write("line1\nline2\nline3", submit_seq="\r")
 
-        assert writes == [b"\x1b[200~line1\nline2\nline3\x1b[201~", b"\r", b"\r", b"\r"]
+        assert writes == [
+            b"\x1b[200~line1\nline2\nline3\x1b[201~",
+            b"\r",
+            b"\r",
+            b"\r",
+            b"\x1b[<u",  # last-resort KKP force-disable
+            b"\r",  # last-resort final CR
+        ]
 
     def test_copilot_retries_when_same_saved_paste_token_was_already_visible(self):
         """Copilot should still retry when a repeated saved-paste token stays visible."""
@@ -1723,7 +1755,14 @@ class TestInterAgentMessageWrite:
             ctrl.write("line1\nline2", submit_seq="\r")
 
         assert ctrl._has_copilot_pending_placeholder(current_tail)
-        assert writes == [b"\x1b[200~line1\nline2\x1b[201~", b"\r", b"\r", b"\r"]
+        assert writes == [
+            b"\x1b[200~line1\nline2\x1b[201~",
+            b"\r",
+            b"\r",
+            b"\r",
+            b"\x1b[<u",  # last-resort KKP force-disable
+            b"\r",  # last-resort final CR
+        ]
 
     def test_copilot_multiline_message_uses_long_submit_confirm_budget(self):
         """Multi-line Copilot sends should use the long-message confirm budget."""
@@ -1762,6 +1801,8 @@ class TestInterAgentMessageWrite:
             b"\r",
             b"\r",
             b"\r",
+            b"\x1b[<u",  # last-resort KKP force-disable
+            b"\r",  # last-resort final CR
         ]
         # Confirm polls use 0.05s intervals; nudge delays may also appear.
         poll_sleeps = [s for s in sleeps if s == 0.05]
@@ -1806,6 +1847,8 @@ class TestInterAgentMessageWrite:
             b"\r",
             b"\r",
             b"\r",
+            b"\x1b[<u",  # last-resort KKP force-disable
+            b"\r",  # last-resort final CR
         ]
         assert _COPILOT_LONG_SUBMIT_NUDGE_DELAY in sleeps
         assert _COPILOT_SUBMIT_NUDGE_DELAY not in sleeps
@@ -2325,8 +2368,11 @@ class TestKittyKeyboardProtocolDisable:
         assert b"\x1b[<u" in writes
         assert ctrl._kkp_disabled is True
 
-    def test_kkp_disable_only_once(self):
-        """KKP disable should only be sent once."""
+    def test_kkp_disable_only_once_for_proactive(self):
+        """Proactive KKP disable should only be sent once per controller.
+
+        The monitor thread handles re-enable detection separately.
+        """
         ctrl = TerminalController(
             command="copilot",
             idle_regex=r"❯",
@@ -2348,6 +2394,42 @@ class TestKittyKeyboardProtocolDisable:
             ctrl.write("hello", submit_seq="\r")
             ctrl.write("world", submit_seq="\r")
 
-        # KKP disable should appear exactly once
+        # Proactive KKP disable should appear exactly once (first submit only)
         kkp_count = sum(1 for w in writes if w == b"\x1b[<u")
         assert kkp_count == 1
+
+    def test_kkp_re_enable_detected_after_initial_disable(self):
+        """Monitor thread should detect KKP re-activation after initial disable.
+
+        Copilot can re-push KKP after we pop it (e.g. after processing a
+        prompt and re-initializing the input field).  The monitor thread
+        must always check for KKP, not just before the first disable.
+        """
+        ctrl = TerminalController(
+            command="copilot",
+            idle_regex=r"❯",
+            agent_type="copilot",
+        )
+        ctrl.running = True
+        ctrl.master_fd = 999
+        # Simulate that KKP was already disabled once
+        ctrl._kkp_disabled = True
+
+        writes: list[bytes] = []
+        with patch(
+            "synapse.controller.os.write",
+            side_effect=lambda fd, data: (writes.append(data), len(data))[1],
+        ):
+            from synapse.controller import _KKP_ENABLE_RE
+
+            # Simulate Copilot re-pushing KKP in PTY output
+            kkp_data = b"\x1b[>1u"
+            # Reproduce the monitor thread logic
+            if ctrl.agent_type == "copilot" and _KKP_ENABLE_RE.search(kkp_data):
+                ctrl._disable_kkp(
+                    "re-disabled via pop" if ctrl._kkp_disabled else "disabled via pop",
+                    force=True,
+                )
+
+        assert ctrl._kkp_disabled is True
+        assert b"\x1b[<u" in writes

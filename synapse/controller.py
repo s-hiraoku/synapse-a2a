@@ -679,6 +679,9 @@ class TerminalController:
             preexec_fn=os.setsid,  # Create new session
             close_fds=True,
         )
+        # Capture PGID immediately after spawn so stop() never needs to
+        # re-query it (avoids race when the process has already exited).
+        self._pgid: int | None = os.getpgid(self.process.pid)
 
         # Close slave_fd in parent as it's now attached to child
         os.close(self.slave_fd)
@@ -713,12 +716,19 @@ class TerminalController:
                         # Detect and disable Kitty Keyboard Protocol.
                         # Copilot CLI enables KKP on startup which changes
                         # how Enter is encoded, causing our \r to be ignored.
-                        if (
-                            not self._kkp_disabled
-                            and self.agent_type == "copilot"
-                            and _KKP_ENABLE_RE.search(data)
-                        ):
-                            self._disable_kkp("disabled via pop")
+                        # Always check — Copilot can re-push KKP after we
+                        # pop it (e.g. after processing a prompt).
+                        if self.agent_type == "copilot" and _KKP_ENABLE_RE.search(data):
+                            self._disable_kkp(
+                                "re-disabled via pop"
+                                if self._kkp_disabled
+                                else "disabled via pop",
+                                force=True,
+                            )
+                            # Ink may also re-enable ICRNL when it re-pushes
+                            # KKP, so reset the cache so the next submit
+                            # re-checks termios.
+                            self._icrnl_cleared = False
 
                         # Debug logging for PTY output analysis
                         # Enable with SYNAPSE_DEBUG_PTY=1 to see raw PTY output
@@ -785,8 +795,15 @@ class TerminalController:
             is_waiting: Whether the agent is showing a selection UI.
 
         Returns:
-            New status string: "READY", "WAITING", "PROCESSING", or "DONE".
+            New status string: "READY", "WAITING", "PROCESSING", "DONE",
+            or "SHUTTING_DOWN".
         """
+        # SHUTTING_DOWN is sticky — once set, no idle/waiting check can
+        # revert it.  This prevents the monitor thread from overwriting
+        # the status while stop() is waiting for the process to exit.
+        if self.status == "SHUTTING_DOWN":
+            return "SHUTTING_DOWN"
+
         # Base status from idle/waiting detection
         if is_waiting:
             base_status = "WAITING"
@@ -1364,23 +1381,51 @@ class TerminalController:
             for p in (_COPILOT_COMPACT_PASTE_RE, _COPILOT_SAVED_PASTE_RE)
         )
 
-    def _disable_kkp(self, reason: str) -> None:
-        """Disable Kitty Keyboard Protocol on the PTY if not already done.
+    def _disable_kkp(self, reason: str, *, force: bool = False) -> None:
+        """Disable Kitty Keyboard Protocol on the PTY.
 
         KKP changes Enter encoding from \\r to CSI 13 u, which can cause
         our injected \\r to be ignored by Copilot's Ink TUI.  Thread-safe
         via _write_lock to avoid interleaving with other PTY writes.
+
+        When *force* is True, send the disable sequence even if we have
+        already disabled KKP once.  Copilot's Ink TUI can re-push KKP
+        after we pop it (e.g. when re-initializing the input field after
+        processing a prompt), so we must be able to pop it again.
         """
-        if self._kkp_disabled or self.master_fd is None:
+        if self.master_fd is None or (self._kkp_disabled and not force):
             return
         try:
             with self._write_lock:
-                if not self._kkp_disabled:  # Double-check under lock
+                if force or not self._kkp_disabled:
                     self._write_all(_KKP_DISABLE_SEQ)
                     self._kkp_disabled = True
                     logger.debug(f"[{self.agent_id}] KKP {reason}")
         except OSError:
             pass
+
+    def _ensure_icrnl_disabled(self, submit_bytes: bytes) -> None:
+        """Clear ICRNL on the PTY if sending \\r and not already cleared.
+
+        Ink-based TUIs (Copilot) may re-enable ICRNL which translates
+        \\r→\\n.  Ink maps \\r to key.return (submit) but \\n to
+        key.enter (different event), so ICRNL must be off.
+        """
+        if (
+            submit_bytes == b"\r"
+            and not self._icrnl_cleared
+            and self.master_fd is not None
+        ):
+            try:
+                attrs = termios.tcgetattr(self.master_fd)
+                iflag = attrs[0]
+                if iflag & termios.ICRNL:
+                    attrs[0] = iflag & ~termios.ICRNL
+                    termios.tcsetattr(self.master_fd, termios.TCSANOW, attrs)
+                    logger.debug(f"[{self.agent_id}] ICRNL disabled for submit")
+                self._icrnl_cleared = True
+            except (termios.error, OSError):
+                pass
 
     def _wait_for_copilot_paste_echo(self, pre_paste_context: str) -> None:
         """Wait for Copilot's Ink TUI to reflect the pasted text before Enter.
@@ -1397,13 +1442,17 @@ class TerminalController:
 
         Falls back to write_delay if no change is detected within the timeout.
         """
-        deadline = time.monotonic() + _COPILOT_PASTE_ECHO_TIMEOUT
+        start = time.monotonic()
+        deadline = start + _COPILOT_PASTE_ECHO_TIMEOUT
+        poll_count = 0
         while time.monotonic() < deadline:
             current = self._tail_text(strip_ansi(self.get_context()))
+            poll_count += 1
             if current != pre_paste_context:
-                elapsed = _COPILOT_PASTE_ECHO_TIMEOUT - (deadline - time.monotonic())
+                elapsed = time.monotonic() - start
                 logger.debug(
-                    f"[{self.agent_id}] paste echo detected after {elapsed:.3f}s, "
+                    f"[{self.agent_id}] paste echo detected after {elapsed:.3f}s "
+                    f"(polls={poll_count}), "
                     f"settling {_COPILOT_PASTE_ECHO_SETTLE}s for React state commit"
                 )
                 time.sleep(_COPILOT_PASTE_ECHO_SETTLE)
@@ -1411,7 +1460,8 @@ class TerminalController:
             time.sleep(_COPILOT_PASTE_ECHO_POLL)
         logger.info(
             f"[{self.agent_id}] paste echo not detected within "
-            f"{_COPILOT_PASTE_ECHO_TIMEOUT}s, falling back to write_delay"
+            f"{_COPILOT_PASTE_ECHO_TIMEOUT}s (polls={poll_count}), "
+            f"falling back to write_delay"
         )
         if self._write_delay > 0:
             time.sleep(self._write_delay)
@@ -1496,30 +1546,7 @@ class TerminalController:
                         self._wait_for_copilot_paste_echo(pre_paste_context)
                     elif self._write_delay > 0:
                         time.sleep(self._write_delay)
-                    # Ensure ICRNL is disabled before sending submit bytes.
-                    # Ink-based TUIs (Copilot) call process.stdin.setRawMode(true)
-                    # on startup which may re-enable ICRNL, converting \r→\n.
-                    # Ink maps \r to key.return (submit) but \n to key.enter
-                    # (different event), so ICRNL must be off.
-                    if (
-                        submit_bytes == b"\r"
-                        and not self._icrnl_cleared
-                        and self.master_fd is not None
-                    ):
-                        try:
-                            attrs = termios.tcgetattr(self.master_fd)
-                            iflag = attrs[0]
-                            if iflag & termios.ICRNL:
-                                attrs[0] = iflag & ~termios.ICRNL
-                                termios.tcsetattr(
-                                    self.master_fd, termios.TCSANOW, attrs
-                                )
-                                logger.debug(
-                                    f"[{self.agent_id}] ICRNL disabled for submit"
-                                )
-                            self._icrnl_cleared = True
-                        except (termios.error, OSError):
-                            pass
+                    self._ensure_icrnl_disabled(submit_bytes)
                     # Proactively disable Kitty Keyboard Protocol before
                     # submit if it hasn't been caught by the output monitor.
                     if not self._kkp_disabled and self.agent_type == "copilot":
@@ -1639,6 +1666,27 @@ class TerminalController:
             if attempt < confirm_retries:
                 self._write_all(submit_bytes)
 
+        # Last resort: KKP may have been re-enabled during the retry
+        # window.  Force-disable it and send one final CR.  This covers
+        # the case where Copilot re-pushes KKP after processing the
+        # previous prompt, causing all our \r retries to be silently
+        # re-encoded as CSI 13 u.
+        if self.agent_type == "copilot":
+            self._disable_kkp("force re-disabled on confirmation failure", force=True)
+            # Also re-clear ICRNL in case Ink toggled it back.
+            # Reset the cache flag AND perform the actual termios clear
+            # so the final CR is not translated to \n.
+            self._icrnl_cleared = False
+            self._ensure_icrnl_disabled(submit_bytes)
+            self._write_all(submit_bytes)
+            # Brief wait + final check
+            time.sleep(nudge_delay or _COPILOT_SUBMIT_NUDGE_DELAY)
+            if self._submit_confirmed(data, initial_status, previous_context):
+                logger.info(
+                    f"[{self.agent_id}] submit recovered after KKP force-disable"
+                )
+                return
+
         # Dump diagnostic info on failure
         plain = strip_ansi(self.get_context())
         tail = self._tail_text(plain)
@@ -1666,8 +1714,14 @@ class TerminalController:
         if not self.running or not self.process:
             return
 
-        # Send SIGINT to the process group
-        os.killpg(os.getpgid(self.process.pid), signal.SIGINT)
+        # Send SIGINT to the process group using the saved PGID.
+        pgid = getattr(self, "_pgid", None)
+        if pgid is not None:
+            with contextlib.suppress(ProcessLookupError, OSError):
+                os.killpg(pgid, signal.SIGINT)
+        else:
+            with contextlib.suppress(ProcessLookupError, OSError):
+                os.killpg(os.getpgid(self.process.pid), signal.SIGINT)
         with self.lock:
             old_status = self.status
             self.status = "PROCESSING"  # Interruption might cause output/processing
@@ -1704,15 +1758,81 @@ class TerminalController:
         if old_status != self.status:
             self._dispatch_status_callbacks(old_status, self.status)
 
-    def stop(self) -> None:
-        """Stop the controlled process and clean up resources."""
+    def stop(self, *, timeout: float = 30.0) -> None:
+        """Stop the controlled process and clean up resources.
+
+        Sends SIGTERM to the process group (using the PGID captured at
+        spawn time), waits up to *timeout* seconds, then escalates to
+        SIGKILL if the process is still alive.
+        """
         self.running = False
-        if self.process:
-            self.process.terminate()
-        # Only close master_fd if we opened it (non-interactive mode)
-        # In interactive mode, pty.spawn() manages the fd
-        if self.master_fd and not self.interactive:
-            os.close(self.master_fd)
+        with self.lock:
+            self.status = "SHUTTING_DOWN"
+
+        proc = self.process
+        pgid = getattr(self, "_pgid", None)
+
+        if proc:
+            # Send SIGTERM to the entire process group so child processes
+            # (e.g. spawned CLI tools) are also terminated.
+            if pgid is not None:
+                with contextlib.suppress(ProcessLookupError, OSError):
+                    os.killpg(pgid, signal.SIGTERM)
+            else:
+                with contextlib.suppress(ProcessLookupError):
+                    proc.terminate()
+
+            # Wait for the entire process group to exit, not just the
+            # parent.  os.killpg(pgid, 0) raises ProcessLookupError
+            # when no process in the group remains.
+            if pgid is not None:
+                deadline = time.monotonic() + timeout
+                while time.monotonic() < deadline:
+                    try:
+                        os.killpg(pgid, 0)
+                    except (ProcessLookupError, OSError):
+                        break  # Group is gone
+                    time.sleep(0.2)
+                else:
+                    # Timeout — escalate to SIGKILL on the whole group.
+                    with contextlib.suppress(ProcessLookupError, OSError):
+                        os.killpg(pgid, signal.SIGKILL)
+                    # Brief grace period after SIGKILL.
+                    for _ in range(10):
+                        try:
+                            os.killpg(pgid, 0)
+                        except (ProcessLookupError, OSError):
+                            break
+                        time.sleep(0.2)
+                    logger.warning(
+                        f"[{self.agent_id}] process group {pgid} required "
+                        f"SIGKILL after {timeout}s timeout"
+                    )
+            else:
+                # No pgid — fall back to waiting on the main process only.
+                try:
+                    proc.wait(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    with contextlib.suppress(ProcessLookupError):
+                        proc.kill()
+                    with contextlib.suppress(Exception):
+                        proc.wait(timeout=2)
+
+            # Reap the main process to avoid zombies.
+            with contextlib.suppress(Exception):
+                proc.wait(timeout=2)
+
+            # Clear references to prevent re-entry and PID-reuse issues.
+            self.process = None
+            self._pgid = None
+
+        # Only close master_fd if we opened it (non-interactive mode).
+        # In interactive mode, pty.spawn() manages the fd.
+        # Use ``is not None`` so fd=0 is not skipped.
+        if self.master_fd is not None and not self.interactive:
+            with contextlib.suppress(OSError):
+                os.close(self.master_fd)
+            self.master_fd = None
 
     def run_interactive(self) -> None:
         """
@@ -1787,6 +1907,18 @@ class TerminalController:
 
                 self._append_output(data)
                 self._check_idle_state(data)
+
+                # Detect KKP re-activation in interactive mode too.
+                # _monitor_output handles this for background mode; here
+                # we mirror the same check for pty.spawn's read path.
+                if self.agent_type == "copilot" and _KKP_ENABLE_RE.search(data):
+                    self._disable_kkp(
+                        "re-disabled via pop (interactive)"
+                        if self._kkp_disabled
+                        else "disabled via pop (interactive)",
+                        force=True,
+                    )
+                    self._icrnl_cleared = False
 
                 # Pass output through directly - AI uses a2a.py tool for routing
                 return data

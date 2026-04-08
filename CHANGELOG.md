@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.5] - 2026-04-08
+
+### Fixed
+
+- Copilot Enter key reliability: detect and handle KKP (Kitty Keyboard Protocol) re-activation after initial disable — Copilot's Ink TUI can re-push KKP after processing a prompt, causing subsequent `\r` submits to be silently re-encoded as CSI 13 u
+- Add last-resort KKP force-disable + ICRNL re-clear + final CR retry when submit confirmation exhausts all retries
+- Simplify elapsed time calculation in paste echo detection
+
+### Tests
+
+- Added `test_kkp_re_enable_detected_after_initial_disable` for KKP re-activation detection
+- Updated 10 confirmation-failure tests to include last-resort KKP disable + CR writes
+- Renamed `test_kkp_disable_only_once` → `test_kkp_disable_only_once_for_proactive`
+
 ## [0.23.4] - 2026-04-07
 
 ### Fixed
@@ -3213,7 +3227,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.4...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.5...HEAD
+[0.23.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.4...v0.23.5
 [0.23.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.3...v0.23.4
 [0.23.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.2...v0.23.3
 [0.23.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.1...v0.23.2
