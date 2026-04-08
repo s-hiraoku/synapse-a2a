@@ -725,6 +725,10 @@ class TerminalController:
                                 else "disabled via pop",
                                 force=True,
                             )
+                            # Ink may also re-enable ICRNL when it re-pushes
+                            # KKP, so reset the cache so the next submit
+                            # re-checks termios.
+                            self._icrnl_cleared = False
 
                         # Debug logging for PTY output analysis
                         # Enable with SYNAPSE_DEBUG_PTY=1 to see raw PTY output
@@ -1914,6 +1918,7 @@ class TerminalController:
                         else "disabled via pop (interactive)",
                         force=True,
                     )
+                    self._icrnl_cleared = False
 
                 # Pass output through directly - AI uses a2a.py tool for routing
                 return data
