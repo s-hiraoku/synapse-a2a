@@ -1400,6 +1400,29 @@ class TerminalController:
         except OSError:
             pass
 
+    def _ensure_icrnl_disabled(self, submit_bytes: bytes) -> None:
+        """Clear ICRNL on the PTY if sending \\r and not already cleared.
+
+        Ink-based TUIs (Copilot) may re-enable ICRNL which translates
+        \\r→\\n.  Ink maps \\r to key.return (submit) but \\n to
+        key.enter (different event), so ICRNL must be off.
+        """
+        if (
+            submit_bytes == b"\r"
+            and not self._icrnl_cleared
+            and self.master_fd is not None
+        ):
+            try:
+                attrs = termios.tcgetattr(self.master_fd)
+                iflag = attrs[0]
+                if iflag & termios.ICRNL:
+                    attrs[0] = iflag & ~termios.ICRNL
+                    termios.tcsetattr(self.master_fd, termios.TCSANOW, attrs)
+                    logger.debug(f"[{self.agent_id}] ICRNL disabled for submit")
+                self._icrnl_cleared = True
+            except (termios.error, OSError):
+                pass
+
     def _wait_for_copilot_paste_echo(self, pre_paste_context: str) -> None:
         """Wait for Copilot's Ink TUI to reflect the pasted text before Enter.
 
@@ -1519,30 +1542,7 @@ class TerminalController:
                         self._wait_for_copilot_paste_echo(pre_paste_context)
                     elif self._write_delay > 0:
                         time.sleep(self._write_delay)
-                    # Ensure ICRNL is disabled before sending submit bytes.
-                    # Ink-based TUIs (Copilot) call process.stdin.setRawMode(true)
-                    # on startup which may re-enable ICRNL, converting \r→\n.
-                    # Ink maps \r to key.return (submit) but \n to key.enter
-                    # (different event), so ICRNL must be off.
-                    if (
-                        submit_bytes == b"\r"
-                        and not self._icrnl_cleared
-                        and self.master_fd is not None
-                    ):
-                        try:
-                            attrs = termios.tcgetattr(self.master_fd)
-                            iflag = attrs[0]
-                            if iflag & termios.ICRNL:
-                                attrs[0] = iflag & ~termios.ICRNL
-                                termios.tcsetattr(
-                                    self.master_fd, termios.TCSANOW, attrs
-                                )
-                                logger.debug(
-                                    f"[{self.agent_id}] ICRNL disabled for submit"
-                                )
-                            self._icrnl_cleared = True
-                        except (termios.error, OSError):
-                            pass
+                    self._ensure_icrnl_disabled(submit_bytes)
                     # Proactively disable Kitty Keyboard Protocol before
                     # submit if it hasn't been caught by the output monitor.
                     if not self._kkp_disabled and self.agent_type == "copilot":
@@ -1669,8 +1669,11 @@ class TerminalController:
         # re-encoded as CSI 13 u.
         if self.agent_type == "copilot":
             self._disable_kkp("force re-disabled on confirmation failure", force=True)
-            # Also re-clear ICRNL in case Ink toggled it back
+            # Also re-clear ICRNL in case Ink toggled it back.
+            # Reset the cache flag AND perform the actual termios clear
+            # so the final CR is not translated to \n.
             self._icrnl_cleared = False
+            self._ensure_icrnl_disabled(submit_bytes)
             self._write_all(submit_bytes)
             # Brief wait + final check
             time.sleep(nudge_delay or _COPILOT_SUBMIT_NUDGE_DELAY)
@@ -1900,6 +1903,17 @@ class TerminalController:
 
                 self._append_output(data)
                 self._check_idle_state(data)
+
+                # Detect KKP re-activation in interactive mode too.
+                # _monitor_output handles this for background mode; here
+                # we mirror the same check for pty.spawn's read path.
+                if self.agent_type == "copilot" and _KKP_ENABLE_RE.search(data):
+                    self._disable_kkp(
+                        "re-disabled via pop (interactive)"
+                        if self._kkp_disabled
+                        else "disabled via pop (interactive)",
+                        force=True,
+                    )
 
                 # Pass output through directly - AI uses a2a.py tool for routing
                 return data
