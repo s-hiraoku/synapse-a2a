@@ -713,12 +713,15 @@ class TerminalController:
                         # Detect and disable Kitty Keyboard Protocol.
                         # Copilot CLI enables KKP on startup which changes
                         # how Enter is encoded, causing our \r to be ignored.
-                        if (
-                            not self._kkp_disabled
-                            and self.agent_type == "copilot"
-                            and _KKP_ENABLE_RE.search(data)
-                        ):
-                            self._disable_kkp("disabled via pop")
+                        # Always check — Copilot can re-push KKP after we
+                        # pop it (e.g. after processing a prompt).
+                        if self.agent_type == "copilot" and _KKP_ENABLE_RE.search(data):
+                            self._disable_kkp(
+                                "re-disabled via pop"
+                                if self._kkp_disabled
+                                else "disabled via pop",
+                                force=True,
+                            )
 
                         # Debug logging for PTY output analysis
                         # Enable with SYNAPSE_DEBUG_PTY=1 to see raw PTY output
@@ -1364,18 +1367,23 @@ class TerminalController:
             for p in (_COPILOT_COMPACT_PASTE_RE, _COPILOT_SAVED_PASTE_RE)
         )
 
-    def _disable_kkp(self, reason: str) -> None:
-        """Disable Kitty Keyboard Protocol on the PTY if not already done.
+    def _disable_kkp(self, reason: str, *, force: bool = False) -> None:
+        """Disable Kitty Keyboard Protocol on the PTY.
 
         KKP changes Enter encoding from \\r to CSI 13 u, which can cause
         our injected \\r to be ignored by Copilot's Ink TUI.  Thread-safe
         via _write_lock to avoid interleaving with other PTY writes.
+
+        When *force* is True, send the disable sequence even if we have
+        already disabled KKP once.  Copilot's Ink TUI can re-push KKP
+        after we pop it (e.g. when re-initializing the input field after
+        processing a prompt), so we must be able to pop it again.
         """
-        if self._kkp_disabled or self.master_fd is None:
+        if self.master_fd is None or (self._kkp_disabled and not force):
             return
         try:
             with self._write_lock:
-                if not self._kkp_disabled:  # Double-check under lock
+                if force or not self._kkp_disabled:
                     self._write_all(_KKP_DISABLE_SEQ)
                     self._kkp_disabled = True
                     logger.debug(f"[{self.agent_id}] KKP {reason}")
@@ -1397,13 +1405,17 @@ class TerminalController:
 
         Falls back to write_delay if no change is detected within the timeout.
         """
-        deadline = time.monotonic() + _COPILOT_PASTE_ECHO_TIMEOUT
+        start = time.monotonic()
+        deadline = start + _COPILOT_PASTE_ECHO_TIMEOUT
+        poll_count = 0
         while time.monotonic() < deadline:
             current = self._tail_text(strip_ansi(self.get_context()))
+            poll_count += 1
             if current != pre_paste_context:
-                elapsed = _COPILOT_PASTE_ECHO_TIMEOUT - (deadline - time.monotonic())
+                elapsed = time.monotonic() - start
                 logger.debug(
-                    f"[{self.agent_id}] paste echo detected after {elapsed:.3f}s, "
+                    f"[{self.agent_id}] paste echo detected after {elapsed:.3f}s "
+                    f"(polls={poll_count}), "
                     f"settling {_COPILOT_PASTE_ECHO_SETTLE}s for React state commit"
                 )
                 time.sleep(_COPILOT_PASTE_ECHO_SETTLE)
@@ -1411,7 +1423,8 @@ class TerminalController:
             time.sleep(_COPILOT_PASTE_ECHO_POLL)
         logger.info(
             f"[{self.agent_id}] paste echo not detected within "
-            f"{_COPILOT_PASTE_ECHO_TIMEOUT}s, falling back to write_delay"
+            f"{_COPILOT_PASTE_ECHO_TIMEOUT}s (polls={poll_count}), "
+            f"falling back to write_delay"
         )
         if self._write_delay > 0:
             time.sleep(self._write_delay)
@@ -1638,6 +1651,24 @@ class TerminalController:
 
             if attempt < confirm_retries:
                 self._write_all(submit_bytes)
+
+        # Last resort: KKP may have been re-enabled during the retry
+        # window.  Force-disable it and send one final CR.  This covers
+        # the case where Copilot re-pushes KKP after processing the
+        # previous prompt, causing all our \r retries to be silently
+        # re-encoded as CSI 13 u.
+        if self.agent_type == "copilot":
+            self._disable_kkp("force re-disabled on confirmation failure", force=True)
+            # Also re-clear ICRNL in case Ink toggled it back
+            self._icrnl_cleared = False
+            self._write_all(submit_bytes)
+            # Brief wait + final check
+            time.sleep(nudge_delay or _COPILOT_SUBMIT_NUDGE_DELAY)
+            if self._submit_confirmed(data, initial_status, previous_context):
+                logger.info(
+                    f"[{self.agent_id}] submit recovered after KKP force-disable"
+                )
+                return
 
         # Dump diagnostic info on failure
         plain = strip_ansi(self.get_context())
