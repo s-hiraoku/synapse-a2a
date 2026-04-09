@@ -282,8 +282,8 @@ def test_resolve_target_partial_match_with_sender_in_candidates():
     assert info["agent_id"] == "synapse-superclaude-8102"
 
 
-def test_pick_best_agent_excludes_processing():
-    """READY agents should beat PROCESSING agents before ranking."""
+def test_pick_best_agent_prefers_ready_over_processing():
+    """READY agents should be ranked above PROCESSING agents."""
     matches = [
         {
             "agent_id": "synapse-claude-8100",
@@ -304,8 +304,13 @@ def test_pick_best_agent_excludes_processing():
     assert best["agent_id"] == "synapse-claude-8101"
 
 
-def test_pick_best_agent_all_non_ready_returns_empty():
-    """When sendable_only is enabled, all non-READY candidates are excluded."""
+def test_pick_best_agent_returns_processing_when_no_ready_exists():
+    """When no READY candidate exists, a non-READY agent must still be returned.
+
+    ``cmd_send`` depends on this so it can detect PROCESSING targets and run
+    the "wait until READY then send" flow (see test_send_processing_wait.py).
+    Excluding PROCESSING here would break that feature.
+    """
     matches = [
         {
             "agent_id": "synapse-claude-8100",
@@ -321,15 +326,18 @@ def test_pick_best_agent_all_non_ready_returns_empty():
         },
     ]
 
-    assert _pick_best_agent(matches) == {}
+    best = _pick_best_agent(matches)
+
+    assert best is not None
+    assert best["agent_id"] in {"synapse-claude-8100", "synapse-claude-8101"}
 
 
-def test_resolve_single_processing_match_returns_no_agent_found():
-    """A single PROCESSING match must not be returned as sendable (CodeRabbit #526).
+def test_resolve_single_processing_match_returned_for_wait_flow():
+    """A single PROCESSING match is returned so cmd_send can wait for READY.
 
-    Regression guard for the single-vs-multiple match inconsistency: previously,
-    ``len(matches) == 1`` bypassed the sendable filter, so a single PROCESSING
-    agent would be returned while two PROCESSING agents correctly errored out.
+    Regression guard: we must NOT filter out non-READY agents during target
+    resolution. ``cmd_send`` looks at the returned agent's status and enters
+    a polling-wait loop if it is PROCESSING. See tests/test_send_processing_wait.py.
     """
     agents = {
         "synapse-claude-8100": {
@@ -342,22 +350,7 @@ def test_resolve_single_processing_match_returns_no_agent_found():
 
     info, error = _resolve_target_agent("claude", agents)
 
-    assert info is None
-    assert error == "No agent found matching 'claude'"
-
-
-def test_resolve_single_waiting_match_returns_no_agent_found():
-    """A single WAITING match must also be filtered out."""
-    agents = {
-        "synapse-codex-8120": {
-            "agent_id": "synapse-codex-8120",
-            "agent_type": "codex",
-            "port": 8120,
-            "status": "WAITING",
-        },
-    }
-
-    info, error = _resolve_target_agent("codex", agents)
-
-    assert info is None
-    assert error == "No agent found matching 'codex'"
+    assert error is None
+    assert info is not None
+    assert info["agent_id"] == "synapse-claude-8100"
+    assert info["status"] == "PROCESSING"

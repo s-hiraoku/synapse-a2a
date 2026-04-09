@@ -14,7 +14,6 @@ from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 
 logger = logging.getLogger(__name__)
-_SENDABLE_STATUSES = {"READY"}
 _SELF_TARGET_ERROR = "Cannot send to self (use target: self in workflows)"
 
 
@@ -239,18 +238,15 @@ def _record_sent_message(
         logger.debug("Failed to record sent message to history", exc_info=True)
 
 
-def _pick_best_agent(matches: list[dict], *, sendable_only: bool = True) -> dict:
-    """Pick the best agent from multiple candidates."""
+def _pick_best_agent(matches: list[dict]) -> dict:
+    """Pick the best agent from multiple candidates.
 
-    if sendable_only:
-        matches = [
-            match
-            for match in matches
-            if not match.get("status")
-            or (match.get("status") or "").upper() in _SENDABLE_STATUSES
-        ]
-        if not matches:
-            return {}
+    Ranks READY agents above non-READY ones, and prefers lower ports on ties.
+    Non-READY agents are **not** excluded: callers such as ``cmd_send`` depend
+    on receiving PROCESSING targets so they can invoke the "wait until READY
+    then send" path (see ``tests/test_send_processing_wait.py``). Filtering
+    non-READY agents out here would break that flow.
+    """
 
     def _sort_key(a: dict) -> tuple[int, int]:
         status = a.get("status") or ""
@@ -315,9 +311,7 @@ def _resolve_target_agent(
     ]
 
     if matches:
-        best = _pick_best_agent(matches)
-        if best:
-            return best, None
+        return _pick_best_agent(matches), None
 
     return None, f"No agent found matching '{target}'"
 
