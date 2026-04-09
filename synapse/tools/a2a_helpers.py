@@ -14,6 +14,8 @@ from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 
 logger = logging.getLogger(__name__)
+_SENDABLE_STATUSES = {"READY"}
+_SELF_TARGET_ERROR = "Cannot send to self (use target: self in workflows)"
 
 
 def _artifact_display_text(artifact: dict) -> str:
@@ -237,8 +239,18 @@ def _record_sent_message(
         logger.debug("Failed to record sent message to history", exc_info=True)
 
 
-def _pick_best_agent(matches: list[dict]) -> dict:
+def _pick_best_agent(matches: list[dict], *, sendable_only: bool = True) -> dict:
     """Pick the best agent from multiple candidates."""
+
+    if sendable_only:
+        matches = [
+            match
+            for match in matches
+            if not match.get("status")
+            or (match.get("status") or "").upper() in _SENDABLE_STATUSES
+        ]
+        if not matches:
+            return {}
 
     def _sort_key(a: dict) -> tuple[int, int]:
         status = a.get("status") or ""
@@ -254,6 +266,7 @@ def _resolve_target_agent(
     agents: dict[str, dict],
     *,
     local_only: bool = False,
+    sender_id: str | None = None,
 ) -> tuple[dict | None, str | None]:
     """Resolve target agent from name/id."""
     if local_only:
@@ -270,9 +283,13 @@ def _resolve_target_agent(
 
     for info in local_agents.values():
         if info.get("name") == target:
+            if sender_id and info.get("agent_id") == sender_id:
+                return None, _SELF_TARGET_ERROR
             return info, None
 
     if target in local_agents:
+        if sender_id and target == sender_id:
+            return None, _SELF_TARGET_ERROR
         return local_agents[target], None
 
     target_lower = target.lower()
@@ -286,19 +303,24 @@ def _resolve_target_agent(
                 info.get("agent_type", "").lower() == target_type
                 and info.get("port") == target_port
             ):
+                if sender_id and info.get("agent_id") == sender_id:
+                    return None, _SELF_TARGET_ERROR
                 return info, None
 
     matches = [
         a
         for a in local_agents.values()
         if target_lower in a.get("agent_type", "").lower()
+        and (not sender_id or a.get("agent_id") != sender_id)
     ]
 
     if len(matches) == 1:
         return matches[0], None
 
     if len(matches) > 1:
-        return _pick_best_agent(matches), None
+        best = _pick_best_agent(matches)
+        if best:
+            return best, None
 
     return None, f"No agent found matching '{target}'"
 

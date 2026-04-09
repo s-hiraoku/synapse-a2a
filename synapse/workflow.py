@@ -53,6 +53,8 @@ class WorkflowStep:
         if self.kind == "send":
             if not isinstance(self.target, str) or not self.target:
                 raise WorkflowError("Step target must be a non-empty string.")
+            # Note: "self" is a reserved target handled at execution time by
+            # workflow_runner._is_self_target(). No validation needed here.
             if not isinstance(self.message, str) or not self.message:
                 raise WorkflowError("Step message must be a non-empty string.")
         else:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import subprocess
 import sys
 import time
@@ -281,8 +282,23 @@ def _run_step(
 ) -> bool:
     """Execute a single workflow step. Returns True on success."""
     from synapse.cli import _build_a2a_cmd
+    from synapse.workflow_runner import _is_self_target
 
     print(f"  Step {step_num}/{total}: → {step.target} ({step.response_mode})")
+
+    sender_info = {
+        "agent_id": os.getenv("SYNAPSE_AGENT_ID", ""),
+        "agent_type": os.getenv("SYNAPSE_AGENT_ID", "").split("-")[1]
+        if os.getenv("SYNAPSE_AGENT_ID", "").startswith("synapse-")
+        else "",
+        "working_dir": str(Path.cwd()),
+    }
+    if _is_self_target(step.target, sender_info):
+        print(
+            "    Self-target detected; direct self execution is not supported "
+            "from the CLI workflow path yet. Marking step as a no-op.",
+        )
+        return True
 
     cmd = _build_a2a_cmd(
         "send",
@@ -290,6 +306,7 @@ def _run_step(
         target=step.target,
         priority=step.priority,
         response_mode=step.response_mode,
+        sender=os.getenv("SYNAPSE_AGENT_ID"),
     )
 
     result = subprocess.run(cmd, capture_output=True, text=True)

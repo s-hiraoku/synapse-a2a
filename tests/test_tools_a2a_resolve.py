@@ -1,8 +1,8 @@
-"""Tests for _resolve_target_agent function in tools/a2a.py (v0.3.11)."""
+"""Tests for target resolution helpers used by ``synapse send``."""
 
 import pytest
 
-from synapse.tools.a2a import _resolve_target_agent
+from synapse.tools.a2a import _pick_best_agent, _resolve_target_agent
 
 # ============================================================================
 # Test fixtures
@@ -44,12 +44,14 @@ def agents_multiple_claude():
             "agent_type": "claude",
             "port": 8100,
             "name": "reviewer",
+            "status": "READY",
         },
         "synapse-claude-8101": {
             "agent_id": "synapse-claude-8101",
             "agent_type": "claude",
             "port": 8101,
             "name": "tester",
+            "status": "READY",
         },
     }
 
@@ -160,6 +162,7 @@ def test_resolve_by_type_multiple_picks_lowest_port(agents_multiple_claude):
 
 def test_resolve_by_type_multiple_prefers_ready(agents_multiple_claude):
     """When multiple agents exist, prefer READY over lower port."""
+    agents_multiple_claude["synapse-claude-8100"]["status"] = "PROCESSING"
     # Make the higher-port agent READY
     agents_multiple_claude["synapse-claude-8101"]["status"] = "READY"
     info, error = _resolve_target_agent("claude", agents_multiple_claude)
@@ -219,3 +222,103 @@ def test_name_priority_over_type():
     assert info is not None
     assert info["agent_id"] == "synapse-gemini-8110"
     assert info["agent_type"] == "gemini"
+
+
+# ============================================================================
+# Self-target and sendable-only filtering
+# ============================================================================
+
+
+def test_resolve_target_excludes_sender_on_type_match(agents_multiple_claude):
+    """Type-based resolution must not select the sending agent itself."""
+    info, error = _resolve_target_agent(
+        "claude",
+        agents_multiple_claude,
+        sender_id="synapse-claude-8100",
+    )
+
+    assert error is None
+    assert info is not None
+    assert info["agent_id"] == "synapse-claude-8101"
+
+
+def test_resolve_target_exact_agent_id_match_to_self_returns_error(agents_with_names):
+    """Explicit self-send by agent id should return a clear error."""
+    info, error = _resolve_target_agent(
+        "synapse-claude-8100",
+        agents_with_names,
+        sender_id="synapse-claude-8100",
+    )
+
+    assert info is None
+    assert error == "Cannot send to self (use target: self in workflows)"
+
+
+def test_resolve_target_partial_match_with_sender_in_candidates():
+    """Partial matches should exclude the sender before choosing a candidate."""
+    agents = {
+        "synapse-claude-8100": {
+            "agent_id": "synapse-claude-8100",
+            "agent_type": "claude",
+            "port": 8100,
+            "status": "READY",
+        },
+        "synapse-superclaude-8102": {
+            "agent_id": "synapse-superclaude-8102",
+            "agent_type": "superclaude",
+            "port": 8102,
+            "status": "READY",
+        },
+    }
+
+    info, error = _resolve_target_agent(
+        "claude",
+        agents,
+        sender_id="synapse-claude-8100",
+    )
+
+    assert error is None
+    assert info is not None
+    assert info["agent_id"] == "synapse-superclaude-8102"
+
+
+def test_pick_best_agent_excludes_processing():
+    """READY agents should beat PROCESSING agents before ranking."""
+    matches = [
+        {
+            "agent_id": "synapse-claude-8100",
+            "agent_type": "claude",
+            "port": 8100,
+            "status": "PROCESSING",
+        },
+        {
+            "agent_id": "synapse-claude-8101",
+            "agent_type": "claude",
+            "port": 8101,
+            "status": "READY",
+        },
+    ]
+
+    best = _pick_best_agent(matches)
+
+    assert best["agent_id"] == "synapse-claude-8101"
+
+
+def test_pick_best_agent_all_non_ready_returns_empty():
+    """When sendable_only is enabled, all non-READY candidates are excluded."""
+    matches = [
+        {
+            "agent_id": "synapse-claude-8100",
+            "agent_type": "claude",
+            "port": 8100,
+            "status": "PROCESSING",
+        },
+        {
+            "agent_id": "synapse-claude-8101",
+            "agent_type": "claude",
+            "port": 8101,
+            "status": "WAITING",
+        },
+    ]
+
+    assert _pick_best_agent(matches) == {}
