@@ -314,10 +314,7 @@ def _resolve_target_agent(
         and (not sender_id or a.get("agent_id") != sender_id)
     ]
 
-    if len(matches) == 1:
-        return matches[0], None
-
-    if len(matches) > 1:
+    if matches:
         best = _pick_best_agent(matches)
         if best:
             return best, None

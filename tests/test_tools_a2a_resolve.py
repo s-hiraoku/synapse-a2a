@@ -322,3 +322,42 @@ def test_pick_best_agent_all_non_ready_returns_empty():
     ]
 
     assert _pick_best_agent(matches) == {}
+
+
+def test_resolve_single_processing_match_returns_no_agent_found():
+    """A single PROCESSING match must not be returned as sendable (CodeRabbit #526).
+
+    Regression guard for the single-vs-multiple match inconsistency: previously,
+    ``len(matches) == 1`` bypassed the sendable filter, so a single PROCESSING
+    agent would be returned while two PROCESSING agents correctly errored out.
+    """
+    agents = {
+        "synapse-claude-8100": {
+            "agent_id": "synapse-claude-8100",
+            "agent_type": "claude",
+            "port": 8100,
+            "status": "PROCESSING",
+        },
+    }
+
+    info, error = _resolve_target_agent("claude", agents)
+
+    assert info is None
+    assert error == "No agent found matching 'claude'"
+
+
+def test_resolve_single_waiting_match_returns_no_agent_found():
+    """A single WAITING match must also be filtered out."""
+    agents = {
+        "synapse-codex-8120": {
+            "agent_id": "synapse-codex-8120",
+            "agent_type": "codex",
+            "port": 8120,
+            "status": "WAITING",
+        },
+    }
+
+    info, error = _resolve_target_agent("codex", agents)
+
+    assert info is None
+    assert error == "No agent found matching 'codex'"

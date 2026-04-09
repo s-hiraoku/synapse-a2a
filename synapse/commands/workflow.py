@@ -288,9 +288,7 @@ def _run_step(
 
     sender_info = {
         "agent_id": os.getenv("SYNAPSE_AGENT_ID", ""),
-        "agent_type": os.getenv("SYNAPSE_AGENT_ID", "").split("-")[1]
-        if os.getenv("SYNAPSE_AGENT_ID", "").startswith("synapse-")
-        else "",
+        "agent_type": os.getenv("SYNAPSE_AGENT_TYPE", ""),
         "working_dir": str(Path.cwd()),
     }
     if _is_self_target(step.target, sender_info):
