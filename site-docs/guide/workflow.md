@@ -54,7 +54,7 @@ Each step supports the following fields:
 | Field | Required | Default | Description |
 |-------|:--------:|:-------:|-------------|
 | `kind` | No | `send` | Step type: `send` or `subworkflow` |
-| `target` | Yes | -- | Agent name, ID, type-port, or type |
+| `target` | Yes | -- | Agent name, ID, type-port, type, or `self` |
 | `message` | Yes | -- | Message content to send |
 | `priority` | No | `3` | Priority level 1-5 |
 | `response_mode` | No | `notify` | `wait`, `notify`, or `silent` |
@@ -122,6 +122,27 @@ steps:
   - kind: subworkflow
     workflow: fix-ci-and-verify
 ```
+
+### Self-Target Steps (`target: self`)
+
+A workflow step can target the agent that is running the workflow itself by using `target: self`. This is useful for post-implementation workflows where the calling agent needs to perform a step on its own codebase (e.g., running a linter or generating documentation) as part of a larger multi-agent pipeline.
+
+```yaml
+name: implement-and-verify
+description: "Implement feature, then self-verify with tests"
+steps:
+  - target: gemini
+    message: "Implement the feature described in the plan card"
+    response_mode: wait
+  - target: self
+    message: "Run the test suite and verify all tests pass"
+    response_mode: wait
+```
+
+When the workflow runner encounters `target: self`, it automatically spawns a short-lived **helper agent** of the same type as the calling agent. The helper runs in a separate process to avoid deadlock (since the calling agent is blocked waiting for the workflow to complete). The helper agent is shut down after the step finishes.
+
+!!! note "Auto-detection"
+    If a step's target resolves to the calling agent (by name, ID, or type when only one agent of that type is running), the runner automatically treats it as a self-target step. You can use `target: self` explicitly to make the intent clear.
 
 ## List Workflows
 
