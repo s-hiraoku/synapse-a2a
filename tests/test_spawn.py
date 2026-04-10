@@ -118,6 +118,27 @@ class TestSpawnCLIParsing:
 class TestSpawnAgent:
     """Tests for spawn_agent() function."""
 
+    def test_prepare_spawn_preserves_extra_env(self) -> None:
+        """Caller-supplied extra_env should be merged into PreparedAgent.extra_env."""
+        from synapse.spawn import prepare_spawn
+
+        with patch("synapse.spawn.is_port_available", return_value=True):
+            prepared = prepare_spawn(
+                "codex",
+                port=8124,
+                extra_env={
+                    "SYNAPSE_WORKFLOW_HELPER": "1",
+                    "SYNAPSE_WORKFLOW_HELPER_PARENT": "synapse-codex-8123",
+                },
+            )
+
+        assert prepared.extra_env is not None
+        assert prepared.extra_env["SYNAPSE_WORKFLOW_HELPER"] == "1"
+        assert (
+            prepared.extra_env["SYNAPSE_WORKFLOW_HELPER_PARENT"] == "synapse-codex-8123"
+        )
+        assert prepared.extra_env["SYNAPSE_AUTO_APPROVE"] == "true"
+
     def test_prepare_spawn_injects_copilot_allow_all(self) -> None:
         """Copilot auto-approve should inject the canonical allow-all flag."""
         from synapse.spawn import prepare_spawn

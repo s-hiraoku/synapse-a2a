@@ -94,14 +94,14 @@ sequenceDiagram
     participant Manager as Claude (Claud)
     participant Codex as Codex (Cody)
     participant Gemini as Gemini (Gem)
-    participant SM as Shared Memory
+    participant W as LLM Wiki
 
     Manager->>Codex: synapse send Cody "Implement OAuth2" --silent
     Codex->>Codex: Implements feature
-    Codex->>SM: synapse memory save oauth-pattern "Use PKCE flow" --notify
+    Codex->>W: synapse wiki (save oauth-pattern to wiki)
     Codex-->>Manager: Done
     Manager->>Gemini: synapse send Gem "Write tests" --silent
-    Gemini->>SM: synapse memory show oauth-pattern
+    Gemini->>W: synapse wiki query "oauth"
     Gemini->>Gemini: Writes tests using shared knowledge
     Gemini-->>Manager: Done
     Manager->>Manager: Verifies all tasks done
@@ -126,19 +126,26 @@ synapse send Cody "Implement OAuth2 with PKCE flow for /api/auth" --silent
 synapse send Gem "Write tests for the OAuth2 feature once implementation is done." --silent
 ```
 
-**4. Codex shares learned patterns via Shared Memory:**
+**4. Codex shares learned patterns via the LLM Wiki:**
 
 ```bash
+# Preferred: use the LLM Wiki for structured, interlinked knowledge
+synapse wiki ingest /tmp/oauth-notes.md
+
+# Legacy (still works): flat key-value shared memory
 synapse memory save oauth-pkce \
   "Use PKCE with S256 challenge. Token endpoint: /oauth/token" \
   --tags auth,oauth --notify
 ```
 
+!!! tip "Prefer LLM Wiki over Shared Memory"
+    Shared Memory (`synapse memory`) is deprecated. Use `synapse wiki` for new knowledge -- it provides structured Markdown pages with wikilinks, frontmatter metadata, and stale-page detection. See [LLM Wiki](../design/llm-wiki.md).
+
 **5. Monitor progress:**
 
 ```bash
 synapse list                    # Agent status
-synapse memory search "oauth"   # Shared knowledge
+synapse wiki query "oauth"      # Query wiki for shared knowledge
 ```
 
 ---
@@ -327,12 +334,12 @@ sequenceDiagram
     participant Codex as Codex (Cody)
     participant Gemini as Gemini (Gem)
     participant Rex as Codex 2 (Rex)
-    participant SM as Shared Memory
+    participant W as LLM Wiki
 
     Codex->>Codex: Adds new /api/webhooks endpoint
-    Codex->>SM: synapse memory save webhook-api "POST /api/webhooks - payload schema" --notify
+    Codex->>W: synapse wiki (save webhook-api docs to wiki)
     Codex->>Gemini: synapse send Gem "Update API docs for new webhook endpoint" --silent
-    Gemini->>SM: synapse memory show webhook-api
+    Gemini->>W: synapse wiki query "webhook"
     Gemini->>Gemini: Updates docs/api.md and README
     Gemini->>Rex: synapse send Rex "Verify docs match implementation" --wait
     Rex->>Rex: Cross-checks code vs docs
@@ -436,7 +443,7 @@ synapse memory save security-audit-2026-03 \
 
 ### Expected Result
 
-Three parallel audit streams complete faster than a single sequential review. Findings are saved to Shared Memory for the team to reference during remediation.
+Three parallel audit streams complete faster than a single sequential review. Findings are saved to the LLM Wiki (or Shared Memory as a legacy fallback) for the team to reference during remediation.
 
 ---
 
@@ -689,7 +696,7 @@ Effective multi-agent work requires more than just sending messages. At the star
 | Can run in parallel with your work | Delegate and continue | `synapse send <target> "..." --notify` |
 | You are stuck or unsure | Ask for help | `synapse send <target> "..." --wait` |
 | Completed a milestone | Report progress | `synapse send <requester> "Done: ..." --silent` |
-| Discovered a pattern or pitfall | Share knowledge | `synapse memory save <key> "..." --tags ...` |
+| Discovered a pattern or pitfall | Share knowledge | `synapse wiki ingest` (preferred) or `synapse memory save` (legacy) |
 
 ### Mandatory Collaboration Gate
 
@@ -761,7 +768,7 @@ Beyond `send` and `reply`, agents should use the full set of coordination tools:
 
 | Feature | When to Use | Command |
 |---------|-------------|---------|
-| **Shared Memory** | Save discoveries for the team | `synapse memory save <key> "..." --notify` |
+| **LLM Wiki** | Save discoveries for the team | `synapse wiki ingest` (preferred over deprecated `synapse memory save`) |
 | **File Safety** | Lock files before editing | `synapse file-safety lock <file> $SYNAPSE_AGENT_ID` |
 | **Worktrees** | Parallel edits without conflicts | `synapse spawn <profile> --worktree` |
 | **Broadcast** | Team-wide announcements | `synapse broadcast "..." --priority 4` |
@@ -776,7 +783,7 @@ Beyond `send` and `reply`, agents should use the full set of coordination tools:
 |-----|---------|
 | **Name your agents** | `--name Rex` is clearer than `codex-8120` in team communication |
 | **Use priority levels** | Normal work at 3, urgent follow-ups at 4, production emergencies at 5 |
-| **Share knowledge** | `synapse memory save` lets one agent's discoveries help the whole team |
+| **Share knowledge** | `synapse wiki ingest` (preferred) or `synapse memory save` (legacy) lets one agent's discoveries help the whole team |
 | **Trace for auditing** | `synapse trace <task_id>` shows the full history of a task across agents |
 | **Choose response mode wisely** | `--wait` when you need the result, `--silent` for fire-and-forget delegation |
 | **Use worktrees for parallel edits** | `--worktree` prevents file conflicts when agents modify the same files |

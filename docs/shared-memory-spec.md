@@ -1,5 +1,13 @@
 # Shared Memory — エージェント間知識共有 仕様書
 
+> **⚠️ Status (2026-04-10): Deprecation planned.**
+>
+> この機能は [**LLM Wiki**](design/llm-wiki.md) に置き換えられることが設計ドキュメント [design/llm-wiki.md §「Shared Memory の廃止」](design/llm-wiki.md#shared-memory-の廃止) で決定されている。コードと CLI コマンド (`synapse memory save/list/show/search/delete/stats`) は移行期間のために現時点ではまだ動作するが、**新規の知識記録には必ず `synapse wiki` を使うこと**。
+>
+> - **代替機能**: [LLM Wiki — Knowledge Accumulation Layer](design/llm-wiki.md)
+> - **使い分けガイド**: [synapse-reference.md § Shared Memory vs LLM Wiki](synapse-reference.md#shared-memory-vs-llm-wiki)
+> - **本書 (shared-memory-spec.md) の立ち位置**: 既存実装の現行仕様を記録する参照ドキュメント。新規設計の指針としては使用しないこと。
+
 ## 概要
 
 Synapse A2A の複数エージェントが協調作業する際に、セッション間・エージェント間で学んだ知識を共有する仕組みを提供する。

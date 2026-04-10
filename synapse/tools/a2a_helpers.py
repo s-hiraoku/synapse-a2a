@@ -14,6 +14,7 @@ from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 
 logger = logging.getLogger(__name__)
+_SELF_TARGET_ERROR = "Cannot send to self (use target: self in workflows)"
 
 
 def _artifact_display_text(artifact: dict) -> str:
@@ -238,7 +239,14 @@ def _record_sent_message(
 
 
 def _pick_best_agent(matches: list[dict]) -> dict:
-    """Pick the best agent from multiple candidates."""
+    """Pick the best agent from multiple candidates.
+
+    Ranks READY agents above non-READY ones, and prefers lower ports on ties.
+    Non-READY agents are **not** excluded: callers such as ``cmd_send`` depend
+    on receiving PROCESSING targets so they can invoke the "wait until READY
+    then send" path (see ``tests/test_send_processing_wait.py``). Filtering
+    non-READY agents out here would break that flow.
+    """
 
     def _sort_key(a: dict) -> tuple[int, int]:
         status = a.get("status") or ""
@@ -249,11 +257,23 @@ def _pick_best_agent(matches: list[dict]) -> dict:
     return sorted(matches, key=_sort_key)[0]
 
 
+def _is_self(info: dict, sender_id: str | None) -> bool:
+    """Return True if ``info`` refers to the sender itself.
+
+    Centralizes the self-target detection used by :func:`_resolve_target_agent`
+    across every resolution path (name match, direct agent_id lookup, type-port
+    match, and type partial match). Keeps the rule in one place so future
+    tweaks (e.g. tightening on working_dir) only need to change one line.
+    """
+    return bool(sender_id) and info.get("agent_id") == sender_id
+
+
 def _resolve_target_agent(
     target: str,
     agents: dict[str, dict],
     *,
     local_only: bool = False,
+    sender_id: str | None = None,
 ) -> tuple[dict | None, str | None]:
     """Resolve target agent from name/id."""
     if local_only:
@@ -270,10 +290,15 @@ def _resolve_target_agent(
 
     for info in local_agents.values():
         if info.get("name") == target:
+            if _is_self(info, sender_id):
+                return None, _SELF_TARGET_ERROR
             return info, None
 
     if target in local_agents:
-        return local_agents[target], None
+        info = local_agents[target]
+        if _is_self(info, sender_id):
+            return None, _SELF_TARGET_ERROR
+        return info, None
 
     target_lower = target.lower()
 
@@ -286,18 +311,18 @@ def _resolve_target_agent(
                 info.get("agent_type", "").lower() == target_type
                 and info.get("port") == target_port
             ):
+                if _is_self(info, sender_id):
+                    return None, _SELF_TARGET_ERROR
                 return info, None
 
     matches = [
         a
         for a in local_agents.values()
         if target_lower in a.get("agent_type", "").lower()
+        and not _is_self(a, sender_id)
     ]
 
-    if len(matches) == 1:
-        return matches[0], None
-
-    if len(matches) > 1:
+    if matches:
         return _pick_best_agent(matches), None
 
     return None, f"No agent found matching '{target}'"

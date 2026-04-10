@@ -107,6 +107,7 @@ def prepare_spawn(
     role: str | None = None,
     skill_set: str | None = None,
     tool_args: list[str] | None = None,
+    extra_env: dict[str, str] | None = None,
     worktree: str | bool | None = None,
     fallback_tool_args: list[str] | None = None,
     auto_approve: bool = True,
@@ -125,6 +126,7 @@ def prepare_spawn(
         role: Agent role description.
         skill_set: Skill set to activate.
         tool_args: Extra arguments passed through to the underlying CLI tool.
+        extra_env: Extra environment variables injected into the spawned agent.
         worktree: If True, create a worktree with auto-generated name.
             If a string, use it as the worktree name. If None/False, no worktree.
         fallback_tool_args: Shell-level fallback command args on failure.
@@ -161,7 +163,7 @@ def prepare_spawn(
 
     worktree_info = None
     cwd = os.getcwd()
-    extra_env: dict[str, str] = {}
+    resolved_extra_env = dict(extra_env or {})
 
     if worktree:
         from synapse.worktree import create_worktree
@@ -169,7 +171,7 @@ def prepare_spawn(
         wt_name = worktree if isinstance(worktree, str) else None
         worktree_info = create_worktree(name=wt_name, base_branch=branch)
         cwd = str(worktree_info.path)
-        extra_env.update(
+        resolved_extra_env.update(
             {
                 "SYNAPSE_WORKTREE_PATH": str(worktree_info.path),
                 "SYNAPSE_WORKTREE_BRANCH": worktree_info.branch,
@@ -191,11 +193,11 @@ def prepare_spawn(
         env_flag = auto_approve_config.get("env_flag")
         if env_flag and "=" in env_flag:
             key, value = env_flag.split("=", 1)
-            extra_env[key] = value
+            resolved_extra_env[key] = value
 
-        extra_env["SYNAPSE_AUTO_APPROVE"] = "true"
+        resolved_extra_env["SYNAPSE_AUTO_APPROVE"] = "true"
     elif not auto_approve:
-        extra_env["SYNAPSE_AUTO_APPROVE"] = "false"
+        resolved_extra_env["SYNAPSE_AUTO_APPROVE"] = "false"
 
     # 5. Build agent spec: profile:name:role:skill_set:port
     agent_spec = ":".join(
@@ -214,7 +216,7 @@ def prepare_spawn(
         agent_spec=agent_spec,
         cwd=cwd,
         tool_args=resolved_tool_args or None,
-        extra_env=extra_env or None,
+        extra_env=resolved_extra_env or None,
         fallback_tool_args=fallback_tool_args,
         worktree_path=str(worktree_info.path) if worktree_info else None,
         worktree_branch=worktree_info.branch if worktree_info else None,
@@ -452,6 +454,7 @@ def spawn_agent(
     skill_set: str | None = None,
     terminal: str | None = None,
     tool_args: list[str] | None = None,
+    extra_env: dict[str, str] | None = None,
     worktree: str | bool | None = None,
     fallback_tool_args: list[str] | None = None,
     auto_approve: bool = True,
@@ -471,6 +474,7 @@ def spawn_agent(
         terminal: Terminal app to use. Auto-detected if None.
         tool_args: Extra arguments passed through to the underlying CLI tool
             (e.g., ``["--dangerously-skip-permissions"]``).
+        extra_env: Extra environment variables injected into the spawned agent.
         worktree: If True, create a worktree with auto-generated name.
             If a string, use it as the worktree name. If None/False, no worktree.
         fallback_tool_args: Shell-level fallback command args on failure.
@@ -493,6 +497,7 @@ def spawn_agent(
         role=role,
         skill_set=skill_set,
         tool_args=tool_args,
+        extra_env=extra_env,
         worktree=worktree,
         fallback_tool_args=fallback_tool_args,
         auto_approve=auto_approve,
@@ -533,8 +538,6 @@ def wait_for_agent(
     Returns:
         Agent info dict if found and alive, or None if timed out.
     """
-    import time
-
     from synapse.registry import is_process_running
 
     registry = AgentRegistry()

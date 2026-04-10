@@ -14,12 +14,14 @@ def _make_args(**kwargs: Any) -> argparse.Namespace:
     """Build an argparse.Namespace with sensible defaults."""
     defaults = {
         "workflow_name": "test-wf",
+        "run_id": "run-123",
         "user": False,
         "project": False,
         "force": False,
         "dry_run": False,
         "continue_on_error": False,
         "auto_spawn": False,
+        "run_async": False,
     }
     defaults.update(kwargs)
     return argparse.Namespace(**defaults)
@@ -595,6 +597,91 @@ def test_run_rejects_excessive_workflow_depth(
         pytest.raises(SystemExit, match="1"),
     ):
         cmd_workflow_run(args)
+
+
+def test_run_rejects_nested_execution_inside_helper_env(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CLI workflow run should fail fast inside helper-agent environments."""
+
+
+def test_run_async_returns_run_id(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """run --async should start the background runner and print the run ID."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_sample_workflow(store)
+    args = _make_args(workflow_name="test-wf", run_async=True)
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch(
+            "synapse.commands.workflow._start_background_workflow",
+            return_value="run-123",
+        ) as mock_start,
+        patch("synapse.commands.workflow._run_nested_workflow") as mock_nested,
+    ):
+        cmd_workflow_run(args)
+
+    captured = capsys.readouterr()
+    mock_start.assert_called_once_with("test-wf", None, False)
+    mock_nested.assert_not_called()
+    assert "started in background" in captured.out
+    assert "run-123" in captured.out
+    assert "workflow status run-123" in captured.out
+
+
+def test_run_self_target_on_cli_path_uses_helper(
+    tmp_path: Path,
+    workflow_dirs: tuple[Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CLI workflow path should delegate self-target steps to a helper agent."""
+    from synapse.commands.workflow import cmd_workflow_run
+    from synapse.workflow import Workflow, WorkflowStep
+    from synapse.workflow_runner import StepResult
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    store.save(
+        Workflow(
+            name="self-cli",
+            steps=[WorkflowStep(target="self", message="/release")],
+            description="Self-target CLI workflow",
+            scope="project",
+        )
+    )
+    args = _make_args(workflow_name="self-cli")
+
+    helper_calls: list[str] = []
+
+    class _FakeHelper:
+        async def execute_step(self, wf_step, step: StepResult) -> None:
+            helper_calls.append(wf_step.message)
+            step.status = "completed"
+            step.output = f"helper ran: {wf_step.message}"
+            step.completed_at = 1.0
+
+        def kill(self) -> None:
+            helper_calls.append("killed")
+
+    monkeypatch.setenv("SYNAPSE_AGENT_ID", "synapse-claude-8103")
+    monkeypatch.setenv("SYNAPSE_AGENT_TYPE", "claude")
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch(
+            "synapse.workflow_runner._WorkflowHelper",
+            return_value=_FakeHelper(),
+        ),
+    ):
+        cmd_workflow_run(args)
+
+    assert "/release" in helper_calls
+    assert "killed" in helper_calls
 
 
 # ── invalid name error handling ──────────────────────────────

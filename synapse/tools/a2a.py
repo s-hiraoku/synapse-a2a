@@ -86,9 +86,14 @@ def cmd_send(args: argparse.Namespace) -> None:
 
     reg = AgentRegistry()
     agents = reg.list_agents()
+    sender_id = getattr(args, "sender", None) or os.getenv("SYNAPSE_AGENT_ID")
 
     # Resolve target agent
-    target_agent, error = _resolve_target_agent(args.target, agents)
+    target_agent, error = _resolve_target_agent(
+        args.target,
+        agents,
+        sender_id=sender_id,
+    )
     if error or target_agent is None:
         print(f"Error: {error}", file=sys.stderr)
         sys.exit(1)

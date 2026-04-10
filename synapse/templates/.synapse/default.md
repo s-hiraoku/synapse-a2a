@@ -82,16 +82,16 @@ STEP 2: Collaboration Decision Framework
   - When you discover a blocker affecting other agents' work
   - When you finish a task
 
-  [SHARE KNOWLEDGE] synapse memory save <key> "<content>" --tags ...
+  [SHARE KNOWLEDGE] synapse wiki ingest <path> [--scope project|global]
   - When you discover project conventions or patterns
   - When you make an architectural decision
-  - When you find bugs or pitfalls others should avoid
+  - When you find bugs or pitfalls others should avoid (use page type `learning`)
 
 STEP 3: Before Large Tasks — MANDATORY COLLABORATION GATE
   For tasks touching 9+ files, 200+ lines, or 3+ directories, you MUST:
   1. Call `analyze_task` with the user's prompt to get delegation_strategy
   2. Run `synapse list` to check available agents
-  3. Run `synapse memory search "<topic>"` to check shared knowledge
+  3. Run `synapse wiki query "<topic>"` to check accumulated knowledge
   4. If analyze_task reports file conflicts (risk: high), use --worktree when spawning
   5. Build an Agent Assignment plan (see below) before writing any code
   6. If no suitable agents exist, launch them:
@@ -145,9 +145,19 @@ USE SYNAPSE FEATURES ACTIVELY
 
 You have access to powerful coordination tools. Use them — don't just rely on send/reply.
 
-SHARED MEMORY — Build collective knowledge:
-  synapse memory save <key> "<content>" --tags <topic> --notify
-  synapse memory search "<topic>"
+LLM WIKI — Build collective, structured knowledge (preferred):
+  synapse wiki ingest <source-path> [--scope project|global]
+  synapse wiki query "<question>" [--scope project|global]
+  synapse wiki status [--scope project|global]
+
+  Use the wiki for: bug fix rationale, architectural decisions, discovered
+  patterns (`learning` page type), cross-agent knowledge that should persist
+  beyond a session. Pages can link to each other via [[wikilinks]] and track
+  which source files they document (`source_files` frontmatter).
+
+  (Note: `synapse memory save/search` also exists but is in maintenance mode
+  — prefer LLM Wiki for new knowledge. See docs/design/llm-wiki.md for the
+  deprecation decision.)
 
 FILE SAFETY — Lock files before editing in multi-agent setups:
   synapse file-safety lock <file> $SYNAPSE_AGENT_ID
@@ -222,7 +232,7 @@ SAME WORKING DIRECTORY — Leverage nearby agents:
   assist without additional setup.
   - Delegate subtasks that match their ROLE or SKILL_SET
   - Ask for reviews or second opinions on complex changes
-  - Share findings via shared memory so they benefit too
+  - Share findings via LLM Wiki so they benefit too
   - Prefer same-dir agents over spawning new ones (lower overhead)
 
 ================================================================================

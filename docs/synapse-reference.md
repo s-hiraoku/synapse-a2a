@@ -83,9 +83,13 @@ synapse canvas stop [--port 3000]
 synapse session save <name>
 synapse session restore <name>
 synapse workflow run <name>
+synapse workflow run <name> --async              # Background execution (returns run_id)
+synapse workflow status <run_id>                 # Check workflow run status
 synapse workflow sync                            # Re-generate skills from all workflow YAMLs
 
 # Spawn/Teams (auto-approve enabled by default, auto-tile on 2+ spawns)
+# Recommended spawn pattern:
+synapse spawn claude --task-file /tmp/task.md --task-timeout 600 --notify
 synapse spawn claude --name Tester --role "test writer"
 synapse spawn claude --worktree feature-auth
 synapse spawn codex --branch renovate/major-eslint-monorepo   # --branch auto-enables --worktree
@@ -140,6 +144,97 @@ synapse evolve --output-dir .synapse/evolved/skills  # Custom output directory
 # Auth
 synapse auth setup
 ```
+
+## Shared Memory vs LLM Wiki
+
+Synapse には知識共有のための機能が 2 つ存在するが、**これは移行期間の結果**であり、**LLM Wiki (`synapse wiki`) が Shared Memory (`synapse memory`) を置き換える**ことが [design/llm-wiki.md](design/llm-wiki.md#shared-memory-の廃止) で決定されている。新規の知識記録は必ず LLM Wiki を使うこと。
+
+### 現状 (2026-04-10)
+
+| | **`synapse memory`** (Shared Memory) | **`synapse wiki`** (LLM Wiki / Living Wiki) |
+|---|---|---|
+| **Status** | **Deprecated** (`docs/design/llm-wiki.md` で廃止決定済み、コードは互換のため残存) | **Actively developed** (v0.21.0 導入, v0.23.0 で Living Wiki 拡張) |
+| **新規使用** | **非推奨** | **推奨** |
+| **データモデル** | Flat key-value + tags | Markdown pages + frontmatter + `[[wikilinks]]` |
+| **知識の構造化** | フラット | 階層的、ページ間リンク、Mermaid graph |
+| **メンテナンス機能** | なし | source_files 追跡、stale 検出、`wiki refresh`、`wiki lint` |
+| **UI** | CLI のみ | CLI + Canvas Knowledge view (`#/knowledge`) + MCP instruction |
+| **page type** | なし | `learning` type で bug fix / discovered pattern を記録 |
+| **検索** | SQLite 全文検索 | `synapse wiki query` (意味的クエリ) |
+| **コマンド** | `save/list/show/search/delete/stats` | `ingest/query/lint/status/refresh/init` |
+
+### 使い分けの指針
+
+**✅ LLM Wiki を使う** — 原則としてすべての知識蓄積ユースケース
+
+- Bug fix の原因と対策の記録（`learning` page type の典型用途）
+- アーキテクチャ決定とその理由
+- 相互リンクで体系化したい知識（`[[wikilink]]`）
+- source コード変更時の自動陳腐化検出（`source_files` frontmatter）
+- Canvas UI での閲覧・共有
+- エージェント間で長期的に蓄積されるプロジェクト知識
+
+**⚠️ Shared Memory が許容される限定的ケース**
+
+- 既に `synapse memory` を使っている既存プロジェクトの一時的な継続運用
+- ごく短命で構造化不要な key-value（例: 進行中 job の ID 共有）
+- ただし、これらも長期的には Wiki に移行することが望ましい
+
+**❌ Shared Memory を新たに導入しない** — 設計ドキュメント上は廃止予定の機能である
+
+### 移行
+
+- **新規の知識**: 必ず `synapse wiki ingest` を使う
+- **既存の `synapse memory` エントリ**: 必要なら `synapse wiki ingest` で Wiki ページに変換（公式の一括移行ツールは未提供、手動作業）
+- **MCP instruction**: `synapse://instructions/default` には現在も "SHARED MEMORY" セクションが残っているが、これは古い情報。LLM Wiki の正式な instruction は `synapse://instructions/wiki`
+
+詳細:
+- LLM Wiki 設計書: [design/llm-wiki.md](design/llm-wiki.md)（§「Shared Memory の廃止」に廃止の根拠）
+- Shared Memory 現行仕様: [shared-memory-spec.md](shared-memory-spec.md)（冒頭に Maintenance mode 注記）
+
+## Workflow: `target: self` (Helper Agent)
+
+Workflow steps can use `target: self` to send a message back to the agent that is running the workflow. This is useful for multi-step pipelines where some steps should be executed by the same agent (e.g., running slash commands, committing, creating PRs).
+
+### How it works
+
+When a workflow step has `target: self`, the workflow runner:
+
+1. Detects the self-target (matches literal `"self"`, the agent's own ID, or the agent type when only one instance of that type is running in the same working directory).
+2. Spawns a **helper agent** (`wf-helper-<workflow>-<hash>`) of the same type as the calling agent. The helper executes the step on the caller's behalf, avoiding a deadlock where an agent would send a message to itself while blocked waiting for a response.
+3. Cleans up the helper agent when the workflow completes.
+
+### Example
+
+```yaml
+name: post-impl
+auto_spawn: true
+steps:
+  - target: self
+    message: "/parallel-docs-simplify-sync"
+    response_mode: wait
+    timeout: 600
+  - target: self
+    message: "/release"
+    response_mode: wait
+    timeout: 300
+```
+
+### Deadlock prevention
+
+- Helper agents are marked with `SYNAPSE_WORKFLOW_HELPER=1` in their environment.
+- Nested workflow execution from within a helper agent is **forbidden** (maximum helper depth is 1). This prevents infinite spawn loops.
+- The depth guard applies to both CLI (`cmd_workflow_run`) and async (`run_workflow`) execution paths.
+
+### Self-target detection
+
+A target is considered "self" when any of the following is true:
+
+| Condition | Example |
+|-----------|---------|
+| Literal `"self"` keyword | `target: self` |
+| Matches the calling agent's ID | `target: synapse-claude-8100` |
+| Matches the agent type and only one instance of that type exists in the same working directory | `target: claude` (when there is exactly one Claude agent in the project) |
 
 ## Target Resolution
 

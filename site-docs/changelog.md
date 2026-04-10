@@ -4,6 +4,20 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.24.2
+
+- **Fixed**: `synapse list` table layout stable across status transitions — STATUS/CURRENT columns use fixed widths (#532)
+- **Refactored**: Extracted `_resolve_columns` helper and test utilities
+
+### v0.24.1
+
+- **Added**: `target: self` keyword in workflow YAML — steps targeting the calling agent are routed to a helper agent to avoid deadlock (#521, #526)
+- **Added**: Self-target helper agent — workflow runner automatically spawns a short-lived helper when a step targets the same agent that triggered the workflow (#525)
+- **Changed**: Shared Memory marked as deprecated — use [LLM Wiki](design/llm-wiki.md) (`synapse wiki`) for new knowledge storage (#528)
+- **Changed**: CLAUDE.md simplified — detailed reference moved to `docs/synapse-reference.md` (guidance reorg)
+- **Removed**: Test-only workflow fixtures and orphan skills cleaned up
+
+
 ### v0.24.0
 
 - **Added**: `synapse spawn` auto-tiles panes when 2+ agents exist in spawn zone, matching `team start` behavior (#507)
