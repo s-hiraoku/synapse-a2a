@@ -22,6 +22,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Reply with failure | `synapse reply --fail "<reason>"` |
 | Interrupt (priority 4) | `synapse interrupt <target> "<msg>"` |
 | Spawn agent | `synapse spawn <type> --name <n> --role "<r>" -- <tool-specific-automation-args>` |
+| **Spawn + send first task** (preferred for delegation) | `synapse spawn <type> --name <n> --role "<r>" --task-file <path> --task-timeout 600 --notify` |
 | Spawn with worktree | `synapse spawn <type> --worktree --name <n> --role "<r>" -- <tool-specific-automation-args>` |
 | Team start | `synapse team start <homogeneous-profiles...> [--worktree] -- <tool-specific-automation-args>` |
 | Approve plan | `synapse approve <id>` |
@@ -54,7 +55,8 @@ Evaluate collaboration opportunities before starting work:
 |-----------|--------|
 | Small task within your role | Do it yourself |
 | Task outside your role, READY agent exists | Delegate: `synapse send --notify` or `--silent` |
-| No suitable agent exists | Spawn: `synapse spawn <type> --name <n> --role "<r>" -- <tool-specific-automation-args>` |
+| No suitable agent exists, need to delegate a task | Spawn + task in one command: `synapse spawn <type> --name <n> --role "<r>" --task-file <spec.md> --task-timeout 600 --notify`. This spawns, waits for READY, and sends the first task — no manual readiness polling needed. |
+| Need a bare agent (no initial task) | `synapse spawn <type> --name <n> --role "<r>"` (send tasks later via `synapse send`) |
 | Stuck or need expertise | Ask: `synapse send <target> "<question>" --wait` |
 | Completed a milestone | Report: `synapse send <manager> "<summary>" --silent` |
 | Discovered a pattern | Share: `synapse memory save <key> "<pattern>" --tags ... --notify` |
@@ -137,17 +139,24 @@ Common defaults:
 | Single focused subtask | Spawn 1 agent |
 | N independent subtasks | Spawn N agents |
 
-**Spawn lifecycle**: spawn → confirm in `synapse list --json` or `synapse status <target> --json` → wait for READY → send task → evaluate result → kill → confirm cleanup in `synapse list --json`
+**Spawn lifecycle (preferred, one-command)**: `synapse spawn --task-file ... --task-timeout 600 --notify` → wait for A2A completion notification → evaluate result → `synapse kill <name> -f` → confirm in `synapse list --json`
+
+**Legacy lifecycle (only when you need control between spawn and first task)**: spawn → poll `synapse list --json` or `synapse status <target> --json` for READY (allow **several minutes**; default 30s timeout is too short for most profiles) → `synapse send --notify` → evaluate → `synapse kill -f` → confirm cleanup.
+
+> **⚠️ Common pitfall:** sending to an agent that is not yet READY either hangs at the HTTP layer or blocks on the internal readiness wait. Either use `synapse spawn --task-file` (preferred — it handles readiness for you), or explicitly confirm `"status": "READY"` before calling `synapse send`. Do not assume 30 seconds is enough — most profiles take 1-5 minutes.
 
 Killing spawned agents after completion frees ports, memory, and PTY sessions,
 and prevents orphaned agents from accidentally accepting future tasks.
 
 ```bash
-# Spawn, delegate, verify, cleanup
-synapse spawn gemini --name Tester --role "test writer" -- --approval-mode=yolo
-synapse list --json                       # Verify agent appears (AI-safe)
-# Wait for readiness (or rely on server-side Readiness Gate)
-synapse send Tester "Write tests for src/auth.py" --wait
+# Preferred: one-command spawn + delegate (handles readiness wait internally)
+synapse spawn gemini \
+    --name Tester \
+    --role "test writer" \
+    --task-file /tmp/test-spec.md \
+    --task-timeout 600 \
+    --notify
+# (do other work; receive async A2A notification when Tester finishes)
 # Evaluate result, then cleanup
 synapse kill Tester -f
 synapse list --json                       # Verify cleanup (AI-safe)

@@ -1343,6 +1343,7 @@ class TestWorkflowAPI:
         with (
             patch("synapse.workflow.WorkflowStore.load", return_value=workflow),
             patch("httpx.AsyncClient.post", new=mock_post),
+            patch("synapse.workflow_runner._wait_for_helper_idle", return_value=True),
             patch(
                 "synapse.workflow_runner._resolve_target_endpoint",
                 return_value="http://localhost:8100",
@@ -1404,6 +1405,7 @@ class TestWorkflowAPI:
         with (
             patch("synapse.workflow.WorkflowStore.load", return_value=workflow),
             patch("httpx.AsyncClient.post", new=mock_post),
+            patch("synapse.workflow_runner._wait_for_helper_idle", return_value=True),
             patch(
                 "synapse.workflow_runner._resolve_target_endpoint",
                 return_value="http://localhost:8100",

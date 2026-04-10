@@ -10,7 +10,6 @@ from synapse.workflow import Workflow, WorkflowStep
 from synapse.workflow_runner import (
     MAX_RUNS,
     StepResult,
-    _execute_step,
     _extract_task_output,
     _is_self_target,
     _poll_task_completion,
@@ -55,6 +54,10 @@ def _patch_workflow_send(
     monkeypatch.setattr(
         "synapse.workflow_runner._resolve_target_endpoint",
         lambda target: endpoint,
+    )
+    monkeypatch.setattr(
+        "synapse.workflow_runner._wait_for_helper_idle",
+        lambda endpoint: asyncio.sleep(0, result=True),
     )
     monkeypatch.setattr("synapse.workflow_runner._send_workflow_request", mock_send)
 
@@ -563,24 +566,365 @@ def test_is_self_target_type_match_multiple_agents_returns_false(monkeypatch):
     assert not _is_self_target("claude", sender_info)
 
 
-@pytest.mark.asyncio
-async def test_execute_step_self_target_skips_a2a_send(monkeypatch):
-    """Self-targeted steps should bypass HTTP send logic entirely."""
-    sender_info = {
-        "agent_id": "synapse-claude-8103",
-        "agent_type": "claude",
-        "working_dir": "/repo",
+def _make_sender_info(
+    agent_id: str = "synapse-codex-8124",
+    *,
+    agent_type: str = "codex",
+    working_dir: str = "/tmp/worktree-codex-525",
+) -> dict[str, str]:
+    return {
+        "agent_id": agent_id,
+        "agent_type": agent_type,
+        "working_dir": working_dir,
     }
-    step_result = StepResult(step_index=0, target="self", message="Run locally")
-    wf_step = WorkflowStep(target="self", message="Run locally", response_mode="wait")
 
-    def _boom(*args, **kwargs):
-        raise AssertionError("A2A endpoint resolution should not run for self-target")
 
-    monkeypatch.setattr("synapse.workflow_runner._resolve_target_endpoint", _boom)
+class _FakeHelper:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+        self.killed = 0
+        self.raise_on_messages: set[str] = set()
 
-    await _execute_step(wf_step, step_result, sender_info=sender_info)
+    async def execute_step(self, wf_step, step: StepResult) -> None:
+        self.calls.append((wf_step.target, wf_step.message))
+        if wf_step.message in self.raise_on_messages:
+            raise RuntimeError(f"boom: {wf_step.message}")
+        step.status = "completed"
+        step.output = f"helper:{wf_step.message}"
+        step.completed_at = 123.0
 
-    assert step_result.status == "completed"
-    assert step_result.output is not None
-    assert "self-target" in step_result.output.lower()
+    def kill(self) -> None:
+        self.killed += 1
+
+
+def _patch_helper_factory(monkeypatch, helpers: list[_FakeHelper]) -> None:
+    def _factory(*args, **kwargs):
+        helper = _FakeHelper()
+        helpers.append(helper)
+        return helper
+
+    monkeypatch.setattr(
+        "synapse.workflow_runner._WorkflowHelper",
+        _factory,
+        raising=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_execute_step_self_target_uses_helper_not_orchestrator(monkeypatch):
+    """Self-target steps should go through the helper instead of the orchestrator."""
+    helpers: list[_FakeHelper] = []
+    _patch_helper_factory(monkeypatch, helpers)
+
+    resolve_calls: list[str] = []
+
+    def _resolve(target: str) -> str:
+        resolve_calls.append(target)
+        return "http://localhost:9999"
+
+    monkeypatch.setattr("synapse.workflow_runner._resolve_target_endpoint", _resolve)
+
+    wf = Workflow(
+        name="self-helper-path",
+        steps=[WorkflowStep(target="self", message="/release", response_mode="wait")],
+        scope="project",
+    )
+    run_id = await run_workflow(wf, sender_info=_make_sender_info())
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "completed"
+    assert helpers
+    assert helpers[0].calls == [("self", "/release")]
+    assert resolve_calls == []
+
+
+@pytest.mark.asyncio
+async def test_workflow_helper_spawned_lazily_on_first_self_step(monkeypatch):
+    """No helper should be created until the first self-target step is executed."""
+    helpers: list[_FakeHelper] = []
+    _patch_helper_factory(monkeypatch, helpers)
+
+    async def _mock_send(*args, **kwargs):
+        return 0, "ok", "", "task-abc123"
+
+    _patch_workflow_send(monkeypatch, _mock_send)
+
+    wf = Workflow(
+        name="lazy-helper",
+        steps=[
+            WorkflowStep(target="agent1", message="hello"),
+            WorkflowStep(target="self", message="/release"),
+        ],
+        scope="project",
+    )
+    run_id = await run_workflow(wf, sender_info=_make_sender_info())
+
+    assert helpers == []
+
+    await asyncio.sleep(0.1)
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "completed"
+    assert len(helpers) == 1
+    assert helpers[0].calls == [("self", "/release")]
+
+
+@pytest.mark.asyncio
+async def test_workflow_helper_reused_across_steps(monkeypatch):
+    """All self-target steps in a run should reuse a single helper instance."""
+    helpers: list[_FakeHelper] = []
+    _patch_helper_factory(monkeypatch, helpers)
+
+    wf = Workflow(
+        name="reuse-helper",
+        steps=[
+            WorkflowStep(target="self", message="/parallel-docs-simplify-sync"),
+            WorkflowStep(target="self", message="/release"),
+            WorkflowStep(target="self", message="/pr-guardian"),
+        ],
+        scope="project",
+    )
+    run_id = await run_workflow(wf, sender_info=_make_sender_info())
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "completed"
+    assert len(helpers) == 1
+    assert helpers[0].calls == [
+        ("self", "/parallel-docs-simplify-sync"),
+        ("self", "/release"),
+        ("self", "/pr-guardian"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_workflow_helper_killed_on_success(monkeypatch):
+    """Helper should be killed after a successful workflow run."""
+    helpers: list[_FakeHelper] = []
+    _patch_helper_factory(monkeypatch, helpers)
+
+    wf = Workflow(
+        name="helper-success",
+        steps=[WorkflowStep(target="self", message="/release")],
+        scope="project",
+    )
+    run_id = await run_workflow(wf, sender_info=_make_sender_info())
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "completed"
+    assert len(helpers) == 1
+    assert helpers[0].killed == 1
+
+
+@pytest.mark.asyncio
+async def test_workflow_helper_killed_on_failure(monkeypatch):
+    """Helper should be killed when a self-target step fails."""
+    helpers: list[_FakeHelper] = []
+
+    def _factory(*args, **kwargs):
+        helper = _FakeHelper()
+
+        async def _fail_execute_step(wf_step, step: StepResult) -> None:
+            step.status = "failed"
+            step.error = "helper failed"
+            step.completed_at = 123.0
+
+        helper.execute_step = _fail_execute_step  # type: ignore[method-assign]
+        helpers.append(helper)
+        return helper
+
+    monkeypatch.setattr(
+        "synapse.workflow_runner._WorkflowHelper",
+        _factory,
+        raising=False,
+    )
+
+    wf = Workflow(
+        name="helper-failure",
+        steps=[WorkflowStep(target="self", message="/release")],
+        scope="project",
+    )
+    run_id = await run_workflow(wf, sender_info=_make_sender_info())
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "failed"
+    assert len(helpers) == 1
+    assert helpers[0].killed == 1
+
+
+@pytest.mark.asyncio
+async def test_workflow_helper_killed_on_exception(monkeypatch):
+    """Helper should be killed if helper execution raises unexpectedly."""
+    helpers: list[_FakeHelper] = []
+    _patch_helper_factory(monkeypatch, helpers)
+    helpers_raise = helpers
+
+    def _factory(*args, **kwargs):
+        helper = _FakeHelper()
+        helper.raise_on_messages.add("/release")
+        helpers_raise.append(helper)
+        return helper
+
+    monkeypatch.setattr(
+        "synapse.workflow_runner._WorkflowHelper",
+        _factory,
+        raising=False,
+    )
+
+    wf = Workflow(
+        name="helper-exception",
+        steps=[WorkflowStep(target="self", message="/release")],
+        scope="project",
+    )
+    run_id = await run_workflow(wf, sender_info=_make_sender_info())
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "failed"
+    assert len(helpers) == 1
+    assert helpers[0].killed == 1
+
+
+@pytest.mark.asyncio
+async def test_workflow_no_self_steps_does_not_spawn_helper(monkeypatch):
+    """Ordinary workflows should not pay helper startup cost."""
+    helpers: list[_FakeHelper] = []
+    _patch_helper_factory(monkeypatch, helpers)
+
+    async def _mock_send(*args, **kwargs):
+        return 0, "ok", "", "task-abc123"
+
+    _patch_workflow_send(monkeypatch, _mock_send)
+
+    wf = _make_workflow()
+    run_id = await run_workflow(wf, sender_info=_make_sender_info())
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "completed"
+    assert helpers == []
+
+
+@pytest.mark.asyncio
+async def test_run_workflow_in_helper_env_raises_error(monkeypatch):
+    """Nested workflow execution must be blocked inside helper agents."""
+    monkeypatch.setenv("SYNAPSE_WORKFLOW_HELPER", "1")
+    monkeypatch.setenv("SYNAPSE_WORKFLOW_HELPER_DEPTH", "1")
+
+    wf = Workflow(
+        name="nested-helper",
+        steps=[WorkflowStep(target="self", message="/release")],
+        scope="project",
+    )
+
+    with pytest.raises(Exception, match="Nested workflow execution is forbidden"):
+        await run_workflow(wf, sender_info=_make_sender_info())
+
+
+@pytest.mark.asyncio
+async def test_workflow_helper_spawn_failure_marks_step_failed_no_crash(monkeypatch):
+    """Helper spawn failures should fail only the self-target step."""
+    monkeypatch.setattr(
+        "synapse.workflow_runner._WorkflowHelper",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("spawn failed")),
+        raising=False,
+    )
+
+    async def _mock_send(*args, **kwargs):
+        return 0, "ok", "", "task-abc123"
+
+    _patch_workflow_send(monkeypatch, _mock_send)
+
+    wf = Workflow(
+        name="spawn-failure",
+        steps=[
+            WorkflowStep(target="self", message="/release"),
+            WorkflowStep(target="agent1", message="after failure"),
+        ],
+        scope="project",
+    )
+    run_id = await run_workflow(
+        wf,
+        sender_info=_make_sender_info(),
+        continue_on_error=True,
+    )
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "failed"
+    assert run.steps[0].status == "failed"
+    assert "spawn failed" in (run.steps[0].error or "")
+    assert run.steps[1].status == "completed"
+
+
+# ---------------------------------------------------------------------------
+# 15. Helper idle wait before send
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_wait_for_helper_idle_polls_until_no_working_tasks(monkeypatch):
+    """_wait_for_helper_idle returns True once all tasks finish."""
+    import httpx
+
+    from synapse.workflow_runner import _wait_for_helper_idle
+
+    task_states = [
+        [{"status": {"state": "working"}}],
+        [{"status": {"state": "working"}}],
+        [],  # no working tasks
+    ]
+    sleep_calls: list[float] = []
+
+    async def _mock_get(self, url, **kwargs):
+        state = task_states.pop(0) if task_states else []
+        return httpx.Response(200, json=state, request=httpx.Request("GET", url))
+
+    async def _mock_sleep(delay):
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", _mock_get)
+    monkeypatch.setattr("synapse.workflow_runner.asyncio.sleep", _mock_sleep)
+
+    result = await _wait_for_helper_idle("http://localhost:8100")
+
+    assert result is True
+    assert len(sleep_calls) == 2  # slept twice before becoming idle
+
+
+@pytest.mark.asyncio
+async def test_wait_for_helper_idle_timeout_returns_false(monkeypatch):
+    """_wait_for_helper_idle returns False on timeout."""
+    import httpx
+
+    from synapse.workflow_runner import _wait_for_helper_idle
+
+    current_time = 0.0
+
+    async def _mock_get(self, url, **kwargs):
+        return httpx.Response(
+            200,
+            json=[{"status": {"state": "working"}}],
+            request=httpx.Request("GET", url),
+        )
+
+    async def _mock_sleep(delay):
+        nonlocal current_time
+        current_time += delay
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", _mock_get)
+    monkeypatch.setattr("synapse.workflow_runner.asyncio.sleep", _mock_sleep)
+    monkeypatch.setattr("synapse.workflow_runner.time.time", lambda: current_time)
+    monkeypatch.setattr("synapse.workflow_runner._POLL_TIMEOUT", 6.0)
+
+    result = await _wait_for_helper_idle("http://localhost:8100")
+
+    assert result is False

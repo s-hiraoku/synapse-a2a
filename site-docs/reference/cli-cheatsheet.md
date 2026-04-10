@@ -76,6 +76,8 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse workflow show <name>` | Show workflow details |
 | `synapse workflow run <name>` | Execute workflow steps |
 | `synapse workflow run <name> --auto-spawn` | Execute with auto-spawn for missing agents |
+| `synapse workflow run <name> --async` | Run in background (returns run ID) |
+| `synapse workflow status <run_id>` | Check background workflow run status |
 | `synapse workflow sync` | Sync workflow YAMLs to skill directories |
 | `synapse workflow delete <name>` | Delete a workflow |
 
@@ -190,7 +192,9 @@ synapse spawn gemini --name Helper --role "search specialist"
 
 # Spawn and send a task immediately (waits for agent to be ready)
 synapse spawn claude --name Reviewer --task "Review src/auth.py for security issues" --notify
-synapse spawn codex --task-file /tmp/instructions.md --wait
+
+# Recommended: use --task-file for complex instructions, --task-timeout for slow startups
+synapse spawn codex --task-file /tmp/instructions.md --task-timeout 600 --notify
 
 # With worktree isolation
 synapse spawn claude --worktree feature-auth
@@ -351,6 +355,9 @@ synapse skills delete <name> --force
 
 ## Shared Memory
 
+!!! warning "Deprecated — use LLM Wiki"
+    Shared Memory is deprecated. Prefer `synapse wiki` commands for new knowledge. See [LLM Wiki](../design/llm-wiki.md).
+
 ```bash
 # Save with optional tags, scope, and notification
 synapse memory save api-spec "REST API uses JWT auth" --tags api,auth --notify
@@ -417,6 +424,8 @@ synapse workflow run deploy-pipeline
 synapse workflow run deploy-pipeline --dry-run
 synapse workflow run deploy-pipeline --continue-on-error
 synapse workflow run deploy-pipeline --auto-spawn
+synapse workflow run deploy-pipeline --async    # Background execution
+synapse workflow status <run_id>                # Check background run status
 
 # Sync workflows to skill directories
 synapse workflow sync

@@ -344,9 +344,13 @@ Beyond explicit messaging, the synapse-a2a skill teaches agents structured colla
 ### When You Need Help
 
 1. For humans, run `synapse list` to check available agents (prefer same `WORKING_DIR`). For AI/scripts, use `synapse list --json` or the `list_agents` MCP tool instead of the interactive CLI output — see [MCP Setup](mcp-setup.md#list_agents).
-2. Run `synapse memory search "<topic>"` to check shared knowledge first
-3. If no suitable agent exists, spawn one: `synapse spawn <profile> --name <name> --role "<role>"`
-4. Send the request: `synapse send <target> "<specific request>" --wait`
+2. Run `synapse wiki query "<topic>"` to check shared knowledge first (or `synapse memory search` as legacy fallback)
+3. If no suitable agent exists, spawn one with a task file for reliable delivery:
+    ```bash
+    synapse spawn <profile> --name <name> --role "<role>" \
+      --task-file /tmp/instructions.md --task-timeout 600 --notify
+    ```
+4. For simple inline tasks: `synapse spawn <profile> --task "..." --notify`
 
 !!! tip "Cross-Model Preference"
     When spawning or delegating, prefer a **different model type** than your own. Different LLMs bring diverse strengths, and distributing token usage across providers avoids rate limits on any single model.
