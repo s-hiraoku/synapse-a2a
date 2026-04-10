@@ -1,5 +1,0 @@
-name: test-cycle-b
-description: "Cycle test workflow B -> A"
-steps:
-  - kind: subworkflow
-    workflow: test-cycle-a

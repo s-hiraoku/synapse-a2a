@@ -618,12 +618,16 @@ def test_run_rejects_nested_execution_inside_helper_env(
         cmd_workflow_run(args)
 
 
-def test_run_rejects_self_target_on_cli_path(
-    tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+def test_run_self_target_on_cli_path_uses_helper(
+    tmp_path: Path,
+    workflow_dirs: tuple[Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """CLI workflow path should error clearly for target:self steps."""
+    """CLI workflow path should delegate self-target steps to a helper agent."""
+
     from synapse.commands.workflow import cmd_workflow_run
     from synapse.workflow import Workflow, WorkflowStep
+    from synapse.workflow_runner import StepResult
 
     project_dir, user_dir = workflow_dirs
     store = _make_store(project_dir, user_dir)
@@ -637,14 +641,33 @@ def test_run_rejects_self_target_on_cli_path(
     )
     args = _make_args(workflow_name="self-cli")
 
+    # Track helper lifecycle
+    helper_calls: list[str] = []
+
+    class _FakeHelper:
+        async def execute_step(self, wf_step, step: StepResult) -> None:
+            helper_calls.append(wf_step.message)
+            step.status = "completed"
+            step.output = f"helper ran: {wf_step.message}"
+            step.completed_at = 1.0
+
+        def kill(self) -> None:
+            helper_calls.append("killed")
+
+    monkeypatch.setenv("SYNAPSE_AGENT_ID", "synapse-claude-8103")
+    monkeypatch.setenv("SYNAPSE_AGENT_TYPE", "claude")
+
     with (
         patch("synapse.commands.workflow._get_workflow_store", return_value=store),
-        pytest.raises(SystemExit, match="1"),
+        patch(
+            "synapse.workflow_runner._WorkflowHelper",
+            return_value=_FakeHelper(),
+        ),
     ):
         cmd_workflow_run(args)
 
-    captured = capsys.readouterr()
-    assert "self-target execution via helper agent is not supported" in captured.err
+    assert "/release" in helper_calls
+    assert "killed" in helper_calls
 
 
 # ── invalid name error handling ──────────────────────────────

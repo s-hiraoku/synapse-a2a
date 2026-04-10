@@ -9,6 +9,10 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from synapse.workflow_runner import _WorkflowHelper
 
 from synapse.workflow import (
     Scope,
@@ -282,10 +286,13 @@ def _run_step(
     total: int,
     *,
     auto_spawn: bool,
+    helper: _WorkflowHelper | None = None,
 ) -> bool:
     """Execute a single workflow step. Returns True on success."""
+    import asyncio
+
     from synapse.cli import _build_a2a_cmd
-    from synapse.workflow_runner import _is_self_target
+    from synapse.workflow_runner import StepResult, _is_self_target
 
     print(f"  Step {step_num}/{total}: → {step.target} ({step.response_mode})")
 
@@ -295,12 +302,29 @@ def _run_step(
         "working_dir": str(Path.cwd()),
     }
     if _is_self_target(step.target, sender_info):
-        print(
-            "  self-target execution via helper agent is not supported on the CLI "
-            "path; run the workflow via Canvas instead.",
-            file=sys.stderr,
+        if helper is None:
+            print(
+                "  self-target detected but no helper available.",
+                file=sys.stderr,
+            )
+            return False
+        step_result = StepResult(
+            step_index=step_num - 1, target=step.target, message=step.message
         )
-        return False
+        try:
+            asyncio.run(helper.execute_step(step, step_result))
+        except Exception as exc:
+            print(f"  Helper execution failed: {exc}", file=sys.stderr)
+            return False
+        if step_result.status == "failed":
+            print(
+                f"  Step {step_num} failed: {step_result.error}",
+                file=sys.stderr,
+            )
+            return False
+        if step_result.output:
+            print(step_result.output)
+        return True
 
     cmd = _build_a2a_cmd(
         "send",
@@ -419,6 +443,7 @@ def _run_nested_workflow(
     stack: list[str],
     counter: list[int],
     total: int,
+    helper: _WorkflowHelper | None = None,
 ) -> int:
     """Execute workflow send steps recursively."""
     failures = 0
@@ -434,13 +459,14 @@ def _run_nested_workflow(
                 stack=child_stack,
                 counter=counter,
                 total=total,
+                helper=helper,
             )
             if failures and not continue_on_error:
                 return failures
             continue
 
         counter[0] += 1
-        ok = _run_step(step, counter[0], total, auto_spawn=auto_spawn)
+        ok = _run_step(step, counter[0], total, auto_spawn=auto_spawn, helper=helper)
         if not ok:
             failures += 1
             if not continue_on_error:
@@ -498,6 +524,22 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
             sys.exit(1)
         return
 
+    # Create a helper for self-target steps (lazy spawn — only used if needed)
+    from synapse.workflow_runner import _WorkflowHelper
+
+    has_self_steps = any(s.target == "self" for s in wf.steps if s.kind == "send")
+    helper: _WorkflowHelper | None = None
+    if has_self_steps:
+        sender_info = {
+            "agent_id": os.getenv("SYNAPSE_AGENT_ID", ""),
+            "agent_type": os.getenv("SYNAPSE_AGENT_TYPE", ""),
+            "working_dir": str(Path.cwd()),
+        }
+        helper = _WorkflowHelper(
+            workflow_name=name,
+            sender_info=sender_info,
+        )
+
     print(f"Running workflow '{name}' ({wf.step_count} steps)...")
     try:
         failures = _run_nested_workflow(
@@ -508,10 +550,14 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
             stack=[wf.name],
             counter=[0],
             total=total_steps,
+            helper=helper,
         )
     except WorkflowError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+    finally:
+        if helper is not None:
+            helper.kill()
 
     if failures:
         print(f"Done with {failures} failure(s).", file=sys.stderr)
