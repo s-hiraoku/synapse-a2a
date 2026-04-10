@@ -1312,6 +1312,11 @@ Steps are executed in order. Each step sends a message to the specified target a
 
 When `--auto-spawn` is passed (or the workflow/step has `auto_spawn: true`), any target agent that is not already running will be spawned automatically before sending the message.
 
+**Target resolution rules:**
+
+- `target: self` — Execute the step locally on the calling agent (no A2A message sent). Use this for steps that should run in the same context as the workflow.
+- `target: claude` (or any agent type) — Find another agent of that type and send the message. If the resolved agent is the calling agent itself, the runner automatically spawns a new agent of that type to avoid self-send deadlock. The spawned helper is killed after the step completes.
+
 ### Delete Workflow
 
 ```bash
@@ -1367,7 +1372,7 @@ steps:
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `kind` | No | `send` | Step type: `send` or `subworkflow` |
-| `target` | Yes | — | Agent target (name, type, ID) |
+| `target` | Yes | — | Agent target: `self` (execute locally), agent type (`claude`, `gemini`), custom name, or full ID. When target is an agent type/name/ID that resolves to the calling agent itself, the runner spawns a new agent of that type to avoid deadlock |
 | `message` | Yes | — | Message to send |
 | `priority` | No | `3` | Priority level (1-5) |
 | `response_mode` | No | `notify` | `wait`, `notify`, or `silent` |
