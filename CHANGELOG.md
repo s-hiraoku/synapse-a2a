@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.2] - 2026-04-10
+
+### Fixed
+
+- `synapse list` table layout no longer breaks when agent status changes (READY → PROCESSING, etc.) — STATUS and CURRENT columns now use fixed widths to prevent layout shifts (#532)
+- CURRENT column preview text is pre-truncated so elapsed time suffix is always visible
+
+### Refactored
+
+- Extracted `_resolve_columns` helper in `RichRenderer` to deduplicate column-filtering logic
+- Extracted `_find_column` and `_wide_console_and_renderer` test helpers
+
+### Tests
+
+- Added 4 tests for stable layout: fixed STATUS width, fixed CURRENT width, layout stability across all status transitions, preview pre-truncation with elapsed time
+
 ## [0.24.0] - 2026-04-09
 
 ### Added
