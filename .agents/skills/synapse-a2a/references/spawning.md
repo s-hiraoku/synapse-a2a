@@ -58,30 +58,77 @@ Parent receives task
                                                    +- Insufficient? ------+
 ```
 
-### Basic Example
+### Basic Example — **use `--task-file` for the first task**
+
+**⚠️ Reality check:** `synapse spawn` takes **several minutes** to reach `READY` for most profiles (CLI init + MCP bootstrap + PTY stabilization). Polling every second for 30 seconds is **too short** and will almost always time out. Let `synapse spawn` handle the readiness wait for you instead — it has a built-in `--task` / `--task-file` / `--task-timeout` combo that spawns the agent, waits for `READY`, and sends the first task in **one command**.
+
+**✅ Recommended pattern** (use this):
 
 ```bash
-# 1. Spawn a helper
-synapse spawn gemini --name Tester --role "test writer"
+# 1. Spawn and send the first task in one command.
+#    --task-timeout gives spawn up to 600s (10 min) to reach READY before
+#    giving up on the initial task. --notify returns control immediately
+#    and delivers the completion via an async A2A message.
+synapse spawn gemini \
+    --name Tester \
+    --role "test writer" \
+    --task-file /tmp/tester-spec.md \
+    --task-timeout 600 \
+    --notify
 
-# 2. Poll for readiness (AI-safe: use status JSON until READY)
-elapsed=0
-while ! synapse status Tester --json 2>/dev/null | grep -Eq '"status"[[:space:]]*:[[:space:]]*"READY"'; do
-  sleep 1; elapsed=$((elapsed + 1))
-  [ "$elapsed" -ge 30 ] && echo "ERROR: Tester not READY after ${elapsed}s" >&2 && exit 1
-done
+# 2. Do other work. When Tester finishes, you receive an A2A notification
+#    with the result. No polling needed.
 
-# 3. Send the task (--wait blocks until the agent replies)
-synapse send Tester "Write unit tests for src/auth.py" --wait
+# 3. Refine if the first reply is insufficient (agent retains its session
+#    context, so just send a follow-up message — do NOT kill and re-spawn).
+synapse send Tester "Add edge-case tests for expired tokens" --notify
 
-# 4. Evaluate the result -- if insufficient, refine (do NOT kill and re-spawn)
-synapse send Tester "Add edge-case tests for expired tokens" --wait
-
-# 5. Kill when done -- frees ports, memory, PTY sessions, and prevents orphaned agents
+# 4. Kill when done -- frees ports, memory, PTY sessions, and prevents orphaned agents
 synapse kill Tester -f
 ```
 
+**Why `--task-file` instead of inline `--task`:** the spec / first-task
+prompt is often long, contains backticks or `$` that the shell would
+expand, or has newlines. Put the prompt in a file and pass `--task-file`
+— it avoids every shell-expansion trap.
+
+**Send mode cheat sheet:**
+
+| Flag | When to use |
+|------|-------------|
+| `--notify` (default) | Most cases. Parent returns immediately, gets an async A2A notification when the agent finishes. Parent can do other work in the meantime. |
+| `--wait` | Only when the parent cannot make progress without the reply (e.g., the agent's answer is the next function argument). Blocks the parent until the agent replies. |
+| `--silent` | Fire-and-forget. No completion notification. Use for side-effect-only instructions and one-way announcements. |
+
 `$SYNAPSE_AGENT_ID` is set automatically by Synapse at startup (e.g., `synapse-claude-8100`). The `--from` flag is auto-detected from this env var, so you can usually omit it. In headless sessions, startup/setup logs are routed to the per-agent log file before PTY handoff, so a quiet terminal during spawn is expected.
+
+### Legacy pattern (avoid — kept for reference)
+
+If you cannot use `--task` (e.g., you need to send multiple messages
+sequentially with very different readiness requirements), the old
+two-step pattern still works, but **give it enough time**:
+
+```bash
+# 1. Spawn (returns immediately with agent_id)
+synapse spawn gemini --name Tester --role "test writer"
+
+# 2. Poll for readiness -- allow several MINUTES, not seconds.
+#    Agents commonly take 60-300 seconds to reach READY.
+elapsed=0
+while ! synapse status Tester --json 2>/dev/null | grep -Eq '"status"[[:space:]]*:[[:space:]]*"READY"'; do
+  sleep 5; elapsed=$((elapsed + 5))
+  [ "$elapsed" -ge 600 ] && echo "ERROR: Tester not READY after ${elapsed}s" >&2 && exit 1
+done
+
+# 3. Send the task
+synapse send Tester "Write unit tests for src/auth.py" --notify
+```
+
+**Common pitfall:** sending to an agent that is still initializing will
+either hang at the `/tasks/send` HTTP call (PTY write blocks while the
+CLI is starting up) or get blocked behind the internal "wait until READY"
+logic. Always confirm `READY` before `synapse send`, or use `--task-file`
+on `synapse spawn` which handles this for you.
 
 ### Evaluating Results
 
@@ -137,12 +184,41 @@ synapse spawn claude -w my-feature            # Named worktree
 synapse spawn claude --no-auto-approve        # Disable auto-approve
 synapse spawn sharp-checker                   # Spawn by saved Agent ID
 
+# Spawn + send first task in ONE command (preferred for delegation)
+synapse spawn codex \
+    --name Fixer \
+    --role "bug fixer" \
+    --task-file /tmp/bug-spec.md \
+    --task-timeout 600 \
+    --notify
+
+# Spawn + inline task (only for short prompts; prefer --task-file)
+synapse spawn gemini --name Searcher --task "Search for TODO comments in src/"
+
+# Spawn + task + worktree isolation (common for code-generation work)
+synapse spawn codex \
+    --name Feature \
+    --worktree feature-auth \
+    --branch main \
+    --task-file /tmp/feature-spec.md \
+    --task-timeout 900 \
+    --notify
+
 # Multiple agents — use team start for proper tile layout
 synapse team start claude gemini codex        # Mixed team (each gets its own auto-approve flag)
 synapse team start claude:Reviewer gemini:Searcher  # With names
 synapse team start claude gemini --worktree   # Each in isolated worktree
 synapse team start claude gemini --no-auto-approve  # Disable auto-approve for all
 ```
+
+**Key options for the spawn + task combo:**
+
+| Option | Purpose |
+|--------|---------|
+| `--task TASK` | Inline first-task prompt. Use for short one-liners. |
+| `--task-file PATH` | Read the first-task prompt from a file. Preferred for long prompts, multi-line specs, or anything containing shell-special characters (`` ` ``, `$`, `"`). |
+| `--task-timeout N` | Seconds to wait for the agent to reach READY before giving up on the initial task. **Default is 30s which is almost always too short.** Set 300-900 for real-world agents. |
+| `--wait` / `--notify` / `--silent` | Same meaning as `synapse send`. `--notify` is default and correct for most delegation. |
 
 ### Spawn via API
 

@@ -24,6 +24,9 @@ _NO_AGENT_MARKER = "No agent found matching"
 _SPAWN_WAIT_SECONDS = 5
 _SPAWN_MAX_WAIT_SECONDS = 30
 MAX_WORKFLOW_DEPTH = 10
+_HELPER_ENV_MARKER = "SYNAPSE_WORKFLOW_HELPER"
+_HELPER_DEPTH_ENV = "SYNAPSE_WORKFLOW_HELPER_DEPTH"
+_MAX_HELPER_DEPTH = 1
 
 
 def _get_workflow_store() -> WorkflowStore:
@@ -293,10 +296,11 @@ def _run_step(
     }
     if _is_self_target(step.target, sender_info):
         print(
-            "    Self-target detected; direct self execution is not supported "
-            "from the CLI workflow path yet. Marking step as a no-op.",
+            "  self-target execution via helper agent is not supported on the CLI "
+            "path; run the workflow via Canvas instead.",
+            file=sys.stderr,
         )
-        return True
+        return False
 
     cmd = _build_a2a_cmd(
         "send",
@@ -446,6 +450,19 @@ def _run_nested_workflow(
 
 def cmd_workflow_run(args: argparse.Namespace) -> None:
     """Execute workflow steps sequentially."""
+    if os.environ.get(_HELPER_ENV_MARKER):
+        raw_depth = os.environ.get(_HELPER_DEPTH_ENV, "1")
+        try:
+            depth = int(raw_depth)
+        except ValueError:
+            depth = _MAX_HELPER_DEPTH + 1
+        if depth > _MAX_HELPER_DEPTH or depth >= 1:
+            print(
+                "Error: Nested workflow execution is forbidden inside a helper agent.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     name: str = args.workflow_name
     scope = _resolve_scope(args)
     dry_run = getattr(args, "dry_run", False)

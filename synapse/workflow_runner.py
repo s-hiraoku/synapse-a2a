@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import subprocess
 import time
 import uuid
 from collections import OrderedDict
@@ -23,7 +25,7 @@ import httpx
 
 from synapse.registry import AgentRegistry
 from synapse.tools.a2a_helpers import _normalize_working_dir
-from synapse.workflow import Workflow
+from synapse.workflow import Workflow, WorkflowError
 from synapse.workflow_db import WorkflowRunDB
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,10 @@ _OUTPUT_TRUNCATE_LEN = 500
 _POLL_TIMEOUT = 600.0  # 10 min max wait per step
 _SEND_MAX_RETRIES = 5
 _SEND_RETRY_INTERVAL = 2.0
+_HELPER_ENV_MARKER = "SYNAPSE_WORKFLOW_HELPER"
+_HELPER_PARENT_ENV = "SYNAPSE_WORKFLOW_HELPER_PARENT"
+_HELPER_DEPTH_ENV = "SYNAPSE_WORKFLOW_HELPER_DEPTH"
+_MAX_HELPER_DEPTH = 1
 
 # Lazily initialised DB singleton — set to None for tests that don't need it.
 _db: WorkflowRunDB | None = None
@@ -108,6 +114,162 @@ class WorkflowRun:
             "completed_at": self.completed_at,
             "steps": [s.to_dict(truncate=False) for s in self.steps],
         }
+
+
+@dataclass
+class _WorkflowHelper:
+    """Lazy helper-agent runner for ``target: self`` workflow steps."""
+
+    workflow_name: str
+    sender_info: dict[str, str] | None
+    agent_name: str = field(init=False)
+    agent_id: str | None = None
+    endpoint: str | None = None
+    _spawn_attempted: bool = field(default=False, init=False)
+    _killed: bool = field(default=False, init=False)
+
+    def __post_init__(self) -> None:
+        self.agent_name = f"wf-helper-{self.workflow_name}-{uuid.uuid4().hex[:8]}"
+
+    async def execute_step(self, wf_step: Any, step: StepResult) -> None:
+        """Run a self-target step through the helper agent."""
+        ready, error = await self._ensure_started()
+        if not ready:
+            step.status = "failed"
+            step.error = error or "Failed to start workflow helper"
+            step.completed_at = time.time()
+            return
+
+        assert self.endpoint is not None
+        returncode, stdout, stderr, task_id = await _send_workflow_request(
+            self.endpoint, wf_step, self.sender_info
+        )
+
+        if returncode == 0 and wf_step.response_mode == "wait" and task_id:
+            final_status, final_output = await _poll_task_completion(
+                self.endpoint, task_id
+            )
+            if final_status == "failed":
+                step.status = "failed"
+                step.error = final_output or "Agent task failed"
+            elif final_status == "canceled":
+                step.status = "failed"
+                step.error = "Agent task was canceled"
+            else:
+                step.status = "completed"
+                step.output = final_output or stdout
+        elif returncode == 0:
+            step.status = "completed"
+            step.output = stdout
+        else:
+            step.status = "failed"
+            step.error = stderr or f"Exit code {returncode}"
+        step.completed_at = time.time()
+
+    async def _ensure_started(self) -> tuple[bool, str | None]:
+        if self.endpoint:
+            return True, None
+        if self._spawn_attempted:
+            return False, "Workflow helper is unavailable"
+
+        self._spawn_attempted = True
+        sender_info = self.sender_info or {}
+        agent_type = sender_info.get("agent_type")
+        parent_agent_id = sender_info.get("agent_id")
+        working_dir = sender_info.get("working_dir") or os.getcwd()
+        if not agent_type or not parent_agent_id:
+            return False, "Self-target workflow steps require sender metadata"
+
+        extra_env = {
+            _HELPER_ENV_MARKER: "1",
+            _HELPER_PARENT_ENV: parent_agent_id,
+            _HELPER_DEPTH_ENV: "1",
+        }
+
+        try:
+            result = await asyncio.to_thread(
+                self._spawn_helper_agent,
+                agent_type,
+                working_dir,
+                extra_env,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to spawn workflow helper for %s: %s",
+                self.workflow_name,
+                exc,
+            )
+            return False, str(exc)
+
+        if result.status != "submitted":
+            return False, f"Helper spawn returned status '{result.status}'"
+
+        self.agent_id = result.agent_id
+        ready = await asyncio.to_thread(self._wait_for_registration)
+        if not ready:
+            return False, "Workflow helper did not register in time"
+
+        endpoint = _resolve_target_endpoint(self.agent_name)
+        if endpoint is None and self.agent_id:
+            endpoint = _resolve_target_endpoint(self.agent_id)
+        if endpoint is None:
+            return False, "Workflow helper endpoint could not be resolved"
+
+        self.endpoint = endpoint
+        return True, None
+
+    def _spawn_helper_agent(
+        self,
+        agent_type: str,
+        working_dir: str,
+        extra_env: dict[str, str],
+    ) -> Any:
+        from synapse.spawn import execute_spawn, prepare_spawn
+
+        prepared = prepare_spawn(
+            profile=agent_type,
+            name=self.agent_name,
+            role=f"workflow helper for {self.workflow_name}",
+            extra_env=extra_env,
+            worktree=False,
+        )
+        prepared.cwd = working_dir
+        return execute_spawn([prepared], layout="auto")[0]
+
+    def _wait_for_registration(self) -> bool:
+        from synapse.commands.workflow import _wait_for_agent
+
+        return _wait_for_agent(self.agent_name)
+
+    def kill(self) -> None:
+        """Terminate the helper agent if it was spawned."""
+        if self._killed:
+            return
+        self._killed = True
+
+        try:
+            subprocess.run(
+                ["synapse", "kill", self.agent_name, "-f"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to kill workflow helper %s", self.agent_name, exc_info=True
+            )
+
+        if self.agent_id:
+            try:
+                from synapse.registry import AgentRegistry
+
+                AgentRegistry().unregister(self.agent_id)
+            except Exception:
+                logger.debug(
+                    "Workflow helper unregister cleanup failed for %s",
+                    self.agent_id,
+                    exc_info=True,
+                )
 
 
 # In-memory run storage with LRU eviction
@@ -213,6 +375,8 @@ async def run_workflow(
 
     Returns the run_id immediately. The workflow runs asynchronously.
     """
+    _raise_if_helper_execution_forbidden()
+
     run_id = str(uuid.uuid4())
     steps = [
         StepResult(step_index=i, target=s.target, message=s.message)
@@ -239,10 +403,6 @@ async def run_workflow(
 
 _NO_AGENT_MARKER = "No agent found matching"
 _DIR_MISMATCH_MARKER = "is in a different directory"
-_SELF_TARGET_NOTE = (
-    "Self-target step completed without A2A send. "
-    "Direct self execution is not implemented yet."
-)
 
 
 def _resolve_target_endpoint(target: str) -> str | None:
@@ -287,20 +447,6 @@ def _is_self_target(
         )
         return True
     return False
-
-
-async def _execute_self_step(
-    wf_step: Any,
-    step: StepResult,
-    sender_info: dict[str, str] | None,
-) -> None:
-    """Handle a self-targeted workflow step without sending A2A to self."""
-    del sender_info  # reserved for a future PTY-injection implementation
-    step.status = "completed"
-    step.output = (
-        f"{_SELF_TARGET_NOTE}\nTarget: {wf_step.target}\nMessage: {wf_step.message}"
-    )
-    step.completed_at = time.time()
 
 
 def _build_canvas_workflow_request(
@@ -438,16 +584,67 @@ def _humanize_error(target: str, stderr: str) -> str:
     return stderr
 
 
+def _raise_if_helper_execution_forbidden() -> None:
+    """Reject nested workflow execution from helper agents.
+
+    If this process was spawned as a workflow helper (detected via the
+    ``SYNAPSE_WORKFLOW_HELPER`` env marker), refuse to run any workflow.
+    This prevents an infinite spawn loop where a self-target step whose
+    message triggers another workflow would cause recursive helper spawning.
+
+    The depth check is defensive: even in the (future) case where nested
+    helpers become legal up to some limit, exceeding that limit is still
+    hard-forbidden.
+    """
+    if not os.environ.get(_HELPER_ENV_MARKER):
+        return
+
+    raw_depth = os.environ.get(_HELPER_DEPTH_ENV, "1")
+    try:
+        depth = int(raw_depth)
+    except ValueError:
+        depth = _MAX_HELPER_DEPTH + 1
+    if depth > _MAX_HELPER_DEPTH:
+        raise WorkflowError(
+            f"Nested workflow execution exceeds maximum helper depth "
+            f"({depth} > {_MAX_HELPER_DEPTH})"
+        )
+    raise WorkflowError("Nested workflow execution is forbidden inside a helper agent")
+
+
+async def _execute_self_step(
+    wf_step: Any,
+    step: StepResult,
+    helper: _WorkflowHelper,
+) -> None:
+    """Execute a ``target: self`` step via the workflow helper agent."""
+    await helper.execute_step(wf_step, step)
+
+
 async def _execute_step(
     wf_step: Any,
     step: StepResult,
     *,
     workflow_auto_spawn: bool = False,
     sender_info: dict[str, str] | None = None,
+    helper: _WorkflowHelper | None = None,
 ) -> None:
     """Execute a single workflow step via direct A2A HTTP send."""
     if _is_self_target(wf_step.target, sender_info):
-        await _execute_self_step(wf_step, step, sender_info)
+        if helper is None:
+            step.status = "failed"
+            step.error = "Workflow helper is unavailable"
+            step.completed_at = time.time()
+            return
+        try:
+            await _execute_self_step(wf_step, step, helper)
+        except Exception as exc:
+            step.status = "failed"
+            step.error = str(exc) or "Workflow helper failed"
+            step.completed_at = time.time()
+            logger.warning(
+                "Workflow helper step failed for %s: %s", wf_step.message, exc
+            )
         return
 
     endpoint = _resolve_target_endpoint(wf_step.target)
@@ -519,6 +716,7 @@ async def _execute_workflow(
 ) -> None:
     """Execute workflow steps sequentially."""
     has_failure = False
+    helper: _WorkflowHelper | None = None
 
     try:
         for i, wf_step in enumerate(workflow.steps):
@@ -527,11 +725,25 @@ async def _execute_workflow(
             step.started_at = time.time()
             _notify(on_update)
 
+            if wf_step.target == "self" and helper is None:
+                try:
+                    helper = _WorkflowHelper(workflow.name, sender_info)
+                except Exception as exc:
+                    step.status = "failed"
+                    step.error = str(exc) or "Failed to initialize workflow helper"
+                    step.completed_at = time.time()
+                    has_failure = True
+                    _notify(on_update)
+                    if not continue_on_error:
+                        break
+                    continue
+
             await _execute_step(
                 wf_step,
                 step,
                 workflow_auto_spawn=workflow.auto_spawn,
                 sender_info=sender_info,
+                helper=helper,
             )
 
             if step.status == "failed":
@@ -545,6 +757,16 @@ async def _execute_workflow(
     except Exception:
         logger.exception("Workflow '%s' crashed unexpectedly", workflow.name)
         has_failure = True
+    finally:
+        if helper is not None:
+            try:
+                helper.kill()
+            except Exception:
+                logger.warning(
+                    "Workflow helper cleanup failed for %s",
+                    workflow.name,
+                    exc_info=True,
+                )
 
     run.status = "failed" if has_failure else "completed"
     run.completed_at = time.time()

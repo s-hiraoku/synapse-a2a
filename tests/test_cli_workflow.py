@@ -597,6 +597,56 @@ def test_run_rejects_excessive_workflow_depth(
         cmd_workflow_run(args)
 
 
+def test_run_rejects_nested_execution_inside_helper_env(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CLI workflow run should fail fast inside helper-agent environments."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_sample_workflow(store)
+    args = _make_args(workflow_name="test-wf")
+
+    monkeypatch.setenv("SYNAPSE_WORKFLOW_HELPER", "1")
+    monkeypatch.setenv("SYNAPSE_WORKFLOW_HELPER_DEPTH", "1")
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_run(args)
+
+
+def test_run_rejects_self_target_on_cli_path(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
+) -> None:
+    """CLI workflow path should error clearly for target:self steps."""
+    from synapse.commands.workflow import cmd_workflow_run
+    from synapse.workflow import Workflow, WorkflowStep
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    store.save(
+        Workflow(
+            name="self-cli",
+            steps=[WorkflowStep(target="self", message="/release")],
+            description="Self-target CLI workflow",
+            scope="project",
+        )
+    )
+    args = _make_args(workflow_name="self-cli")
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        cmd_workflow_run(args)
+
+    captured = capsys.readouterr()
+    assert "self-target execution via helper agent is not supported" in captured.err
+
+
 # ── invalid name error handling ──────────────────────────────
 
 

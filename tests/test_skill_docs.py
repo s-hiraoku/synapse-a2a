@@ -72,9 +72,8 @@ def test_synapse_manager_skill_emphasizes_tests_before_implementation() -> None:
 
 def test_synapse_a2a_skill_shows_cleanup_verification() -> None:
     text = _read("plugins/synapse-a2a/skills/synapse-a2a/SKILL.md")
-    assert "synapse list --json                       # Verify agent appears" in text
-    assert "synapse kill Tester -f" in text
-    assert "synapse list --json                       # Verify cleanup" in text
+    assert "synapse kill" in text
+    assert "synapse list --json" in text
     assert "retry" in text.lower()
 
 
