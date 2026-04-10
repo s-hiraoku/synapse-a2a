@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.1] - 2026-04-10
+
+### Added
+
+- implement self-target helper agent + guidance reorg (#525)
+
+### Documentation
+
+- mark deprecation and add LLM Wiki migration guide (#528)
+- add target: self helper agent reference section
+- add shared memory deprecation note with LLM Wiki reference
+- update changelog for v0.24.1 and add self target to workflow guide
+- add self-target workflow note to README and deprecation banner to shared memory guide
+- fix shared memory → LLM Wiki reference and changelog link path
+
+### Fixed
+
+- address CodeRabbit review — ICRNL actual clear, KKP in interactive mode (#524)
+- auto-tile panes when synapse spawn is called multiple times (#507) (#520)
+- prevent self-target deadlock and add target: self keyword (#521) (#526)
+
 ## [0.24.0] - 2026-04-09
 
 ### Added
@@ -3245,7 +3266,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.1...HEAD
+[0.24.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.5...v0.24.0
 [0.23.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.4...v0.23.5
 [0.23.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.3...v0.23.4

@@ -538,8 +538,6 @@ def wait_for_agent(
     Returns:
         Agent info dict if found and alive, or None if timed out.
     """
-    import time
-
     from synapse.registry import is_process_running
 
     registry = AgentRegistry()

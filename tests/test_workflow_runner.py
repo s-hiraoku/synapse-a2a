@@ -55,6 +55,10 @@ def _patch_workflow_send(
         "synapse.workflow_runner._resolve_target_endpoint",
         lambda target: endpoint,
     )
+    monkeypatch.setattr(
+        "synapse.workflow_runner._wait_for_helper_idle",
+        lambda endpoint: asyncio.sleep(0, result=True),
+    )
     monkeypatch.setattr("synapse.workflow_runner._send_workflow_request", mock_send)
 
 
@@ -861,3 +865,66 @@ async def test_workflow_helper_spawn_failure_marks_step_failed_no_crash(monkeypa
     assert run.steps[0].status == "failed"
     assert "spawn failed" in (run.steps[0].error or "")
     assert run.steps[1].status == "completed"
+
+
+# ---------------------------------------------------------------------------
+# 15. Helper idle wait before send
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_wait_for_helper_idle_polls_until_no_working_tasks(monkeypatch):
+    """_wait_for_helper_idle returns True once all tasks finish."""
+    import httpx
+
+    from synapse.workflow_runner import _wait_for_helper_idle
+
+    task_states = [
+        [{"status": {"state": "working"}}],
+        [{"status": {"state": "working"}}],
+        [],  # no working tasks
+    ]
+    sleep_calls: list[float] = []
+
+    async def _mock_get(self, url, **kwargs):
+        state = task_states.pop(0) if task_states else []
+        return httpx.Response(200, json=state, request=httpx.Request("GET", url))
+
+    async def _mock_sleep(delay):
+        sleep_calls.append(delay)
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", _mock_get)
+    monkeypatch.setattr("synapse.workflow_runner.asyncio.sleep", _mock_sleep)
+
+    result = await _wait_for_helper_idle("http://localhost:8100")
+
+    assert result is True
+    assert len(sleep_calls) == 2  # slept twice before becoming idle
+
+
+@pytest.mark.asyncio
+async def test_wait_for_helper_idle_timeout_returns_false(monkeypatch):
+    """_wait_for_helper_idle returns False on timeout."""
+    import httpx
+
+    from synapse.workflow_runner import _wait_for_helper_idle
+
+    current_time = 0.0
+
+    async def _mock_get(self, url, **kwargs):
+        return httpx.Response(
+            200,
+            json=[{"status": {"state": "working"}}],
+            request=httpx.Request("GET", url),
+        )
+
+    async def _mock_sleep(delay):
+        nonlocal current_time
+        current_time += delay
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", _mock_get)
+    monkeypatch.setattr("synapse.workflow_runner.asyncio.sleep", _mock_sleep)
+    monkeypatch.setattr("synapse.workflow_runner.time.time", lambda: current_time)
+    monkeypatch.setattr("synapse.workflow_runner._POLL_TIMEOUT", 6.0)
+
+    result = await _wait_for_helper_idle("http://localhost:8100")
+
+    assert result is False

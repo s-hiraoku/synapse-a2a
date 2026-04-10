@@ -66,9 +66,9 @@ Parent receives task
 
 ```bash
 # 1. Spawn and send the first task in one command.
-#    --task-timeout gives spawn up to 600s (10 min) to reach READY before
-#    giving up on the initial task. --notify returns control immediately
-#    and delivers the completion via an async A2A message.
+#    --task-timeout gives spawn up to 600s (10 min) to wait for the agent
+#    to register before sending the initial task. --notify returns control
+#    immediately and delivers the completion via an async A2A message.
 synapse spawn gemini \
     --name Tester \
     --role "test writer" \

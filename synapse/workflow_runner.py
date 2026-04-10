@@ -141,30 +141,24 @@ class _WorkflowHelper:
             return
 
         assert self.endpoint is not None
+        if not await _wait_for_helper_idle(self.endpoint):
+            step.status = "failed"
+            step.error = "Helper agent did not become idle in time"
+            step.completed_at = time.time()
+            return
         returncode, stdout, stderr, task_id = await _send_workflow_request(
             self.endpoint, wf_step, self.sender_info
         )
 
-        if returncode == 0 and wf_step.response_mode == "wait" and task_id:
-            final_status, final_output = await _poll_task_completion(
-                self.endpoint, task_id
-            )
-            if final_status == "failed":
-                step.status = "failed"
-                step.error = final_output or "Agent task failed"
-            elif final_status == "canceled":
-                step.status = "failed"
-                step.error = "Agent task was canceled"
-            else:
-                step.status = "completed"
-                step.output = final_output or stdout
-        elif returncode == 0:
-            step.status = "completed"
-            step.output = stdout
-        else:
-            step.status = "failed"
-            step.error = stderr or f"Exit code {returncode}"
-        step.completed_at = time.time()
+        await _apply_task_result(
+            step,
+            returncode,
+            stdout,
+            stderr,
+            task_id,
+            wf_step,
+            self.endpoint,
+        )
 
     async def _ensure_started(self) -> tuple[bool, str | None]:
         if self.endpoint:
@@ -253,6 +247,7 @@ class _WorkflowHelper:
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=30,
             )
         except Exception:
             logger.warning(
@@ -261,8 +256,6 @@ class _WorkflowHelper:
 
         if self.agent_id:
             try:
-                from synapse.registry import AgentRegistry
-
                 AgentRegistry().unregister(self.agent_id)
             except Exception:
                 logger.debug(
@@ -524,6 +517,56 @@ async def _poll_task_completion(
     return "completed", ""  # timeout → best-effort complete
 
 
+def _has_working_tasks(tasks_data: Any) -> bool:
+    """Return True when a /tasks payload contains any working tasks."""
+    if isinstance(tasks_data, list):
+        task_list = tasks_data
+    elif isinstance(tasks_data, dict):
+        task_list = tasks_data.get("tasks", [])
+    else:
+        task_list = []
+
+    for task in task_list:
+        if not isinstance(task, dict):
+            continue
+        if _extract_task_status(task) == "working":
+            return True
+    return False
+
+
+async def _wait_for_helper_idle(endpoint: str) -> bool:
+    """Wait until the helper has no working tasks.
+
+    Fails fast if the helper becomes unreachable (3 consecutive connection
+    errors), rather than waiting the full poll timeout.
+    """
+    deadline = time.time() + _POLL_TIMEOUT
+    consecutive_errors = 0
+    max_consecutive_errors = 3
+
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        while time.time() < deadline:
+            try:
+                response = await client.get(f"{endpoint.rstrip('/')}/tasks")
+                consecutive_errors = 0  # reset on any successful response
+                if response.status_code == 200 and not _has_working_tasks(
+                    response.json()
+                ):
+                    return True
+            except httpx.HTTPError:
+                consecutive_errors += 1
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.warning(
+                        "Helper at %s unreachable after %d attempts, giving up",
+                        endpoint,
+                        consecutive_errors,
+                    )
+                    return False
+            await asyncio.sleep(3.0)
+
+    return False
+
+
 async def _send_workflow_request(
     endpoint: str,
     wf_step: Any,
@@ -612,13 +655,43 @@ def _raise_if_helper_execution_forbidden() -> None:
     raise WorkflowError("Nested workflow execution is forbidden inside a helper agent")
 
 
-async def _execute_self_step(
-    wf_step: Any,
+async def _apply_task_result(
     step: StepResult,
-    helper: _WorkflowHelper,
+    returncode: int,
+    stdout: str,
+    stderr: str,
+    task_id: str,
+    wf_step: Any,
+    endpoint: str | None,
+    *,
+    humanize_target: str | None = None,
 ) -> None:
-    """Execute a ``target: self`` step via the workflow helper agent."""
-    await helper.execute_step(wf_step, step)
+    """Apply send/poll results to a StepResult.
+
+    Shared by both ``_WorkflowHelper.execute_step`` and ``_execute_step``
+    to avoid duplicating the returncode/status branching logic.
+    """
+    if returncode == 0 and wf_step.response_mode == "wait" and task_id and endpoint:
+        final_status, final_output = await _poll_task_completion(endpoint, task_id)
+        if final_status == "failed":
+            step.status = "failed"
+            step.error = final_output or "Agent task failed"
+        elif final_status == "canceled":
+            step.status = "failed"
+            step.error = "Agent task was canceled"
+        else:
+            step.status = "completed"
+            step.output = final_output or stdout
+    elif returncode == 0:
+        step.status = "completed"
+        step.output = stdout
+    else:
+        error = stderr or f"Exit code {returncode}"
+        if humanize_target:
+            error = _humanize_error(humanize_target, error)
+        step.status = "failed"
+        step.error = error
+    step.completed_at = time.time()
 
 
 async def _execute_step(
@@ -637,7 +710,7 @@ async def _execute_step(
             step.completed_at = time.time()
             return
         try:
-            await _execute_self_step(wf_step, step, helper)
+            await helper.execute_step(wf_step, step)
         except Exception as exc:
             step.status = "failed"
             step.error = str(exc) or "Workflow helper failed"
@@ -667,26 +740,16 @@ async def _execute_step(
                     endpoint, wf_step, sender_info
                 )
 
-    if returncode == 0 and wf_step.response_mode == "wait" and task_id and endpoint:
-        final_status, final_output = await _poll_task_completion(endpoint, task_id)
-        if final_status == "failed":
-            step.status = "failed"
-            step.error = final_output or "Agent task failed"
-        elif final_status == "canceled":
-            step.status = "failed"
-            step.error = "Agent task was canceled"
-        else:
-            step.status = "completed"
-            step.output = final_output or stdout
-    elif returncode == 0:
-        step.status = "completed"
-        step.output = stdout
-    else:
-        step.status = "failed"
-        step.error = (
-            _humanize_error(wf_step.target, stderr) or f"Exit code {returncode}"
-        )
-    step.completed_at = time.time()
+    await _apply_task_result(
+        step,
+        returncode,
+        stdout,
+        stderr,
+        task_id,
+        wf_step,
+        endpoint,
+        humanize_target=wf_step.target,
+    )
 
 
 def _try_spawn_and_wait(target: str) -> bool:
@@ -725,7 +788,7 @@ async def _execute_workflow(
             step.started_at = time.time()
             _notify(on_update)
 
-            if wf_step.target == "self" and helper is None:
+            if _is_self_target(wf_step.target, sender_info) and helper is None:
                 try:
                     helper = _WorkflowHelper(workflow.name, sender_info)
                 except Exception as exc:

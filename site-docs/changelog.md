@@ -8,7 +8,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 - **Added**: `target: self` keyword in workflow YAML — steps targeting the calling agent are routed to a helper agent to avoid deadlock (#521, #526)
 - **Added**: Self-target helper agent — workflow runner automatically spawns a short-lived helper when a step targets the same agent that triggered the workflow (#525)
-- **Changed**: Shared Memory marked as deprecated — use [LLM Wiki](../design/llm-wiki.md) (`synapse wiki`) for new knowledge storage (#528)
+- **Changed**: Shared Memory marked as deprecated — use [LLM Wiki](design/llm-wiki.md) (`synapse wiki`) for new knowledge storage (#528)
 - **Changed**: CLAUDE.md simplified — detailed reference moved to `docs/synapse-reference.md` (guidance reorg)
 - **Removed**: Test-only workflow fixtures and orphan skills cleaned up
 

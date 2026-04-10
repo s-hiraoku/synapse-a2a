@@ -1,6 +1,7 @@
 """Pytest configuration and shared fixtures."""
 
 import asyncio
+import os
 import sys
 from collections.abc import Generator
 from pathlib import Path
@@ -14,6 +15,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 @pytest.fixture(autouse=True)
 def reset_global_state() -> Generator[None, None, None]:
     """Reset global state between tests and clean up event loops."""
+    # Clear workflow helper env markers so tests aren't affected by the
+    # host environment (e.g. when pytest runs inside a helper agent).
+    _helper_envs = (
+        "SYNAPSE_WORKFLOW_HELPER",
+        "SYNAPSE_WORKFLOW_HELPER_DEPTH",
+        "SYNAPSE_WORKFLOW_HELPER_PARENT",
+        "SYNAPSE_AGENT_ID",
+        "SYNAPSE_AGENT_TYPE",
+    )
+    _saved = {k: os.environ.pop(k) for k in _helper_envs if k in os.environ}
+
     # Reset any singleton instances
     from synapse import a2a_client
 
@@ -27,7 +39,10 @@ def reset_global_state() -> Generator[None, None, None]:
 
     yield
 
-    # Cleanup after test
+    # Cleanup after test — restore helper env markers
+    for k, v in _saved.items():
+        os.environ[k] = v
+
     a2a_client._client = None
     with task_store._lock:
         task_store._tasks.clear()

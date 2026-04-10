@@ -139,7 +139,7 @@ steps:
     response_mode: wait
 ```
 
-When the workflow runner encounters `target: self`, it automatically spawns a short-lived **helper agent** of the same type as the calling agent. The helper runs in a separate process to avoid deadlock (since the calling agent is blocked waiting for the workflow to complete). The helper agent is shut down after the step finishes.
+When the workflow runner encounters `target: self`, it automatically spawns a **helper agent** of the same type as the calling agent. The helper runs in a separate process to avoid deadlock (since the calling agent is blocked waiting for the workflow to complete). One helper is reused across all self-target steps in the same workflow run, and is shut down in a `finally` block when the workflow completes (success or failure).
 
 !!! note "Auto-detection"
     If a step's target resolves to the calling agent (by name, ID, or type when only one agent of that type is running), the runner automatically treats it as a self-target step. You can use `target: self` explicitly to make the intent clear.
@@ -167,6 +167,21 @@ Displays the workflow name, scope, description, and each step's target, priority
 ```bash
 synapse workflow run review-and-test
 ```
+
+### Async Mode
+
+Run a workflow in the background and check its status later:
+
+```bash
+synapse workflow run review-and-test --async
+# Returns a run_id immediately
+
+synapse workflow status <run_id>
+```
+
+This is useful for long-running pipelines where you don't want to block the terminal.
+
+### Sequential Execution
 
 Steps execute sequentially. Each step sends an A2A request directly to the target agent over HTTP with the configured target, message, priority, and response mode.
 If a step uses `kind: subworkflow`, Synapse loads the child workflow and executes its send steps inline before continuing.
@@ -328,11 +343,11 @@ name: review-fix
 description: "Claude reviews, then Codex fixes any issues found"
 steps:
   - target: claude
-    message: "Review src/ for bugs, security issues, and code smells. Save findings to shared memory."
+    message: "Review src/ for bugs, security issues, and code smells. Save findings to the LLM Wiki."
     priority: 4
     response_mode: wait
   - target: codex
-    message: "Check shared memory for review findings and fix all HIGH severity issues."
+    message: "Query the LLM Wiki for review findings and fix all HIGH severity issues."
     response_mode: wait
 ```
 

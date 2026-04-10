@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
+import contextlib
 import logging
+import multiprocessing
 import os
 import subprocess
 import sys
@@ -21,16 +24,15 @@ from synapse.workflow import (
     WorkflowStep,
     WorkflowStore,
 )
+from synapse.workflow_runner import (
+    _HELPER_ENV_MARKER,
+    _NO_AGENT_MARKER,
+)
 
 logger = logging.getLogger(__name__)
 
-_NO_AGENT_MARKER = "No agent found matching"
-_SPAWN_WAIT_SECONDS = 5
 _SPAWN_MAX_WAIT_SECONDS = 30
 MAX_WORKFLOW_DEPTH = 10
-_HELPER_ENV_MARKER = "SYNAPSE_WORKFLOW_HELPER"
-_HELPER_DEPTH_ENV = "SYNAPSE_WORKFLOW_HELPER_DEPTH"
-_MAX_HELPER_DEPTH = 1
 
 
 def _get_workflow_store() -> WorkflowStore:
@@ -289,8 +291,6 @@ def _run_step(
     helper: _WorkflowHelper | None = None,
 ) -> bool:
     """Execute a single workflow step. Returns True on success."""
-    import asyncio
-
     from synapse.cli import _build_a2a_cmd
     from synapse.workflow_runner import StepResult, _is_self_target
 
@@ -474,26 +474,104 @@ def _run_nested_workflow(
     return failures
 
 
+def _workflow_background_worker(
+    workflow_name: str,
+    scope: Scope | None,
+    continue_on_error: bool,
+    sender_info: dict[str, str],
+    cwd: str,
+    conn: multiprocessing.connection.Connection,
+) -> None:
+    """Run a workflow in a separate process and report the run ID back."""
+    try:
+        os.chdir(cwd)
+        store = _get_workflow_store()
+        wf = store.load(workflow_name, scope=scope)
+        if wf is None:
+            raise WorkflowError(f"Workflow '{workflow_name}' not found.")
+
+        async def _run() -> None:
+            from synapse.workflow_runner import get_run, run_workflow
+
+            run_id = await run_workflow(
+                wf,
+                continue_on_error=continue_on_error,
+                sender_info=sender_info,
+            )
+            conn.send(("ok", run_id))
+            while True:
+                run = get_run(run_id)
+                if run is None or run.status != "running":
+                    return
+                await asyncio.sleep(0.1)
+
+        asyncio.run(_run())
+    except Exception as exc:  # pragma: no cover - defensive worker reporting
+        with contextlib.suppress(Exception):
+            conn.send(("error", str(exc)))
+    finally:
+        with contextlib.suppress(Exception):
+            conn.close()
+
+
+def _start_background_workflow(
+    workflow_name: str,
+    scope: Scope | None,
+    continue_on_error: bool,
+) -> str:
+    """Start a workflow in a background process and return its run ID."""
+    ctx = multiprocessing.get_context("spawn")
+    parent_conn, child_conn = ctx.Pipe(duplex=False)
+    sender_info = {
+        "agent_id": os.getenv("SYNAPSE_AGENT_ID", ""),
+        "agent_type": os.getenv("SYNAPSE_AGENT_TYPE", ""),
+        "working_dir": str(Path.cwd()),
+    }
+    process = ctx.Process(
+        target=_workflow_background_worker,
+        args=(
+            workflow_name,
+            scope,
+            continue_on_error,
+            sender_info,
+            str(Path.cwd()),
+            child_conn,
+        ),
+        daemon=False,
+    )
+    process.start()
+    child_conn.close()
+
+    if not parent_conn.poll(5):
+        process.terminate()
+        process.join(timeout=1)
+        raise WorkflowError("Timed out starting background workflow.")
+
+    status, payload = parent_conn.recv()
+    parent_conn.close()
+
+    if status != "ok":
+        process.join(timeout=1)
+        raise WorkflowError(payload)
+
+    return str(payload)
+
+
 def cmd_workflow_run(args: argparse.Namespace) -> None:
     """Execute workflow steps sequentially."""
     if os.environ.get(_HELPER_ENV_MARKER):
-        raw_depth = os.environ.get(_HELPER_DEPTH_ENV, "1")
-        try:
-            depth = int(raw_depth)
-        except ValueError:
-            depth = _MAX_HELPER_DEPTH + 1
-        if depth > _MAX_HELPER_DEPTH or depth >= 1:
-            print(
-                "Error: Nested workflow execution is forbidden inside a helper agent.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+        print(
+            "Error: Nested workflow execution is forbidden inside a helper agent.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     name: str = args.workflow_name
     scope = _resolve_scope(args)
     dry_run = getattr(args, "dry_run", False)
     continue_on_error = getattr(args, "continue_on_error", False)
     auto_spawn = getattr(args, "auto_spawn", False)
+    run_async = getattr(args, "run_async", False)
 
     store = _get_workflow_store()
     try:
@@ -524,17 +602,39 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
             sys.exit(1)
         return
 
-    # Create a helper for self-target steps (lazy spawn — only used if needed)
-    from synapse.workflow_runner import _WorkflowHelper
+    if run_async:
+        try:
+            run_id = _start_background_workflow(name, scope, continue_on_error)
+        except WorkflowError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        print(f"Workflow '{name}' started in background.")
+        print(f"  run_id: {run_id}")
+        print(f"  Track: synapse workflow status {run_id}")
+        return
 
-    has_self_steps = any(s.target == "self" for s in wf.steps if s.kind == "send")
+    # Create a helper for self-target steps (lazy spawn — only used if needed)
+    from synapse.workflow_runner import _is_self_target, _WorkflowHelper
+
+    sender_info = {
+        "agent_id": os.getenv("SYNAPSE_AGENT_ID", ""),
+        "agent_type": os.getenv("SYNAPSE_AGENT_TYPE", ""),
+        "working_dir": str(Path.cwd()),
+    }
+
+    def _has_self_steps_recursive(workflow: Workflow, store: WorkflowStore) -> bool:
+        for s in workflow.steps:
+            if s.kind == "send" and _is_self_target(s.target, sender_info):
+                return True
+            if s.kind == "subworkflow":
+                child = store.load(s.workflow)
+                if child and _has_self_steps_recursive(child, store):
+                    return True
+        return False
+
+    has_self_steps = _has_self_steps_recursive(wf, store)
     helper: _WorkflowHelper | None = None
     if has_self_steps:
-        sender_info = {
-            "agent_id": os.getenv("SYNAPSE_AGENT_ID", ""),
-            "agent_type": os.getenv("SYNAPSE_AGENT_TYPE", ""),
-            "working_dir": str(Path.cwd()),
-        }
         helper = _WorkflowHelper(
             workflow_name=name,
             sender_info=sender_info,
@@ -564,6 +664,26 @@ def cmd_workflow_run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     print("Done.")
+
+
+def cmd_workflow_status(args: argparse.Namespace) -> None:
+    """Show status for a background workflow run."""
+    from synapse.workflow_runner import get_run
+
+    run = get_run(args.run_id)
+    if run is None:
+        print(f"Run '{args.run_id}' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Workflow: {run.workflow_name}")
+    print(f"Run ID:   {run.run_id}")
+    print(f"Status:   {run.status}")
+    for step in run.steps:
+        data = step.to_dict()
+        print(
+            f"  Step {data['step_index']}: {data['status']} | "
+            f"{data['target']} | {data['message'][:60]}"
+        )
 
 
 # ── sync ────────────────────────────────────────────────────

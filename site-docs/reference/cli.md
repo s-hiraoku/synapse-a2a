@@ -489,7 +489,7 @@ synapse workflow show <name> [--project | --user]
 ### Run Workflow
 
 ```bash
-synapse workflow run <name> [--project | --user] [--dry-run] [--continue-on-error] [--auto-spawn]
+synapse workflow run <name> [--project | --user] [--dry-run] [--continue-on-error] [--auto-spawn] [--async]
 ```
 
 Executes workflow steps sequentially, sending A2A requests directly to target agents. Steps with `response_mode: wait` poll for task completion before proceeding to the next step.
@@ -500,6 +500,15 @@ If a step is `kind: subworkflow`, the child workflow is expanded inline. Cycles 
 | `--dry-run` | Preview steps without sending messages |
 | `--continue-on-error` | Continue executing remaining steps after a failure |
 | `--auto-spawn` | Auto-spawn agents that are not running (target is used as profile name) |
+| `--async` | Run in background and return the run ID immediately |
+
+### Workflow Status
+
+```bash
+synapse workflow status <run_id>
+```
+
+Shows the current status of a background workflow run (started with `--async`).
 
 ### Delete Workflow
 

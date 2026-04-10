@@ -46,6 +46,7 @@ from synapse.commands.workflow import (
     cmd_workflow_list,
     cmd_workflow_run,
     cmd_workflow_show,
+    cmd_workflow_status,
     cmd_workflow_sync,
 )
 from synapse.controller import TerminalController
@@ -5918,7 +5919,22 @@ Run 'synapse workflow <subcommand> --help' for detailed usage.""",
         action="store_true",
         help="Auto-spawn agents that are not running (target is used as profile name)",
     )
+    p_workflow_run.add_argument(
+        "--async",
+        dest="run_async",
+        action="store_true",
+        default=False,
+        help="Run in background (returns run_id)",
+    )
     p_workflow_run.set_defaults(func=cmd_workflow_run)
+
+    # workflow status
+    p_workflow_status = workflow_subparsers.add_parser(
+        "status",
+        help="Show workflow run status",
+    )
+    p_workflow_status.add_argument("run_id", help="Workflow run ID")
+    p_workflow_status.set_defaults(func=cmd_workflow_status)
 
     # workflow delete
     p_workflow_delete = workflow_subparsers.add_parser(

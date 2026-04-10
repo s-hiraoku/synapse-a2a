@@ -232,7 +232,7 @@ SAME WORKING DIRECTORY — Leverage nearby agents:
   assist without additional setup.
   - Delegate subtasks that match their ROLE or SKILL_SET
   - Ask for reviews or second opinions on complex changes
-  - Share findings via shared memory so they benefit too
+  - Share findings via LLM Wiki so they benefit too
   - Prefer same-dir agents over spawning new ones (lower overhead)
 
 ================================================================================
