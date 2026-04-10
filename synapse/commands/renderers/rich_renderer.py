@@ -80,19 +80,21 @@ class RichRenderer:
 
         return table
 
-    # Column definitions: name -> (style, min_width, max_width, data_key)
-    COLUMN_DEFS: dict[str, tuple[str | None, int, int | None, str]] = {
-        "ID": ("dim", 20, 24, "agent_id"),
-        "NAME": ("magenta", 10, 16, "name"),
-        "TYPE": ("cyan", 8, 12, "agent_type"),
-        "ROLE": (None, 10, 20, "role"),
-        "SKILL_SET": ("blue", 10, 16, "skill_set"),
-        "STATUS": (None, 12, None, "status"),
-        "CURRENT": (None, 20, 35, "current_task_preview"),
-        "TRANSPORT": (None, 10, None, "transport"),
-        "WORKING_DIR": (None, 20, 30, "working_dir"),
-        "SUMMARY": (None, 20, 40, "summary"),
-        "EDITING_FILE": (None, 15, 25, "editing_file"),
+    # Column definitions: name -> (style, min_width, max_width, fixed_width, data_key)
+    # When fixed_width is set, min_width/max_width are ignored and the column
+    # gets an exact width — this prevents layout shifts when content changes.
+    COLUMN_DEFS: dict[str, tuple[str | None, int, int | None, int | None, str]] = {
+        "ID": ("dim", 20, 24, None, "agent_id"),
+        "NAME": ("magenta", 10, 16, None, "name"),
+        "TYPE": ("cyan", 8, 12, None, "agent_type"),
+        "ROLE": (None, 10, 20, None, "role"),
+        "SKILL_SET": ("blue", 10, 16, None, "skill_set"),
+        "STATUS": (None, 12, None, 13, "status"),
+        "CURRENT": (None, 20, 35, 35, "current_task_preview"),
+        "TRANSPORT": (None, 10, None, None, "transport"),
+        "WORKING_DIR": (None, 20, 30, None, "working_dir"),
+        "SUMMARY": (None, 20, 40, None, "summary"),
+        "EDITING_FILE": (None, 15, 25, None, "editing_file"),
     }
 
     DEFAULT_COLUMNS = [
@@ -163,12 +165,19 @@ class RichRenderer:
 
         # Add configured columns
         for col_name in valid_columns:
-            style, min_width, max_width, _ = self.COLUMN_DEFS[col_name]
-            kwargs: dict[str, Any] = {"min_width": min_width}
+            style, min_width, max_width, fixed_width, _ = self.COLUMN_DEFS[col_name]
+            kwargs: dict[str, Any] = {}
+            if fixed_width is not None:
+                # Fixed width prevents layout shifts for volatile columns
+                kwargs["width"] = fixed_width
+                kwargs["no_wrap"] = True
+                kwargs["overflow"] = "ellipsis"
+            else:
+                kwargs["min_width"] = min_width
+                if max_width:
+                    kwargs["max_width"] = max_width
             if style:
                 kwargs["style"] = style
-            if max_width:
-                kwargs["max_width"] = max_width
             table.add_column(col_name, **kwargs)
 
         # Add rows
@@ -185,7 +194,7 @@ class RichRenderer:
 
             # Add data for each column
             for col_name in valid_columns:
-                _, _, _, data_key = self.COLUMN_DEFS[col_name]
+                _, _, _, _, data_key = self.COLUMN_DEFS[col_name]
                 if col_name == "STATUS":
                     row.append(self._format_status(agent.get(data_key, "-")))
                 elif col_name == "ROLE":
@@ -196,7 +205,14 @@ class RichRenderer:
                     received_at = agent.get("task_received_at")
                     if preview and isinstance(received_at, (int, float)):
                         elapsed = time.time() - received_at
-                        row.append(f"{preview} ({format_elapsed(elapsed)})")
+                        suffix = f" ({format_elapsed(elapsed)})"
+                        # Pre-truncate preview so preview + suffix fits in
+                        # the fixed column width (avoids layout shifts).
+                        _, _, _, col_width, _ = self.COLUMN_DEFS["CURRENT"]
+                        if col_width and len(preview) + len(suffix) > col_width:
+                            max_preview = col_width - len(suffix) - 1  # 1 for ellipsis
+                            preview = preview[:max_preview] + "\u2026"
+                        row.append(f"{preview}{suffix}")
                     else:
                         row.append(preview or "-")
                 else:

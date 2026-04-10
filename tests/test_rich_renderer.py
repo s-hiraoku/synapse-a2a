@@ -404,6 +404,111 @@ class TestRichRendererDetailPanel:
         assert "UDS" in output
 
 
+class TestRichRendererStableLayout:
+    """Tests for stable table layout across status changes (issue #532)."""
+
+    def test_status_column_has_fixed_width(self, renderer):
+        """STATUS column width should not change between READY and SHUTTING_DOWN."""
+        agents_ready = [_make_agent(status="READY")]
+        agents_shutting = [_make_agent(status="SHUTTING_DOWN")]
+
+        table_ready = renderer.build_table(agents_ready)
+        table_shutting = renderer.build_table(agents_shutting)
+
+        # Find STATUS column in each table
+        def get_status_col(table):
+            for col in table.columns:
+                if col.header == "STATUS":
+                    return col
+            return None
+
+        col_ready = get_status_col(table_ready)
+        col_shutting = get_status_col(table_shutting)
+
+        assert col_ready is not None
+        assert col_shutting is not None
+        # Both should have identical width constraints (fixed width)
+        assert col_ready.width == col_shutting.width
+        assert col_ready.width is not None, "STATUS column should have a fixed width"
+
+    def test_current_preview_truncated_with_elapsed(self):
+        """CURRENT preview + elapsed suffix should fit within max_width."""
+        console = Console(file=StringIO(), force_terminal=True, width=200)
+        renderer = RichRenderer(console=console)
+
+        # Long preview that should be truncated
+        long_preview = "Implementing the new authentication middleware for OAuth2"
+        agents = [
+            _make_agent(
+                current_task_preview=long_preview,
+                task_received_at=0,  # large elapsed
+            )
+        ]
+
+        table = renderer.build_table(agents)
+
+        # Find CURRENT column
+        current_col = None
+        for col in table.columns:
+            if col.header == "CURRENT":
+                current_col = col
+                break
+
+        assert current_col is not None
+        # Column should have a fixed width to prevent layout shifts
+        assert current_col.width is not None, "CURRENT column should have a fixed width"
+
+    def test_layout_stable_across_status_transitions(self):
+        """Table column widths should be identical regardless of agent status values."""
+        console = Console(file=StringIO(), force_terminal=True, width=200)
+        renderer = RichRenderer(console=console)
+
+        # Same agent, different statuses
+        statuses = ["READY", "PROCESSING", "WAITING", "DONE", "SHUTTING_DOWN"]
+        tables = []
+        for status in statuses:
+            agents = [_make_agent(status=status)]
+            tables.append(renderer.build_table(agents))
+
+        # All tables should have the same column widths
+        ref_widths = [
+            (col.header, col.width, col.min_width, col.max_width)
+            for col in tables[0].columns
+        ]
+        for i, table in enumerate(tables[1:], 1):
+            widths = [
+                (col.header, col.width, col.min_width, col.max_width)
+                for col in table.columns
+            ]
+            assert widths == ref_widths, (
+                f"Column widths differ between {statuses[0]} and {statuses[i]}"
+            )
+
+    def test_current_preview_pre_truncated_before_elapsed(self):
+        """Preview text should be truncated so that preview + elapsed fits in column."""
+        console = Console(file=StringIO(), force_terminal=True, width=200)
+        renderer = RichRenderer(console=console)
+
+        long_preview = "A" * 100  # Very long preview
+        import time as _time
+
+        agents = [
+            _make_agent(
+                current_task_preview=long_preview,
+                task_received_at=_time.time() - 3661,  # 1h 1m ago
+            )
+        ]
+
+        table = renderer.build_table(agents)
+        console.print(table)
+        output = console.file.getvalue()
+
+        # The elapsed time should still be visible (not cut off)
+        assert "1h 1m" in output
+        # The full 100-char preview should NOT appear
+        assert "A" * 100 not in output
+
+
 class TestRichRendererInteractiveFooter:
     """Tests for interactive footer."""
 
