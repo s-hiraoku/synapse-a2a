@@ -23,6 +23,7 @@ from typing import Any
 
 import httpx
 
+from synapse.config import BLOCKING_TASK_STATES
 from synapse.registry import AgentRegistry
 from synapse.tools.a2a_helpers import _normalize_working_dir
 from synapse.workflow import Workflow, WorkflowError
@@ -535,7 +536,7 @@ def _has_working_tasks(tasks_data: Any) -> bool:
     for task in task_list:
         if not isinstance(task, dict):
             continue
-        if _extract_task_status(task) in ("working", "input_required"):
+        if _extract_task_status(task) in BLOCKING_TASK_STATES:
             return True
     return False
 

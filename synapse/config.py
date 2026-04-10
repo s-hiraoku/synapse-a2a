@@ -108,3 +108,11 @@ COMPLETED_TASK_STATES: frozenset[str] = frozenset(
         "canceled",
     }
 )
+
+# Task states that block further work (agent is busy or waiting for input)
+BLOCKING_TASK_STATES: frozenset[str] = frozenset(
+    {
+        "working",
+        "input_required",
+    }
+)
