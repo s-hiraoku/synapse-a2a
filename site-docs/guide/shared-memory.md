@@ -1,5 +1,8 @@
 # Shared Memory
 
+!!! warning "Deprecation Notice"
+    Shared Memory is deprecated in favor of [LLM Wiki](../design/llm-wiki.md) (`synapse wiki`). The `synapse memory` CLI commands continue to work during the migration period, but **all new knowledge should be stored using `synapse wiki`**. LLM Wiki provides structured, interlinked Markdown pages with wikilinks, frontmatter metadata, and stale-page detection -- capabilities that Shared Memory's flat key-value store cannot offer. See the [LLM Wiki design doc](../design/llm-wiki.md) for migration guidance.
+
 ## Overview
 
 Shared Memory provides a cross-agent knowledge base where agents can save, search, and share learned knowledge across sessions. When multiple agents collaborate on a project, Shared Memory enables them to persist decisions, patterns, and discoveries that any agent can later retrieve.
