@@ -21,6 +21,8 @@ from typing import Any
 
 import httpx
 
+from synapse.registry import AgentRegistry
+from synapse.tools.a2a_helpers import _normalize_working_dir
 from synapse.workflow import Workflow
 from synapse.workflow_db import WorkflowRunDB
 
@@ -237,6 +239,10 @@ async def run_workflow(
 
 _NO_AGENT_MARKER = "No agent found matching"
 _DIR_MISMATCH_MARKER = "is in a different directory"
+_SELF_TARGET_NOTE = (
+    "Self-target step completed without A2A send. "
+    "Direct self execution is not implemented yet."
+)
 
 
 def _resolve_target_endpoint(target: str) -> str | None:
@@ -244,6 +250,57 @@ def _resolve_target_endpoint(target: str) -> str | None:
     from synapse.canvas.server import _resolve_agent_endpoint
 
     return _resolve_agent_endpoint(target)
+
+
+def _is_self_target(
+    target: str,
+    sender_info: dict[str, str] | None,
+) -> bool:
+    """Whether a workflow target refers to the current agent."""
+    if not sender_info or not target:
+        return False
+
+    sender_id = sender_info.get("agent_id") or sender_info.get("sender_id")
+    sender_type = sender_info.get("agent_type") or sender_info.get("sender_type")
+    if target == "self":
+        return True
+    if sender_id and target == sender_id:
+        return True
+    if not sender_type or target != sender_type:
+        return False
+
+    sender_dir = _normalize_working_dir(
+        sender_info.get("working_dir") or sender_info.get("sender_working_dir")
+    )
+    agents = AgentRegistry().list_agents().values()
+    same_type = [
+        agent
+        for agent in agents
+        if agent.get("agent_type") == sender_type
+        and _normalize_working_dir(agent.get("working_dir")) == sender_dir
+    ]
+    if len(same_type) == 1 and same_type[0].get("agent_id") == sender_id:
+        logger.warning(
+            "Workflow target '%s' auto-detected as self for agent %s",
+            target,
+            sender_id,
+        )
+        return True
+    return False
+
+
+async def _execute_self_step(
+    wf_step: Any,
+    step: StepResult,
+    sender_info: dict[str, str] | None,
+) -> None:
+    """Handle a self-targeted workflow step without sending A2A to self."""
+    del sender_info  # reserved for a future PTY-injection implementation
+    step.status = "completed"
+    step.output = (
+        f"{_SELF_TARGET_NOTE}\nTarget: {wf_step.target}\nMessage: {wf_step.message}"
+    )
+    step.completed_at = time.time()
 
 
 def _build_canvas_workflow_request(
@@ -389,6 +446,10 @@ async def _execute_step(
     sender_info: dict[str, str] | None = None,
 ) -> None:
     """Execute a single workflow step via direct A2A HTTP send."""
+    if _is_self_target(wf_step.target, sender_info):
+        await _execute_self_step(wf_step, step, sender_info)
+        return
+
     endpoint = _resolve_target_endpoint(wf_step.target)
     if not endpoint:
         returncode, stdout, stderr, task_id = 404, "", _NO_AGENT_MARKER, ""

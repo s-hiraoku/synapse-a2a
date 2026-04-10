@@ -9,7 +9,10 @@ import pytest
 from synapse.workflow import Workflow, WorkflowStep
 from synapse.workflow_runner import (
     MAX_RUNS,
+    StepResult,
+    _execute_step,
     _extract_task_output,
+    _is_self_target,
     _poll_task_completion,
     _send_workflow_request,
     _workflow_runs,
@@ -488,3 +491,96 @@ async def test_send_workflow_request_409_exhausted(monkeypatch):
     )
     assert rc == 409
     assert "busy" in err.lower() or "409" in err
+
+
+def test_is_self_target_literal_self():
+    """Literal ``self`` should always be treated as the current agent."""
+    sender_info = {"agent_id": "synapse-claude-8103", "agent_type": "claude"}
+
+    assert _is_self_target("self", sender_info)
+
+
+def test_is_self_target_matches_sender_agent_id():
+    """Explicit agent-id self references should be recognized."""
+    sender_info = {"agent_id": "synapse-claude-8103", "agent_type": "claude"}
+
+    assert _is_self_target("synapse-claude-8103", sender_info)
+
+
+def test_is_self_target_type_match_sole_agent_of_type(monkeypatch):
+    """Legacy type target should map to self when it is the only local match."""
+    sender_info = {
+        "agent_id": "synapse-claude-8103",
+        "agent_type": "claude",
+        "working_dir": "/repo",
+    }
+    agents = {
+        "synapse-claude-8103": {
+            "agent_id": "synapse-claude-8103",
+            "agent_type": "claude",
+            "working_dir": "/repo",
+        },
+        "synapse-codex-8124": {
+            "agent_id": "synapse-codex-8124",
+            "agent_type": "codex",
+            "working_dir": "/repo",
+        },
+    }
+
+    monkeypatch.setattr(
+        "synapse.workflow_runner.AgentRegistry",
+        lambda: type("Registry", (), {"list_agents": lambda self: agents})(),
+    )
+
+    assert _is_self_target("claude", sender_info)
+
+
+def test_is_self_target_type_match_multiple_agents_returns_false(monkeypatch):
+    """Type target should not auto-map to self when peers of that type exist."""
+    sender_info = {
+        "agent_id": "synapse-claude-8103",
+        "agent_type": "claude",
+        "working_dir": "/repo",
+    }
+    agents = {
+        "synapse-claude-8103": {
+            "agent_id": "synapse-claude-8103",
+            "agent_type": "claude",
+            "working_dir": "/repo",
+        },
+        "synapse-claude-8104": {
+            "agent_id": "synapse-claude-8104",
+            "agent_type": "claude",
+            "working_dir": "/repo",
+        },
+    }
+
+    monkeypatch.setattr(
+        "synapse.workflow_runner.AgentRegistry",
+        lambda: type("Registry", (), {"list_agents": lambda self: agents})(),
+    )
+
+    assert not _is_self_target("claude", sender_info)
+
+
+@pytest.mark.asyncio
+async def test_execute_step_self_target_skips_a2a_send(monkeypatch):
+    """Self-targeted steps should bypass HTTP send logic entirely."""
+    sender_info = {
+        "agent_id": "synapse-claude-8103",
+        "agent_type": "claude",
+        "working_dir": "/repo",
+    }
+    step_result = StepResult(step_index=0, target="self", message="Run locally")
+    wf_step = WorkflowStep(target="self", message="Run locally", response_mode="wait")
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("A2A endpoint resolution should not run for self-target")
+
+    monkeypatch.setattr("synapse.workflow_runner._resolve_target_endpoint", _boom)
+
+    await _execute_step(wf_step, step_result, sender_info=sender_info)
+
+    assert step_result.status == "completed"
+    assert step_result.output is not None
+    assert "self-target" in step_result.output.lower()

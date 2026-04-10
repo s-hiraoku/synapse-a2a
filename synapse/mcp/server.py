@@ -10,12 +10,12 @@ import subprocess
 import sys
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
-from importlib.metadata import version
 from pathlib import Path
 from typing import TextIO, cast
 
 import yaml
 
+from synapse import __version__
 from synapse.canvas.protocol import FORMAT_REGISTRY, CanvasMessage, validate_message
 from synapse.canvas.store import CanvasStore
 from synapse.file_safety import FileSafetyManager
@@ -1132,7 +1132,7 @@ class SynapseMCPServer:
                     "capabilities": {"resources": {}, "tools": {}},
                     "serverInfo": {
                         "name": "synapse-a2a",
-                        "version": version("synapse-a2a"),
+                        "version": __version__,
                     },
                 }
             elif method == "notifications/initialized":
