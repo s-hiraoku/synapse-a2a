@@ -257,6 +257,17 @@ def _pick_best_agent(matches: list[dict]) -> dict:
     return sorted(matches, key=_sort_key)[0]
 
 
+def _is_self(info: dict, sender_id: str | None) -> bool:
+    """Return True if ``info`` refers to the sender itself.
+
+    Centralizes the self-target detection used by :func:`_resolve_target_agent`
+    across every resolution path (name match, direct agent_id lookup, type-port
+    match, and type partial match). Keeps the rule in one place so future
+    tweaks (e.g. tightening on working_dir) only need to change one line.
+    """
+    return bool(sender_id) and info.get("agent_id") == sender_id
+
+
 def _resolve_target_agent(
     target: str,
     agents: dict[str, dict],
@@ -279,14 +290,15 @@ def _resolve_target_agent(
 
     for info in local_agents.values():
         if info.get("name") == target:
-            if sender_id and info.get("agent_id") == sender_id:
+            if _is_self(info, sender_id):
                 return None, _SELF_TARGET_ERROR
             return info, None
 
     if target in local_agents:
-        if sender_id and target == sender_id:
+        info = local_agents[target]
+        if _is_self(info, sender_id):
             return None, _SELF_TARGET_ERROR
-        return local_agents[target], None
+        return info, None
 
     target_lower = target.lower()
 
@@ -299,7 +311,7 @@ def _resolve_target_agent(
                 info.get("agent_type", "").lower() == target_type
                 and info.get("port") == target_port
             ):
-                if sender_id and info.get("agent_id") == sender_id:
+                if _is_self(info, sender_id):
                     return None, _SELF_TARGET_ERROR
                 return info, None
 
@@ -307,7 +319,7 @@ def _resolve_target_agent(
         a
         for a in local_agents.values()
         if target_lower in a.get("agent_type", "").lower()
-        and (not sender_id or a.get("agent_id") != sender_id)
+        and not _is_self(a, sender_id)
     ]
 
     if matches:
