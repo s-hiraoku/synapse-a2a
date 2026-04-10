@@ -8,6 +8,20 @@ from rich.console import Console
 from synapse.commands.renderers.rich_renderer import RichRenderer
 
 
+def _find_column(table, header: str):
+    """Find a column by header name, or return None."""
+    for col in table.columns:
+        if col.header == header:
+            return col
+    return None
+
+
+def _wide_console_and_renderer(width: int = 200):
+    """Create a wide Console (StringIO-backed) and RichRenderer pair."""
+    c = Console(file=StringIO(), force_terminal=True, width=width)
+    return c, RichRenderer(console=c)
+
+
 def _make_agent(
     agent_type: str = "claude",
     port: int = 8100,
@@ -225,8 +239,7 @@ class TestRichRendererMultipleAgents:
 
     def test_multiple_agents_with_different_transport_states(self):
         """Multiple agents with different transport states."""
-        console = Console(file=StringIO(), force_terminal=True, width=200)
-        renderer = RichRenderer(console=console)
+        console, renderer = _wide_console_and_renderer()
 
         agents = [
             _make_agent(
@@ -262,8 +275,7 @@ class TestRichRendererFileSafety:
 
     def test_editing_file_column_when_enabled(self):
         """Should show EDITING FILE column when show_file_safety=True."""
-        console = Console(file=StringIO(), force_terminal=True, width=200)
-        renderer = RichRenderer(console=console)
+        console, renderer = _wide_console_and_renderer()
 
         agents = [_make_agent(status="PROCESSING", editing_file="test.py")]
 
@@ -415,15 +427,8 @@ class TestRichRendererStableLayout:
         table_ready = renderer.build_table(agents_ready)
         table_shutting = renderer.build_table(agents_shutting)
 
-        # Find STATUS column in each table
-        def get_status_col(table):
-            for col in table.columns:
-                if col.header == "STATUS":
-                    return col
-            return None
-
-        col_ready = get_status_col(table_ready)
-        col_shutting = get_status_col(table_shutting)
+        col_ready = _find_column(table_ready, "STATUS")
+        col_shutting = _find_column(table_shutting, "STATUS")
 
         assert col_ready is not None
         assert col_shutting is not None
@@ -433,8 +438,7 @@ class TestRichRendererStableLayout:
 
     def test_current_preview_truncated_with_elapsed(self):
         """CURRENT preview + elapsed suffix should fit within max_width."""
-        console = Console(file=StringIO(), force_terminal=True, width=200)
-        renderer = RichRenderer(console=console)
+        console, renderer = _wide_console_and_renderer()
 
         # Long preview that should be truncated
         long_preview = "Implementing the new authentication middleware for OAuth2"
@@ -447,21 +451,14 @@ class TestRichRendererStableLayout:
 
         table = renderer.build_table(agents)
 
-        # Find CURRENT column
-        current_col = None
-        for col in table.columns:
-            if col.header == "CURRENT":
-                current_col = col
-                break
-
+        current_col = _find_column(table, "CURRENT")
         assert current_col is not None
         # Column should have a fixed width to prevent layout shifts
         assert current_col.width is not None, "CURRENT column should have a fixed width"
 
     def test_layout_stable_across_status_transitions(self):
         """Table column widths should be identical regardless of agent status values."""
-        console = Console(file=StringIO(), force_terminal=True, width=200)
-        renderer = RichRenderer(console=console)
+        console, renderer = _wide_console_and_renderer()
 
         # Same agent, different statuses
         statuses = ["READY", "PROCESSING", "WAITING", "DONE", "SHUTTING_DOWN"]
@@ -486,8 +483,7 @@ class TestRichRendererStableLayout:
 
     def test_current_preview_pre_truncated_before_elapsed(self):
         """Preview text should be truncated so that preview + elapsed fits in column."""
-        console = Console(file=StringIO(), force_terminal=True, width=200)
-        renderer = RichRenderer(console=console)
+        console, renderer = _wide_console_and_renderer()
 
         long_preview = "A" * 100  # Very long preview
         import time as _time
@@ -541,8 +537,7 @@ class TestRichRendererDisplayInteractive:
 
     def test_display_with_selection(self):
         """Display should show detail panel when row selected."""
-        console = Console(file=StringIO(), force_terminal=True, width=150)
-        renderer = RichRenderer(console=console)
+        console, renderer = _wide_console_and_renderer(width=150)
 
         agents = [_make_agent(working_dir="/Volumes/SSD/ghq/github.com/full/path/here")]
 
@@ -564,8 +559,7 @@ class TestRichRendererDisplayInteractive:
 
     def test_display_without_selection(self):
         """Display should not show detail panel when no selection."""
-        console = Console(file=StringIO(), force_terminal=True, width=150)
-        renderer = RichRenderer(console=console)
+        console, renderer = _wide_console_and_renderer(width=150)
 
         agents = [_make_agent()]
 

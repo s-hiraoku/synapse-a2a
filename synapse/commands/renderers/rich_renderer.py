@@ -107,6 +107,30 @@ class RichRenderer:
         "EDITING_FILE",
     ]
 
+    def _resolve_columns(
+        self,
+        candidates: list[str],
+        show_file_safety: bool,
+    ) -> list[str]:
+        """Filter column names to valid, displayable columns.
+
+        Args:
+            candidates: Column name candidates (case-insensitive).
+            show_file_safety: Whether the EDITING_FILE column is allowed.
+
+        Returns:
+            List of valid column names (uppercased).
+        """
+        result: list[str] = []
+        for col in candidates:
+            col_upper = col.upper()
+            if col_upper not in self.COLUMN_DEFS:
+                continue
+            if col_upper == "EDITING_FILE" and not show_file_safety:
+                continue
+            result.append(col_upper)
+        return result
+
     def build_table(
         self,
         agents: list[dict[str, Any]],
@@ -135,27 +159,16 @@ class RichRenderer:
             return self._build_empty_table()
 
         # Determine which columns to show
-        display_columns = columns if columns else self.DEFAULT_COLUMNS
-        if not display_columns:
-            display_columns = self.DEFAULT_COLUMNS
+        display_columns = columns or self.DEFAULT_COLUMNS
 
         # Filter to valid columns only
-        valid_columns = []
-        for col in display_columns:
-            col_upper = col.upper()
-            if col_upper not in self.COLUMN_DEFS:
-                continue
-            # EDITING_FILE requires file-safety to be enabled
-            if col_upper == "EDITING_FILE" and not show_file_safety:
-                continue
-            valid_columns.append(col_upper)
+        valid_columns = self._resolve_columns(display_columns, show_file_safety)
 
         # Fallback to defaults if no valid columns remain
         if not valid_columns:
-            for col in self.DEFAULT_COLUMNS:
-                if col == "EDITING_FILE" and not show_file_safety:
-                    continue
-                valid_columns.append(col)
+            valid_columns = self._resolve_columns(
+                self.DEFAULT_COLUMNS, show_file_safety
+            )
 
         table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
 
