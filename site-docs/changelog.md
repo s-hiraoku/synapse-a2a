@@ -7,6 +7,9 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 ### v0.24.2
 
 - **Fixed**: `synapse list` table layout stable across status transitions — STATUS/CURRENT columns use fixed widths (#532)
+- **Fixed**: Workflow `response_mode: wait` polling treats `input_required` as terminal failure (#533)
+- **Fixed**: Helper-idle checks treat `input_required` as blocking to prevent dispatch to stuck helpers (#533)
+- **Fixed**: Workflow helper spawning sets `auto_approve=True` to prevent permission-prompt stalls (#533)
 - **Refactored**: Extracted `_resolve_columns` helper and test utilities
 
 ### v0.24.1

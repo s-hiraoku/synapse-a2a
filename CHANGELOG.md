@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `synapse list` table layout no longer breaks when agent status changes (READY → PROCESSING, etc.) — STATUS and CURRENT columns now use fixed widths to prevent layout shifts (#532)
 - CURRENT column preview text is pre-truncated so elapsed time suffix is always visible
+- Workflow `response_mode: wait` polling now treats `input_required` as terminal failure to avoid timeout waits (#533)
+- Helper-idle checks now treat `input_required` as blocking, preventing new step dispatch to permission-stuck helpers (#533)
+- Workflow helper spawning explicitly sets `auto_approve=True` to prevent permission-prompt stalls (#533)
 
 ### Refactored
 
