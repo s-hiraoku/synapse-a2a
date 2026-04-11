@@ -51,14 +51,6 @@ def temp_registry_dir():
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-@pytest.fixture
-def temp_registry(temp_registry_dir):
-    """Create a test registry with temp directory."""
-    reg = AgentRegistry()
-    reg.registry_dir = temp_registry_dir
-    return reg
-
-
 class TestGetAgentData:
     """Tests for ListCommand._get_agent_data method."""
 

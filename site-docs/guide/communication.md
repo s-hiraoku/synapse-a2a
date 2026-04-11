@@ -137,10 +137,9 @@ If sender information is not fully available, it falls back to:
 
 ```bash
 synapse reply "Here are my findings..."
-synapse reply --fail "Could not complete"    # Send a failed reply
 ```
 
-Reply automatically routes to the last sender. Use `--fail` when the task could not be completed; the sender receives a failed status with an error instead of a normal text reply. Tasks that complete without an explicit `synapse reply` are automatically marked as `MISSING_REPLY`.
+Reply automatically routes to the last sender. Tasks started with `--wait` or `--notify` that complete without an explicit `synapse reply` are automatically marked as `MISSING_REPLY`. Tasks sent with `--silent` do not require a reply.
 
 ### Reply to Specific Sender
 

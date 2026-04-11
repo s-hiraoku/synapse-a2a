@@ -23,14 +23,6 @@ def create_settings_from_dir(synapse_dir: Path) -> SynapseSettings:
 
 
 @pytest.fixture
-def temp_registry_dir(tmp_path: Path) -> Path:
-    """Create a temporary registry directory."""
-    registry_dir = tmp_path / "registry"
-    registry_dir.mkdir(parents=True, exist_ok=True)
-    return registry_dir
-
-
-@pytest.fixture
 def temp_synapse_dir(tmp_path: Path) -> Path:
     """Create a temporary .synapse directory with settings."""
     synapse_dir = tmp_path / ".synapse"
@@ -65,14 +57,6 @@ def temp_synapse_dir(tmp_path: Path) -> Path:
     settings_file.write_text(json.dumps(settings))
 
     return synapse_dir
-
-
-@pytest.fixture
-def temp_registry(temp_registry_dir: Path) -> AgentRegistry:
-    """Create a test registry with temp directory."""
-    reg = AgentRegistry()
-    reg.registry_dir = temp_registry_dir
-    return reg
 
 
 @pytest.fixture

@@ -1,5 +1,6 @@
 """Pytest configuration and shared fixtures."""
 
+import argparse
 import asyncio
 import os
 import sys
@@ -88,3 +89,27 @@ def reset_global_state() -> Generator[None, None, None]:
         print(
             f"[DEBUG] ValueError when setting event loop to None: {e}", file=sys.stderr
         )
+
+
+@pytest.fixture
+def temp_registry_dir(tmp_path):
+    """Create a temporary registry directory."""
+    registry_dir = tmp_path / "registry"
+    registry_dir.mkdir()
+    return registry_dir
+
+
+@pytest.fixture
+def temp_registry(temp_registry_dir):
+    """Create a test registry with temp directory."""
+    from synapse.registry import AgentRegistry
+
+    reg = AgentRegistry()
+    reg.registry_dir = temp_registry_dir
+    return reg
+
+
+@pytest.fixture
+def mock_args():
+    """Create a mock argparse.Namespace."""
+    return argparse.Namespace()

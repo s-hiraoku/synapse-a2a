@@ -8,7 +8,6 @@ from unittest.mock import patch
 import pytest
 
 from synapse.controller import TerminalController
-from synapse.registry import AgentRegistry
 
 
 @pytest.fixture
@@ -18,14 +17,6 @@ def temp_registry_dir():
     temp_dir.mkdir(parents=True, exist_ok=True)
     yield temp_dir
     shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-@pytest.fixture
-def temp_registry(temp_registry_dir):
-    """Create a test registry with temp directory."""
-    reg = AgentRegistry()
-    reg.registry_dir = temp_registry_dir
-    return reg
 
 
 class TestInteractivePollTimeout:

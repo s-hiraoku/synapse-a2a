@@ -238,7 +238,6 @@ synapse reply "<message>"                  # Reply to last sender
 synapse reply "<message>" --to <sender>    # Reply to specific sender
 synapse reply "<message>" --from ID        # With explicit sender ID
 synapse reply --list-targets               # List pending senders
-synapse reply --fail "reason"              # Send a failed reply
 ```
 
 ### Broadcast
@@ -272,11 +271,12 @@ synapse team start <profiles...> [OPTIONS] [-- TOOL_ARGS]
 | `--worktree [NAME]`, `-w` | Create per-agent git worktrees for isolation (**default: enabled**) |
 | `--no-worktree` | Opt out of worktree isolation |
 | `--branch BRANCH`, `-b` | Base branch for worktree creation |
+| `--no-auto-approve` | Disable automatic tool approval injection for spawned agents |
 
 **Profile spec format**: `profile[:name[:role[:skill_set[:port]]]]`
 
 !!! note
-    Ports are typically pre-allocated automatically by `team start` to avoid race conditions. You only need to specify a port explicitly if you want to override the default.
+    Ports are pre-allocated automatically by `team start` to avoid race conditions. The current extended spec does not accept a per-agent `:port` field.
 
 ### Spawn
 
@@ -404,11 +404,20 @@ Memory scopes control visibility: `global` (default, all agents everywhere), `pr
 synapse trace <task_id>
 ```
 
+## Plan Approval
+
+```bash
+synapse approve <task_id>
+synapse reject <task_id> [reason]
+```
+
+Plan approval commands send approval or rejection actions to the running agent that owns the task. Use `reject` with an optional plain-text reason when the plan needs revision.
+
 ## File Safety
 
 ```bash
 synapse file-safety status
-synapse file-safety locks [--file PATH] [--agent AGENT]
+synapse file-safety locks [--agent AGENT] [--type TYPE]
 synapse file-safety lock <file> <agent> [--intent "..."] [--duration N]
 synapse file-safety unlock <file> <agent> [--force]
 synapse file-safety history <file> [--limit N]
@@ -831,6 +840,9 @@ Initializes the wiki directory structure (`pages/`, `sources/`, `schema.md`, `in
 See [LLM Wiki Design](../design/llm-wiki.md) for the full design document.
 
 ## Self-Learning Pipeline
+
+!!! warning "Not yet available"
+    `synapse learn`, `synapse instinct`, and `synapse evolve` are planned commands but are not yet accessible via the CLI in the current release. See issue `#540` for tracking.
 
 ### Learn
 

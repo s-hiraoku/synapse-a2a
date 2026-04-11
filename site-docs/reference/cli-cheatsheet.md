@@ -34,6 +34,13 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse broadcast "msg"` | Send to all agents in current directory |
 | `synapse interrupt <target> "msg"` | Soft interrupt (priority 4) |
 
+### Plan Approval
+
+| Command | Description |
+|---------|-------------|
+| `synapse approve <task_id>` | Approve a plan for a task |
+| `synapse reject <task_id> [reason]` | Reject a plan with an optional reason |
+
 ### Skills
 
 | Command | Description |
@@ -103,6 +110,9 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse canvas stop` | Stop Canvas server |
 
 ### Self-Learning
+
+!!! warning "Not yet available"
+    These commands are planned but not yet accessible via the CLI in the current release. See issue `#540` for tracking.
 
 | Command | Description |
 |---------|-------------|

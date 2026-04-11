@@ -90,8 +90,8 @@ class RichRenderer:
         "ROLE": (None, 10, 20, None, "role"),
         "SKILL_SET": ("blue", 10, 16, None, "skill_set"),
         "STATUS": (None, 12, None, 13, "status"),
-        "CURRENT": (None, 20, 35, 35, "current_task_preview"),
-        "TRANSPORT": (None, 10, None, None, "transport"),
+        "CURRENT": (None, 20, 20, 20, "current_task_preview"),
+        "TRANSPORT": (None, 10, None, 10, "transport"),
         "WORKING_DIR": (None, 20, 30, None, "working_dir"),
         "SUMMARY": (None, 20, 40, None, "summary"),
         "EDITING_FILE": (None, 15, 25, None, "editing_file"),
@@ -170,7 +170,12 @@ class RichRenderer:
                 self.DEFAULT_COLUMNS, show_file_safety
             )
 
-        table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
+        table = Table(
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold cyan",
+            padding=(0, 0),
+        )
 
         # Add row number column if enabled
         if show_row_numbers:
@@ -220,10 +225,14 @@ class RichRenderer:
                         elapsed = time.time() - received_at
                         suffix = f" ({format_elapsed(elapsed)})"
                         # Pre-truncate preview so preview + suffix fits in
-                        # the fixed column width (avoids layout shifts).
+                        # the fixed column width.
                         _, _, _, col_width, _ = self.COLUMN_DEFS["CURRENT"]
-                        if col_width and len(preview) + len(suffix) > col_width:
-                            max_preview = col_width - len(suffix) - 1  # 1 for ellipsis
+                        content_width = max(0, col_width or 0)
+                        if content_width and len(preview) + len(suffix) > content_width:
+                            max_preview = max(
+                                0,
+                                content_width - len(suffix) - 1,
+                            )
                             preview = preview[:max_preview] + "\u2026"
                         row.append(f"{preview}{suffix}")
                     else:

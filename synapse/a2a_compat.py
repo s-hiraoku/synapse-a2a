@@ -18,7 +18,6 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Literal
-from uuid import uuid4
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -66,16 +65,33 @@ if TYPE_CHECKING:
     from synapse.a2a_client import ExternalAgent
     from synapse.transport import MessageTransport
 
-# Task state mapping from Google A2A spec
-TaskState = Literal[
-    "submitted",  # Task received
-    "working",  # Task in progress
-    "input_required",  # Waiting for additional input
-    "completed",  # Task finished successfully
-    "failed",  # Task failed
-    "canceled",  # Task was canceled
-]
-
+# Re-export data models for backward compatibility
+from synapse.a2a_models import (  # noqa: F401, E402
+    AgentCapabilities,
+    AgentCard,
+    AgentSkill,
+    Artifact,
+    CreateTaskRequest,
+    CreateTaskResponse,
+    DataPart,
+    FilePart,
+    HistoryUpdateRequest,
+    Message,
+    Part,
+    SendMessageRequest,
+    SendMessageResponse,
+    Task,
+    TaskErrorModel,
+    TaskState,
+    TextPart,
+)
+from synapse.task_store import (  # noqa: F401, E402
+    _EXPLICIT_REPLY_RECORDED_METADATA_KEY,
+    ERROR_CODE_MISSING_REPLY,
+    ERROR_CODE_REPLY_FAILED,
+    TaskStore,
+    task_store,
+)
 
 # ============================================================
 # Helper Functions (Refactored)
@@ -327,338 +343,10 @@ def _save_task_to_history(
         print(f"Warning: Failed to save task to history: {e}", file=sys.stderr)
 
 
-# ============================================================
-# Pydantic Models (Google A2A Compatible)
-# ============================================================
+# (Models moved to synapse.a2a_models — re-exported above)
 
 
-class TextPart(BaseModel):
-    """Text content part"""
-
-    type: Literal["text"] = "text"
-    text: str
-
-
-class FilePart(BaseModel):
-    """File reference part"""
-
-    type: Literal["file"] = "file"
-    file: dict[str, Any]
-
-
-class DataPart(BaseModel):
-    """Structured data part"""
-
-    type: Literal["data"] = "data"
-    data: dict[str, Any]
-
-
-# Union type for parts
-Part = TextPart | FilePart | DataPart
-
-
-class Message(BaseModel):
-    """A2A Message with role and parts"""
-
-    role: Literal["user", "agent"] = "user"
-    parts: list[TextPart | FilePart | DataPart]
-
-
-class Artifact(BaseModel):
-    """Task output artifact"""
-
-    type: str = "text"
-    data: Any
-
-
-class TaskErrorModel(BaseModel):
-    """A2A Task Error (for failed tasks)"""
-
-    code: str
-    message: str
-    data: dict[str, Any] | None = None
-
-
-class Task(BaseModel):
-    """A2A Task with lifecycle"""
-
-    id: str
-    status: TaskState
-    message: Message | None = None
-    artifacts: list[Artifact] = []
-    error: TaskErrorModel | None = None  # Error info for failed tasks
-    created_at: str
-    updated_at: str
-    context_id: str | None = None
-    metadata: dict[str, Any] = {}
-
-
-class SendMessageRequest(BaseModel):
-    """Request to send a message"""
-
-    message: Message
-    context_id: str | None = None
-    metadata: dict[str, Any] = {}
-
-
-class SendMessageResponse(BaseModel):
-    """Response after sending a message"""
-
-    task: Task
-
-
-class HistoryUpdateRequest(BaseModel):
-    """Request to update sender-side history status."""
-
-    task_id: str
-    status: Literal["completed", "failed", "canceled"]
-    output_summary: str | None = None
-
-
-class CreateTaskRequest(BaseModel):
-    """Request to create a task (without sending to PTY)."""
-
-    message: Message
-    metadata: dict[str, Any] | None = None
-
-
-class CreateTaskResponse(BaseModel):
-    """Response with created task."""
-
-    task: Task
-
-
-class AgentSkill(BaseModel):
-    """Agent capability/skill definition"""
-
-    id: str
-    name: str
-    description: str
-    parameters: dict[str, Any] | None = None
-
-
-class AgentCapabilities(BaseModel):
-    """Agent capabilities declaration"""
-
-    streaming: bool = False
-    pushNotifications: bool = False  # noqa: N815 (A2A protocol spec)
-    multiTurn: bool = True  # noqa: N815 (A2A protocol spec)
-
-
-class AgentCard(BaseModel):
-    """Google A2A Agent Card for discovery"""
-
-    name: str
-    description: str
-    url: str
-    version: str = "1.0.0"
-    capabilities: AgentCapabilities
-    skills: list[AgentSkill] = []
-    securitySchemes: dict[str, Any] = {}  # noqa: N815 (A2A protocol spec)
-    # Synapse A2A extensions
-    extensions: dict[str, Any] = {}
-
-
-# ============================================================
-# Task Store (In-Memory)
-# ============================================================
-
-
-class TaskStore:
-    """Thread-safe in-memory task storage"""
-
-    def __init__(self) -> None:
-        self._tasks: dict[str, Task] = {}
-        self._lock = threading.Lock()
-
-    def create(
-        self,
-        message: Message,
-        context_id: str | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> Task:
-        """Create a new task with optional metadata (including sender info)"""
-        now = get_iso_timestamp()
-        task = Task(
-            id=str(uuid4()),
-            status="submitted",
-            message=message,
-            artifacts=[],
-            created_at=now,
-            updated_at=now,
-            context_id=context_id,
-            metadata=metadata or {},
-        )
-        with self._lock:
-            self._tasks[task.id] = task
-        return task
-
-    def get(self, task_id: str) -> Task | None:
-        """Get a task by ID"""
-        with self._lock:
-            return self._tasks.get(task_id)
-
-    def get_by_prefix(self, prefix: str) -> Task | None:
-        """Get a task by ID prefix (for --reply-to with short IDs).
-
-        Args:
-            prefix: Full UUID or prefix (e.g., "54241e7e" from PTY display)
-
-        Returns:
-            Task if exactly one match found, None if no match
-
-        Raises:
-            ValueError: If prefix matches multiple tasks (ambiguous)
-        """
-        prefix_lower = prefix.lower()
-        with self._lock:
-            # Exact match first
-            if prefix_lower in self._tasks:
-                return self._tasks[prefix_lower]
-
-            # Prefix match
-            matches = [
-                task
-                for task_id, task in self._tasks.items()
-                if task_id.lower().startswith(prefix_lower)
-            ]
-
-            if not matches:
-                return None
-            if len(matches) == 1:
-                return matches[0]
-            # Multiple matches - ambiguous
-            raise ValueError(
-                f"Ambiguous task ID prefix '{prefix}': matches {len(matches)} tasks"
-            )
-
-    def update_status(self, task_id: str, status: TaskState) -> Task | None:
-        """Update task status"""
-        with self._lock:
-            if task_id in self._tasks:
-                task = self._tasks[task_id]
-                task.status = status
-                task.updated_at = get_iso_timestamp()
-                return task
-        return None
-
-    def add_artifact(self, task_id: str, artifact: Artifact) -> Task | None:
-        """Add artifact to task"""
-        with self._lock:
-            if task_id in self._tasks:
-                task = self._tasks[task_id]
-                task.artifacts.append(artifact)
-                task.updated_at = get_iso_timestamp()
-                return task
-        return None
-
-    def update_metadata(self, task_id: str, key: str, value: Any) -> Task | None:
-        """Thread-safe metadata update for a single key."""
-        with self._lock:
-            task = self._tasks.get(task_id)
-            if not task:
-                return None
-            metadata = task.metadata or {}
-            metadata[key] = value
-            task.metadata = metadata
-            task.updated_at = get_iso_timestamp()
-            return task
-
-    def claim_finalization(self, task_id: str) -> Task | None:
-        """Claim exclusive rights to finalize a working task.
-
-        Also checks _explicit_reply_recorded under the same lock to avoid
-        racing with the explicit reply endpoint.
-        """
-        with self._lock:
-            task = self._tasks.get(task_id)
-            if not task or task.status != "working":
-                return None
-            metadata = task.metadata or {}
-            if metadata.get("_finalization_claimed"):
-                return None
-            if metadata.get(_EXPLICIT_REPLY_RECORDED_METADATA_KEY):
-                return None
-            metadata["_finalization_claimed"] = True
-            task.metadata = metadata
-            task.updated_at = get_iso_timestamp()
-            return task
-
-    def set_error(self, task_id: str, error: TaskErrorModel) -> Task | None:
-        """Set error on a task"""
-        with self._lock:
-            if task_id in self._tasks:
-                task = self._tasks[task_id]
-                task.error = error
-                task.status = "failed"
-                task.updated_at = get_iso_timestamp()
-                return task
-        return None
-
-    def record_explicit_reply(
-        self,
-        task_id: str,
-        message: str,
-        status: Literal["completed", "failed"] = "completed",
-        error: TaskErrorModel | None = None,
-    ) -> Task | None:
-        """Atomically record an explicit reply on a task."""
-        with self._lock:
-            task = self._tasks.get(task_id)
-            if not task:
-                return None
-            metadata = task.metadata or {}
-            metadata[_EXPLICIT_REPLY_RECORDED_METADATA_KEY] = True
-            task.metadata = metadata
-            if status == "failed":
-                task.artifacts = []
-                task.error = error or TaskErrorModel(
-                    code=ERROR_CODE_REPLY_FAILED, message=message
-                )
-                task.status = "failed"
-            else:
-                task.artifacts = [Artifact(type="text", data={"content": message})]
-                task.error = None
-                task.status = "completed"
-            task.updated_at = get_iso_timestamp()
-            return task
-
-    def mark_missing_reply_if_unreplied(self, task_id: str) -> Task | None:
-        """Fail a task as missing-reply only if no explicit reply was recorded.
-
-        Only converts to MISSING_REPLY when the task completed normally
-        (no existing error), so _finalize_working_task failures are preserved.
-        """
-        with self._lock:
-            task = self._tasks.get(task_id)
-            if not task:
-                return None
-            metadata = task.metadata or {}
-            if metadata.get(_EXPLICIT_REPLY_RECORDED_METADATA_KEY):
-                return task
-            if task.artifacts:
-                return task
-            if task.error is not None:
-                return task
-            task.artifacts = []
-            task.error = TaskErrorModel(
-                code=ERROR_CODE_MISSING_REPLY,
-                message="Receiver completed without explicit synapse reply",
-            )
-            task.status = "failed"
-            task.updated_at = get_iso_timestamp()
-            return task
-
-    def list_tasks(self, context_id: str | None = None) -> list[Task]:
-        """List all tasks, optionally filtered by context"""
-        with self._lock:
-            if context_id:
-                return [t for t in self._tasks.values() if t.context_id == context_id]
-            return list(self._tasks.values())
-
-
-# Global task store
-task_store = TaskStore()
+# (TaskStore moved to synapse.task_store — re-exported above)
 
 # Global history manager
 _history_db_path = get_history_db_path()
@@ -672,9 +360,6 @@ _SENT_MESSAGE_METADATA_KEY = "_sent_message"
 _REPLY_ARTIFACTS_METADATA_KEY = "reply_artifacts"
 _REPLY_STATUS_METADATA_KEY = "reply_status"
 _REPLY_ERROR_METADATA_KEY = "reply_error"
-_EXPLICIT_REPLY_RECORDED_METADATA_KEY = "_explicit_reply_recorded"
-ERROR_CODE_MISSING_REPLY = "MISSING_REPLY"
-ERROR_CODE_REPLY_FAILED = "REPLY_FAILED"
 
 
 def _load_reply_artifacts(metadata: dict[str, Any]) -> list[Artifact] | None:

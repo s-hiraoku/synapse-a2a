@@ -1,5 +1,8 @@
 # Self-Learning Pipeline
 
+!!! warning "Not yet available"
+    `synapse learn`, `synapse instinct`, and `synapse evolve` are planned but not yet accessible via the CLI in the current release. The architecture and command shapes below describe the intended workflow; see issue `#540` for tracking.
+
 ## Overview
 
 The Self-Learning Pipeline enables agents to automatically learn from their operations, extract reusable patterns as **instincts**, and evolve those instincts into skills and commands. Built on the PTY observation layer, this feature works with all supported CLI agents -- no agent-side hooks required.
