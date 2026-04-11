@@ -130,7 +130,11 @@ def test_list_patterns_skips_invalid_yaml(
     warnings: list[str] = []
     monkeypatch.setattr(
         "synapse.patterns.store.logger",
-        type("_L", (), {"warning": staticmethod(lambda fmt, *a: warnings.append(fmt % a))})(),
+        type(
+            "_L",
+            (),
+            {"warning": staticmethod(lambda fmt, *a: warnings.append(fmt % a))},
+        )(),
     )
 
     patterns = store.list_patterns(scope="project")
