@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Any, cast
+
+from synapse.a2a_client import get_client
 
 
 def cmd_external_add(args: argparse.Namespace) -> None:
     """Add an external A2A agent."""
-    from synapse import cli as cli_module
-
-    client = cast(Any, cli_module).get_client()
+    client = get_client()
     agent = client.discover(args.url, alias=args.alias)
 
     if agent:
@@ -29,9 +28,7 @@ def cmd_external_add(args: argparse.Namespace) -> None:
 
 def cmd_external_list(args: argparse.Namespace) -> None:
     """List external A2A agents."""
-    from synapse import cli as cli_module
-
-    client = cast(Any, cli_module).get_client()
+    client = get_client()
     agents = client.list_agents()
 
     if not agents:
@@ -48,9 +45,7 @@ def cmd_external_list(args: argparse.Namespace) -> None:
 
 def cmd_external_remove(args: argparse.Namespace) -> None:
     """Remove an external A2A agent."""
-    from synapse import cli as cli_module
-
-    client = cast(Any, cli_module).get_client()
+    client = get_client()
 
     if client.remove_agent(args.alias):
         print(f"Removed external agent: {args.alias}")
@@ -61,9 +56,7 @@ def cmd_external_remove(args: argparse.Namespace) -> None:
 
 def cmd_external_send(args: argparse.Namespace) -> None:
     """Send a message to an external A2A agent."""
-    from synapse import cli as cli_module
-
-    client = cast(Any, cli_module).get_client()
+    client = get_client()
 
     task = client.send_message(args.alias, args.message, wait_for_completion=args.wait)
 
@@ -81,9 +74,7 @@ def cmd_external_send(args: argparse.Namespace) -> None:
 
 def cmd_external_info(args: argparse.Namespace) -> None:
     """Show detailed info about an external agent."""
-    from synapse import cli as cli_module
-
-    client = cast(Any, cli_module).get_client()
+    client = get_client()
     agent = client.registry.get(args.alias)
 
     if not agent:

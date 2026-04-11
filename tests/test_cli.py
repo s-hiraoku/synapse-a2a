@@ -1021,7 +1021,7 @@ class TestCmdExternalAdd:
         mock_agent.description = "An example agent"
         mock_agent.skills = []
 
-        with patch("synapse.cli.get_client") as mock_get_client:
+        with patch("synapse.commands.external.get_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.discover.return_value = mock_agent
             mock_get_client.return_value = mock_client
@@ -1036,7 +1036,7 @@ class TestCmdExternalAdd:
         mock_args.url = "https://invalid.example.com"
         mock_args.alias = None
 
-        with patch("synapse.cli.get_client") as mock_get_client:
+        with patch("synapse.commands.external.get_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.discover.return_value = None
             mock_get_client.return_value = mock_client
@@ -1052,7 +1052,7 @@ class TestCmdExternalList:
 
     def test_external_list_empty(self, mock_args, capsys):
         """Should show message when no external agents."""
-        with patch("synapse.cli.get_client") as mock_get_client:
+        with patch("synapse.commands.external.get_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.list_agents.return_value = []
             mock_get_client.return_value = mock_client
@@ -1070,7 +1070,7 @@ class TestCmdExternalList:
         mock_agent.url = "https://agent.example.com"
         mock_agent.last_seen = "2024-01-01T12:00:00"
 
-        with patch("synapse.cli.get_client") as mock_get_client:
+        with patch("synapse.commands.external.get_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.list_agents.return_value = [mock_agent]
             mock_get_client.return_value = mock_client
@@ -1089,7 +1089,7 @@ class TestCmdExternalRemove:
         """Should remove external agent."""
         mock_args.alias = "example"
 
-        with patch("synapse.cli.get_client") as mock_get_client:
+        with patch("synapse.commands.external.get_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.remove_agent.return_value = True
             mock_get_client.return_value = mock_client
@@ -1103,7 +1103,7 @@ class TestCmdExternalRemove:
         """Should exit with error when agent not found."""
         mock_args.alias = "nonexistent"
 
-        with patch("synapse.cli.get_client") as mock_get_client:
+        with patch("synapse.commands.external.get_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.remove_agent.return_value = False
             mock_get_client.return_value = mock_client
@@ -1128,7 +1128,7 @@ class TestCmdExternalSend:
         mock_task.status = "working"
         mock_task.artifacts = []
 
-        with patch("synapse.cli.get_client") as mock_get_client:
+        with patch("synapse.commands.external.get_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.send_message.return_value = mock_task
             mock_get_client.return_value = mock_client
@@ -1147,7 +1147,7 @@ class TestCmdExternalInfo:
         """Should exit when agent not found."""
         mock_args.alias = "nonexistent"
 
-        with patch("synapse.cli.get_client") as mock_get_client:
+        with patch("synapse.commands.external.get_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.registry.get.return_value = None
             mock_get_client.return_value = mock_client
@@ -1171,7 +1171,7 @@ class TestCmdExternalInfo:
         mock_agent.capabilities = {"streaming": True}
         mock_agent.skills = [{"name": "code", "description": "Code generation"}]
 
-        with patch("synapse.cli.get_client") as mock_get_client:
+        with patch("synapse.commands.external.get_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.registry.get.return_value = mock_agent
             mock_get_client.return_value = mock_client
