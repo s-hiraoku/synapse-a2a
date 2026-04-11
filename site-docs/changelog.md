@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.25.0
+
+- **Added**: Multi-agent coordination patterns engine — declarative YAML-based patterns with 5 built-in types (generator-verifier, orchestrator-subagent, agent-teams, message-bus, shared-state)
+- **Added**: `synapse multiagent` / `synapse map` CLI for managing coordination patterns
+- **Added**: Canvas "Patterns" view with Mermaid architecture diagrams
+- **Added**: Pattern REST API, `PatternStore`, `PatternRunner`, `CoordinationPattern` ABC
+- **Tests**: Comprehensive test suites for patterns engine, CLI commands, and Canvas routes
+
 ### v0.24.2
 
 - **Fixed**: `synapse list` table layout stable across status transitions — STATUS/CURRENT columns use fixed widths (#532)

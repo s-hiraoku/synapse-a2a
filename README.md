@@ -119,6 +119,7 @@ flowchart LR
 | **Proactive Collaboration** | Agents automatically evaluate collaboration opportunities before starting tasks. Built-in decision framework: do-it-yourself, delegate, ask-for-help, report-progress, share-knowledge. Cross-model spawning preference distributes token usage and avoids rate limits. Worker agents can also spawn/delegate (not just managers). Mandatory cleanup of spawned agents (`synapse kill <name> -f`) |
 | **Self-Learning Pipeline** | Observation layer captures PTY and A2A signals into `.synapse/observations.db`. `synapse learn` analyzes repeated patterns and persists instincts (`.synapse/instincts.db`). `synapse instinct` lists/promotes learned instincts. `synapse evolve` clusters instincts into reusable skill candidates. Pipeline: Observation → Pattern Analyzer → Instinct → Evolve. Env: `SYNAPSE_OBSERVATION_ENABLED` (default `true`), `SYNAPSE_OBSERVATION_DB_PATH`, `SYNAPSE_INSTINCT_DB_PATH` |
 | **MCP Bootstrap** | `synapse mcp serve` exposes bootstrap resources (instructions, settings, agent card) and tools (`bootstrap_agent`, `list_agents`, `analyze_task`) via the Model Context Protocol over stdio. Lets MCP-capable agents pull Synapse context with a minimal PTY startup bootstrap instead of the full initial instruction payload. When a Synapse MCP server config entry is detected, Synapse sends a short MCP bootstrap message at startup and keeps approval prompts enabled unless the session is resumed; non-Synapse MCP entries do not trigger this path. Copilot MCP config: `~/.copilot/mcp-config.json`. See [MCP Bootstrap Design (Japanese)](docs/design/mcp-bootstrap.md) |
+| **Multi-Agent Patterns** | Declarative coordination patterns that define *how agents should behave* rather than *what to do* (contrast with imperative Workflows). Five built-in pattern types: `generator-verifier` (generate + verify against criteria), `orchestrator-subagent` (decompose and delegate), `agent-teams` (parallel workers on a task queue), `message-bus` (pub/sub event-driven coordination), `shared-state` (agents collaborate via shared wiki). CLI: `synapse multiagent init/list/show/run/status/stop` (alias `synapse map`). Pattern configs stored in `.synapse/patterns/` (project) or `~/.synapse/patterns/` (user). Canvas integration: Pattern tab with list/detail views at `/api/multiagent` endpoints. `--dry-run` to preview, `--async` for background execution |
 
 ---
 
@@ -572,6 +573,8 @@ Each agent is:
 | Instinct | `synapse/instinct.py` | Learned instinct persistence |
 | Transport | `synapse/transport.py` | Transport abstraction layer |
 | Canvas | `synapse/canvas/` | Shared visual output surface (server, protocol, store, export, routes) |
+| Patterns | `synapse/patterns/` | Multi-agent coordination patterns (base, store, runner) |
+| MultiagentCmd | `synapse/commands/multiagent.py` | CLI handlers for `synapse multiagent` / `synapse map` |
 | MCP Server | `synapse/mcp/` | MCP bootstrap resource server (instructions, settings, agent card) |
 
 ### Startup Sequence
@@ -797,6 +800,13 @@ Save this agent definition for reuse? [y/N]:
 | `synapse instinct` | List learned instincts (filters: `--scope`, `--domain`, `--min-confidence`) |
 | `synapse instinct promote <id>` | Promote a project-scoped instinct to global scope |
 | `synapse evolve` | Discover skill candidates from learned instincts (`--generate` to write skill files) |
+| `synapse multiagent init <type>` | Create a new multi-agent pattern template YAML. Types: `generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state`. `--name`, `--user` for user scope, `--force` to overwrite |
+| `synapse multiagent list` | List saved multi-agent patterns (`--user` / `--project` to filter scope) |
+| `synapse multiagent show <name>` | Show pattern YAML details |
+| `synapse multiagent run <name> <task>` | Execute a saved pattern (`--dry-run` to preview, `--async` for background) |
+| `synapse multiagent status <run_id>` | Show status of a pattern run |
+| `synapse multiagent stop <run_id>` | Stop a running pattern execution |
+| `synapse map` | Alias for `synapse multiagent` |
 
 ### Resume Mode
 

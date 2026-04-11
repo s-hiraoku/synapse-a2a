@@ -111,6 +111,17 @@ For user guides, see the [`/guides`](../guides/) directory.
 
 - セッション履歴機能 Phase 2 は PR #34 で実装済み（キーワード検索、統計情報、エクスポート、クリーンアップ機能）
 
+### マルチエージェントパターン
+
+- **Multi-Agent Patterns** — 宣言的なエージェント協調パターン
+  - `synapse/patterns/` — パターンの基盤クラス、ストア、ランナー
+  - `synapse/commands/multiagent.py` — CLI ハンドラ (`synapse multiagent` / `synapse map`)
+  - `synapse/canvas/routes/multiagent.py` — Canvas API ルート (`/api/multiagent`)
+  - `synapse/canvas/static/canvas-multiagent.js` — Canvas UI のパターン表示
+  - 5つの組み込みパターン: `generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state`
+  - Workflow（命令的なステップ列）とは異なり、エージェントの振る舞いルールを定義
+  - パターン保存先: `.synapse/patterns/` (project) / `~/.synapse/patterns/` (user)
+
 ### ターミナル・ペイン管理
 
 - `spawn-zone-tiling.md` - **スポーンゾーンタイリング仕様**

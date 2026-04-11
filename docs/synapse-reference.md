@@ -87,6 +87,20 @@ synapse workflow run <name> --async              # Background execution (returns
 synapse workflow status <run_id>                 # Check workflow run status
 synapse workflow sync                            # Re-generate skills from all workflow YAMLs
 
+# Multi-Agent Patterns (declarative coordination, alias: synapse map)
+synapse multiagent init generator-verifier --name my-pattern
+synapse multiagent init orchestrator-subagent --name decompose --user
+synapse multiagent init agent-teams --name workers --force
+synapse multiagent list
+synapse multiagent list --project
+synapse multiagent show my-pattern
+synapse multiagent run my-pattern "Implement auth module"
+synapse multiagent run my-pattern "Task" --dry-run
+synapse multiagent run my-pattern "Task" --async
+synapse multiagent status <run_id>
+synapse multiagent stop <run_id>
+synapse map list                                  # Alias for synapse multiagent
+
 # Spawn/Teams (auto-approve enabled by default, auto-tile on 2+ spawns)
 # Recommended spawn pattern:
 synapse spawn claude --task-file /tmp/task.md --task-timeout 600 --notify
@@ -218,6 +232,19 @@ steps:
     message: "/release"
     response_mode: wait
     timeout: 300
+```
+
+### Important: helper agent is a separate process
+
+The helper agent is a **newly spawned process** — it does not share the calling agent's conversation history or in-memory state. It runs in the same working directory, so file changes are visible to both, but it starts with a fresh context.
+
+If you need the step to execute with an existing agent's full context (e.g., reuse an already-running Codex that has relevant conversation history), use that agent's name or type as the target instead of `self`:
+
+```yaml
+steps:
+  - target: codex        # sends to existing Codex agent (no helper spawned)
+    message: "/release"
+    response_mode: wait
 ```
 
 ### Deadlock prevention
