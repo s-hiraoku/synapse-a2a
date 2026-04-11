@@ -1,6 +1,5 @@
 """Tests for CLI commands in synapse/cli.py."""
 
-import argparse
 import json
 import shutil
 import signal
@@ -36,7 +35,6 @@ from synapse.cli import (
     cmd_stop,
     install_skills,
 )
-from synapse.registry import AgentRegistry
 
 # ==============================================================================
 # Fixtures
@@ -49,20 +47,6 @@ def temp_registry_dir():
     temp_dir = Path(tempfile.mkdtemp(prefix="test_cli_registry_"))
     yield temp_dir
     shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-@pytest.fixture
-def temp_registry(temp_registry_dir):
-    """Create a test registry with temp directory."""
-    reg = AgentRegistry()
-    reg.registry_dir = temp_registry_dir
-    return reg
-
-
-@pytest.fixture
-def mock_args():
-    """Create a mock argparse.Namespace."""
-    return argparse.Namespace()
 
 
 @pytest.fixture
