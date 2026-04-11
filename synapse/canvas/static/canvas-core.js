@@ -1095,6 +1095,7 @@ window.SynapseCanvas = (function() {
     if (hash === "#/history") return "history";
     if (hash === "#/system") return "system";
     if (hash === "#/workflow") return "workflow";
+    if (hash === "#/multiagent") return "multiagent";
     if (hash === "#/knowledge") return "knowledge";
     if (hash === "#/admin") return "admin";
     if (hash === "#/database") return "database";

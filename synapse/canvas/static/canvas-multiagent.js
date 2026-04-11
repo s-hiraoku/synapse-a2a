@@ -16,9 +16,16 @@
       renderPatternList(ns._patternData);
       if (ns._selectedPattern) {
         var selected = ns._patternData.find(function(pattern) {
-          return pattern.name === ns._selectedPattern.name;
+          return pattern.name === ns._selectedPattern.name &&
+                 pattern.scope === ns._selectedPattern.scope;
         });
-        if (selected) renderPatternDetail(selected);
+        if (selected) {
+          renderPatternDetail(selected);
+        } else {
+          if (patternDetailContent) patternDetailContent.classList.add("view-hidden");
+          if (patternDetailEmpty) patternDetailEmpty.classList.remove("view-hidden");
+          ns._selectedPattern = null;
+        }
       }
     } catch (e) { /* ignore */ }
   }
@@ -47,7 +54,7 @@
     patterns.forEach(function(pattern) {
       var tr = document.createElement("tr");
       tr.style.cursor = "pointer";
-      if (ns._selectedPattern && ns._selectedPattern.name === pattern.name) {
+      if (ns._selectedPattern && ns._selectedPattern.name === pattern.name && ns._selectedPattern.scope === pattern.scope) {
         tr.classList.add("workflow-row-selected");
       }
       tr.innerHTML =

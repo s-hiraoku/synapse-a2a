@@ -144,10 +144,10 @@ When the workflow runner encounters `target: self`, it automatically spawns a **
 !!! warning "Helper agent is a separate process"
     `target: self` does **not** execute the step inside the calling agent's process. A new agent is spawned and the message is sent to it via A2A. This means:
 
-    - The helper agent has a **separate context** — it does not share the calling agent's conversation history or in-memory state.
-    - The helper runs in the **same working directory** as the calling agent, so file changes are visible to both.
-    - The helper appears in `synapse list` as `wf-helper-<workflow>-<id>` while the workflow is running.
-    - If you need the step to execute with the calling agent's full context, use a specific agent name (e.g., `target: codex`) instead of `self`, so the message is sent to an existing agent rather than a newly spawned helper.
+    The helper agent has a **separate context** and does not share conversation history or in-memory state.
+    It runs in the **same working directory** as the calling agent, so file changes are visible to both.
+    While running, it appears in `synapse list` as `wf-helper-<workflow>-<id>`.
+    If you need full prior context, avoid `self` and target an existing running agent explicitly.
 
 !!! note "Auto-detection"
     If a step's target resolves to the calling agent (by name, ID, or type when only one agent of that type is running), the runner automatically treats it as a self-target step. You can use `target: self` explicitly to make the intent clear.

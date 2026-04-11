@@ -22,7 +22,6 @@ def _get_pattern_store() -> PatternStore:
 def _get_pattern_runner() -> PatternRunner:
     """Return the shared PatternRunner singleton."""
     return get_runner()
-    return PatternRunner()
 
 
 def _resolve_scope(args: argparse.Namespace) -> Scope | None:
@@ -155,8 +154,6 @@ def cmd_multiagent_init(args: argparse.Namespace) -> None:
 
     store = _get_pattern_store()
     try:
-        if hasattr(store, "_validate_name"):
-            store._validate_name(name)
         if not force and store.exists(name, scope=scope):
             print(
                 f"Error: Pattern '{name}' already exists. Use --force to overwrite.",
@@ -237,11 +234,10 @@ def cmd_multiagent_run(args: argparse.Namespace) -> None:
     runner = _get_pattern_runner()
     try:
         pattern_type = pattern.get("pattern", name)
-        result = asyncio.run(
+        run_id = asyncio.run(
             runner.run_pattern(pattern_type, args.task, config=pattern)
         )
-        run_id = _coerce_run_id(result)
-        if run_id is None:
+        if not isinstance(run_id, str) or not run_id:
             print("Error: Pattern runner did not return a run id.", file=sys.stderr)
             sys.exit(1)
 
@@ -250,7 +246,11 @@ def cmd_multiagent_run(args: argparse.Namespace) -> None:
             return
 
         wait_for_run = getattr(runner, "wait_for_run", None)
-        final_result = asyncio.run(wait_for_run(run_id)) if wait_for_run else result
+        final_result = (
+            asyncio.run(wait_for_run(run_id))
+            if wait_for_run
+            else runner.get_run(run_id)
+        )
     except PatternError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

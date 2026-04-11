@@ -100,12 +100,13 @@ class PatternStore:
                 return True
             return False
 
+        deleted = False
         for dir_path in (self.project_dir, self.user_dir):
             path = dir_path / f"{name}.yaml"
             if path.is_file():
                 path.unlink()
-                return True
-        return False
+                deleted = True
+        return deleted
 
     def exists(self, name: str, scope: Scope | None = None) -> bool:
         """Check whether a pattern exists in the requested scope(s)."""

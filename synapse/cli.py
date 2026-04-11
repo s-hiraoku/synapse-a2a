@@ -5966,7 +5966,7 @@ Run 'synapse workflow <subcommand> --help' for detailed usage.""",
     # ── multiagent (map) ──────────────────────────────────────
     p_multiagent = subparsers.add_parser(
         "multiagent",
-        aliases=["map"],
+        aliases=["map", "ma"],
         help="Multi-agent coordination patterns",
         description="Multi-agent coordination patterns.",
         formatter_class=argparse.RawDescriptionHelpFormatter,

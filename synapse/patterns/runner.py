@@ -110,11 +110,12 @@ class PatternRunner:
             run.status = "failed"
             run.error = str(exc)
         finally:
+            agents = [self._agent_to_dict(agent) for agent in pattern._agents]
             try:
                 await pattern.cleanup()
             finally:
                 run.completed_at = time.time()
-                run.agents = [self._agent_to_dict(agent) for agent in pattern._agents]
+                run.agents = agents
                 self._live_patterns.pop(run.run_id, None)
                 self._tasks.pop(run.run_id, None)
                 self._evict_old_runs()
@@ -148,15 +149,16 @@ class PatternRunner:
                     for run_id, run in self._runs.items()
                     if run_id != keep_id and run.status != "running"
                 ),
-                next((run_id for run_id in self._runs if run_id != keep_id), None),
+                None,
             )
             if victim is None:
+                logger.warning(
+                    "Run cache at limit (%d) with all runs active", self._MAX_RUNS
+                )
                 break
             self._runs.pop(victim, None)
             self._live_patterns.pop(victim, None)
-            task = self._tasks.pop(victim, None)
-            if task is not None and not task.done():
-                task.cancel()
+            self._tasks.pop(victim, None)
 
     @staticmethod
     def _consume_task_exception(task: asyncio.Task[None]) -> None:

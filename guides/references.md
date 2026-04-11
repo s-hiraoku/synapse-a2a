@@ -1951,13 +1951,13 @@ synapse multiagent show <pattern_name> [--user] [--project]
 #### 1.25.4 synapse multiagent run
 
 ```bash
-synapse multiagent run <pattern_name> <task> [--dry-run] [--async] [--user] [--project]
+synapse multiagent run <pattern_name> --task <task> [--dry-run] [--async] [--user] [--project]
 ```
 
 | パラメータ | 必須 | 説明 |
 |-----------|------|------|
 | `pattern_name` | Yes | 実行するパターン名 |
-| `task` | Yes | タスクメッセージ |
+| `--task <task>`, `-t <task>` | Yes | タスクメッセージ |
 | `--dry-run` | No | プレビューのみ（実行しない） |
 | `--async` | No | バックグラウンド実行（`run_id` を返す） |
 

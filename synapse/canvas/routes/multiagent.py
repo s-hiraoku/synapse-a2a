@@ -30,9 +30,9 @@ async def multiagent_list() -> dict[str, Any]:
 @multiagent_router.get("/api/multiagent/runs")
 async def multiagent_runs() -> dict[str, Any]:
     """List active and recent pattern runs."""
-    from synapse.patterns.runner import PatternRunner
+    from synapse.patterns.runner import get_runner
 
-    runner = PatternRunner()
+    runner = get_runner()
     runs = runner.get_runs()
     return {"runs": [run.to_dict() for run in runs]}
 
@@ -40,9 +40,9 @@ async def multiagent_runs() -> dict[str, Any]:
 @multiagent_router.get("/api/multiagent/runs/{run_id}")
 async def multiagent_run_status(run_id: str) -> dict[str, Any]:
     """Get status of a specific pattern run."""
-    from synapse.patterns.runner import PatternRunner
+    from synapse.patterns.runner import get_runner
 
-    runner = PatternRunner()
+    runner = get_runner()
     run = runner.get_run(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
@@ -55,7 +55,10 @@ async def multiagent_show(name: str) -> dict[str, Any]:
     from synapse.patterns.store import PatternStore
 
     store = PatternStore()
-    config = store.load(name)
+    try:
+        config = store.load(name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if config is None:
         raise HTTPException(status_code=404, detail=f"Pattern '{name}' not found")
     return {"pattern": config}

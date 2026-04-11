@@ -238,7 +238,7 @@ steps:
 
 The helper agent is a **newly spawned process** — it does not share the calling agent's conversation history or in-memory state. It runs in the same working directory, so file changes are visible to both, but it starts with a fresh context.
 
-If you need the step to execute with an existing agent's full context (e.g., reuse an already-running Codex that has relevant conversation history), use that agent's name or type as the target instead of `self`:
+If you need the step to execute with an existing agent's full context, target a different already-running agent by its unique name or Runtime ID (not `self` and not an ambiguous type-only target):
 
 ```yaml
 steps:

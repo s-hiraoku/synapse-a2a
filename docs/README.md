@@ -118,7 +118,7 @@ For user guides, see the [`/guides`](../guides/) directory.
   - `synapse/commands/multiagent.py` — CLI ハンドラ (`synapse multiagent` / `synapse map`)
   - `synapse/canvas/routes/multiagent.py` — Canvas API ルート (`/api/multiagent`)
   - `synapse/canvas/static/canvas-multiagent.js` — Canvas UI のパターン表示
-  - 5つの組み込みパターン: `generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state`
+  - 5つの組み込みテンプレート: `generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state`
   - Workflow（命令的なステップ列）とは異なり、エージェントの振る舞いルールを定義
   - パターン保存先: `.synapse/patterns/` (project) / `~/.synapse/patterns/` (user)
 

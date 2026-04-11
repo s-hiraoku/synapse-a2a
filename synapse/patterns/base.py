@@ -159,7 +159,11 @@ class CoordinationPattern(ABC):
         profile: str,
         **kwargs: Any,
     ) -> list[AgentHandle]:
-        return [await self.spawn_agent(profile, **kwargs) for _ in range(count)]
+        return list(
+            await asyncio.gather(
+                *[self.spawn_agent(profile, **kwargs) for _ in range(count)]
+            )
+        )
 
     async def stop_agent(self, agent: AgentHandle) -> None:
         await asyncio.to_thread(
@@ -281,8 +285,8 @@ class CoordinationPattern(ABC):
             timeout=60,
         )
 
-    async def canvas_post(self, format: str, body: str, **kwargs: Any) -> None:
-        command = ["synapse", "canvas", "post", format, body]
+    async def canvas_post(self, content_format: str, body: str, **kwargs: Any) -> None:
+        command = ["synapse", "canvas", "post", content_format, body]
         if title := kwargs.get("title"):
             command.extend(["--title", str(title)])
         if tags := kwargs.get("tags"):

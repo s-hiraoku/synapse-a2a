@@ -117,23 +117,16 @@ class FakePatternRunner:
         task: str,
         config: dict[str, Any] | None = None,
         on_update: Any = None,
-    ) -> SimpleNamespace:
-        if config and config.get("dry_run"):
-            return SimpleNamespace(
-                dry_run=True,
-                pattern=pattern_type,
-                task=task,
-                agents=["Generator", "Verifier"],
-            )
-
+    ) -> str:
+        run_id = "run-123"
         run = SimpleNamespace(
-            run_id="run-123",
+            run_id=run_id,
             status="completed",
             output="ok",
             agents=["Generator", "Verifier"],
         )
-        self.runs[run.run_id] = run
-        return run
+        self.runs[run_id] = run
+        return run_id
 
     async def wait_for_run(self, run_id: str) -> SimpleNamespace:
         return self.runs[run_id]
