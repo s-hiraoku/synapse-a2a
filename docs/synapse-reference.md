@@ -253,6 +253,17 @@ steps:
 - Nested workflow execution from within a helper agent is **forbidden** (maximum helper depth is 1). This prevents infinite spawn loops.
 - The depth guard applies to both CLI (`cmd_workflow_run`) and async (`run_workflow`) execution paths.
 
+### Why not execute in-process?
+
+Direct in-process execution of `target: self` (without a helper) is not feasible for four reasons:
+
+1. **Deadlock**: LLM CLI agents are single-turn — they process one prompt at a time. With `response_mode: wait`, the agent polls its own task endpoint while unable to process the incoming message, creating a deadlock.
+2. **Context pollution**: All step outputs accumulate in one context window, wasting tokens and risking context overflow. A helper starts clean per step.
+3. **Fault isolation**: A failed step (e.g., bad git operation) corrupts the caller's state. With a helper, the caller is unaffected.
+4. **Reentrancy**: A step may trigger another workflow. In-process execution has no natural recursion guard; the helper model enforces depth limits across process boundaries.
+
+**Recommended**: Use `target: codex` or `target: claude` to send to an existing agent instead of `self`. This avoids helper spawn overhead, prevents deadlock, and keeps context clean.
+
 ### Self-target detection
 
 A target is considered "self" when any of the following is true:

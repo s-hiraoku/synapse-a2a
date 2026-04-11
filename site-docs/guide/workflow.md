@@ -152,6 +152,27 @@ When the workflow runner encounters `target: self`, it automatically spawns a **
 !!! note "Auto-detection"
     If a step's target resolves to the calling agent (by name, ID, or type when only one agent of that type is running), the runner automatically treats it as a self-target step. You can use `target: self` explicitly to make the intent clear.
 
+??? info "Design note: why not execute in-process?"
+    A natural question is: why not skip the helper and execute `target: self` steps directly inside the calling agent? There are several reasons this is not feasible with the current architecture:
+
+    **1. Deadlock** — LLM CLI agents (Claude Code, Codex, Gemini CLI) are single-turn: they process one prompt at a time. When a workflow step uses `response_mode: wait`, the runner polls the target's task endpoint until the task completes. If the target is the same agent, the agent is blocked polling itself while also unable to process the incoming message — a classic deadlock.
+
+    **2. Context pollution** — Running all steps in one agent context accumulates output from every step (documentation generation, git operations, CI checks, etc.) into a single context window. This wastes tokens, introduces noise, and risks exceeding context limits. A helper starts with a clean context per step.
+
+    **3. Fault isolation** — If step 3 corrupts the agent's state (e.g., a bad git operation), steps 4 and 5 are affected. With a helper, the caller remains unaffected and can retry or skip.
+
+    **4. Reentrancy** — A step might invoke a skill that itself triggers another workflow. In-process execution has no natural guard against infinite recursion; the helper model uses a depth limit (`SYNAPSE_WORKFLOW_HELPER_DEPTH`) that is straightforward to enforce across process boundaries.
+
+    **Recommended alternative**: Instead of `target: self`, use an explicit agent target like `target: codex` to send the message to an already-running agent. This avoids helper spawn overhead, prevents deadlock, keeps context clean, and gives you control over which agent handles each step.
+
+    ```yaml
+    # Preferred: use an existing agent instead of self
+    steps:
+      - target: codex
+        message: "/release"
+        response_mode: wait
+    ```
+
 ## List Workflows
 
 ```bash
