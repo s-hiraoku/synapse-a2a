@@ -188,6 +188,25 @@ def test_list_agents_filter_by_status() -> None:
     }
 
 
+def test_list_agents_returns_error_payload_on_registry_oserror() -> None:
+    registry = create_registry()
+    registry.list_agents.side_effect = OSError("registry unavailable")
+    server = SynapseMCPServer(registry_factory=lambda: registry)
+
+    payload = server.call_tool("list_agents", {})
+
+    assert payload == {"agents": [], "error": "registry unavailable"}
+
+
+def test_list_agents_skips_malformed_agent_entries() -> None:
+    registry = create_registry(agents={"synapse-claude-8100": object()})
+    server = SynapseMCPServer(registry_factory=lambda: registry)
+
+    payload = server.call_tool("list_agents", {})
+
+    assert payload == {"agents": []}
+
+
 def test_list_agents_via_handle_request() -> None:
     agents = {
         "synapse-codex-8120": make_agent(

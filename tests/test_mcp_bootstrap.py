@@ -149,6 +149,25 @@ def test_bootstrap_agent_returns_runtime_context(tmp_path: Path) -> None:
     assert "synapse://instructions/default" in payload["instruction_resources"]
 
 
+def test_list_resources_returns_default_when_file_safety_manager_unavailable() -> None:
+    server = SynapseMCPServer(
+        file_safety_factory=lambda: (_ for _ in ()).throw(OSError())
+    )
+
+    resources = server.list_resources()
+
+    assert any(item.uri == "synapse://instructions/default" for item in resources)
+
+
+def test_bootstrap_agent_wraps_settings_load_value_error() -> None:
+    server = SynapseMCPServer(
+        settings_factory=lambda: (_ for _ in ()).throw(ValueError("bad settings"))
+    )
+
+    with pytest.raises(RuntimeError, match="Failed to load settings: bad settings"):
+        server.call_tool("bootstrap_agent", {})
+
+
 def test_handle_request_supports_tools_call(tmp_path: Path) -> None:
     settings = _create_settings(tmp_path)
     server = SynapseMCPServer(

@@ -219,6 +219,95 @@ class TestSystemPanelRegistryErrors:
             for item in file_locks
         )
 
+    def test_system_panel_skips_skills_when_discovery_hits_oserror(
+        self, client, monkeypatch
+    ):
+        """Skill collection should degrade gracefully on filesystem errors."""
+        monkeypatch.setattr(
+            "synapse.skills.discover_skills",
+            lambda **kwargs: (_ for _ in ()).throw(OSError("boom")),
+        )
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        assert resp.json()["skills"] == []
+
+    def test_system_panel_skips_skill_sets_when_loading_hits_oserror(
+        self, client, monkeypatch
+    ):
+        """Skill set collection should degrade gracefully on read errors."""
+        monkeypatch.setattr(
+            "synapse.skills.load_skill_sets",
+            lambda: (_ for _ in ()).throw(OSError("boom")),
+        )
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        assert resp.json()["skill_sets"] == []
+
+    def test_system_panel_skips_sessions_when_listing_hits_oserror(
+        self, client, monkeypatch
+    ):
+        """Session collection should degrade gracefully on filesystem errors."""
+
+        def raise_oserror(self):  # noqa: ARG001
+            raise OSError("boom")
+
+        monkeypatch.setattr("synapse.session.SessionStore.list_sessions", raise_oserror)
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        assert resp.json()["sessions"] == []
+
+    def test_system_panel_skips_workflows_when_listing_hits_oserror(
+        self, client, monkeypatch
+    ):
+        """Workflow collection should degrade gracefully on filesystem errors."""
+
+        def raise_oserror(self):  # noqa: ARG001
+            raise OSError("boom")
+
+        monkeypatch.setattr(
+            "synapse.workflow.WorkflowStore.list_workflows",
+            raise_oserror,
+        )
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        assert resp.json()["workflows"] == []
+
+    def test_system_panel_skips_environment_when_defaults_are_malformed(
+        self, client, monkeypatch
+    ):
+        """Environment collection should degrade gracefully on malformed defaults."""
+        monkeypatch.setattr("synapse.settings.DEFAULT_SETTINGS", None)
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        assert resp.json()["environment"] == {}
+
+    def test_system_panel_skips_tips_when_store_query_hits_sqlite_error(
+        self, client, monkeypatch
+    ):
+        """Tip collection should degrade gracefully on SQLite errors."""
+
+        def raise_db_error(self):  # noqa: ARG001
+            raise sqlite3.OperationalError("boom")
+
+        monkeypatch.setattr(
+            "synapse.canvas.store.CanvasStore.list_tips", raise_db_error
+        )
+
+        resp = client.get("/api/system")
+
+        assert resp.status_code == 200
+        assert resp.json()["tips"] == []
+
     def test_system_panel_excludes_expired_file_locks(
         self, client, tmp_path, monkeypatch
     ):
@@ -1426,6 +1515,54 @@ class TestWorkflowAPI:
         sender_task_id = payload["metadata"]["sender_task_id"]
         assert isinstance(sender_task_id, str)
         assert sender_task_id
+
+    def test_workflow_list_returns_empty_when_store_hits_oserror(
+        self, tmp_path, monkeypatch
+    ):
+        """Workflow listing should degrade gracefully on filesystem errors."""
+        from synapse.canvas.server import create_app
+
+        def raise_oserror(self):  # noqa: ARG001
+            raise OSError("boom")
+
+        monkeypatch.setattr(
+            "synapse.workflow.WorkflowStore.list_workflows",
+            raise_oserror,
+        )
+
+        client = TestClient(create_app(db_path=str(tmp_path / "canvas.db")))
+        resp = client.get("/api/workflow")
+
+        assert resp.status_code == 200
+        assert resp.json()["workflows"] == []
+
+
+class TestDatabaseAPI:
+    """Tests for Canvas database browsing endpoints."""
+
+    def test_db_list_skips_unreadable_database_file(self, tmp_path, monkeypatch):
+        """Database listing should skip files that fail SQLite read-only open."""
+        from synapse.canvas.server import create_app
+
+        project_synapse = tmp_path / ".synapse"
+        project_synapse.mkdir(parents=True)
+        broken_db = project_synapse / "broken.db"
+        broken_db.write_text("not a sqlite db", encoding="utf-8")
+        original_connect = sqlite3.connect
+
+        def raise_db_error(database, *args, **kwargs):  # noqa: ARG001
+            if database == f"file:{broken_db}?mode=ro":
+                raise sqlite3.OperationalError("boom")
+            return original_connect(database, *args, **kwargs)
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("synapse.canvas.routes.db.sqlite3.connect", raise_db_error)
+
+        client = TestClient(create_app(db_path=str(tmp_path / "canvas.db")))
+        resp = client.get("/api/db/list")
+
+        assert resp.status_code == 200
+        assert all(item["path"] != str(broken_db) for item in resp.json())
 
 
 class TestLinkPreview:

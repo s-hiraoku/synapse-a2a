@@ -40,7 +40,7 @@ async def workflow_list() -> dict[str, Any]:
         store = WorkflowStore()
         for workflow in store.list_workflows():
             workflows.append(_workflow_to_dict(workflow))
-    except Exception:
+    except (OSError, RuntimeError):
         server_module.logger.debug("Failed to list workflows", exc_info=True)
     return {"workflows": workflows, "project_dir": str(Path.cwd())}
 
