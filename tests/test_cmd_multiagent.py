@@ -106,9 +106,8 @@ class FakePatternStore:
 class FakePatternRunner:
     """Minimal async runner implementation for isolated command tests."""
 
-    runs: dict[str, SimpleNamespace] = {}
-
     def __init__(self) -> None:
+        self.runs: dict[str, SimpleNamespace] = {}
         self.stop_calls: list[str] = []
 
     async def run_pattern(
@@ -437,7 +436,6 @@ def test_status_nonexistent_run(
 ) -> None:
     """status should exit with an error for an unknown run id."""
     multiagent = _load_multiagent_module(monkeypatch)
-    FakePatternRunner.runs.clear()
     runner = FakePatternRunner()
 
     with (
@@ -455,7 +453,6 @@ def test_stop_nonexistent_run(
 ) -> None:
     """stop should exit with an error for an unknown run id."""
     multiagent = _load_multiagent_module(monkeypatch)
-    FakePatternRunner.runs.clear()
     runner = FakePatternRunner()
 
     with (

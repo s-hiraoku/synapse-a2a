@@ -13,7 +13,7 @@ import time
 import uuid
 from collections import OrderedDict
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field, is_dataclass
+from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -185,6 +185,9 @@ class PatternRunner:
             config_class = PatternRunner._base_attr("PatternConfig")
         if hasattr(config_class, "from_dict"):
             return config_class.from_dict(config_data)
+        if is_dataclass(config_class):
+            field_names = {f.name for f in fields(config_class)}
+            config_data = {k: v for k, v in config_data.items() if k in field_names}
         return config_class(**config_data)
 
     def _resolve_pattern_class(self, pattern_type: str) -> type[Any]:

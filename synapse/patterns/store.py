@@ -80,9 +80,15 @@ class PatternStore:
             for file_path in sorted(dir_path.glob("*.yaml")):
                 try:
                     loaded = self._parse_file(file_path)
-                    loaded.setdefault("scope", dir_scope)
+                    loaded["scope"] = dir_scope
                     patterns.append(loaded)
-                except (yaml.YAMLError, TypeError, ValueError) as exc:
+                except (
+                    yaml.YAMLError,
+                    TypeError,
+                    ValueError,
+                    OSError,
+                    UnicodeDecodeError,
+                ) as exc:
                     logger.warning(
                         "Skipping invalid pattern file %s: %s", file_path, exc
                     )
@@ -145,7 +151,13 @@ class PatternStore:
             return None
         try:
             return self._parse_file(file_path)
-        except (yaml.YAMLError, TypeError, ValueError) as exc:
+        except (
+            yaml.YAMLError,
+            TypeError,
+            ValueError,
+            OSError,
+            UnicodeDecodeError,
+        ) as exc:
             logger.warning("Failed to load pattern %s: %s", file_path, exc)
             return None
 

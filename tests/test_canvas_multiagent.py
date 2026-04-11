@@ -59,7 +59,7 @@ def _install_pattern_runner(monkeypatch, runs: list[object]) -> None:
             return None
 
     runner_mod.PatternRunner = PatternRunner
-    runner_mod.get_runner = PatternRunner
+    runner_mod.get_runner = lambda: PatternRunner()
     monkeypatch.setitem(sys.modules, "synapse.patterns", patterns_pkg)
     monkeypatch.setitem(sys.modules, "synapse.patterns.runner", runner_mod)
 

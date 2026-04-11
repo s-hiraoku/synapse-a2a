@@ -6611,6 +6611,7 @@ Scopes:
         "workflow": ("workflow_command", p_workflow),
         "multiagent": ("multiagent_command", p_multiagent),
         "map": ("multiagent_command", p_multiagent),
+        "ma": ("multiagent_command", p_multiagent),
         "agents": ("agents_command", p_agents),
         "canvas": ("canvas_command", p_canvas),
         "worktree": ("worktree_command", p_worktree),
