@@ -556,7 +556,9 @@ Each agent is:
 | Component | File | Role |
 | --------- | ---- | ---- |
 | FastAPI Server | `synapse/server.py` | Provides A2A endpoints |
-| A2A Router | `synapse/a2a_compat.py` | A2A protocol implementation |
+| A2A Router | `synapse/a2a_compat.py` | A2A protocol endpoints and PTY bridging |
+| A2A Models | `synapse/a2a_models.py` | Pydantic data models for A2A messages and tasks |
+| TaskStore | `synapse/task_store.py` | In-memory task persistence and status tracking |
 | A2A Client | `synapse/a2a_client.py` | Communication with other agents |
 | TerminalController | `synapse/controller.py` | PTY management, READY/PROCESSING detection |
 | Shell | `synapse/shell.py` | Interactive shell with @Agent pattern routing |
@@ -564,6 +566,7 @@ Each agent is:
 | Worktree | `synapse/worktree.py` | Synapse-native git worktree isolation for all agents |
 | FileSafety | `synapse/file_safety.py` | Multi-agent file locking and change tracking |
 | SkillManager | `synapse/skills.py` | Skill discovery, deploy, import, skill sets |
+| Commands | `synapse/commands/` | CLI command handlers (extracted from cli.py) |
 | SkillManagerCmd | `synapse/commands/skill_manager.py` | Skill management TUI and CLI |
 | AgentProfileStore | `synapse/agent_profiles.py` | Saved agent definitions (reusable templates for spawn) |
 | WorkflowRunDB | `synapse/workflow_db.py` | SQLite persistence for workflow execution history |
