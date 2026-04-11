@@ -125,7 +125,13 @@ class ExternalAgentRegistry:
                         data = json.load(f)
                         agent = ExternalAgent(**data)
                         self._cache[agent.alias] = agent
-                except (OSError, json.JSONDecodeError, TypeError, ValueError) as e:
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                    TypeError,
+                    ValueError,
+                    AttributeError,
+                ) as e:
                     print(f"Warning: Failed to load {file}: {e}")
 
     def _save(self, agent: ExternalAgent) -> None:

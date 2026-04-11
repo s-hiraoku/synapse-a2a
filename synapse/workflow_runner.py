@@ -282,7 +282,7 @@ def get_runs() -> list[WorkflowRun]:
     try:
         db = _get_db()
         db_runs = db.get_runs()
-    except (OSError, sqlite3.Error):
+    except (OSError, sqlite3.Error, KeyError, TypeError, ValueError):
         logger.debug("Failed to read workflow runs from DB", exc_info=True)
         return cached
 
@@ -306,7 +306,7 @@ def get_run(run_id: str) -> WorkflowRun | None:
         d = db.get_run(run_id)
         if d is not None:
             return _dict_to_run(d)
-    except (OSError, sqlite3.Error):
+    except (OSError, sqlite3.Error, KeyError, TypeError, ValueError):
         logger.debug("Failed to read run %s from DB", run_id, exc_info=True)
     return None
 

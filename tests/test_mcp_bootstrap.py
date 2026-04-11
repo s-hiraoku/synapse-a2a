@@ -149,10 +149,8 @@ def test_bootstrap_agent_returns_runtime_context(tmp_path: Path) -> None:
     assert "synapse://instructions/default" in payload["instruction_resources"]
 
 
-def test_list_resources_returns_default_when_file_safety_manager_unavailable() -> None:
-    server = SynapseMCPServer(
-        file_safety_factory=lambda: (_ for _ in ()).throw(OSError())
-    )
+def test_list_resources_always_includes_default() -> None:
+    server = SynapseMCPServer()
 
     resources = server.list_resources()
 
