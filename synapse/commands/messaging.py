@@ -51,7 +51,6 @@ def _build_a2a_cmd(
 ) -> list[str]:
     """Build command arguments for a2a.py subcommand."""
     import tempfile
-    import uuid
 
     cmd = [sys.executable, "-m", "synapse.tools.a2a", subcommand]
 
