@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -127,7 +128,8 @@ def test_list_patterns_skips_invalid_yaml(
     (project_dir / "broken.yaml").write_text("name: broken: [", encoding="utf-8")
     store.save({"name": "valid", "pattern_type": "generator-verifier"})
 
-    patterns = store.list_patterns(scope="project")
+    with caplog.at_level(logging.WARNING, logger="synapse.patterns.store"):
+        patterns = store.list_patterns(scope="project")
 
     assert [pattern["name"] for pattern in patterns] == ["valid"]
     assert "Skipping invalid pattern file" in caplog.text
