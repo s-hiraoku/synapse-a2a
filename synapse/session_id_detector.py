@@ -65,7 +65,7 @@ def detect_session_id(
 
     try:
         return fn(working_dir, **home_overrides)
-    except Exception:
+    except (OSError, ValueError, KeyError):
         logger.debug("session_id detection failed for %s", profile, exc_info=True)
         return None
 
@@ -106,7 +106,7 @@ def list_sessions(
     for pname, fn in targets.items():
         try:
             results.extend(fn(working_dir, **home_overrides))
-        except Exception:
+        except (OSError, ValueError, KeyError):
             logger.debug("list_sessions failed for %s", pname, exc_info=True)
 
     results.sort(key=lambda s: s.modified_at, reverse=True)

@@ -400,7 +400,7 @@ def _run_applescript(script: str, expected_token: str | None = None) -> bool:
     except subprocess.TimeoutExpired:
         logger.warning("AppleScript timed out")
         return False
-    except Exception as e:
+    except OSError as e:
         logger.warning(f"AppleScript error: {e}")
         return False
 
@@ -556,7 +556,7 @@ def _jump_vscode(tty_device: str | None, agent_id: str) -> bool:
                 )
             except subprocess.TimeoutExpired:
                 logger.warning("wmctrl command timed out")
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"wmctrl failed: {e}")
 
         logger.warning("VS Code terminal jump not supported on this platform")
@@ -764,7 +764,7 @@ def _jump_tmux(agent_info: dict[str, Any]) -> bool:
     except subprocess.TimeoutExpired:
         logger.warning("tmux command timed out")
         return False
-    except Exception as e:
+    except OSError as e:
         logger.warning(f"tmux error: {e}")
         return False
 
@@ -849,7 +849,7 @@ def _get_tmux_spawn_panes() -> str:
             line = result.stdout.strip()
             if "=" in line:
                 return line.split("=", 1)[1]
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         pass
     # Fallback to process env (for tests)
     return os.environ.get("SYNAPSE_SPAWN_PANES", "")
@@ -914,7 +914,7 @@ def _get_tmux_auto_split() -> _TmuxAutoSplit | None:
         # tmux cells are roughly 2:1 (width:height), so adjust
         flag = "-h" if best_w >= best_h * 2 else "-v"
         return _TmuxAutoSplit(target_pane=best_pane, flag=flag)
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         return None
 
 
@@ -936,7 +936,7 @@ def _get_iterm2_session_count() -> int | None:
         )
         if result.returncode == 0 and result.stdout.strip():
             return int(result.stdout.strip())
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError):
         pass
     return None
 

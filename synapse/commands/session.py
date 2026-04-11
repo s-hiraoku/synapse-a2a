@@ -141,7 +141,7 @@ def cmd_session_list(args: argparse.Namespace) -> None:
                 )
             Console().print(table)
             return
-        except Exception:
+        except ImportError:
             pass
 
     # Plain text fallback
@@ -346,7 +346,7 @@ def cmd_session_sessions(args: argparse.Namespace) -> None:
                 )
             Console().print(table)
             return
-        except Exception:
+        except ImportError:
             pass
 
     # Plain text fallback

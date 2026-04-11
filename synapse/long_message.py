@@ -100,7 +100,7 @@ class LongMessageStore:
             temp_path.write_text(content, encoding="utf-8")
             temp_path.rename(file_path)
             logger.debug(f"Stored long message to {file_path}")
-        except Exception:
+        except OSError:
             # Clean up temp file on error
             if temp_path.exists():
                 temp_path.unlink()

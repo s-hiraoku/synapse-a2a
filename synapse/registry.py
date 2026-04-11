@@ -141,7 +141,7 @@ class AgentRegistry:
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(temp_path, file_path)
-        except Exception:
+        except (OSError, TypeError, ValueError):
             if os.path.exists(temp_path):
                 with contextlib.suppress(OSError):
                     os.unlink(temp_path)
@@ -338,7 +338,7 @@ class AgentRegistry:
                     # Atomic rename (POSIX guarantee)
                     os.replace(temp_path, file_path)
                     return True
-                except Exception:
+                except (OSError, TypeError, ValueError):
                     if os.path.exists(temp_path):
                         with contextlib.suppress(OSError):
                             os.unlink(temp_path)

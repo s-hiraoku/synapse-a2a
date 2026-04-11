@@ -102,7 +102,7 @@ def cmd_workflow_create(args: argparse.Namespace) -> None:
 
         project_dir = Path.cwd()
         sync_workflow_skill(template, project_dir)
-    except Exception as e:
+    except (ImportError, OSError) as e:
         logger.warning("Failed to sync workflow skill: %s", e)
 
     print(f"Workflow template created: {path}")
@@ -147,7 +147,7 @@ def cmd_workflow_list(args: argparse.Namespace) -> None:
                 )
             Console().print(table)
             return
-        except Exception:
+        except ImportError:
             pass
 
     # Plain text fallback
@@ -231,7 +231,7 @@ def cmd_workflow_delete(args: argparse.Namespace) -> None:
             from synapse.workflow_skill_sync import remove_workflow_skill
 
             remove_workflow_skill(name, Path.cwd())
-        except Exception as e:
+        except (ImportError, OSError) as e:
             logger.warning("Failed to remove workflow skill: %s", e)
 
         print(f"Workflow '{name}' deleted.")
@@ -262,7 +262,7 @@ def _try_spawn_agent(profile: str) -> bool:
             file=sys.stderr,
         )
         return False
-    except Exception as e:
+    except (ImportError, OSError, RuntimeError) as e:
         print(f"  Warning: failed to spawn '{profile}': {e}", file=sys.stderr)
         return False
 
@@ -313,7 +313,7 @@ def _run_step(
         )
         try:
             asyncio.run(helper.execute_step(step, step_result))
-        except Exception as exc:
+        except (OSError, RuntimeError) as exc:
             print(f"  Helper execution failed: {exc}", file=sys.stderr)
             return False
         if step_result.status == "failed":
@@ -506,7 +506,9 @@ def _workflow_background_worker(
                 await asyncio.sleep(0.1)
 
         asyncio.run(_run())
-    except Exception as exc:  # pragma: no cover - defensive worker reporting
+    except (
+        Exception
+    ) as exc:  # broad catch: defensive worker must report all errors to parent
         with contextlib.suppress(Exception):
             conn.send(("error", str(exc)))
     finally:

@@ -39,14 +39,14 @@ def _get_tmux_pane_ids() -> set[str]:
         )
         if result.returncode == 0 and result.stdout.strip():
             return set(result.stdout.strip().splitlines())
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         pass
     return set()
 
 
 def _set_tmux_spawn_panes(value: str) -> None:
     """Write SYNAPSE_SPAWN_PANES to the tmux session environment."""
-    with contextlib.suppress(Exception):
+    with contextlib.suppress(OSError, subprocess.SubprocessError):
         subprocess.run(
             ["tmux", "set-environment", "SYNAPSE_SPAWN_PANES", value],
             capture_output=True,

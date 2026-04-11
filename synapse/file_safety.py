@@ -380,7 +380,7 @@ class FileSafetyManager:
             expired = self.cleanup_expired_locks()
             if expired > 0:
                 logger.debug(f"Cleaned up {expired} expired locks")
-        except Exception as e:
+        except (OSError, sqlite3.Error) as e:
             logger.debug(f"Auto-cleanup error (ignored): {e}")
 
     # ========== File Locking Methods ==========

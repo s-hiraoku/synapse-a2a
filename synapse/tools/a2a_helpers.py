@@ -109,7 +109,7 @@ def _validate_explicit_sender(sender: str) -> str | None:
                     f"Error: --from requires agent ID, not agent type.\n"
                     f"Use: --from {agent_id}"
                 )
-    except Exception:
+    except (OSError, KeyError, ValueError):
         pass
 
     return (
@@ -125,7 +125,7 @@ def _lookup_sender_in_registry(agent_id: str) -> dict[str, str]:
         agents = reg.list_agents()
         if agent_id in agents:
             return _extract_sender_info_from_agent(agent_id, agents[agent_id])
-    except Exception:
+    except (OSError, KeyError, ValueError):
         pass
     return {"sender_id": agent_id}
 
@@ -160,7 +160,7 @@ def _find_sender_by_pid() -> dict[str, str]:
                 if info.get("tty_device") == current_tty:
                     return _extract_sender_info_from_agent(agent_id, info)
 
-    except Exception as e:
+    except (OSError, KeyError, ValueError) as e:
         logger.error("Error in _find_sender_by_pid: %s", e, exc_info=True)
     return {}
 
@@ -234,7 +234,7 @@ def _record_sent_message(
             status="sent",
             metadata=metadata,
         )
-    except Exception:
+    except Exception:  # broad catch: best-effort history recording must not break send
         logger.debug("Failed to record sent message to history", exc_info=True)
 
 

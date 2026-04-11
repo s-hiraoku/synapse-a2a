@@ -526,7 +526,7 @@ def _send_skill_set_message(
         )
     except subprocess.TimeoutExpired:
         return False
-    except Exception:
+    except OSError:
         return False
     return result.returncode == 0
 

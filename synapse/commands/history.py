@@ -222,7 +222,7 @@ def cmd_history_cleanup(args: argparse.Namespace) -> None:
                 count = cursor.fetchone()[0]
                 conn.close()
                 print(f"Would delete {count} observations older than {args.days} days")
-            except Exception as e:
+            except sqlite3.Error as e:
                 print(f"Error checking observations: {e}", file=sys.stderr)
         else:
             try:
@@ -233,7 +233,7 @@ def cmd_history_cleanup(args: argparse.Namespace) -> None:
                     print("Would delete oldest observations to reach target size")
                 else:
                     print("No cleanup needed (already under target size)")
-            except Exception as e:
+            except (OSError, sqlite3.Error) as e:
                 print(f"Error checking database: {e}", file=sys.stderr)
         return
 
@@ -344,7 +344,7 @@ def cmd_history_stats(args: argparse.Namespace) -> None:
                         f"${counts.get('cost_usd', 0.0):<9.4f}"
                     )
                 print()
-    except Exception:
+    except (sqlite3.Error, AttributeError, KeyError, TypeError):
         pass
 
     if args.agent:

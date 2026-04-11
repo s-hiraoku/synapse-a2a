@@ -57,7 +57,7 @@ async def workflow_run(name: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
 
     body: dict[str, Any] = {}
-    with contextlib.suppress(Exception):
+    with contextlib.suppress(ValueError, UnicodeDecodeError):
         body = await request.json()
     continue_on_error = body.get("continue_on_error", False)
     sender_info = {

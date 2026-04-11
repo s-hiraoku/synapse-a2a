@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import sqlite3
 import subprocess
 import time
 import uuid
@@ -188,7 +189,7 @@ class _WorkflowHelper:
                 working_dir,
                 extra_env,
             )
-        except Exception as exc:
+        except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
             logger.warning(
                 "Failed to spawn workflow helper for %s: %s",
                 self.workflow_name,
@@ -251,7 +252,7 @@ class _WorkflowHelper:
                 check=False,
                 timeout=30,
             )
-        except Exception:
+        except (OSError, subprocess.SubprocessError) as _kill_exc:
             logger.warning(
                 "Failed to kill workflow helper %s", self.agent_name, exc_info=True
             )
@@ -259,7 +260,7 @@ class _WorkflowHelper:
         if self.agent_id:
             try:
                 AgentRegistry().unregister(self.agent_id)
-            except Exception:
+            except (OSError, KeyError) as _unreg_exc:
                 logger.debug(
                     "Workflow helper unregister cleanup failed for %s",
                     self.agent_id,
@@ -281,7 +282,7 @@ def get_runs() -> list[WorkflowRun]:
     try:
         db = _get_db()
         db_runs = db.get_runs()
-    except Exception:
+    except (OSError, sqlite3.Error):
         logger.debug("Failed to read workflow runs from DB", exc_info=True)
         return cached
 
@@ -305,7 +306,7 @@ def get_run(run_id: str) -> WorkflowRun | None:
         d = db.get_run(run_id)
         if d is not None:
             return _dict_to_run(d)
-    except Exception:
+    except (OSError, sqlite3.Error):
         logger.debug("Failed to read run %s from DB", run_id, exc_info=True)
     return None
 
@@ -384,7 +385,7 @@ async def run_workflow(
     # Persist initial run state to DB
     try:
         _get_db().save_run(run.to_db_dict())
-    except Exception:
+    except (OSError, sqlite3.Error):
         logger.debug("Failed to persist new run %s to DB", run_id, exc_info=True)
 
     task = asyncio.create_task(
@@ -718,7 +719,7 @@ async def _execute_step(
             return
         try:
             await helper.execute_step(wf_step, step)
-        except Exception as exc:
+        except Exception as exc:  # broad catch: step execution may fail in many ways
             step.status = "failed"
             step.error = str(exc) or "Workflow helper failed"
             step.completed_at = time.time()
@@ -798,7 +799,7 @@ async def _execute_workflow(
             if _is_self_target(wf_step.target, sender_info) and helper is None:
                 try:
                     helper = _WorkflowHelper(workflow.name, sender_info)
-                except Exception as exc:
+                except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
                     step.status = "failed"
                     step.error = str(exc) or "Failed to initialize workflow helper"
                     step.completed_at = time.time()
@@ -824,14 +825,14 @@ async def _execute_workflow(
                 continue
 
             _notify(on_update)
-    except Exception:
+    except Exception:  # broad catch: top-level safety net for workflow crash logging
         logger.exception("Workflow '%s' crashed unexpectedly", workflow.name)
         has_failure = True
     finally:
         if helper is not None:
             try:
                 helper.kill()
-            except Exception:
+            except (OSError, subprocess.SubprocessError) as _cleanup_exc:
                 logger.warning(
                     "Workflow helper cleanup failed for %s",
                     workflow.name,
@@ -845,7 +846,7 @@ async def _execute_workflow(
     # Persist final state to DB
     try:
         _get_db().save_run(run.to_db_dict())
-    except Exception:
+    except (OSError, sqlite3.Error):
         logger.debug(
             "Failed to persist completed run %s to DB", run.run_id, exc_info=True
         )

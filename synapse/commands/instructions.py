@@ -256,7 +256,7 @@ class InstructionsCommand:
                         self._print(
                             f"Warning: Skill set '{skill_set}' not found in definitions"
                         )
-                except Exception as e:
+                except (OSError, ValueError, KeyError) as e:
                     self._print(f"Warning: Failed to load skill set info: {e}")
 
             message += "\nIMPORTANT: Read your full instructions from these files:\n"

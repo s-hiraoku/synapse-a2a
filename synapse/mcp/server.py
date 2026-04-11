@@ -421,7 +421,7 @@ class SynapseMCPServer:
             from synapse.canvas import server as canvas_server
 
             canvas_server._broadcast_event("card_created", result)
-        except Exception as exc:  # pragma: no cover - best effort broadcast
+        except Exception as exc:  # pragma: no cover — broad catch: best-effort SSE broadcast; import or runtime errors are non-fatal
             logger.debug("Failed to broadcast Canvas SSE event: %s", exc)
 
         return result
@@ -1190,7 +1190,7 @@ class SynapseMCPServer:
                 "id": request_id,
                 "error": {"code": -32002, "message": f"Unknown resource: {exc}"},
             }
-        except Exception as exc:  # pragma: no cover - defensive server path
+        except Exception as exc:  # pragma: no cover — broad catch: JSON-RPC error boundary; must return structured error for any failure
             logger.exception("MCP request failed")
             return {
                 "jsonrpc": "2.0",

@@ -100,7 +100,7 @@ class TestSenderDetection:
         self, mock_registry_cls, mock_getpid, caplog
     ):
         # Setup: Registry throws exception
-        mock_registry_cls.side_effect = Exception("Registry error")
+        mock_registry_cls.side_effect = OSError("Registry error")
 
         # Enable propagation temporarily so caplog can capture log messages
         # (synapse logger has propagate=False when logging_config is loaded)
