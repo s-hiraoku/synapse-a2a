@@ -195,7 +195,11 @@ def cmd_memory_delete(args: argparse.Namespace) -> None:
                 file=sys.stderr,
             )
             sys.exit(1)
-    if scope == "project" and entry.get("working_dir") and entry["working_dir"] != os.getcwd():
+    if (
+        scope == "project"
+        and entry.get("working_dir")
+        and entry["working_dir"] != os.getcwd()
+    ):
         print(
             "Error: Memory belongs to a different project directory",
             file=sys.stderr,
