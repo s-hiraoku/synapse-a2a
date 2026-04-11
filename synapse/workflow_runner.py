@@ -23,6 +23,7 @@ from typing import Any
 
 import httpx
 
+from synapse.config import BLOCKING_TASK_STATES
 from synapse.registry import AgentRegistry
 from synapse.tools.a2a_helpers import _normalize_working_dir
 from synapse.workflow import Workflow, WorkflowError
@@ -226,6 +227,7 @@ class _WorkflowHelper:
             role=f"workflow helper for {self.workflow_name}",
             extra_env=extra_env,
             worktree=False,
+            auto_approve=True,
         )
         prepared.cwd = working_dir
         return execute_spawn([prepared], layout="auto")[0]
@@ -510,6 +512,11 @@ async def _poll_task_completion(
                 status = _extract_task_status(task_data)
                 if status in COMPLETED_TASK_STATES:
                     return status, _extract_task_output(task_data)
+                if status == "input_required":
+                    return "failed", (
+                        "Agent requires permission approval"
+                        " — check auto-approve configuration"
+                    )
             except httpx.HTTPError:
                 pass
             await asyncio.sleep(TASK_POLL_INTERVAL)
@@ -529,7 +536,7 @@ def _has_working_tasks(tasks_data: Any) -> bool:
     for task in task_list:
         if not isinstance(task, dict):
             continue
-        if _extract_task_status(task) == "working":
+        if _extract_task_status(task) in BLOCKING_TASK_STATES:
             return True
     return False
 

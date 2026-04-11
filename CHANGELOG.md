@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.2] - 2026-04-10
+
+### Fixed
+
+- `synapse list` table layout no longer breaks when agent status changes (READY → PROCESSING, etc.) — STATUS and CURRENT columns now use fixed widths to prevent layout shifts (#532)
+- CURRENT column preview text is pre-truncated so elapsed time suffix is always visible
+- Workflow `response_mode: wait` polling now treats `input_required` as terminal failure to avoid timeout waits (#533)
+- Helper-idle checks now treat `input_required` as blocking, preventing new step dispatch to permission-stuck helpers (#533)
+- Workflow helper spawning explicitly sets `auto_approve=True` to prevent permission-prompt stalls (#533)
+
+### Refactored
+
+- Extracted `_resolve_columns` helper in `RichRenderer` to deduplicate column-filtering logic
+- Extracted `_find_column` and `_wide_console_and_renderer` test helpers
+
+### Tests
+
+- Added 4 tests for stable layout: fixed STATUS width, fixed CURRENT width, layout stability across all status transitions, preview pre-truncation with elapsed time
+
 ## [0.24.1] - 2026-04-10
 
 ### Added
@@ -3266,7 +3285,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.1...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.2...HEAD
+[0.24.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.1...v0.24.2
 [0.24.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.5...v0.24.0
 [0.23.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.4...v0.23.5

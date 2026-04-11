@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.24.2
+
+- **Fixed**: `synapse list` table layout stable across status transitions — STATUS/CURRENT columns use fixed widths (#532)
+- **Fixed**: Workflow `response_mode: wait` polling treats `input_required` as terminal failure (#533)
+- **Fixed**: Helper-idle checks treat `input_required` as blocking to prevent dispatch to stuck helpers (#533)
+- **Fixed**: Workflow helper spawning sets `auto_approve=True` to prevent permission-prompt stalls (#533)
+- **Refactored**: Extracted `_resolve_columns` helper and test utilities
+
 ### v0.24.1
 
 - **Added**: `target: self` keyword in workflow YAML — steps targeting the calling agent are routed to a helper agent to avoid deadlock (#521, #526)
@@ -11,6 +19,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Changed**: Shared Memory marked as deprecated — use [LLM Wiki](design/llm-wiki.md) (`synapse wiki`) for new knowledge storage (#528)
 - **Changed**: CLAUDE.md simplified — detailed reference moved to `docs/synapse-reference.md` (guidance reorg)
 - **Removed**: Test-only workflow fixtures and orphan skills cleaned up
+
 
 ### v0.24.0
 
