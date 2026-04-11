@@ -252,7 +252,7 @@ class _WorkflowHelper:
                 check=False,
                 timeout=30,
             )
-        except (OSError, subprocess.SubprocessError) as _kill_exc:
+        except (OSError, subprocess.SubprocessError):
             logger.warning(
                 "Failed to kill workflow helper %s", self.agent_name, exc_info=True
             )
@@ -260,7 +260,7 @@ class _WorkflowHelper:
         if self.agent_id:
             try:
                 AgentRegistry().unregister(self.agent_id)
-            except (OSError, KeyError) as _unreg_exc:
+            except (OSError, KeyError):
                 logger.debug(
                     "Workflow helper unregister cleanup failed for %s",
                     self.agent_id,
@@ -832,7 +832,7 @@ async def _execute_workflow(
         if helper is not None:
             try:
                 helper.kill()
-            except (OSError, subprocess.SubprocessError) as _cleanup_exc:
+            except (OSError, subprocess.SubprocessError):
                 logger.warning(
                     "Workflow helper cleanup failed for %s",
                     workflow.name,

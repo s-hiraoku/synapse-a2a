@@ -313,7 +313,7 @@ def _run_step(
         )
         try:
             asyncio.run(helper.execute_step(step, step_result))
-        except (OSError, RuntimeError) as exc:
+        except Exception as exc:  # broad catch: step execution may fail in many ways
             print(f"  Helper execution failed: {exc}", file=sys.stderr)
             return False
         if step_result.status == "failed":
