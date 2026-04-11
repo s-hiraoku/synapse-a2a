@@ -138,8 +138,12 @@ class FakePatternRunner:
         return run_id in self.runs
 
 
-def _load_multiagent_module(monkeypatch: pytest.MonkeyPatch):
+def _load_multiagent_module(
+    monkeypatch: pytest.MonkeyPatch,
+    runner: FakePatternRunner | None = None,
+):
     """Import the multiagent command module with fake pattern dependencies."""
+    shared_runner = runner or FakePatternRunner()
     fake_patterns_pkg = ModuleType("synapse.patterns")
     fake_base_mod = ModuleType("synapse.patterns.base")
     fake_store_mod = ModuleType("synapse.patterns.store")
@@ -153,7 +157,7 @@ def _load_multiagent_module(monkeypatch: pytest.MonkeyPatch):
 
     fake_runner_mod.PatternRunner = FakePatternRunner
     fake_runner_mod.PatternError = FakePatternError
-    fake_runner_mod.get_runner = lambda: FakePatternRunner()
+    fake_runner_mod.get_runner = lambda: shared_runner
 
     monkeypatch.setitem(sys.modules, "synapse.patterns", fake_patterns_pkg)
     monkeypatch.setitem(sys.modules, "synapse.patterns.base", fake_base_mod)
