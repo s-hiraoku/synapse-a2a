@@ -87,6 +87,20 @@ synapse workflow run <name> --async              # Background execution (returns
 synapse workflow status <run_id>                 # Check workflow run status
 synapse workflow sync                            # Re-generate skills from all workflow YAMLs
 
+# Multi-Agent Patterns (declarative coordination, alias: synapse map)
+synapse multiagent init generator-verifier --name my-pattern
+synapse multiagent init orchestrator-subagent --name decompose --user
+synapse multiagent init agent-teams --name workers --force
+synapse multiagent list
+synapse multiagent list --project
+synapse multiagent show my-pattern
+synapse multiagent run my-pattern "Implement auth module"
+synapse multiagent run my-pattern "Task" --dry-run
+synapse multiagent run my-pattern "Task" --async
+synapse multiagent status <run_id>
+synapse multiagent stop <run_id>
+synapse map list                                  # Alias for synapse multiagent
+
 # Spawn/Teams (auto-approve enabled by default, auto-tile on 2+ spawns)
 # Recommended spawn pattern:
 synapse spawn claude --task-file /tmp/task.md --task-timeout 600 --notify
@@ -220,11 +234,35 @@ steps:
     timeout: 300
 ```
 
+### Important: helper agent is a separate process
+
+The helper agent is a **newly spawned process** — it does not share the calling agent's conversation history or in-memory state. It runs in the same working directory, so file changes are visible to both, but it starts with a fresh context.
+
+If you need the step to execute with an existing agent's full context, target a different already-running agent by its unique name or Runtime ID (not `self` and not an ambiguous type-only target):
+
+```yaml
+steps:
+  - target: codex        # sends to existing Codex agent (no helper spawned)
+    message: "/release"
+    response_mode: wait
+```
+
 ### Deadlock prevention
 
 - Helper agents are marked with `SYNAPSE_WORKFLOW_HELPER=1` in their environment.
 - Nested workflow execution from within a helper agent is **forbidden** (maximum helper depth is 1). This prevents infinite spawn loops.
 - The depth guard applies to both CLI (`cmd_workflow_run`) and async (`run_workflow`) execution paths.
+
+### Why not execute in-process?
+
+Direct in-process execution of `target: self` (without a helper) is not feasible for four reasons:
+
+1. **Deadlock**: LLM CLI agents are single-turn — they process one prompt at a time. With `response_mode: wait`, the agent polls its own task endpoint while unable to process the incoming message, creating a deadlock.
+2. **Context pollution**: All step outputs accumulate in one context window, wasting tokens and risking context overflow. A helper starts clean per step.
+3. **Fault isolation**: A failed step (e.g., bad git operation) corrupts the caller's state. With a helper, the caller is unaffected.
+4. **Reentrancy**: A step may trigger another workflow. In-process execution has no natural recursion guard; the helper model enforces depth limits across process boundaries.
+
+**Recommended**: Use `target: codex` or `target: claude` to send to an existing agent instead of `self`. This avoids helper spawn overhead, prevents deadlock, and keeps context clean.
 
 ### Self-target detection
 

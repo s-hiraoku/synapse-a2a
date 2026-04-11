@@ -25,6 +25,7 @@ CANVAS_JS_FILES = (
     "canvas-spotlight.js",
     "canvas-admin.js",
     "canvas-workflow.js",
+    "canvas-multiagent.js",
     "canvas-database.js",
     "canvas-knowledge.js",
     "canvas-init.js",

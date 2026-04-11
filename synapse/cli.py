@@ -72,6 +72,14 @@ from synapse.commands.messaging import (
     cmd_reply,
     cmd_send,
 )
+from synapse.commands.multiagent import (
+    cmd_multiagent_init,
+    cmd_multiagent_list,
+    cmd_multiagent_run,
+    cmd_multiagent_show,
+    cmd_multiagent_status,
+    cmd_multiagent_stop,
+)
 from synapse.commands.session import (
     cmd_session_delete,
     cmd_session_list,
@@ -4255,6 +4263,85 @@ Run 'synapse workflow <subcommand> --help' for detailed usage.""",
     )
     p_workflow_sync.set_defaults(func=cmd_workflow_sync)
 
+    # ── multiagent (map) ──────────────────────────────────────
+    p_multiagent = subparsers.add_parser(
+        "multiagent",
+        aliases=["map", "ma"],
+        help="Multi-agent coordination patterns",
+        description="Multi-agent coordination patterns.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Quick Start:
+  synapse map init generator-verifier --name my-review
+  synapse map list
+  synapse map show my-review
+  synapse map run my-review --task "Review the auth module" --dry-run
+  synapse map run my-review --task "Review the auth module"
+
+Run 'synapse multiagent <subcommand> --help' for detailed usage.""",
+    )
+    multiagent_subparsers = p_multiagent.add_subparsers(
+        dest="multiagent_command", metavar="SUBCOMMAND"
+    )
+
+    def _add_multiagent_scope_args(p: argparse.ArgumentParser) -> None:
+        scope_group = p.add_mutually_exclusive_group()
+        scope_group.add_argument(
+            "--project",
+            action="store_true",
+            default=False,
+            help="Project scope (default): .synapse/patterns/",
+        )
+        scope_group.add_argument(
+            "--user",
+            action="store_true",
+            default=False,
+            help="User scope: ~/.synapse/patterns/",
+        )
+
+    p_ma_init = multiagent_subparsers.add_parser("init", help="Create pattern template")
+    p_ma_init.add_argument(
+        "pattern_type",
+        help=(
+            "Pattern type (generator-verifier, orchestrator-subagent, "
+            "agent-teams, message-bus, shared-state)"
+        ),
+    )
+    p_ma_init.add_argument("--name", "-n", help="Pattern name (default: pattern type)")
+    _add_multiagent_scope_args(p_ma_init)
+    p_ma_init.add_argument(
+        "--force", "-f", action="store_true", help="Overwrite if exists"
+    )
+    p_ma_init.set_defaults(func=cmd_multiagent_init)
+
+    p_ma_list = multiagent_subparsers.add_parser("list", help="List defined patterns")
+    _add_multiagent_scope_args(p_ma_list)
+    p_ma_list.set_defaults(func=cmd_multiagent_list)
+
+    p_ma_show = multiagent_subparsers.add_parser("show", help="Show pattern details")
+    p_ma_show.add_argument("pattern_name", help="Pattern name")
+    _add_multiagent_scope_args(p_ma_show)
+    p_ma_show.set_defaults(func=cmd_multiagent_show)
+
+    p_ma_run = multiagent_subparsers.add_parser("run", help="Execute a pattern")
+    p_ma_run.add_argument("pattern_name", help="Pattern name or built-in type")
+    p_ma_run.add_argument("--task", "-t", required=True, help="Task description")
+    _add_multiagent_scope_args(p_ma_run)
+    p_ma_run.add_argument(
+        "--dry-run", action="store_true", help="Preview without executing"
+    )
+    p_ma_run.add_argument(
+        "--async", dest="run_async", action="store_true", help="Run in background"
+    )
+    p_ma_run.set_defaults(func=cmd_multiagent_run)
+
+    p_ma_status = multiagent_subparsers.add_parser("status", help="Check run status")
+    p_ma_status.add_argument("run_id", help="Pattern run ID")
+    p_ma_status.set_defaults(func=cmd_multiagent_status)
+
+    p_ma_stop = multiagent_subparsers.add_parser("stop", help="Stop running pattern")
+    p_ma_stop.add_argument("run_id", help="Pattern run ID")
+    p_ma_stop.set_defaults(func=cmd_multiagent_stop)
+
     # spawn - Spawn single agent in new pane
     p_spawn = subparsers.add_parser(
         "spawn",
@@ -4822,6 +4909,9 @@ Scopes:
         "team": ("team_command", p_team),
         "session": ("session_command", p_session),
         "workflow": ("workflow_command", p_workflow),
+        "multiagent": ("multiagent_command", p_multiagent),
+        "map": ("multiagent_command", p_multiagent),
+        "ma": ("multiagent_command", p_multiagent),
         "agents": ("agents_command", p_agents),
         "canvas": ("canvas_command", p_canvas),
         "worktree": ("worktree_command", p_worktree),

@@ -6,6 +6,7 @@ window.SynapseCanvas = (function() {
   function renderBlock() { return ns.renderBlock.apply(ns, arguments); }
   function broadcastThemeToIframes() { return ns.broadcastThemeToIframes.apply(ns, arguments); }
   function loadWorkflows() { return ns.loadWorkflows.apply(ns, arguments); }
+  function loadPatterns() { return ns.loadPatterns.apply(ns, arguments); }
   function loadDatabaseList() { return ns.loadDatabaseList.apply(ns, arguments); }
   function loadKnowledgeView() { return ns.loadKnowledgeView.apply(ns, arguments); }
 
@@ -41,10 +42,17 @@ window.SynapseCanvas = (function() {
   const workflowDetailPanel = document.getElementById("workflow-detail-panel");
   const workflowDetailEmpty = document.getElementById("workflow-detail-empty");
   const workflowDetailContent = document.getElementById("workflow-detail-content");
+  const multiagentView = document.getElementById("multiagent-view");
+  const patternListPanel = document.getElementById("pattern-list-panel");
+  const patternDetailEmpty = document.getElementById("pattern-detail-empty");
+  const patternDetailContent = document.getElementById("pattern-detail-content");
   var _workflowData = [];
   var _workflowRuns = [];
   var _selectedWorkflow = null;
   var _workflowProjectDir = "";
+  var _patternData = [];
+  var _selectedPattern = null;
+  var _patternProjectDir = "";
   var _selectedAdminTarget = "";
   var _selectedAdminName = "";
   const navLinks = document.querySelectorAll(".nav-link");
@@ -56,7 +64,7 @@ window.SynapseCanvas = (function() {
   const SPOTLIGHT_SWAP_DELAY = 420;
 
   // Route labels for topbar
-  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", workflow: "Workflow", knowledge: "Knowledge", system: "System", admin: "Agent Control", database: "Database" };
+  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", workflow: "Workflow", multiagent: "Patterns", knowledge: "Knowledge", system: "System", admin: "Agent Control", database: "Database" };
 
   // Current route
   let currentRoute = "canvas";
@@ -1087,6 +1095,7 @@ window.SynapseCanvas = (function() {
     if (hash === "#/history") return "history";
     if (hash === "#/system") return "system";
     if (hash === "#/workflow") return "workflow";
+    if (hash === "#/multiagent") return "multiagent";
     if (hash === "#/knowledge") return "knowledge";
     if (hash === "#/admin") return "admin";
     if (hash === "#/database") return "database";
@@ -1157,6 +1166,7 @@ window.SynapseCanvas = (function() {
     historyView.classList.add("view-hidden");
     systemView.classList.add("view-hidden");
     if (workflowView) workflowView.classList.add("view-hidden");
+    if (multiagentView) multiagentView.classList.add("view-hidden");
     if (knowledgeView) knowledgeView.classList.add("view-hidden");
     if (adminView) adminView.classList.add("view-hidden");
     if (databaseView) databaseView.classList.add("view-hidden");
@@ -1187,6 +1197,10 @@ window.SynapseCanvas = (function() {
       if (workflowView) workflowView.classList.remove("view-hidden");
       filterBar.style.display = "none";
       loadWorkflows();
+    } else if (currentRoute === "multiagent") {
+      if (multiagentView) multiagentView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      loadPatterns();
     } else if (currentRoute === "knowledge") {
       if (knowledgeView) knowledgeView.classList.remove("view-hidden");
       filterBar.style.display = "none";
@@ -1387,6 +1401,10 @@ window.SynapseCanvas = (function() {
   ns.workflowDetailPanel = workflowDetailPanel;
   ns.workflowDetailEmpty = workflowDetailEmpty;
   ns.workflowDetailContent = workflowDetailContent;
+  ns.multiagentView = multiagentView;
+  ns.patternListPanel = patternListPanel;
+  ns.patternDetailEmpty = patternDetailEmpty;
+  ns.patternDetailContent = patternDetailContent;
   ns.navLinks = navLinks;
   ns.sidebar = sidebar;
   ns.sidebarOverlay = sidebarOverlay;
@@ -1397,6 +1415,9 @@ window.SynapseCanvas = (function() {
   ns.ROUTE_LABELS = ROUTE_LABELS;
   ns.cards = cards;
   ns.knownAgents = knownAgents;
+  ns._patternData = _patternData;
+  ns._selectedPattern = _selectedPattern;
+  ns._patternProjectDir = _patternProjectDir;
 
   Object.defineProperties(ns, {
     currentRoute: { get: function() { return currentRoute; }, set: function(v) { currentRoute = v; } },
