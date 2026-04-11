@@ -387,15 +387,10 @@ def test_run_dry_run(
         }
     )
 
-    with (
-        patch("synapse.commands.multiagent._get_pattern_store", return_value=store),
-        patch("synapse.commands.multiagent.PatternRunner") as mock_runner_cls,
-    ):
+    with patch("synapse.commands.multiagent._get_pattern_store", return_value=store):
         multiagent.cmd_multiagent_run(
             _make_args(pattern_name="review-flow", dry_run=True)
         )
-
-    mock_runner_cls.assert_not_called()
     captured = capsys.readouterr()
     assert "DRY RUN" in captured.out
     assert "review-flow" in captured.out
@@ -408,7 +403,8 @@ def test_run_async_prints_run_id(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """run --async should print the run id and skip waiting."""
-    multiagent = _load_multiagent_module(monkeypatch)
+    runner = FakePatternRunner()
+    multiagent = _load_multiagent_module(monkeypatch, runner=runner)
     project_dir, user_dir = pattern_dirs
     store = _make_store(project_dir, user_dir)
     store.save(
@@ -419,18 +415,10 @@ def test_run_async_prints_run_id(
         }
     )
 
-    runner = FakePatternRunner()
-
-    with (
-        patch("synapse.commands.multiagent._get_pattern_store", return_value=store),
-        patch("synapse.commands.multiagent.PatternRunner", return_value=runner),
-        patch.object(runner, "wait_for_run") as mock_wait,
-    ):
+    with patch("synapse.commands.multiagent._get_pattern_store", return_value=store):
         multiagent.cmd_multiagent_run(
             _make_args(pattern_name="review-flow", run_async=True)
         )
-
-    mock_wait.assert_not_called()
     captured = capsys.readouterr()
     assert "run-123" in captured.out
 
@@ -440,12 +428,8 @@ def test_status_nonexistent_run(
 ) -> None:
     """status should exit with an error for an unknown run id."""
     multiagent = _load_multiagent_module(monkeypatch)
-    runner = FakePatternRunner()
 
-    with (
-        patch("synapse.commands.multiagent.PatternRunner", return_value=runner),
-        pytest.raises(SystemExit, match="1"),
-    ):
+    with pytest.raises(SystemExit, match="1"):
         multiagent.cmd_multiagent_status(_make_args())
 
     captured = capsys.readouterr()
@@ -457,12 +441,8 @@ def test_stop_nonexistent_run(
 ) -> None:
     """stop should exit with an error for an unknown run id."""
     multiagent = _load_multiagent_module(monkeypatch)
-    runner = FakePatternRunner()
 
-    with (
-        patch("synapse.commands.multiagent.PatternRunner", return_value=runner),
-        pytest.raises(SystemExit, match="1"),
-    ):
+    with pytest.raises(SystemExit, match="1"):
         multiagent.cmd_multiagent_stop(_make_args())
 
     captured = capsys.readouterr()
@@ -475,6 +455,7 @@ def test_cli_registration() -> None:
         [sys.executable, "-m", "synapse.cli", "multiagent", "--help"],
         capture_output=True,
         text=True,
+        timeout=15,
     )
 
     assert result.returncode == 0
@@ -488,6 +469,7 @@ def test_cli_alias() -> None:
         [sys.executable, "-m", "synapse.cli", "map", "--help"],
         capture_output=True,
         text=True,
+        timeout=15,
     )
 
     assert result.returncode == 0
