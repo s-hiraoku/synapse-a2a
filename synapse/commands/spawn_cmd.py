@@ -138,15 +138,41 @@ def cmd_team_start(args: argparse.Namespace) -> None:
             )
             sys.exit(1)
 
+    worktree_opt = getattr(args, "worktree", None)
+    branch_opt = getattr(args, "branch", None)
+
     terminal = detect_terminal_app()
     if not terminal:
         print(
             "Could not detect terminal. Supported: tmux, iTerm2, Terminal.app, zellij"
         )
         print("Falling back to sequential start...")
-        for agent in agents:
-            print(f"Starting {agent}...")
-            fallback_cmd = ["synapse", agent]
+        for i, agent_spec in enumerate(agents):
+            parts = agent_spec.split(":")
+            profile = parts[0]
+            name = parts[1] if len(parts) > 1 and parts[1] else None
+            role = parts[2] if len(parts) > 2 and parts[2] else None
+            skill_set = parts[3] if len(parts) > 3 and parts[3] else None
+            port = parts[4] if len(parts) > 4 and parts[4] else None
+
+            print(f"Starting {agent_spec}...")
+            fallback_cmd = ["synapse", "team", "start", profile]
+            if port:
+                fallback_cmd += ["--port", port]
+            if name:
+                fallback_cmd += ["--name", name]
+            if role:
+                fallback_cmd += ["--role", role]
+            if skill_set:
+                fallback_cmd += ["--skill-set", skill_set]
+            if not auto_approve:
+                fallback_cmd.append("--no-auto-approve")
+            if worktree_opt:
+                fallback_cmd.append("--worktree")
+                if isinstance(worktree_opt, str):
+                    fallback_cmd.append(f"{worktree_opt}-{profile}-{i}")
+            if branch_opt:
+                fallback_cmd += ["--branch", branch_opt]
             if tool_args:
                 fallback_cmd += ["--"] + tool_args
             subprocess.Popen(
@@ -154,9 +180,6 @@ def cmd_team_start(args: argparse.Namespace) -> None:
                 start_new_session=True,
             )
         return
-
-    worktree_opt = getattr(args, "worktree", None)
-    branch_opt = getattr(args, "branch", None)
 
     if worktree_opt is None and len(agents) >= 2:
         worktree_opt = True

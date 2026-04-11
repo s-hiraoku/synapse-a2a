@@ -47,9 +47,13 @@ def _memory_broadcast_notify(key: str) -> None:
         registry = AgentRegistry()
         client = A2AClient()
         agents = registry.list_agents()
+        current_working_dir = os.getcwd()
         my_id = os.environ.get("SYNAPSE_AGENT_ID", "")
         for agent_id, agent_info in agents.items():
             if agent_id != my_id:
+                agent_wd = agent_info.get("working_dir")
+                if agent_wd and agent_wd != current_working_dir:
+                    continue
                 name = agent_info.get("name") or agent_id
                 endpoint = agent_info.get("endpoint", "")
                 if not endpoint:
@@ -175,12 +179,36 @@ def cmd_memory_delete(args: argparse.Namespace) -> None:
             return
 
     mem = SharedMemory.from_env()
+
+    # Validate scope before deleting
+    entry = mem.get(args.id_or_key)
+    if not entry:
+        print(f"Memory not found: {args.id_or_key}", file=sys.stderr)
+        sys.exit(1)
+
+    scope = entry.get("scope", "global")
+    if scope == "private":
+        my_id = os.environ.get("SYNAPSE_AGENT_ID", "")
+        if entry.get("author") != my_id:
+            print(
+                f"Error: Cannot delete private memory owned by '{entry.get('author')}'",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    if scope == "project":
+        if entry.get("working_dir") and entry["working_dir"] != os.getcwd():
+            print(
+                f"Error: Memory belongs to a different project directory",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     deleted = mem.delete(args.id_or_key)
 
     if deleted:
         print(f"Deleted: {args.id_or_key}")
     else:
-        print(f"Memory not found: {args.id_or_key}", file=sys.stderr)
+        print(f"Failed to delete: {args.id_or_key}", file=sys.stderr)
         sys.exit(1)
 
 

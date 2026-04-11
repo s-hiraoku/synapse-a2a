@@ -167,7 +167,12 @@ class TaskStore:
             task = self._tasks.get(task_id)
             if not task:
                 return None
+            # Guard: don't overwrite if finalization already claimed or terminal
             metadata = task.metadata or {}
+            if metadata.get("_finalization_claimed"):
+                return None
+            if task.status in ("completed", "failed", "canceled"):
+                return None
             metadata[_EXPLICIT_REPLY_RECORDED_METADATA_KEY] = True
             task.metadata = metadata
             if status == "failed":
@@ -193,6 +198,8 @@ class TaskStore:
             task = self._tasks.get(task_id)
             if not task:
                 return None
+            if task.status != "completed":
+                return task
             metadata = task.metadata or {}
             if metadata.get(_EXPLICIT_REPLY_RECORDED_METADATA_KEY):
                 return task

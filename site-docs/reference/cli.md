@@ -273,7 +273,7 @@ synapse team start <profiles...> [OPTIONS] [-- TOOL_ARGS]
 | `--branch BRANCH`, `-b` | Base branch for worktree creation |
 | `--no-auto-approve` | Disable automatic tool approval injection for spawned agents |
 
-**Profile spec format**: `profile[:name[:role[:skill_set]]]`
+**Profile spec format**: `profile[:name[:role[:skill_set[:port]]]]`
 
 !!! note
     Ports are pre-allocated automatically by `team start` to avoid race conditions. The current extended spec does not accept a per-agent `:port` field.
@@ -411,7 +411,7 @@ synapse approve <task_id>
 synapse reject <task_id> [reason]
 ```
 
-Plan approval commands send approval or rejection actions to the running agent that owns the task. Use `reject` with an optional plain-text reason when the proposed plan needs revision.
+Plan approval commands send approval or rejection actions to the running agent that owns the task. Use `reject` with an optional plain-text reason when the plan needs revision.
 
 ## File Safety
 

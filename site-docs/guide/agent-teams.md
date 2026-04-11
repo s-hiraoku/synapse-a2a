@@ -35,7 +35,7 @@ synapse team start claude gemini --all-new
 Specify target, name, role, and skill set per agent using colon-separated format:
 
 ```
-target[:name[:role[:skill_set]]]
+target[:name[:role[:skill_set[:port]]]]
 ```
 
 The `target` can be a built-in profile name (`claude`, `gemini`, etc.) or a saved agent ID/name.

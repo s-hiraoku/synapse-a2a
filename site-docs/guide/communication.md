@@ -139,7 +139,7 @@ If sender information is not fully available, it falls back to:
 synapse reply "Here are my findings..."
 ```
 
-Reply automatically routes to the last sender. Tasks that complete without an explicit `synapse reply` are automatically marked as `MISSING_REPLY`.
+Reply automatically routes to the last sender. Tasks started with `--wait` or `--notify` that complete without an explicit `synapse reply` are automatically marked as `MISSING_REPLY`. Tasks sent with `--silent` do not require a reply.
 
 ### Reply to Specific Sender
 

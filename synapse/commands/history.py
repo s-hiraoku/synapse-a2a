@@ -204,10 +204,14 @@ def cmd_history_cleanup(args: argparse.Namespace) -> None:
         print("Error: Specify only one of --days or --max-size")
         sys.exit(1)
 
+    if args.days is not None and args.days <= 0:
+        print("Error: --days must be greater than 0")
+        sys.exit(1)
+
     db_path = manager.db_path
 
     if args.dry_run:
-        if args.days:
+        if args.days is not None:
             try:
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
@@ -242,7 +246,7 @@ def cmd_history_cleanup(args: argparse.Namespace) -> None:
             return
 
     print("Cleaning up...")
-    if args.days:
+    if args.days is not None:
         result = manager.cleanup_old_observations(
             days=args.days,
             vacuum=not args.no_vacuum,

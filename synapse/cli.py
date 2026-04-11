@@ -1072,6 +1072,10 @@ def cmd_auth_generate_key(args: argparse.Namespace) -> None:
     count = getattr(args, "count", 1)
     export_format = getattr(args, "export", False)
 
+    if count < 1:
+        print("Error: --count must be >= 1", file=sys.stderr)
+        sys.exit(1)
+
     keys = [generate_api_key() for _ in range(count)]
 
     if export_format:
@@ -1388,17 +1392,22 @@ def cmd_reset(args: argparse.Namespace) -> None:
             return
 
     # Reset settings
+    had_error = False
     for path in paths_to_reset:
         if _write_default_settings(path):
             print(f"✔ Reset {path}")
         else:
             print(f"✗ Failed to reset {path}")
+            had_error = True
 
     # Re-copy skills from .claude to .agents (force=True to overwrite)
     for base in skill_bases:
         installed = _copy_claude_skills_to_agents(base, force=True)
         for installed_path in installed:
             print(f"✔ Re-copied skill to {installed_path}")
+
+    if had_error:
+        sys.exit(1)
 
 
 def cmd_config(args: argparse.Namespace) -> None:

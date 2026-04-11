@@ -64,9 +64,18 @@ def _build_a2a_cmd(
     if len(message.encode("utf-8")) > threshold:
         send_dir = Path(tempfile.gettempdir()) / "synapse-a2a" / "send-messages"
         send_dir.mkdir(parents=True, exist_ok=True)
-        temp_file = send_dir / f"send-{uuid.uuid4()}.txt"
-        temp_file.write_text(message, encoding="utf-8")
-        cmd.extend(["--message-file", str(temp_file)])
+        fd, tmp_path = tempfile.mkstemp(
+            prefix="send-", suffix=".txt", dir=str(send_dir)
+        )
+        try:
+            os.write(fd, message.encode("utf-8"))
+            os.close(fd)
+            os.chmod(tmp_path, 0o600)
+        except Exception:
+            os.close(fd)
+            Path(tmp_path).unlink(missing_ok=True)
+            raise
+        cmd.extend(["--message-file", tmp_path])
     else:
         cmd.append(message)
 

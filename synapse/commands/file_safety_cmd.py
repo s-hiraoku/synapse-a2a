@@ -129,11 +129,21 @@ def _resolve_agent_info(
         agent_info = registry.get_agent(agent_id)
 
         if not agent_info:
-            for aid, info in registry.get_live_agents().items():
-                if info.get("agent_type") == agent_id:
-                    agent_info = info
-                    agent_id = aid
-                    break
+            matches = [
+                (aid, info)
+                for aid, info in registry.get_live_agents().items()
+                if info.get("agent_type") == agent_id
+            ]
+            if len(matches) == 1:
+                agent_id, agent_info = matches[0]
+            elif len(matches) > 1:
+                names = ", ".join(aid for aid, _ in matches)
+                print(
+                    f"Error: Multiple agents match type '{agent_id}': {names}. "
+                    "Use a runtime ID or custom name instead.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
         if agent_info:
             pid = agent_info.get("pid")
@@ -211,7 +221,7 @@ def cmd_file_safety_lock(args: argparse.Namespace) -> None:
             continue
         if status == LockStatus.FAILED:
             print(
-                f"Failed to acquire lock: {result.get('error', 'unknown error')}",
+                f"Failed to acquire lock: {result.get('reason', result.get('error', 'unknown error'))}",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -369,7 +379,8 @@ def cmd_file_safety_record(args: argparse.Namespace) -> None:
         if args.intent:
             print(f"  Intent: {args.intent}")
     else:
-        print("Failed to record modification")
+        print("Failed to record modification", file=sys.stderr)
+        sys.exit(1)
 
 
 def cmd_file_safety_cleanup(args: argparse.Namespace) -> None:

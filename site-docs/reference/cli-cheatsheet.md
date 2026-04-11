@@ -38,8 +38,8 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 
 | Command | Description |
 |---------|-------------|
-| `synapse approve <task_id>` | Approve a proposed plan for a task |
-| `synapse reject <task_id> [reason]` | Reject a proposed plan with an optional reason |
+| `synapse approve <task_id>` | Approve a plan for a task |
+| `synapse reject <task_id> [reason]` | Reject a plan with an optional reason |
 
 ### Skills
 

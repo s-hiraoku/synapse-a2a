@@ -279,10 +279,8 @@ def test_team_start_docs_match_current_agent_spec_and_flags() -> None:
     cli_ref = _read("site-docs/reference/cli.md")
     guide = _read("site-docs/guide/agent-teams.md")
 
-    assert "profile[:name[:role[:skill_set]]]" in cli_ref
-    assert "profile[:name[:role[:skill_set[:port]]]]" not in cli_ref
-    assert "target[:name[:role[:skill_set]]]" in guide
-    assert "target[:name[:role[:skill_set[:port]]]]" not in guide
+    assert "profile[:name[:role[:skill_set[:port]]]]" in cli_ref
+    assert "target[:name[:role[:skill_set[:port]]]]" in guide
     assert "--no-auto-approve" in cli_ref
 
 
