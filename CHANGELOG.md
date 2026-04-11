@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] - 2026-04-11
+
+### Added
+
+- Multi-agent coordination patterns engine (`synapse/patterns/`) — declarative YAML-based pattern definitions with 5 built-in types: generator-verifier, orchestrator-subagent, agent-teams, message-bus, shared-state
+- `synapse multiagent` CLI (aliased as `synapse map`) with `init`, `list`, `show`, `run`, `status`, `stop` subcommands for managing coordination patterns
+- Canvas "Patterns" view — pattern list/detail UI with Mermaid architecture diagrams for each pattern type
+- Canvas REST API: `GET /api/multiagent`, `GET /api/multiagent/{name}`, `GET /api/multiagent/runs`, `GET /api/multiagent/runs/{run_id}`
+- `PatternStore` for project/user scoped YAML persistence with atomic writes
+- `PatternRunner` for pattern execution lifecycle: spawn, communicate, track, and cleanup
+- `CoordinationPattern` ABC with built-in agent spawn, A2A messaging, wiki, and canvas integration
+
+### Tests
+
+- Added comprehensive test suites: `test_pattern_base.py`, `test_pattern_store.py`, `test_pattern_runner.py`, `test_cmd_multiagent.py`, `test_canvas_multiagent.py`
+
 ## [0.24.2] - 2026-04-10
 
 ### Fixed
@@ -3285,7 +3301,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.2...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.2...v0.25.0
 [0.24.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.1...v0.24.2
 [0.24.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.23.5...v0.24.0

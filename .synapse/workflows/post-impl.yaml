@@ -4,27 +4,27 @@ description: >
   then release, commit all changes, create PR, and monitor with pr-guardian.
 auto_spawn: true
 steps:
-  - target: self
+  - target: codex
     message: "/parallel-docs-simplify-sync"
     priority: 3
     response_mode: wait
     timeout: 600
-  - target: self
+  - target: codex
     message: "/release"
     priority: 3
     response_mode: wait
     timeout: 300
-  - target: self
+  - target: codex
     message: "変更をコミットしてください。実装内容に応じて分割コミットでも単一コミットでも構いません。Conventional Commits形式でお願いします。"
     priority: 3
     response_mode: wait
     timeout: 300
-  - target: self
+  - target: codex
     message: "PRを作成してください。ベースブランチはmainです。タイトルと本文は実装内容から自動生成してください。"
     priority: 3
     response_mode: wait
     timeout: 300
-  - target: self
+  - target: codex
     message: "/pr-guardian"
     priority: 3
     response_mode: wait

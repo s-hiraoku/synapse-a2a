@@ -50,6 +50,7 @@ flowchart TB
         reset["reset"]
         auth["auth"]
         canvas["canvas"]
+        multiagent["multiagent (map)"]
     end
 
     subgraph Memory["memory サブコマンド"]
@@ -131,6 +132,15 @@ flowchart TB
         sess_delete["delete"]
     end
 
+    subgraph MultiAgent["multiagent サブコマンド"]
+        ma_init["init"]
+        ma_list["list"]
+        ma_show["show"]
+        ma_run["run"]
+        ma_status["status"]
+        ma_stop["stop"]
+    end
+
     synapse --> Shortcuts
     synapse --> Commands
     memory --> Memory
@@ -141,6 +151,7 @@ flowchart TB
     agents --> Agents
     session --> SessionCmds
     canvas --> Canvas
+    multiagent --> MultiAgent
 ```
 
 ---
@@ -1886,6 +1897,87 @@ synapse canvas list [--mine] [--search TERM] [--type TYPE]   # カード一覧
 synapse canvas delete <card_id>                               # カード削除
 synapse canvas clear [--agent AGENT]                          # 全カードクリア
 ```
+
+### 1.25 synapse multiagent (synapse map)
+
+宣言的なマルチエージェント協調パターンの管理と実行を行います。Workflow（命令的なステップ列）とは異なり、エージェントの振る舞いルールを定義します。
+
+```bash
+synapse multiagent <subcommand>
+synapse map <subcommand>               # エイリアス
+```
+
+#### 1.25.1 synapse multiagent init
+
+新しいパターンテンプレート YAML を作成します。
+
+```bash
+synapse multiagent init <pattern_type> [--name NAME] [--user] [--force]
+```
+
+| パラメータ | 必須 | 説明 |
+|-----------|------|------|
+| `pattern_type` | Yes | パターンタイプ: `generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state` |
+| `--name NAME` | No | パターン名（デフォルト: pattern_type と同名） |
+| `--user` | No | ユーザースコープに保存（`~/.synapse/patterns/`） |
+| `--force` | No | 既存パターンを上書き |
+
+**パターンタイプ:**
+
+| タイプ | 説明 |
+|-------|------|
+| `generator-verifier` | 出力を生成し、基準に対して検証（最大反復回数指定可能） |
+| `orchestrator-subagent` | タスクを分解してサブエージェントに委任（並列実行可能） |
+| `agent-teams` | タスクキューを並列ワーカーで処理 |
+| `message-bus` | pub/sub によるイベント駆動型エージェント協調 |
+| `shared-state` | 共有 Wiki を通じたエージェント協調 |
+
+#### 1.25.2 synapse multiagent list
+
+```bash
+synapse multiagent list [--user] [--project]
+```
+
+保存済みパターンの一覧を表示します。`--user` / `--project` でスコープをフィルタできます。
+
+#### 1.25.3 synapse multiagent show
+
+```bash
+synapse multiagent show <pattern_name> [--user] [--project]
+```
+
+パターンの YAML 定義を表示します。
+
+#### 1.25.4 synapse multiagent run
+
+```bash
+synapse multiagent run <pattern_name> --task <task> [--dry-run] [--async] [--user] [--project]
+```
+
+| パラメータ | 必須 | 説明 |
+|-----------|------|------|
+| `pattern_name` | Yes | 実行するパターン名 |
+| `--task <task>`, `-t <task>` | Yes | タスクメッセージ |
+| `--dry-run` | No | プレビューのみ（実行しない） |
+| `--async` | No | バックグラウンド実行（`run_id` を返す） |
+
+#### 1.25.5 synapse multiagent status / stop
+
+```bash
+synapse multiagent status <run_id>    # 実行状態を表示
+synapse multiagent stop <run_id>      # 実行中のパターンを停止
+```
+
+#### Canvas 統合
+
+Canvas UI の Patterns タブでパターンの一覧と詳細を表示できます。
+
+| エンドポイント | 説明 |
+|-------------|------|
+| `GET /api/multiagent` | パターン一覧 |
+| `GET /api/multiagent/runs` | 実行中・最近の実行一覧 |
+| `GET /api/multiagent/runs/{run_id}` | 特定の実行状態 |
+| `GET /api/multiagent/{name}` | パターン定義の詳細 |
 
 ---
 

@@ -31,6 +31,7 @@ from synapse.canvas import CANVAS_CSS_FILES, CANVAS_JS_FILES, compute_asset_hash
 from synapse.canvas.routes.admin import admin_router
 from synapse.canvas.routes.cards import cards_router
 from synapse.canvas.routes.db import db_router
+from synapse.canvas.routes.multiagent import multiagent_router
 from synapse.canvas.routes.wiki import is_wiki_enabled, wiki_router
 from synapse.canvas.routes.workflow import workflow_router
 from synapse.canvas.store import CanvasStore
@@ -868,6 +869,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
     app.include_router(cards_router)
     app.include_router(admin_router)
     app.include_router(workflow_router)
+    app.include_router(multiagent_router)
     app.include_router(db_router)
     app.include_router(wiki_router)
 
