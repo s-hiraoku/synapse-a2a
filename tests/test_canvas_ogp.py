@@ -182,6 +182,7 @@ async def test_fetch_ogp_success(monkeypatch: pytest.MonkeyPatch) -> None:
         "synapse.canvas.ogp.httpx.AsyncClient",
         lambda **kw: MockAsyncClient(),
     )
+    monkeypatch.setattr("synapse.canvas.ogp._is_private_ip", lambda host: False)
 
     result = await fetch_ogp("https://github.com")
     assert result["fetched"] is True
@@ -264,6 +265,7 @@ async def test_fetch_ogp_fallback_title(monkeypatch: pytest.MonkeyPatch) -> None
         "synapse.canvas.ogp.httpx.AsyncClient",
         lambda **kw: MockAsyncClient(response=MockResponse(text=html)),
     )
+    monkeypatch.setattr("synapse.canvas.ogp._is_private_ip", lambda host: False)
 
     result = await fetch_ogp("https://example.com")
     assert result["fetched"] is True
@@ -278,6 +280,7 @@ async def test_fetch_ogp_favicon_absolute(monkeypatch: pytest.MonkeyPatch) -> No
         "synapse.canvas.ogp.httpx.AsyncClient",
         lambda **kw: MockAsyncClient(response=MockResponse(text=html)),
     )
+    monkeypatch.setattr("synapse.canvas.ogp._is_private_ip", lambda host: False)
 
     result = await fetch_ogp("https://example.com/page")
     assert result["favicon"] == "https://example.com/fav.ico"

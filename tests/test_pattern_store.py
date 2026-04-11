@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import pytest
@@ -120,7 +119,7 @@ def test_list_patterns_multiple(store) -> None:
 
 
 def test_list_patterns_skips_invalid_yaml(
-    store, pattern_dirs: tuple[Path, Path], caplog: pytest.LogCaptureFixture
+    store, pattern_dirs: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Malformed YAML files should be skipped with a warning."""
     project_dir, _ = pattern_dirs
@@ -128,11 +127,16 @@ def test_list_patterns_skips_invalid_yaml(
     (project_dir / "broken.yaml").write_text("name: broken: [", encoding="utf-8")
     store.save({"name": "valid", "pattern_type": "generator-verifier"})
 
-    with caplog.at_level(logging.WARNING, logger="synapse.patterns.store"):
-        patterns = store.list_patterns(scope="project")
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "synapse.patterns.store.logger",
+        type("_L", (), {"warning": staticmethod(lambda fmt, *a: warnings.append(fmt % a))})(),
+    )
+
+    patterns = store.list_patterns(scope="project")
 
     assert [pattern["name"] for pattern in patterns] == ["valid"]
-    assert "Skipping invalid pattern file" in caplog.text
+    assert any("Skipping invalid pattern file" in w for w in warnings)
 
 
 def test_delete_existing(store) -> None:
