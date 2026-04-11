@@ -5,7 +5,9 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
 import pytest
+import requests
 import responses
 
 from synapse.a2a_client import (
@@ -332,8 +334,6 @@ class TestA2AClientSendToLocal:
         self, a2a_client, tmp_path, monkeypatch
     ):
         """Local target should retry UDS briefly, then fail if unavailable."""
-        import httpx
-
         sock_path = tmp_path / "agent.sock"
         sock_path.write_text("")
         attempts = {"count": 0}
@@ -367,6 +367,199 @@ class TestA2AClientSendToLocal:
             assert task is None
             assert attempts["count"] == 3
             mock_post.assert_not_called()
+
+    def test_send_to_local_uds_transport_error_logs_warning(
+        self, a2a_client, tmp_path, monkeypatch
+    ):
+        """Should log UDS transport errors after retries are exhausted."""
+        sock_path = tmp_path / "agent.sock"
+        sock_path.write_text("")
+        attempts = {"count": 0}
+        request = httpx.Request("POST", "http://localhost/tasks/send-priority")
+        error = httpx.ConnectError("uds unavailable", request=request)
+
+        class DummyClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def post(self, url, json=None, timeout=None):
+                attempts["count"] += 1
+                raise error
+
+        monkeypatch.setattr("synapse.a2a_client.httpx.Client", DummyClient)
+
+        with (
+            patch("synapse.a2a_client.logger.warning") as mock_warning,
+            patch("synapse.a2a_client.requests.post") as mock_post,
+        ):
+            task = a2a_client.send_to_local(
+                endpoint="http://localhost:8001",
+                message="Hello",
+                uds_path=str(sock_path),
+                local_only=True,
+            )
+
+        assert task is None
+        assert attempts["count"] == 3
+        mock_post.assert_not_called()
+        mock_warning.assert_called_once_with(
+            "UDS transport failed after %d retries: %s", 3, error
+        )
+
+    def test_send_to_local_uds_http_error_logs_status(
+        self, a2a_client, tmp_path, monkeypatch
+    ):
+        """Should log UDS HTTP status errors before returning None."""
+        sock_path = tmp_path / "agent.sock"
+        sock_path.write_text("")
+        request = httpx.Request("POST", "http://localhost/tasks/send-priority")
+        response = httpx.Response(500, request=request)
+        error = httpx.HTTPStatusError(
+            "Server error", request=request, response=response
+        )
+
+        class DummyResponse:
+            def raise_for_status(self):
+                raise error
+
+        class DummyClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def post(self, url, json=None, timeout=None):
+                return DummyResponse()
+
+        monkeypatch.setattr("synapse.a2a_client.httpx.Client", DummyClient)
+
+        with (
+            patch("synapse.a2a_client.logger.warning") as mock_warning,
+            patch("synapse.a2a_client.requests.post") as mock_post,
+        ):
+            task = a2a_client.send_to_local(
+                endpoint="http://localhost:8001",
+                message="Hello",
+                uds_path=str(sock_path),
+                local_only=True,
+            )
+
+        assert task is None
+        mock_post.assert_not_called()
+        mock_warning.assert_called_once_with(
+            "UDS HTTP error (status %d): %s", 500, error
+        )
+
+    def test_send_to_local_uds_409_logs_busy(self, a2a_client, tmp_path, monkeypatch):
+        """Should log a busy message for UDS HTTP 409 responses."""
+        sock_path = tmp_path / "agent.sock"
+        sock_path.write_text("")
+        request = httpx.Request("POST", "http://localhost/tasks/send-priority")
+        response = httpx.Response(409, headers={"retry-after": "7"}, request=request)
+        error = httpx.HTTPStatusError("Busy", request=request, response=response)
+
+        class DummyResponse:
+            def raise_for_status(self):
+                raise error
+
+        class DummyClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def post(self, url, json=None, timeout=None):
+                return DummyResponse()
+
+        monkeypatch.setattr("synapse.a2a_client.httpx.Client", DummyClient)
+
+        with (
+            patch("synapse.a2a_client.logger.warning") as mock_warning,
+            patch("synapse.a2a_client.requests.post") as mock_post,
+        ):
+            task = a2a_client.send_to_local(
+                endpoint="http://localhost:8001",
+                message="Hello",
+                uds_path=str(sock_path),
+                local_only=True,
+            )
+
+        assert task is None
+        mock_post.assert_not_called()
+        mock_warning.assert_called_once_with(
+            "Agent busy (working task). Retry after %ss. Status: %d", "7", 409
+        )
+
+    @responses.activate
+    def test_send_to_local_tcp_409_logs_busy(self, a2a_client):
+        """Should log a busy message for TCP HTTP 409 responses."""
+        responses.add(
+            responses.POST,
+            "http://localhost:8001/tasks/send-priority?priority=1",
+            status=409,
+            headers={"Retry-After": "9"},
+        )
+
+        with patch("synapse.a2a_client.logger.warning") as mock_warning:
+            task = a2a_client.send_to_local(
+                endpoint="http://localhost:8001", message="Hello"
+            )
+
+        assert task is None
+        mock_warning.assert_called_once_with(
+            "Agent busy (working task). Retry after %ss. Status: %d", "9", 409
+        )
+
+    def test_send_to_local_request_exception_logs_warning(self, a2a_client):
+        """Should log outer request exceptions via logger.warning."""
+        error = requests.exceptions.ConnectionError("boom")
+
+        with (
+            patch("synapse.a2a_client.logger.warning") as mock_warning,
+            patch("synapse.a2a_client.requests.post", side_effect=error),
+            patch("builtins.print") as mock_print,
+        ):
+            task = a2a_client.send_to_local(
+                endpoint="http://localhost:8001", message="Hello"
+            )
+
+        assert task is None
+        mock_print.assert_not_called()
+        mock_warning.assert_called_once_with(
+            "Failed to send message to local agent: %s", error
+        )
+
+    def test_send_to_local_local_only_no_uds_logs_warning(self, a2a_client):
+        """Should warn when local_only is requested without a UDS path."""
+        with (
+            patch("synapse.a2a_client.logger.warning") as mock_warning,
+            patch("synapse.a2a_client.requests.post") as mock_post,
+        ):
+            task = a2a_client.send_to_local(
+                endpoint="http://localhost:8001",
+                message="Hello",
+                local_only=True,
+            )
+
+        assert task is None
+        mock_post.assert_not_called()
+        mock_warning.assert_called_once_with(
+            "Cannot send: local_only=True but no UDS path provided"
+        )
 
 
 class TestA2AClientSendMessage:

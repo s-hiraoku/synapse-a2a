@@ -493,20 +493,23 @@ def _warn_working_dir_mismatch(
     return True
 
 
-def _resolve_message(args: argparse.Namespace) -> str:
-    """Resolve message content from positional arg, --message-file, or --stdin."""
+def _resolve_message(args: argparse.Namespace) -> tuple[str, str]:
+    """Resolve message content and source from positional arg, file, or stdin."""
     sources: list[str] = []
     if getattr(args, "message", None):
         sources.append("positional")
     if getattr(args, "message_file", None):
         sources.append("--message-file")
+    if getattr(args, "task_file", None):
+        sources.append("--task-file")
     if getattr(args, "stdin", False):
         sources.append("--stdin")
 
     if len(sources) > 1:
         print(
             f"Error: Multiple message sources specified: {', '.join(sources)}. "
-            "Use exactly one of: positional argument, --message-file, or --stdin.",
+            "Use exactly one of: positional argument, --message-file, "
+            "--task-file, or --stdin.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -514,25 +517,28 @@ def _resolve_message(args: argparse.Namespace) -> str:
     if len(sources) == 0:
         print(
             "Error: No message provided. Use a positional argument, "
-            "--message-file PATH, or --stdin.",
+            "--message-file PATH, --task-file PATH, or --stdin.",
             file=sys.stderr,
         )
         sys.exit(1)
 
     if getattr(args, "stdin", False):
-        return sys.stdin.read()
+        return sys.stdin.read(), "stdin"
 
     message_file = getattr(args, "message_file", None)
-    if message_file:
-        if message_file == "-":
-            return sys.stdin.read()
-        path = Path(message_file)
+    task_file = getattr(args, "task_file", None)
+    file_path = message_file or task_file
+    file_source = "message_file" if message_file else "task_file"
+    if file_path:
+        if file_path == "-":
+            return sys.stdin.read(), file_source
+        path = Path(file_path)
         if not path.exists():
-            print(f"Error: Message file not found: {message_file}", file=sys.stderr)
+            print(f"Error: Message file not found: {file_path}", file=sys.stderr)
             sys.exit(1)
-        return path.read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8"), file_source
 
-    return str(args.message)
+    return str(args.message), "positional"
 
 
 def _process_attachments(file_paths: list[str]) -> list[dict]:
@@ -640,6 +646,12 @@ def _add_message_source_flags(parser: argparse.ArgumentParser) -> None:
         "-F",
         dest="message_file",
         help="Read message from file (use '-' for stdin)",
+    )
+    parser.add_argument(
+        "--task-file",
+        "-T",
+        dest="task_file",
+        help="Read message from task file (use '-' for stdin)",
     )
     parser.add_argument(
         "--stdin",

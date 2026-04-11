@@ -235,6 +235,7 @@ class TestCmdSendWithForce:
         args.target = "gemini"
         args.message = "hello"
         args.message_file = None
+        args.task_file = None
         args.stdin = False
         args.attach = None
         args.priority = 3
@@ -269,6 +270,7 @@ class TestCmdSendWithForce:
         args.target = "フリーレン"
         args.message = "hello"
         args.message_file = None
+        args.task_file = None
         args.stdin = False
         args.attach = None
         args.priority = 3
@@ -296,6 +298,7 @@ class TestCmdSendWithForce:
         args.target = "フリーレン"
         args.message = "hello"
         args.message_file = None
+        args.task_file = None
         args.stdin = False
         args.attach = None
         args.priority = 3

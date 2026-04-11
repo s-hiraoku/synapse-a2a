@@ -78,8 +78,9 @@ def cmd_cleanup(args: argparse.Namespace) -> None:
 
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to a target agent using Google A2A protocol."""
-    message = _resolve_message(args)
-    _warn_shell_expansion(message)
+    message, source = _resolve_message(args)
+    if source == "positional":
+        _warn_shell_expansion(message)
     file_parts = None
     if getattr(args, "attach", None):
         file_parts = _process_attachments(args.attach)
@@ -202,6 +203,12 @@ def cmd_send(args: argparse.Namespace) -> None:
     if isinstance(sender_info, str):
         print(sender_info, file=sys.stderr)
         sys.exit(1)
+    if not sender_info:
+        print(
+            "Warning: Could not identify sender agent. "
+            "Set SYNAPSE_AGENT_ID or use --from.",
+            file=sys.stderr,
+        )
 
     # Add metadata (sender info and response_mode)
     client = A2AClient()
@@ -222,6 +229,10 @@ def cmd_send(args: argparse.Namespace) -> None:
 
     if not task:
         print("Error sending message: local send failed", file=sys.stderr)
+        print(
+            "  Use SYNAPSE_LOG_LEVEL=DEBUG for details.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     task_id = task.id or str(uuid.uuid4())
@@ -256,8 +267,9 @@ def cmd_send(args: argparse.Namespace) -> None:
 
 def cmd_broadcast(args: argparse.Namespace) -> None:
     """Broadcast a message to all agents in current working directory."""
-    message = _resolve_message(args)
-    _warn_shell_expansion(message)
+    message, source = _resolve_message(args)
+    if source == "positional":
+        _warn_shell_expansion(message)
     file_parts = None
     if getattr(args, "attach", None):
         file_parts = _process_attachments(args.attach)
