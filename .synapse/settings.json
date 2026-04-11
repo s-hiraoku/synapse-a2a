@@ -27,6 +27,39 @@
     "SYNAPSE_LOG_FILE": "false",
     "SYNAPSE_AGENT_SAVE_PROMPT_ENABLED": "true"
   },
+  "resume_flags": {
+    "claude": [
+      "--continue",
+      "--resume",
+      "-c",
+      "-r"
+    ],
+    "codex": [
+      "resume"
+    ],
+    "gemini": [
+      "--resume"
+    ],
+    "opencode": [
+      "--continue",
+      "-c"
+    ],
+    "copilot": [
+      "--continue",
+      "-c"
+    ]
+  },
+  "list": {
+    "columns": [
+      "ID",
+      "NAME",
+      "STATUS",
+      "CURRENT",
+      "TRANSPORT",
+      "WORKING_DIR",
+      "EDITING_FILE"
+    ]
+  },
   "instructions": {
     "default": "default.md",
     "claude": "",
@@ -34,18 +67,8 @@
     "codex": "",
     "opencode": ""
   },
-  "approvalMode": "required",
   "a2a": {
     "flow": "auto"
   },
-  "resume_flags": {
-    "claude": ["--continue", "--resume", "-c", "-r"],
-    "codex": ["resume"],
-    "gemini": ["--resume"],
-    "opencode": ["--continue", "-c"],
-    "copilot": ["--continue", "-c"]
-  },
-  "list": {
-    "columns": ["ID", "NAME", "STATUS", "CURRENT", "TRANSPORT", "WORKING_DIR", "EDITING_FILE"]
-  }
+  "approvalMode": "required"
 }
