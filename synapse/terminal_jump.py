@@ -878,19 +878,28 @@ def _get_tmux_auto_split() -> _TmuxAutoSplit | None:
         spawn_panes_str = _get_tmux_spawn_panes()
         spawn_panes = set(spawn_panes_str.split(",")) if spawn_panes_str else None
 
-        best_pane = None
-        best_area = -1
-        best_w = 0
-        best_h = 0
+        pane_rows: list[tuple[str, int, int]] = []
         for line in result.stdout.strip().splitlines():
             parts = line.split()
             if len(parts) != 3:
                 continue
             pane_id, w_str, h_str = parts
+            pane_rows.append((pane_id, int(w_str), int(h_str)))
+
+        # Ignore stale spawn-zone state when it does not match the current tmux panes.
+        if spawn_panes and not any(
+            pane_id in spawn_panes for pane_id, _, _ in pane_rows
+        ):
+            spawn_panes = None
+
+        best_pane = None
+        best_area = -1
+        best_w = 0
+        best_h = 0
+        for pane_id, w, h in pane_rows:
             # Only consider spawn zone panes when zone exists
             if spawn_panes and pane_id not in spawn_panes:
                 continue
-            w, h = int(w_str), int(h_str)
             area = w * h
             if area > best_area:
                 best_area = area

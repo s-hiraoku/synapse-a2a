@@ -276,6 +276,43 @@ class TestCliMain:
         assert args.target == "claude"
         assert args.message == "hello"
 
+    @patch("synapse.cli.cmd_reply")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_reply(self, mock_install, mock_cmd_reply):
+        """synapse reply hello should call cmd_reply."""
+        with patch.object(sys, "argv", ["synapse", "reply", "hello"]):
+            main()
+
+        mock_cmd_reply.assert_called_once()
+        args = mock_cmd_reply.call_args[0][0]
+        assert args.command == "reply"
+        assert args.message == "hello"
+
+    @patch("synapse.cli.cmd_broadcast")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_broadcast(self, mock_install, mock_cmd_broadcast):
+        """synapse broadcast hello should call cmd_broadcast."""
+        with patch.object(sys, "argv", ["synapse", "broadcast", "hello"]):
+            main()
+
+        mock_cmd_broadcast.assert_called_once()
+        args = mock_cmd_broadcast.call_args[0][0]
+        assert args.command == "broadcast"
+        assert args.message == "hello"
+
+    @patch("synapse.cli.cmd_interrupt")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_interrupt(self, mock_install, mock_cmd_interrupt):
+        """synapse interrupt claude stop should call cmd_interrupt."""
+        with patch.object(sys, "argv", ["synapse", "interrupt", "claude", "stop"]):
+            main()
+
+        mock_cmd_interrupt.assert_called_once()
+        args = mock_cmd_interrupt.call_args[0][0]
+        assert args.command == "interrupt"
+        assert args.target == "claude"
+        assert args.message == "stop"
+
     @patch("synapse.cli.cmd_history_show")
     @patch("synapse.cli.install_skills")
     def test_main_command_history_show(self, mock_install, mock_cmd_history_show):
@@ -337,6 +374,160 @@ class TestCliMain:
         assert args.file_safety_command == "lock"
         assert args.file == "file.py"
         assert args.agent == "claude"
+
+    @patch("synapse.cli.cmd_file_safety_unlock")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_file_safety_unlock(self, mock_install, mock_cmd_fs_unlock):
+        """synapse file-safety unlock file.py agent should call cmd_file_safety_unlock."""
+        with patch.object(
+            sys, "argv", ["synapse", "file-safety", "unlock", "file.py", "claude"]
+        ):
+            main()
+
+        mock_cmd_fs_unlock.assert_called_once()
+        args = mock_cmd_fs_unlock.call_args[0][0]
+        assert args.file_safety_command == "unlock"
+        assert args.file == "file.py"
+        assert args.agent == "claude"
+
+    @patch("synapse.cli.cmd_file_safety_history")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_file_safety_history(self, mock_install, mock_cmd_fs_history):
+        """synapse file-safety history file.py should call cmd_file_safety_history."""
+        with patch.object(
+            sys, "argv", ["synapse", "file-safety", "history", "file.py"]
+        ):
+            main()
+
+        mock_cmd_fs_history.assert_called_once()
+        args = mock_cmd_fs_history.call_args[0][0]
+        assert args.file_safety_command == "history"
+        assert args.file == "file.py"
+
+    @patch("synapse.cli.cmd_file_safety_recent")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_file_safety_recent(self, mock_install, mock_cmd_fs_recent):
+        """synapse file-safety recent should call cmd_file_safety_recent."""
+        with patch.object(sys, "argv", ["synapse", "file-safety", "recent"]):
+            main()
+
+        mock_cmd_fs_recent.assert_called_once()
+        args = mock_cmd_fs_recent.call_args[0][0]
+        assert args.file_safety_command == "recent"
+
+    @patch("synapse.cli.cmd_memory_search")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_memory_search(self, mock_install, mock_cmd_memory_search):
+        """synapse memory search foo should call cmd_memory_search."""
+        with patch.object(sys, "argv", ["synapse", "memory", "search", "foo"]):
+            main()
+
+        mock_cmd_memory_search.assert_called_once()
+        args = mock_cmd_memory_search.call_args[0][0]
+        assert args.command == "memory"
+        assert args.memory_command == "search"
+        assert args.query == "foo"
+
+    @patch("synapse.cli.cmd_memory_list")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_memory_list(self, mock_install, mock_cmd_memory_list):
+        """synapse memory list should call cmd_memory_list."""
+        with patch.object(sys, "argv", ["synapse", "memory", "list"]):
+            main()
+
+        mock_cmd_memory_list.assert_called_once()
+        args = mock_cmd_memory_list.call_args[0][0]
+        assert args.command == "memory"
+        assert args.memory_command == "list"
+
+    @patch("synapse.cli.cmd_memory_show")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_memory_show(self, mock_install, mock_cmd_memory_show):
+        """synapse memory show abc should call cmd_memory_show."""
+        with patch.object(sys, "argv", ["synapse", "memory", "show", "abc"]):
+            main()
+
+        mock_cmd_memory_show.assert_called_once()
+        args = mock_cmd_memory_show.call_args[0][0]
+        assert args.memory_command == "show"
+        assert args.id_or_key == "abc"
+
+    @patch("synapse.cli.cmd_memory_stats")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_memory_stats(self, mock_install, mock_cmd_memory_stats):
+        """synapse memory stats should call cmd_memory_stats."""
+        with patch.object(sys, "argv", ["synapse", "memory", "stats"]):
+            main()
+
+        mock_cmd_memory_stats.assert_called_once()
+        args = mock_cmd_memory_stats.call_args[0][0]
+        assert args.memory_command == "stats"
+
+    @patch("synapse.cli.cmd_external_list")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_external_list(self, mock_install, mock_cmd_external_list):
+        """synapse external list should call cmd_external_list."""
+        with patch.object(sys, "argv", ["synapse", "external", "list"]):
+            main()
+
+        mock_cmd_external_list.assert_called_once()
+        args = mock_cmd_external_list.call_args[0][0]
+        assert args.command == "external"
+        assert args.external_command == "list"
+
+    @patch("synapse.cli.cmd_external_send")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_external_send(self, mock_install, mock_cmd_external_send):
+        """synapse external send agent hello should call cmd_external_send."""
+        with patch.object(
+            sys, "argv", ["synapse", "external", "send", "agent", "hello"]
+        ):
+            main()
+
+        mock_cmd_external_send.assert_called_once()
+        args = mock_cmd_external_send.call_args[0][0]
+        assert args.external_command == "send"
+        assert args.alias == "agent"
+        assert args.message == "hello"
+
+    @patch("synapse.cli.cmd_external_info")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_external_info(self, mock_install, mock_cmd_external_info):
+        """synapse external info agent should call cmd_external_info."""
+        with patch.object(sys, "argv", ["synapse", "external", "info", "agent"]):
+            main()
+
+        mock_cmd_external_info.assert_called_once()
+        args = mock_cmd_external_info.call_args[0][0]
+        assert args.external_command == "info"
+        assert args.alias == "agent"
+
+    @patch("synapse.cli.cmd_team_start")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_team_start(self, mock_install, mock_cmd_team_start):
+        """synapse team start claude gemini should call cmd_team_start."""
+        with patch.object(
+            sys, "argv", ["synapse", "team", "start", "claude", "gemini"]
+        ):
+            main()
+
+        mock_cmd_team_start.assert_called_once()
+        args = mock_cmd_team_start.call_args[0][0]
+        assert args.command == "team"
+        assert args.team_command == "start"
+        assert args.agents == ["claude", "gemini"]
+
+    @patch("synapse.cli.cmd_spawn")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_spawn(self, mock_install, mock_cmd_spawn):
+        """synapse spawn claude should call cmd_spawn."""
+        with patch.object(sys, "argv", ["synapse", "spawn", "claude"]):
+            main()
+
+        mock_cmd_spawn.assert_called_once()
+        args = mock_cmd_spawn.call_args[0][0]
+        assert args.command == "spawn"
+        assert args.profile == "claude"
 
     @patch("synapse.cli.cmd_run_interactive")
     @patch("synapse.cli.PortManager")
