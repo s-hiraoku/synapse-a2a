@@ -195,7 +195,9 @@ class TestHistoryStatsDisplayTokens:
 
         args = argparse.Namespace(agent=None)
 
-        with patch("synapse.cli._get_history_manager", return_value=manager):
+        with patch(
+            "synapse.commands.history._get_history_manager", return_value=manager
+        ):
             from synapse.cli import cmd_history_stats
 
             cmd_history_stats(args)
@@ -225,7 +227,9 @@ class TestHistoryStatsDisplayTokens:
 
         args = argparse.Namespace(agent=None)
 
-        with patch("synapse.cli._get_history_manager", return_value=manager):
+        with patch(
+            "synapse.commands.history._get_history_manager", return_value=manager
+        ):
             from synapse.cli import cmd_history_stats
 
             cmd_history_stats(args)

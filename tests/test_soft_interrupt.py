@@ -9,8 +9,8 @@ from unittest.mock import patch
 class TestInterruptCommand:
     """Tests for cmd_interrupt() — ergonomic shorthand for priority-4 send."""
 
-    @patch("synapse.cli._run_a2a_command")
-    @patch("synapse.cli._build_a2a_cmd")
+    @patch("synapse.commands.messaging._run_a2a_command")
+    @patch("synapse.commands.messaging._build_a2a_cmd")
     def test_interrupt_builds_priority_4_command(self, mock_build, mock_run):
         """interrupt should delegate to _build_a2a_cmd with priority=4, no-response."""
         from synapse.cli import cmd_interrupt
@@ -35,8 +35,8 @@ class TestInterruptCommand:
         )
         mock_run.assert_called_once_with(["dummy"], exit_on_error=True)
 
-    @patch("synapse.cli._run_a2a_command")
-    @patch("synapse.cli._build_a2a_cmd")
+    @patch("synapse.commands.messaging._run_a2a_command")
+    @patch("synapse.commands.messaging._build_a2a_cmd")
     def test_interrupt_with_sender(self, mock_build, mock_run):
         """--from sender should be forwarded to _build_a2a_cmd."""
         from synapse.cli import cmd_interrupt

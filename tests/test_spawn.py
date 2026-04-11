@@ -423,8 +423,8 @@ class TestSpawnCLIExecution:
         )
 
         with (
-            patch("synapse.cli.AgentProfileStore") as mock_store_cls,
-            patch("synapse.cli.AgentRegistry") as mock_registry_cls,
+            patch("synapse.commands.spawn_cmd.AgentProfileStore") as mock_store_cls,
+            patch("synapse.commands.spawn_cmd.AgentRegistry") as mock_registry_cls,
             patch("synapse.spawn.spawn_agent", return_value=mock_result) as mock_spawn,
             patch("synapse.spawn.wait_for_agent", return_value=agent_info),
         ):
@@ -461,7 +461,7 @@ class TestSpawnCLIExecution:
         )
 
         with (
-            patch("synapse.cli.AgentRegistry") as mock_registry_cls,
+            patch("synapse.commands.spawn_cmd.AgentRegistry") as mock_registry_cls,
             patch("synapse.spawn.spawn_agent") as mock_spawn,
             pytest.raises(SystemExit) as exc_info,
         ):

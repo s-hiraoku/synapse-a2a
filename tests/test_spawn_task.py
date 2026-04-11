@@ -125,9 +125,9 @@ class TestSpawnTaskExecution:
         with (
             patch("synapse.spawn.spawn_agent", return_value=result),
             patch("synapse.spawn.wait_for_agent", return_value=agent_info) as mock_wait,
-            patch("synapse.cli._run_a2a_command") as mock_run,
+            patch("synapse.commands.messaging._run_a2a_command") as mock_run,
             patch(
-                "synapse.cli._build_a2a_cmd",
+                "synapse.commands.messaging._build_a2a_cmd",
                 return_value=["python", "-m", "synapse.tools.a2a", "send"],
             ) as mock_build,
         ):
@@ -167,8 +167,8 @@ class TestSpawnTaskExecution:
         with (
             patch("synapse.spawn.spawn_agent", return_value=result),
             patch("synapse.spawn.wait_for_agent", return_value=agent_info),
-            patch("synapse.cli._run_a2a_command"),
-            patch("synapse.cli._build_a2a_cmd") as mock_build,
+            patch("synapse.commands.messaging._run_a2a_command"),
+            patch("synapse.commands.messaging._build_a2a_cmd") as mock_build,
         ):
             cmd_spawn(args)
 
@@ -189,8 +189,8 @@ class TestSpawnTaskExecution:
         with (
             patch("synapse.spawn.spawn_agent", return_value=result),
             patch("synapse.spawn.wait_for_agent", return_value=None),
-            patch("synapse.cli._run_a2a_command") as mock_run,
-            patch("synapse.cli._build_a2a_cmd") as mock_build,
+            patch("synapse.commands.messaging._run_a2a_command") as mock_run,
+            patch("synapse.commands.messaging._build_a2a_cmd") as mock_build,
         ):
             cmd_spawn(args)
 
@@ -216,8 +216,8 @@ class TestSpawnTaskExecution:
         with (
             patch("synapse.spawn.spawn_agent", return_value=result),
             patch("synapse.spawn.wait_for_agent", return_value=agent_info) as mock_wait,
-            patch("synapse.cli._run_a2a_command"),
-            patch("synapse.cli._build_a2a_cmd"),
+            patch("synapse.commands.messaging._run_a2a_command"),
+            patch("synapse.commands.messaging._build_a2a_cmd"),
         ):
             cmd_spawn(args)
 
@@ -241,8 +241,8 @@ class TestSpawnTaskExecution:
         with (
             patch("synapse.spawn.spawn_agent", return_value=result),
             patch("synapse.spawn.wait_for_agent", return_value=agent_info),
-            patch("synapse.cli._run_a2a_command"),
-            patch("synapse.cli._build_a2a_cmd") as mock_build,
+            patch("synapse.commands.messaging._run_a2a_command"),
+            patch("synapse.commands.messaging._build_a2a_cmd") as mock_build,
         ):
             cmd_spawn(args)
 
@@ -264,8 +264,8 @@ class TestSpawnTaskExecution:
         with (
             patch("synapse.spawn.spawn_agent", return_value=result),
             patch("synapse.spawn.wait_for_agent", return_value=agent_info) as mock_wait,
-            patch("synapse.cli._run_a2a_command") as mock_run,
-            patch("synapse.cli._build_a2a_cmd") as mock_build,
+            patch("synapse.commands.messaging._run_a2a_command") as mock_run,
+            patch("synapse.commands.messaging._build_a2a_cmd") as mock_build,
         ):
             cmd_spawn(args)
 

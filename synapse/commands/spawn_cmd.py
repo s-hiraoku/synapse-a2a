@@ -153,7 +153,16 @@ def cmd_team_start(args: argparse.Namespace) -> None:
             name = parts[1] if len(parts) > 1 and parts[1] else None
             role = parts[2] if len(parts) > 2 and parts[2] else None
             skill_set = parts[3] if len(parts) > 3 and parts[3] else None
-            port: int | None = int(parts[4]) if len(parts) > 4 and parts[4] else None
+            try:
+                port: int | None = (
+                    int(parts[4]) if len(parts) > 4 and parts[4] else None
+                )
+            except ValueError:
+                print(
+                    f"Error: Invalid port in team spec '{agent_spec}': {parts[4]}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
             print(f"Starting {agent_spec}...")
             fallback_cmd = ["synapse", "team", "start", profile]
