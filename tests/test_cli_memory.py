@@ -367,15 +367,15 @@ class TestMemoryBroadcastNotify:
         mock_registry.list_agents.return_value = mock_agents
 
         with (
-            patch("synapse.cli.AgentRegistry", return_value=mock_registry),
-            patch("synapse.cli.A2AClient") as mock_client_cls,
+            patch("synapse.commands.memory.AgentRegistry", return_value=mock_registry),
+            patch("synapse.commands.memory.A2AClient") as mock_client_cls,
         ):
             mock_client = MagicMock()
             mock_task = MagicMock()
             mock_client.send_to_local.return_value = mock_task
             mock_client_cls.return_value = mock_client
 
-            from synapse.cli import _memory_broadcast_notify
+            from synapse.commands.memory import _memory_broadcast_notify
 
             _memory_broadcast_notify("auth-pattern")
 
@@ -399,13 +399,13 @@ class TestMemoryBroadcastNotify:
         mock_registry.list_agents.return_value = mock_agents
 
         with (
-            patch("synapse.cli.AgentRegistry", return_value=mock_registry),
-            patch("synapse.cli.A2AClient") as mock_client_cls,
+            patch("synapse.commands.memory.AgentRegistry", return_value=mock_registry),
+            patch("synapse.commands.memory.A2AClient") as mock_client_cls,
         ):
             mock_client = MagicMock()
             mock_client_cls.return_value = mock_client
 
-            from synapse.cli import _memory_broadcast_notify
+            from synapse.commands.memory import _memory_broadcast_notify
 
             _memory_broadcast_notify("test-key")
 
@@ -427,14 +427,14 @@ class TestMemoryBroadcastNotify:
         mock_registry.list_agents.return_value = mock_agents
 
         with (
-            patch("synapse.cli.AgentRegistry", return_value=mock_registry),
-            patch("synapse.cli.A2AClient") as mock_client_cls,
+            patch("synapse.commands.memory.AgentRegistry", return_value=mock_registry),
+            patch("synapse.commands.memory.A2AClient") as mock_client_cls,
         ):
             mock_client = MagicMock()
             mock_client.send_to_local.side_effect = Exception("connection refused")
             mock_client_cls.return_value = mock_client
 
-            from synapse.cli import _memory_broadcast_notify
+            from synapse.commands.memory import _memory_broadcast_notify
 
             # Should not raise, just print failure
             _memory_broadcast_notify("test-key")

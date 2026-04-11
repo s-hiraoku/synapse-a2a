@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import Any, cast
+
+from synapse.a2a_client import A2AClient
+from synapse.registry import AgentRegistry
 
 
 def cmd_memory_save(args: argparse.Namespace) -> None:
@@ -36,18 +38,14 @@ def cmd_memory_save(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     if getattr(args, "notify", False):
-        from synapse import cli as cli_module
-
-        cli_module._memory_broadcast_notify(args.key)
+        _memory_broadcast_notify(args.key)
 
 
 def _memory_broadcast_notify(key: str) -> None:
     """Broadcast a notification about a saved memory."""
-    from synapse import cli as cli_module
-
     try:
-        registry = cast(Any, cli_module).AgentRegistry()
-        client = cast(Any, cli_module).A2AClient()
+        registry = AgentRegistry()
+        client = A2AClient()
         agents = registry.list_agents()
         my_id = os.environ.get("SYNAPSE_AGENT_ID", "")
         for agent_id, agent_info in agents.items():
