@@ -1755,6 +1755,8 @@ Analyze a user prompt and suggest team/task splits when the work is large enough
 
 ## Self-Learning Pipeline
 
+> **Not yet available** — The commands below (`synapse learn`, `synapse instinct`, `synapse evolve`) are planned but not yet wired into the CLI. The backing modules exist in `synapse/commands/evolve_cmd.py` but no argparser registration is present. See issue #540 for tracking.
+
 ### Learn (Analyze Observations)
 
 ```bash
