@@ -25,6 +25,11 @@ synapse session sessions --limit 10            # Limit results
 
 Define multi-step agent workflows as YAML files. Each step targets an agent with a message, priority, and response mode.
 
+**Target types:**
+
+- `target: self` — Execute the step locally on the calling agent (no A2A round-trip)
+- `target: <type>` (e.g., `claude`, `gemini`) — Send to another agent of that type. If the only match is the calling agent itself, the runner spawns a new agent to avoid deadlock
+
 **Storage:** `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user).
 
 ```bash

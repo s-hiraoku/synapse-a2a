@@ -11,6 +11,7 @@ from synapse.workflow_runner import (
     MAX_RUNS,
     StepResult,
     _extract_task_output,
+    _has_working_tasks,
     _is_self_target,
     _poll_task_completion,
     _send_workflow_request,
@@ -928,3 +929,93 @@ async def test_wait_for_helper_idle_timeout_returns_false(monkeypatch):
     result = await _wait_for_helper_idle("http://localhost:8100")
 
     assert result is False
+
+
+# ---------------------------------------------------------------------------
+# 16. _poll_task_completion handles input_required as failure (#533)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_poll_task_completion_input_required_returns_failed(monkeypatch):
+    """input_required should be treated as failure in workflow context."""
+    import httpx
+
+    async def _mock_get(self, url, **kwargs):
+        data = {
+            "task": {
+                "id": "t1",
+                "status": {"state": "input_required"},
+            }
+        }
+        return httpx.Response(200, json=data, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", _mock_get)
+
+    async def _noop_sleep(_):
+        pass
+
+    monkeypatch.setattr("synapse.workflow_runner.asyncio.sleep", _noop_sleep)
+
+    status, output = await _poll_task_completion("http://localhost:8100", "t1")
+    assert status == "failed"
+    assert "permission" in output.lower()
+
+
+# ---------------------------------------------------------------------------
+# 17. _has_working_tasks treats input_required as blocking (#533)
+# ---------------------------------------------------------------------------
+def test_has_working_tasks_includes_input_required():
+    """input_required tasks should count as blocking (not idle)."""
+    tasks = [{"status": {"state": "input_required"}}]
+    assert _has_working_tasks(tasks) is True
+
+
+def test_has_working_tasks_working_still_detected():
+    """working tasks should still be detected as blocking."""
+    tasks = [{"status": {"state": "working"}}]
+    assert _has_working_tasks(tasks) is True
+
+
+def test_has_working_tasks_completed_not_blocking():
+    """completed tasks should not be blocking."""
+    tasks = [{"status": {"state": "completed"}}]
+    assert _has_working_tasks(tasks) is False
+
+
+def test_has_working_tasks_empty_not_blocking():
+    """Empty task list should not be blocking."""
+    assert _has_working_tasks([]) is False
+
+
+# ---------------------------------------------------------------------------
+# 18. wait mode with input_required — step fails (#533)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_wait_mode_input_required_fails_step(monkeypatch):
+    """With response_mode=wait, input_required from poll should fail the step."""
+
+    async def _mock_send(*args, **kwargs):
+        return 0, "Accepted", "", "task-perm-001"
+
+    _patch_workflow_send(monkeypatch, _mock_send)
+
+    async def _mock_poll(endpoint, task_id):
+        return (
+            "failed",
+            "Agent requires permission approval — check auto-approve configuration",
+        )
+
+    monkeypatch.setattr("synapse.workflow_runner._poll_task_completion", _mock_poll)
+
+    wf = Workflow(
+        name="input-required-test",
+        steps=[WorkflowStep(target="agent1", message="do work", response_mode="wait")],
+        scope="project",
+    )
+    run_id = await run_workflow(wf)
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "failed"
+    assert run.steps[0].status == "failed"
+    assert "permission" in (run.steps[0].error or "").lower()
