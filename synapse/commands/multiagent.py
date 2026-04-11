@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 
 from synapse.patterns.base import PatternError
-from synapse.patterns.runner import PatternRunner
+from synapse.patterns.runner import PatternRunner, get_runner
 from synapse.patterns.store import PatternStore, Scope
 
 
@@ -20,7 +20,8 @@ def _get_pattern_store() -> PatternStore:
 
 
 def _get_pattern_runner() -> PatternRunner:
-    """Create a PatternRunner with default configuration."""
+    """Return the shared PatternRunner singleton."""
+    return get_runner()
     return PatternRunner()
 
 
@@ -270,7 +271,7 @@ def cmd_multiagent_status(args: argparse.Namespace) -> None:
 def cmd_multiagent_stop(args: argparse.Namespace) -> None:
     """Stop a running pattern execution."""
     runner = _get_pattern_runner()
-    stopped = runner.stop_run(args.run_id)
+    stopped = asyncio.run(runner.stop_run(args.run_id))
     if not stopped:
         print(f"Error: Run '{args.run_id}' not found.", file=sys.stderr)
         sys.exit(1)

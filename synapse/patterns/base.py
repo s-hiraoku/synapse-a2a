@@ -92,7 +92,8 @@ class CoordinationPattern(ABC):
     name: str = ""
     description: str = ""
 
-    def __init__(self) -> None:
+    def __init__(self, run_id: str = "") -> None:
+        self.run_id = run_id
         self._agents: list[AgentHandle] = []
         self._stopped = False
 

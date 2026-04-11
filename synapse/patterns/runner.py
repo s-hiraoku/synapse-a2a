@@ -246,3 +246,15 @@ class PatternRunner:
         if hasattr(agent, "__dict__"):
             return dict(vars(agent))
         return {"value": repr(agent)}
+
+
+# Module-level singleton so CLI commands and Canvas routes share state.
+_runner: PatternRunner | None = None
+
+
+def get_runner() -> PatternRunner:
+    """Return the shared PatternRunner singleton."""
+    global _runner  # noqa: PLW0603
+    if _runner is None:
+        _runner = PatternRunner()
+    return _runner

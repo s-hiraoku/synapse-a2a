@@ -141,7 +141,7 @@ class FakePatternRunner:
     def get_run(self, run_id: str) -> SimpleNamespace | None:
         return self.runs.get(run_id)
 
-    def stop_run(self, run_id: str) -> bool:
+    async def stop_run(self, run_id: str) -> bool:
         self.stop_calls.append(run_id)
         return run_id in self.runs
 
@@ -161,6 +161,7 @@ def _load_multiagent_module(monkeypatch: pytest.MonkeyPatch):
 
     fake_runner_mod.PatternRunner = FakePatternRunner
     fake_runner_mod.PatternError = FakePatternError
+    fake_runner_mod.get_runner = lambda: FakePatternRunner()
 
     monkeypatch.setitem(sys.modules, "synapse.patterns", fake_patterns_pkg)
     monkeypatch.setitem(sys.modules, "synapse.patterns.base", fake_base_mod)

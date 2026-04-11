@@ -76,9 +76,11 @@ class PatternStore:
         for dir_path in dirs:
             if not dir_path.is_dir():
                 continue
+            dir_scope: Scope = "project" if dir_path == self.project_dir else "user"
             for file_path in sorted(dir_path.glob("*.yaml")):
                 try:
                     loaded = self._parse_file(file_path)
+                    loaded.setdefault("scope", dir_scope)
                     patterns.append(loaded)
                 except (yaml.YAMLError, TypeError, ValueError) as exc:
                     logger.warning(
