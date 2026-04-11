@@ -238,6 +238,61 @@ def test_readme_marks_mcp_bootstrap_doc_as_japanese() -> None:
     assert "MCP Bootstrap Design (Japanese)" in text
 
 
+def test_cli_reference_documents_plan_approval_commands() -> None:
+    cli_ref = _read("site-docs/reference/cli.md")
+    cheatsheet = _read("site-docs/reference/cli-cheatsheet.md")
+
+    assert "## Plan Approval" in cli_ref
+    assert "synapse approve <task_id>" in cli_ref
+    assert "synapse reject <task_id> [reason]" in cli_ref
+    assert "synapse approve <task_id>" in cheatsheet
+    assert "synapse reject <task_id> [reason]" in cheatsheet
+
+
+def test_self_learning_docs_warn_commands_are_not_yet_available() -> None:
+    cheatsheet = _read("site-docs/reference/cli-cheatsheet.md")
+    guide = _read("site-docs/guide/self-learning.md")
+
+    assert '!!! warning "Not yet available"' in cheatsheet
+    assert "planned but not yet accessible via the CLI" in cheatsheet
+    assert '!!! warning "Not yet available"' in guide
+    assert "planned but not yet accessible via the CLI" in guide
+
+
+def test_communication_guide_does_not_document_missing_reply_fail_flag() -> None:
+    guide = _read("site-docs/guide/communication.md")
+
+    assert "synapse reply --fail" not in guide
+    assert "Use `--fail`" not in guide
+
+
+def test_file_safety_docs_match_current_locks_flags() -> None:
+    cli_ref = _read("site-docs/reference/cli.md")
+    guide = _read("site-docs/guide/file-safety.md")
+
+    assert "synapse file-safety locks [--file PATH]" not in cli_ref
+    assert "synapse file-safety locks --file" not in guide
+    assert "synapse file-safety locks [--agent AGENT] [--type TYPE]" in cli_ref
+
+
+def test_team_start_docs_match_current_agent_spec_and_flags() -> None:
+    cli_ref = _read("site-docs/reference/cli.md")
+    guide = _read("site-docs/guide/agent-teams.md")
+
+    assert "profile[:name[:role[:skill_set]]]" in cli_ref
+    assert "profile[:name[:role[:skill_set[:port]]]]" not in cli_ref
+    assert "target[:name[:role[:skill_set]]]" in guide
+    assert "target[:name[:role[:skill_set[:port]]]]" not in guide
+    assert "--no-auto-approve" in cli_ref
+
+
+def test_history_guide_uses_current_database_path() -> None:
+    guide = _read("site-docs/guide/history.md")
+
+    assert "~/.synapse/history/history.db" in guide
+    assert "~/.synapse/history.db" not in guide
+
+
 def test_internal_docs_readme_tracks_current_canvas_format_and_template_counts() -> (
     None
 ):

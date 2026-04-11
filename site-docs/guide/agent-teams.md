@@ -32,10 +32,10 @@ synapse team start claude gemini --all-new
 
 ### Extended Spec Format
 
-Specify target, name, role, skill set, and port per agent using colon-separated format:
+Specify target, name, role, and skill set per agent using colon-separated format:
 
 ```
-target[:name[:role[:skill_set[:port]]]]
+target[:name[:role[:skill_set]]]
 ```
 
 The `target` can be a built-in profile name (`claude`, `gemini`, etc.) or a saved agent ID/name.
@@ -49,6 +49,14 @@ synapse team start \
 
 !!! tip "Automatic Port Pre-Allocation"
     When launching multiple agents of the same type, `team start` pre-allocates a unique port for each agent before spawning. This prevents race conditions where simultaneous agents could bind to the same port.
+
+### Auto-Approval Control
+
+Disable automatic tool approval injection for all agents launched by `team start`:
+
+```bash
+synapse team start claude gemini --no-auto-approve
+```
 
 !!! tip "Dynamic Skill Set Changes"
     Skill sets specified in the extended spec are applied at startup. To change an agent's skill set after it has started, use `synapse skills apply`:

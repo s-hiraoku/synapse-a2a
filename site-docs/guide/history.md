@@ -4,7 +4,7 @@
 
 Synapse automatically tracks task history — every message sent, received, and processed. History is enabled by default since v0.3.13.
 
-Storage: `~/.synapse/history.db` (SQLite)
+Storage: `~/.synapse/history/history.db` (SQLite)
 
 ## Listing History
 

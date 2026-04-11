@@ -27,8 +27,8 @@ Storage: `.synapse/file_safety.db` (project-local SQLite, WAL mode)
 
 ```bash
 synapse file-safety locks
-synapse file-safety locks --file src/auth.py
 synapse file-safety locks --agent claude
+synapse file-safety locks --type codex
 ```
 
 ### Acquire a Lock
@@ -325,7 +325,7 @@ synapse trace <task_id>
 
 This command queries two data sources:
 
-1. **Task history** (from `~/.synapse/history.db` or the history manager): Shows the A2A message exchange, timestamps, agent involvement, and task status.
+1. **Task history** (from `~/.synapse/history/history.db` or the history manager): Shows the A2A message exchange, timestamps, agent involvement, and task status.
 2. **File Safety records** (from `.synapse/file_safety.db`): Shows all file modifications associated with the given task ID.
 
 ### Reading Trace Output
