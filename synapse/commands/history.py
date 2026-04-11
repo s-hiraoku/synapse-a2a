@@ -48,9 +48,7 @@ def _print_history_table(observations: list[dict]) -> None:
 
 def cmd_history_list(args: argparse.Namespace) -> None:
     """List task history."""
-    from synapse import cli as cli_module
-
-    manager = cli_module._get_history_manager()
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print(HISTORY_DISABLED_MSG)
@@ -98,9 +96,7 @@ def _print_observation_detail(observation: dict) -> None:
 
 def cmd_history_show(args: argparse.Namespace) -> None:
     """Show detailed task information."""
-    from synapse import cli as cli_module
-
-    manager = cli_module._get_history_manager()
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print(HISTORY_DISABLED_MSG)
@@ -117,10 +113,9 @@ def cmd_history_show(args: argparse.Namespace) -> None:
 
 def cmd_trace(args: argparse.Namespace) -> None:
     """Trace a task ID across A2A history and file-safety modification records."""
-    from synapse import cli as cli_module
     from synapse.file_safety import FileSafetyManager
 
-    manager = cli_module._get_history_manager()
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print(HISTORY_DISABLED_MSG)
@@ -158,9 +153,7 @@ def cmd_trace(args: argparse.Namespace) -> None:
 
 def cmd_history_search(args: argparse.Namespace) -> None:
     """Search task history by keywords."""
-    from synapse import cli as cli_module
-
-    manager = cli_module._get_history_manager()
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print(HISTORY_DISABLED_MSG)
@@ -188,9 +181,7 @@ def cmd_history_search(args: argparse.Namespace) -> None:
 
 def cmd_history_cleanup(args: argparse.Namespace) -> None:
     """Clean up old task history."""
-    from synapse import cli as cli_module
-
-    manager = cli_module._get_history_manager()
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print(HISTORY_DISABLED_MSG)
@@ -266,9 +257,7 @@ def cmd_history_cleanup(args: argparse.Namespace) -> None:
 
 def cmd_history_stats(args: argparse.Namespace) -> None:
     """Show task history statistics."""
-    from synapse import cli as cli_module
-
-    manager = cli_module._get_history_manager()
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print(HISTORY_DISABLED_MSG)
@@ -353,9 +342,7 @@ def cmd_history_stats(args: argparse.Namespace) -> None:
 
 def cmd_history_export(args: argparse.Namespace) -> None:
     """Export task history in specified format."""
-    from synapse import cli as cli_module
-
-    manager = cli_module._get_history_manager()
+    manager = _get_history_manager()
 
     if not manager.enabled:
         print(HISTORY_DISABLED_MSG)
