@@ -8,6 +8,7 @@ import sys
 
 from synapse.agent_profiles import AgentProfileError, AgentProfileStore
 from synapse.port_manager import PORT_RANGES
+from synapse.registry import AgentRegistry
 
 KNOWN_PROFILES = set(PORT_RANGES.keys())
 
@@ -105,7 +106,6 @@ def _resolve_team_agent_spec(spec: str, store: AgentProfileStore) -> str:
 
 def cmd_team_start(args: argparse.Namespace) -> None:
     """Start multiple agents with split panes."""
-    from synapse import cli as cli_module
     from synapse.spawn import execute_spawn, prepare_spawn
     from synapse.terminal_jump import detect_terminal_app
 
@@ -115,10 +115,10 @@ def cmd_team_start(args: argparse.Namespace) -> None:
     all_new = getattr(args, "all_new", False)
     auto_approve = not getattr(args, "no_auto_approve", False)
 
-    store = cli_module.AgentProfileStore()
+    store = AgentProfileStore()
     agents = [_resolve_team_agent_spec(spec, store) for spec in agents]
 
-    registry = cli_module.AgentRegistry()
+    registry = AgentRegistry()
     seen_names: set[str] = set()
     for spec in agents:
         custom_name = _extract_team_agent_name(spec)
@@ -153,12 +153,21 @@ def cmd_team_start(args: argparse.Namespace) -> None:
             name = parts[1] if len(parts) > 1 and parts[1] else None
             role = parts[2] if len(parts) > 2 and parts[2] else None
             skill_set = parts[3] if len(parts) > 3 and parts[3] else None
-            port = parts[4] if len(parts) > 4 and parts[4] else None
+            try:
+                port: int | None = (
+                    int(parts[4]) if len(parts) > 4 and parts[4] else None
+                )
+            except ValueError:
+                print(
+                    f"Error: Invalid port in team spec '{agent_spec}': {parts[4]}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
             print(f"Starting {agent_spec}...")
             fallback_cmd = ["synapse", "team", "start", profile]
             if port:
-                fallback_cmd += ["--port", port]
+                fallback_cmd += ["--port", str(port)]
             if name:
                 fallback_cmd += ["--name", name]
             if role:
@@ -254,11 +263,15 @@ def cmd_team_start(args: argparse.Namespace) -> None:
 
 def cmd_spawn(args: argparse.Namespace) -> None:
     """Spawn a single agent in a new terminal pane."""
-    from synapse import cli as cli_module
+    from synapse.commands.messaging import (
+        _build_a2a_cmd,
+        _resolve_task_message,
+        _run_a2a_command,
+    )
     from synapse.spawn import spawn_agent, wait_for_agent
 
     tool_args = getattr(args, "tool_args", [])
-    task_message = cli_module._resolve_task_message(args)
+    task_message = _resolve_task_message(args)
     target = args.profile
     resolved_profile = target
     resolved_name = args.name
@@ -266,7 +279,7 @@ def cmd_spawn(args: argparse.Namespace) -> None:
     resolved_skill_set = args.skill_set
 
     if target not in KNOWN_PROFILES:
-        store = cli_module.AgentProfileStore()
+        store = AgentProfileStore()
         try:
             saved = store.resolve(target)
         except AgentProfileError as e:
@@ -285,7 +298,7 @@ def cmd_spawn(args: argparse.Namespace) -> None:
         resolved_skill_set = resolved_skill_set or saved.skill_set
 
     if resolved_name:
-        registry = cli_module.AgentRegistry()
+        registry = AgentRegistry()
         if not registry.is_name_unique(resolved_name):
             print(
                 f"Error: Name '{resolved_name}' is already taken by another agent.",
@@ -323,14 +336,14 @@ def cmd_spawn(args: argparse.Namespace) -> None:
             return
 
         if task_message is not None:
-            cmd = cli_module._build_a2a_cmd(
+            cmd = _build_a2a_cmd(
                 "send",
                 task_message,
                 target=result.agent_id,
                 response_mode=getattr(args, "response_mode", None),
                 force=bool(result.worktree_path),
             )
-            cli_module._run_a2a_command(cmd, exit_on_error=True)
+            _run_a2a_command(cmd, exit_on_error=True)
     except (FileNotFoundError, RuntimeError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

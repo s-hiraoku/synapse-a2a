@@ -35,7 +35,7 @@ class TestCliHistoryCommands:
         args.output = None
         return args
 
-    @patch("synapse.cli._get_history_manager")
+    @patch("synapse.commands.history._get_history_manager")
     @patch("builtins.print")
     def test_cmd_history_list(self, mock_print, mock_get_hm, mock_args):
         """cmd_history_list should call list_observations and print results."""
@@ -63,7 +63,7 @@ class TestCliHistoryCommands:
         assert "t1" in printed_output
         assert "claude" in printed_output
 
-    @patch("synapse.cli._get_history_manager")
+    @patch("synapse.commands.history._get_history_manager")
     @patch("builtins.print")
     def test_cmd_history_show(self, mock_print, mock_get_hm, mock_args):
         """cmd_history_show should call get_observation and print details."""
@@ -92,7 +92,7 @@ class TestCliHistoryCommands:
         assert "claude" in printed_output
         assert "s1" in printed_output
 
-    @patch("synapse.cli._get_history_manager")
+    @patch("synapse.commands.history._get_history_manager")
     @patch("builtins.print")
     def test_cmd_history_search(self, mock_print, mock_get_hm, mock_args):
         """cmd_history_search should call search_observations."""
@@ -123,7 +123,7 @@ class TestCliHistoryCommands:
         )
         assert "t1" in printed_output
 
-    @patch("synapse.cli._get_history_manager")
+    @patch("synapse.commands.history._get_history_manager")
     @patch("builtins.print")
     def test_cmd_history_cleanup_days(self, mock_print, mock_get_hm, mock_args):
         """cmd_history_cleanup --days should call cleanup_old_observations."""
@@ -142,7 +142,7 @@ class TestCliHistoryCommands:
             days=7, vacuum=True
         )
 
-    @patch("synapse.cli._get_history_manager")
+    @patch("synapse.commands.history._get_history_manager")
     @patch("builtins.print")
     def test_cmd_history_cleanup_size(self, mock_print, mock_get_hm, mock_args):
         """cmd_history_cleanup --max-size should call cleanup_by_size."""
@@ -161,7 +161,7 @@ class TestCliHistoryCommands:
             max_size_mb=100, vacuum=True
         )
 
-    @patch("synapse.cli._get_history_manager")
+    @patch("synapse.commands.history._get_history_manager")
     @patch("sqlite3.connect")
     @patch("builtins.print")
     def test_cmd_history_cleanup_dry_run(
@@ -185,7 +185,7 @@ class TestCliHistoryCommands:
         )
         assert "Would delete 5 observations" in printed_output
 
-    @patch("synapse.cli._get_history_manager")
+    @patch("synapse.commands.history._get_history_manager")
     @patch("builtins.print")
     def test_cmd_history_stats(self, mock_print, mock_get_hm, mock_args):
         """cmd_history_stats should call get_statistics."""
@@ -208,7 +208,7 @@ class TestCliHistoryCommands:
 
         mock_hm_inst.get_statistics.assert_called_once_with(agent_name=None)
 
-    @patch("synapse.cli._get_history_manager")
+    @patch("synapse.commands.history._get_history_manager")
     @patch("builtins.print")
     def test_cmd_history_export(self, mock_print, mock_get_hm, mock_args):
         """cmd_history_export should call export_observations."""
@@ -223,7 +223,7 @@ class TestCliHistoryCommands:
             format="json", agent_name=None, limit=50
         )
 
-    @patch("synapse.cli._get_history_manager")
+    @patch("synapse.commands.history._get_history_manager")
     @patch("builtins.open", new_callable=MagicMock)
     @patch("builtins.print")
     def test_cmd_history_export_to_file(

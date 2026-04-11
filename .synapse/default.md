@@ -62,6 +62,16 @@ STEP 2: Collaboration Decision Framework
   - Auto-approve: `spawn` and `team start` automatically inject CLI permission bypass
     flags. Use `--no-auto-approve` to disable.
 
+  WORKTREE DECISION — When to use --worktree:
+  `synapse team start` enables worktree by default (use --no-worktree to opt out).
+  For `synapse spawn`, follow these rules:
+  - `--branch` is specified → worktree auto-enabled (branch implies isolation)
+  - `analyze_task` returned recommended_worktree == true → use --worktree
+  - `analyze_task` returned file_conflicts.risk == "high" → use --worktree
+  - delegation_strategy == "spawn" with multiple files → use --worktree
+  - Single agent, no conflicts, read-only task → skip worktree
+  - User explicitly said --no-worktree → respect their choice
+
   [ASK FOR HELP] synapse send <target> "..." --wait
   - You are stuck or unsure about your approach
   - You need expertise outside your role
@@ -125,7 +135,7 @@ Efficiency Rules:
   - Prefer agents in the same WORKING_DIR (shared context is easier)
   - If no suitable agent exists:
     - Single agent: `synapse spawn <profile> --name <n> --role "<r>"`
-    - Multiple agents: `synapse team start <spec1> <spec2> ...`
+    - Multiple agents: `synapse team start <spec1> <spec2> ...` (ensures tile layout)
   - When spawning, prefer a different model type to distribute load and avoid rate limits
   - ALWAYS kill agents you spawn after their work is complete: `synapse kill <name> -f`
 
@@ -226,13 +236,52 @@ SAME WORKING DIRECTORY — Leverage nearby agents:
   - Prefer same-dir agents over spawning new ones (lower overhead)
 
 ================================================================================
-BRANCH MANAGEMENT - CRITICAL
+PERMISSION HANDLING — When Spawned Agents Need Approval
 ================================================================================
 
-- **Do NOT change branches during active work** - Stay on the current branch
-- **If branch change is needed**, ask the user for confirmation first
-- Before switching, ensure all changes are committed or stashed
-- When receiving tasks from other agents, work on the same branch as the sender
+When you spawn or send tasks to agents running WITHOUT auto-approve (e.g.,
+`--no-auto-approve`), the target agent may stop at a permission prompt (WAITING
+status / `input_required` task state). The agent cannot notify you — its PTY is
+blocked. Instead, its Synapse server automatically sends you an `input_required`
+notification.
+
+WHEN YOU RECEIVE AN input_required NOTIFICATION:
+  1. Read the permission context (pty_context) to understand what tool/action is
+     requested (e.g., "Allow Bash: rm -rf /tmp/test? [Y/n]")
+  2. Evaluate: is this expected for the task you delegated?
+  3. If safe:
+       curl -X POST http://<agent-endpoint>/tasks/<task_id>/permission/approve
+  4. If unsafe:
+       curl -X POST http://<agent-endpoint>/tasks/<task_id>/permission/deny
+  5. If unsure: Ask the user
+
+HOW THE NOTIFICATION ARRIVES:
+  - `--notify` mode: You receive an A2A message with status "input_required"
+    and metadata.permission.pty_context showing what the agent is waiting for
+  - `--wait` mode: The wait returns with input_required status
+  - `--silent` mode: No notification (check manually with synapse list)
+
+MONITORING SPAWNED AGENTS:
+  Run `synapse list` — agents showing WAITING status need approval.
+  Check task status: `synapse status <agent> --json` or GET /tasks/{id}
+
+================================================================================
+BRANCH MANAGEMENT
+================================================================================
+
+**Worktree agents** (SYNAPSE_WORKTREE_PATH is set):
+- You are isolated — branch changes are allowed without user confirmation.
+- The worktree was created on the intended branch; usually no switch is needed.
+
+**Non-worktree agents** (shared working directory):
+- **Do NOT change branches during active work** — other agents may share this directory.
+- **If branch change is needed**, ask the user for confirmation first.
+- Before switching, ensure all changes are committed or stashed.
+
+**A2A delegated branch changes**:
+- If another agent explicitly instructs a branch switch in a shared working directory,
+  treat it as a proposal and ask the user for confirmation first.
+- Before switching, ensure current changes are committed or stashed.
 
 ================================================================================
 A2A COMMUNICATION PROTOCOL
@@ -286,25 +335,30 @@ Parameters:
 - `--silent`: Fire and forget - no response or notification
 
 CHOOSING --wait vs --notify vs --silent:
-Analyze the message content and determine how you need the response.
-- If you need the result immediately to continue your work → use `--wait`
-- If you want to be notified when done but can continue working → use `--notify` (default)
-- If the message is purely informational with no reply needed → use `--silent`
-- **If unsure, omit the flag** (defaults to `--notify`, the safest option)
+**Default to --notify (or omit the flag).** Only use --wait when you truly cannot
+proceed without the answer — i.e., your very next action depends on the reply content.
+- `--notify` (DEFAULT): You get notified when done but keep working. **Use this for most messages.**
+- `--wait`: Blocks your execution. Use ONLY when your next line of work literally requires
+  the reply (e.g., you need a value to pass to the next function call).
+- `--silent`: Fire and forget — no response or notification.
+- **If unsure, omit the flag** (defaults to `--notify`, the safest option).
 
 IMPORTANT: `--from` requires agent ID format (`synapse-<type>-<port>`). Do NOT use agent types or custom names. In most environments, `--from` is auto-detected and can be omitted.
 When specifying --from explicitly, always use $SYNAPSE_AGENT_ID (auto-set at startup). Never hardcode agent IDs.
 
 Examples:
 ```bash
-# Question - needs reply, wait synchronously
-synapse send gemini "What is the best practice for error handling?" --wait
+# Question - needs reply, notified asynchronously (default)
+synapse send gemini "What is the best practice for error handling?"
 
-# Status check - needs reply, wait synchronously
-synapse send codex "What is your current status?" --wait
+# Status check - notified asynchronously
+synapse send codex "What is your current status?"
 
-# Task delegation - default notify (returns immediately, notified on completion)
+# Task delegation - notified on completion (default --notify)
 synapse send gemini "Research React best practices"
+
+# Blocking wait - ONLY when you cannot proceed without the result
+synapse send codex "What port is service X running on?" --wait
 
 # Notification - explicitly no reply needed
 synapse send gemini "FYI: Build completed" --silent

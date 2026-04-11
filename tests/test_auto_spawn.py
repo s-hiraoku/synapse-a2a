@@ -400,7 +400,7 @@ class TestTeamStartExecution:
         )
 
         with (
-            patch("synapse.cli.AgentRegistry"),
+            patch("synapse.commands.spawn_cmd.AgentRegistry"),
             patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"),
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -424,7 +424,7 @@ class TestTeamStartExecution:
         )
 
         with (
-            patch("synapse.cli.AgentRegistry") as mock_registry_cls,
+            patch("synapse.commands.spawn_cmd.AgentRegistry") as mock_registry_cls,
             patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"),
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -450,8 +450,8 @@ class TestTeamStartExecution:
         )
 
         with (
-            patch("synapse.cli.AgentRegistry") as mock_registry_cls,
-            patch("synapse.cli.AgentProfileStore") as mock_store_cls,
+            patch("synapse.commands.spawn_cmd.AgentRegistry") as mock_registry_cls,
+            patch("synapse.commands.spawn_cmd.AgentProfileStore") as mock_store_cls,
             patch("synapse.terminal_jump.detect_terminal_app", return_value="tmux"),
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -490,8 +490,8 @@ class TestTeamStartExecution:
             return ["echo noop"]
 
         with (
-            patch("synapse.cli.AgentRegistry") as mock_registry_cls,
-            patch("synapse.cli.AgentProfileStore") as mock_store_cls,
+            patch("synapse.commands.spawn_cmd.AgentRegistry") as mock_registry_cls,
+            patch("synapse.commands.spawn_cmd.AgentProfileStore") as mock_store_cls,
             patch("synapse.spawn.load_profile", return_value={}),
             patch("synapse.spawn.is_port_available", return_value=True),
             patch("synapse.spawn.PortManager") as mock_pm_cls,

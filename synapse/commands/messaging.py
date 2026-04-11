@@ -156,11 +156,9 @@ def _resolve_task_message(args: argparse.Namespace) -> str | None:
 
 def cmd_send(args: argparse.Namespace) -> None:
     """Send a message to an agent."""
-    from synapse import cli as cli_module
+    message = _resolve_cli_message(args)
 
-    message = cli_module._resolve_cli_message(args)
-
-    cmd = cli_module._build_a2a_cmd(
+    cmd = _build_a2a_cmd(
         "send",
         message,
         target=args.target,
@@ -170,14 +168,12 @@ def cmd_send(args: argparse.Namespace) -> None:
         attachments=getattr(args, "attach", None),
         force=getattr(args, "force", False),
     )
-    cli_module._run_a2a_command(cmd, exit_on_error=True)
+    _run_a2a_command(cmd, exit_on_error=True)
 
 
 def cmd_interrupt(args: argparse.Namespace) -> None:
     """Send a priority-4 interrupt message to an agent."""
-    from synapse import cli as cli_module
-
-    cmd = cli_module._build_a2a_cmd(
+    cmd = _build_a2a_cmd(
         "send",
         args.message,
         target=args.target,
@@ -186,15 +182,13 @@ def cmd_interrupt(args: argparse.Namespace) -> None:
         response_mode="silent",
         force=getattr(args, "force", False),
     )
-    cli_module._run_a2a_command(cmd, exit_on_error=True)
+    _run_a2a_command(cmd, exit_on_error=True)
 
 
 def cmd_broadcast(args: argparse.Namespace) -> None:
     """Broadcast a message to all agents in current working directory."""
-    from synapse import cli as cli_module
-
-    message = cli_module._resolve_cli_message(args)
-    cmd = cli_module._build_a2a_cmd(
+    message = _resolve_cli_message(args)
+    cmd = _build_a2a_cmd(
         "broadcast",
         message,
         priority=args.priority,
@@ -202,19 +196,17 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
         response_mode=getattr(args, "response_mode", None),
         attachments=getattr(args, "attach", None),
     )
-    cli_module._run_a2a_command(cmd, exit_on_error=True)
+    _run_a2a_command(cmd, exit_on_error=True)
 
 
 def cmd_reply(args: argparse.Namespace) -> None:
     """Reply to the last received A2A message using reply tracking."""
-    from synapse import cli as cli_module
-
     message = args.message
     sender = getattr(args, "sender", None)
     to_sender = getattr(args, "to", None)
     list_targets = getattr(args, "list_targets", False)
 
-    cmd = [sys.executable, str(cli_module._get_a2a_tool_path()), "reply"]
+    cmd = [sys.executable, str(_get_a2a_tool_path()), "reply"]
     if sender:
         cmd.extend(["--from", sender])
     if to_sender:
@@ -224,4 +216,4 @@ def cmd_reply(args: argparse.Namespace) -> None:
     if message:
         cmd.append(message)
 
-    cli_module._run_a2a_command(cmd, exit_on_error=True)
+    _run_a2a_command(cmd, exit_on_error=True)
