@@ -455,9 +455,12 @@ class TestCliFileSafetyErrorCases:
 
     # ===== Tests for ALREADY_LOCKED status =====
 
+    @patch("synapse.registry.AgentRegistry")
     @patch("synapse.file_safety.FileSafetyManager")
     @patch("builtins.print")
-    def test_cmd_file_safety_lock_already_locked(self, mock_print, mock_fm, mock_args):
+    def test_cmd_file_safety_lock_already_locked(
+        self, mock_print, mock_fm, mock_registry, mock_args
+    ):
         """cmd_file_safety_lock should exit with 1 when file is already locked."""
         mock_fm_inst = mock_fm.from_env.return_value
         mock_fm_inst.enabled = True
@@ -466,6 +469,9 @@ class TestCliFileSafetyErrorCases:
             "lock_holder": "gemini",
             "expires_at": "2026-01-09 12:00:00",
         }
+        registry_instance = mock_registry.return_value
+        registry_instance.get_agent.return_value = None
+        registry_instance.get_live_agents.return_value = {}
 
         with pytest.raises(SystemExit) as exc_info:
             cmd_file_safety_lock(mock_args)
@@ -476,9 +482,12 @@ class TestCliFileSafetyErrorCases:
 
     # ===== Tests for FAILED status =====
 
+    @patch("synapse.registry.AgentRegistry")
     @patch("synapse.file_safety.FileSafetyManager")
     @patch("builtins.print")
-    def test_cmd_file_safety_lock_failed(self, mock_print, mock_fm, mock_args):
+    def test_cmd_file_safety_lock_failed(
+        self, mock_print, mock_fm, mock_registry, mock_args
+    ):
         """cmd_file_safety_lock should exit with 1 when lock acquisition fails."""
         mock_fm_inst = mock_fm.from_env.return_value
         mock_fm_inst.enabled = True
@@ -486,6 +495,9 @@ class TestCliFileSafetyErrorCases:
             "status": LockStatus.FAILED,
             "error": "database is locked",
         }
+        registry_instance = mock_registry.return_value
+        registry_instance.get_agent.return_value = None
+        registry_instance.get_live_agents.return_value = {}
 
         with pytest.raises(SystemExit) as exc_info:
             cmd_file_safety_lock(mock_args)
