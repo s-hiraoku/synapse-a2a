@@ -19,7 +19,7 @@ import time
 import tty
 from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from synapse.file_safety import FileSafetyManager
@@ -44,6 +44,7 @@ from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.skills import load_skill_sets
 from synapse.status import DONE_TIMEOUT_SECONDS
+from synapse.terminal_writer import TerminalWriter
 from synapse.utils import (
     RoleFileNotFoundError,
     format_a2a_message,
@@ -427,6 +428,36 @@ class TerminalController:
         self._auto_approve_last_time: float | None = None
         self._auto_approve_stopped: bool = False
         self._auto_approve_lock = threading.Lock()
+        self._terminal_writer = TerminalWriter(
+            self,
+            agent_id=self.agent_id,
+            agent_type=self.agent_type,
+            write_delay=self._write_delay,
+            submit_retry_delay=self._submit_retry_delay,
+            bracketed_paste=self._bracketed_paste,
+            typing_char_delay=self._typing_char_delay,
+            typing_max_chars=self._typing_max_chars,
+            submit_confirm_timeout=self._submit_confirm_timeout,
+            submit_confirm_poll_interval=self._submit_confirm_poll_interval,
+            submit_confirm_retries=self._submit_confirm_retries,
+            long_submit_confirm_timeout=self._long_submit_confirm_timeout,
+            long_submit_confirm_retries=self._long_submit_confirm_retries,
+            copilot_compact_paste_re=_COPILOT_COMPACT_PASTE_RE,
+            copilot_saved_paste_re=_COPILOT_SAVED_PASTE_RE,
+            kkp_disable_seq=_KKP_DISABLE_SEQ,
+            copilot_submit_nudge_delay=_COPILOT_SUBMIT_NUDGE_DELAY,
+            copilot_long_submit_nudge_delay=_COPILOT_LONG_SUBMIT_NUDGE_DELAY,
+            copilot_paste_echo_poll=_COPILOT_PASTE_ECHO_POLL,
+            copilot_paste_echo_timeout=_COPILOT_PASTE_ECHO_TIMEOUT,
+            copilot_paste_echo_settle=_COPILOT_PASTE_ECHO_SETTLE,
+            strip_ansi=strip_ansi,
+            logger=logger,
+            os_module=os,
+            time_module=time,
+            termios_module=termios,
+            contextlib_module=contextlib,
+            math_module=math,
+        )
 
         if self._auto_approve_enabled:
             self.on_status_change(self._handle_auto_approve)
@@ -1293,338 +1324,91 @@ class TerminalController:
             self._identity_sending = False
 
     def _write_all(self, data: bytes) -> None:
-        """Write all bytes to the PTY, retrying on partial writes.
+        """Write all bytes to the PTY, retrying on partial writes."""
+        self._terminal_writer._write_all(data)
 
-        In interactive mode (pty.spawn), writes go through the inject pipe
-        so that pty._copy's select loop picks them up correctly.  In
-        background mode, writes go directly to master_fd.
+    @staticmethod
+    def _writer_os_module() -> Any:
+        return os
 
-        Args:
-            data: The bytes to write.
+    @staticmethod
+    def _writer_time_module() -> Any:
+        return time
 
-        Raises:
-            OSError: If ``os.write`` returns 0 (fd closed).
-        """
-        # Use inject pipe when available (interactive / pty.spawn mode)
-        fd = self._inject_write_fd or self.master_fd
-        assert fd is not None
-        total = len(data)
-        written = 0
-        while written < total:
-            n = os.write(fd, data[written:])
-            if n == 0:
-                raise OSError("os.write returned 0, fd may be closed")
-            written += n
+    @staticmethod
+    def _writer_termios_module() -> Any:
+        return termios
+
+    @staticmethod
+    def _writer_contextlib_module() -> Any:
+        return contextlib
+
+    @staticmethod
+    def _writer_math_module() -> Any:
+        return math
 
     def _should_type_input(self, data: str, submit_seq: str | None) -> bool:
         """Whether to emulate real typing instead of bracketed paste."""
-        return bool(
-            self.agent_type != "copilot"
-            and submit_seq
-            and self._typing_max_chars > 0
-            and len(data) <= self._typing_max_chars
-            and "\n" not in data
-            and "\r" not in data
-        )
+        return self._terminal_writer._should_type_input(data, submit_seq)
 
     def _write_typed_text(self, data: str) -> None:
         """Write text character-by-character to emulate actual keyboard input."""
-        typing_delay = self._typing_char_delay
-        for idx, char in enumerate(data):
-            self._write_all(char.encode("utf-8"))
-            if typing_delay > 0 and idx + 1 < len(data):
-                time.sleep(typing_delay)
+        self._terminal_writer._write_typed_text(data)
 
     def _is_long_submit_message(self, data: str) -> bool:
         """Whether Copilot confirmation should use long-message heuristics."""
-        if self.agent_type != "copilot":
-            return False
-        return "\n" in data or "\r" in data
+        return self._terminal_writer._is_long_submit_message(data)
 
     def _pending_submit_markers(self, data: str) -> list[str]:
         """Extract visible markers that indicate Copilot input still remains."""
-        data_stripped = data.strip()
-        if not data_stripped:
-            return []
-
-        markers: list[str] = [data_stripped]
-        if "[LONG MESSAGE - FILE ATTACHED]" in data_stripped:
-            markers.extend(
-                [
-                    "[LONG MESSAGE - FILE ATTACHED]",
-                    "Please read this file",
-                ]
-            )
-        elif self._is_long_submit_message(data):
-            lines = [line.strip() for line in data.splitlines() if line.strip()]
-            for line in lines:
-                if len(line) >= 8 and line not in markers:
-                    markers.append(line)
-
-        return markers
+        return self._terminal_writer._pending_submit_markers(data)
 
     @staticmethod
     def _tail_text(text: str, limit: int = 4000) -> str:
         """Keep only the most recent visible context for prompt checks."""
-        return text[-limit:]
+        return TerminalWriter._tail_text(text, limit=limit)
 
     def _has_copilot_pending_placeholder(self, current_tail: str) -> bool:
-        """Whether Copilot still shows a paste placeholder after submit.
-
-        Copilot can reuse placeholder labels such as ``[Paste #1 - 12 lines]``
-        across consecutive sends.  If the previous placeholder is still visible
-        after we inject a new message, that still means the current send has
-        not been confirmed yet even though the count did not increase.
-        """
-        return any(
-            p.search(current_tail)
-            for p in (_COPILOT_COMPACT_PASTE_RE, _COPILOT_SAVED_PASTE_RE)
-        )
+        """Whether Copilot still shows a paste placeholder after submit."""
+        return self._terminal_writer._has_copilot_pending_placeholder(current_tail)
 
     def _disable_kkp(self, reason: str, *, force: bool = False) -> None:
-        """Disable Kitty Keyboard Protocol on the PTY.
-
-        KKP changes Enter encoding from \\r to CSI 13 u, which can cause
-        our injected \\r to be ignored by Copilot's Ink TUI.  Thread-safe
-        via _write_lock to avoid interleaving with other PTY writes.
-
-        When *force* is True, send the disable sequence even if we have
-        already disabled KKP once.  Copilot's Ink TUI can re-push KKP
-        after we pop it (e.g. when re-initializing the input field after
-        processing a prompt), so we must be able to pop it again.
-        """
-        if self.master_fd is None or (self._kkp_disabled and not force):
-            return
-        try:
-            with self._write_lock:
-                if force or not self._kkp_disabled:
-                    self._write_all(_KKP_DISABLE_SEQ)
-                    self._kkp_disabled = True
-                    logger.debug(f"[{self.agent_id}] KKP {reason}")
-        except OSError:
-            pass
+        """Disable Kitty Keyboard Protocol on the PTY."""
+        self._terminal_writer._disable_kkp(reason, force=force)
 
     def _ensure_icrnl_disabled(self, submit_bytes: bytes) -> None:
-        """Clear ICRNL on the PTY if sending \\r and not already cleared.
-
-        Ink-based TUIs (Copilot) may re-enable ICRNL which translates
-        \\r→\\n.  Ink maps \\r to key.return (submit) but \\n to
-        key.enter (different event), so ICRNL must be off.
-        """
-        if (
-            submit_bytes == b"\r"
-            and not self._icrnl_cleared
-            and self.master_fd is not None
-        ):
-            try:
-                attrs = termios.tcgetattr(self.master_fd)
-                iflag = attrs[0]
-                if iflag & termios.ICRNL:
-                    attrs[0] = iflag & ~termios.ICRNL
-                    termios.tcsetattr(self.master_fd, termios.TCSANOW, attrs)
-                    logger.debug(f"[{self.agent_id}] ICRNL disabled for submit")
-                self._icrnl_cleared = True
-            except (termios.error, OSError):
-                pass
+        """Clear ICRNL on the PTY if sending CR and not already cleared."""
+        self._terminal_writer._ensure_icrnl_disabled(submit_bytes)
 
     def _wait_for_copilot_paste_echo(self, pre_paste_context: str) -> None:
-        """Wait for Copilot's Ink TUI to reflect the pasted text before Enter.
-
-        After bracketed paste, React's usePaste hook triggers a state update.
-        The TUI re-renders and writes new output to PTY (echo, placeholder, or
-        re-drawn prompt).  We poll PTY output until it changes from the
-        pre-paste snapshot, which signals that React's render cycle completed.
-
-        After detecting the echo, we add a small stabilization delay because
-        Ink updates the screen *before* committing the pasted text into its
-        internal input buffer (setState is asynchronous in React).  Without
-        this settle window, CR can arrive while the buffer is still empty.
-
-        Falls back to write_delay if no change is detected within the timeout.
-        """
-        start = time.monotonic()
-        deadline = start + _COPILOT_PASTE_ECHO_TIMEOUT
-        poll_count = 0
-        while time.monotonic() < deadline:
-            current = self._tail_text(strip_ansi(self.get_context()))
-            poll_count += 1
-            if current != pre_paste_context:
-                elapsed = time.monotonic() - start
-                logger.debug(
-                    f"[{self.agent_id}] paste echo detected after {elapsed:.3f}s "
-                    f"(polls={poll_count}), "
-                    f"settling {_COPILOT_PASTE_ECHO_SETTLE}s for React state commit"
-                )
-                time.sleep(_COPILOT_PASTE_ECHO_SETTLE)
-                return
-            time.sleep(_COPILOT_PASTE_ECHO_POLL)
-        logger.info(
-            f"[{self.agent_id}] paste echo not detected within "
-            f"{_COPILOT_PASTE_ECHO_TIMEOUT}s (polls={poll_count}), "
-            f"falling back to write_delay"
-        )
-        if self._write_delay > 0:
-            time.sleep(self._write_delay)
+        """Wait for Copilot's Ink TUI to reflect the pasted text before Enter."""
+        self._terminal_writer._wait_for_copilot_paste_echo(pre_paste_context)
 
     def write(
         self,
         data: str,
         submit_seq: str | None = None,
     ) -> bool:
-        """Write data to the controlled process PTY with optional submit sequence.
-
-        Data and submit_seq are written as separate os.write() calls with a
-        delay between them so the submit sequence arrives *outside* any
-        bracketed paste boundary and is treated as a keypress, not literal
-        text.
-
-        When ``_bracketed_paste`` is enabled, data is explicitly wrapped in
-        ``ESC[200~`` ... ``ESC[201~`` markers so Ink-based TUIs (e.g.
-        Copilot CLI) route it through ``usePaste`` as a single event.
-
-        Args:
-            data: The data to write.
-            submit_seq: Optional submit sequence (e.g., Enter key).
-
-        Returns:
-            True if write succeeded, False if process not running.
-        """
-        if not self.running:
-            return False
-
-        if self.master_fd is None:
-            raise ValueError(f"master_fd is None (interactive={self.interactive})")
-
-        with self.lock:
-            previous_status = self.status
-            self.status = "PROCESSING"
-
-        with self._write_lock:
-            try:
-                # Copilot: replace line-start '/' with fullwidth solidus to
-                # prevent slash-command autocomplete.  Only target line-start
-                # slashes; interior slashes (URLs, paths) are left intact.
-                # Skipped when bracketed paste is enabled (1.0.12+) because
-                # pasted text goes through usePaste, not useInput.
-                if (
-                    self.agent_type == "copilot"
-                    and not self._bracketed_paste
-                    and "/" in data
-                ):
-                    data = "".join(
-                        ("\uff0f" + line[1:]) if line.startswith("/") else line
-                        for line in data.splitlines(keepends=True)
-                    )
-                pre_paste_context = self._tail_text(strip_ansi(self.get_context()))
-                pre_submit_context = (
-                    pre_paste_context
-                    if self._should_confirm_submit(
-                        data, submit_seq and submit_seq.encode("utf-8") or b""
-                    )
-                    else ""
-                )
-                use_typed_input = self._should_type_input(data, submit_seq)
-                if use_typed_input:
-                    self._write_typed_text(data)
-                else:
-                    data_bytes = data.encode("utf-8")
-                    if self._bracketed_paste:
-                        data_bytes = b"\x1b[200~" + data_bytes + b"\x1b[201~"
-                    self._write_all(data_bytes)
-                    # Drain the master fd to ensure the complete bracketed
-                    # paste payload (including close marker ESC[201~) has been
-                    # delivered to the slave before we start waiting for echo
-                    # or sending CR.  Without this, the OS may split a large
-                    # write and deliver the close marker in a separate read(),
-                    # confusing Ink's paste boundary detection.
-                    if self._bracketed_paste and self.master_fd is not None:
-                        with contextlib.suppress(termios.error, OSError):
-                            termios.tcdrain(self.master_fd)
-                if submit_seq:
-                    submit_bytes = submit_seq.encode("utf-8")
-                    if self.agent_type == "copilot" and self._bracketed_paste:
-                        self._wait_for_copilot_paste_echo(pre_paste_context)
-                    elif self._write_delay > 0:
-                        time.sleep(self._write_delay)
-                    self._ensure_icrnl_disabled(submit_bytes)
-                    # Proactively disable Kitty Keyboard Protocol before
-                    # submit if it hasn't been caught by the output monitor.
-                    if not self._kkp_disabled and self.agent_type == "copilot":
-                        self._disable_kkp("proactively disabled")
-                    self._write_all(submit_bytes)
-                    if (
-                        self._submit_retry_delay is not None
-                        and not use_typed_input
-                        and self.agent_type != "copilot"
-                    ):
-                        time.sleep(self._submit_retry_delay)
-                        self._write_all(submit_bytes)
-                    if pre_submit_context:
-                        with self.lock:
-                            self.status = previous_status
-                    self._confirm_submit_if_needed(
-                        data,
-                        submit_bytes,
-                        previous_status,
-                        previous_context=pre_submit_context,
-                    )
-                return True
-            except OSError as e:
-                logger.error(f"Write to PTY failed: {e}")
-                raise
+        """Write data to the controlled process PTY with optional submit sequence."""
+        return self._terminal_writer.write(data, submit_seq=submit_seq)
 
     def _should_confirm_submit(self, data: str, submit_bytes: bytes) -> bool:
         """Whether submit confirmation should run for this write."""
-        retries = self._submit_confirm_retries
-        if self._is_long_submit_message(data) and self._long_submit_confirm_retries:
-            retries = self._long_submit_confirm_retries
-        return bool(
-            data
-            and submit_bytes
-            and self.agent_type == "copilot"
-            and self._submit_confirm_timeout is not None
-            and self._submit_confirm_poll_interval is not None
-            and retries > 0
-        )
+        return self._terminal_writer._should_confirm_submit(data, submit_bytes)
 
     def _copilot_submit_nudge_delay(self, data: str) -> float | None:
         """Return the short pre-confirmation Enter retry delay for Copilot."""
-        if self.agent_type != "copilot":
-            return None
-        if (
-            self._submit_confirm_timeout is None
-            or self._submit_confirm_poll_interval is None
-        ):
-            return None
-        return (
-            _COPILOT_LONG_SUBMIT_NUDGE_DELAY
-            if self._is_long_submit_message(data)
-            else _COPILOT_SUBMIT_NUDGE_DELAY
-        )
+        return self._terminal_writer._copilot_submit_nudge_delay(data)
 
     def _submit_confirmed(
         self, data: str, initial_status: str, previous_context: str
     ) -> bool:
         """Best-effort submit confirmation for Copilot PTY injections."""
-        plain = strip_ansi(self.get_context())
-        current_tail = self._tail_text(plain)
-        markers = self._pending_submit_markers(data)
-        pending = any(marker in current_tail for marker in markers)
-        if not pending and self.agent_type == "copilot":
-            pending = self._has_copilot_pending_placeholder(current_tail)
-
-        current_status = self.status
-        if initial_status == "READY" and current_status != "READY":
-            return not pending
-        if current_status in {"PROCESSING", "DONE"}:
-            return not pending
-        if current_status == "WAITING" and initial_status != "WAITING":
-            return not pending
-
-        if not markers:
-            return True
-
-        return not pending
+        return self._terminal_writer._submit_confirmed(
+            data,
+            initial_status,
+            previous_context,
+        )
 
     def _confirm_submit_if_needed(
         self,
@@ -1634,79 +1418,11 @@ class TerminalController:
         previous_context: str,
     ) -> None:
         """Retry submit for Copilot when injected text appears to remain pending."""
-        if not self._should_confirm_submit(data, submit_bytes):
-            return
-
-        assert self._submit_confirm_timeout is not None
-        assert self._submit_confirm_poll_interval is not None
-        confirm_timeout = self._submit_confirm_timeout
-        confirm_retries = self._submit_confirm_retries
-        if self._is_long_submit_message(data):
-            if self._long_submit_confirm_timeout is not None:
-                confirm_timeout = self._long_submit_confirm_timeout
-            if self._long_submit_confirm_retries is not None:
-                confirm_retries = self._long_submit_confirm_retries
-
-        poll_limit = max(
-            1,
-            math.ceil(confirm_timeout / self._submit_confirm_poll_interval),
-        )
-        nudge_delay = self._copilot_submit_nudge_delay(data)
-        if nudge_delay is not None:
-            time.sleep(nudge_delay)
-            if not self._submit_confirmed(data, initial_status, previous_context):
-                self._write_all(submit_bytes)
-
-        for attempt in range(confirm_retries + 1):
-            for _ in range(poll_limit):
-                if self._submit_confirmed(data, initial_status, previous_context):
-                    return
-                time.sleep(self._submit_confirm_poll_interval)
-
-            if attempt < confirm_retries:
-                self._write_all(submit_bytes)
-
-        # Last resort: KKP may have been re-enabled during the retry
-        # window.  Force-disable it and send one final CR.  This covers
-        # the case where Copilot re-pushes KKP after processing the
-        # previous prompt, causing all our \r retries to be silently
-        # re-encoded as CSI 13 u.
-        if self.agent_type == "copilot":
-            self._disable_kkp("force re-disabled on confirmation failure", force=True)
-            # Also re-clear ICRNL in case Ink toggled it back.
-            # Reset the cache flag AND perform the actual termios clear
-            # so the final CR is not translated to \n.
-            self._icrnl_cleared = False
-            self._ensure_icrnl_disabled(submit_bytes)
-            self._write_all(submit_bytes)
-            # Brief wait + final check
-            time.sleep(nudge_delay or _COPILOT_SUBMIT_NUDGE_DELAY)
-            if self._submit_confirmed(data, initial_status, previous_context):
-                logger.info(
-                    f"[{self.agent_id}] submit recovered after KKP force-disable"
-                )
-                return
-
-        # Dump diagnostic info on failure
-        plain = strip_ansi(self.get_context())
-        tail = self._tail_text(plain)
-        markers = self._pending_submit_markers(data)
-        has_placeholder = self._has_copilot_pending_placeholder(tail)
-        message = (
-            f"[{self.agent_id}] submit confirmation failed after "
-            f"{confirm_retries} retries"
-        )
-        logger.warning(message)
-        logger.debug(
-            f"[{self.agent_id}] submit_diag: "
-            f"markers={markers!r} "
-            f"has_placeholder={has_placeholder} "
-            f"status={self.status} "
-            f"tail_last200={tail[-200:]!r}"
-        )
-        self._log_inject(
-            "WARN",
-            f"submit confirmation failed retries={confirm_retries}",
+        self._terminal_writer._confirm_submit_if_needed(
+            data,
+            submit_bytes,
+            initial_status,
+            previous_context,
         )
 
     def interrupt(self) -> None:
