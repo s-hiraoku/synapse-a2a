@@ -34,16 +34,15 @@ from synapse.config import (
     POST_WRITE_IDLE_DELAY,
     STARTUP_DELAY,
     TASK_PROTECTION_TIMEOUT,
-    WAITING_EXPIRY_SECONDS,
     WRITE_PROCESSING_DELAY,
 )
 from synapse.controller_status import StatusObserverMixin
+from synapse.idle_detector import IdleDetector
 from synapse.long_message import format_file_reference, get_long_message_store
 from synapse.mcp.server import MCP_INSTRUCTIONS_DEFAULT_URI
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.skills import load_skill_sets
-from synapse.status import DONE_TIMEOUT_SECONDS
 from synapse.utils import (
     RoleFileNotFoundError,
     format_a2a_message,
@@ -152,56 +151,21 @@ class TerminalController(StatusObserverMixin):
             }
 
         self.idle_config = idle_detection or {"strategy": "timeout", "timeout": 1.5}
-        self.idle_strategy = self.idle_config.get("strategy", "pattern")
-
-        # Compile pattern regex if strategy uses it
-        self.idle_regex = None
         self._pattern_detected = False
-
-        if self.idle_strategy in ("pattern", "hybrid"):
-            pattern = self.idle_config.get("pattern", "")
-            try:
-                if pattern == "BRACKETED_PASTE_MODE":
-                    self.idle_regex = re.compile(b"\x1b\\[\\?2004h")
-                elif pattern:
-                    self.idle_regex = re.compile(pattern.encode("utf-8"))
-            except re.error as e:
-                logger.error(
-                    f"Invalid idle detection pattern '{pattern}': {e}. "
-                    f"Falling back to timeout-based idle detection."
-                )
-                self.idle_regex = None
-            except Exception as e:
-                logger.error(
-                    f"Unexpected error compiling pattern '{pattern}': {e}. "
-                    f"Falling back to timeout-based idle detection."
-                )
-                self.idle_regex = None
-
-        # Timeout settings
-        timeout = self.idle_config.get("timeout", 1.5)
-        self._output_idle_threshold = timeout
-
-        # WAITING detection configuration (regex-based)
-        self.waiting_config = waiting_detection or {}
-        self._waiting_regex: re.Pattern[str] | None = None
-        waiting_regex_str = self.waiting_config.get("regex")
-        if waiting_regex_str:
-            try:
-                # Use MULTILINE flag so ^ and $ match per-line in multi-line outputs
-                self._waiting_regex = re.compile(waiting_regex_str, re.MULTILINE)
-            except re.error as e:
-                logger.error(
-                    f"Invalid waiting_detection regex '{waiting_regex_str}': {e}"
-                )
-        self._waiting_require_idle: bool = self.waiting_config.get("require_idle", True)
-        self._waiting_idle_timeout: float = float(
-            self.waiting_config.get("idle_timeout", 0.5)
+        self._idle_detector = IdleDetector(
+            idle_detection=self.idle_config,
+            waiting_detection=waiting_detection,
+            strip_ansi_fn=strip_ansi,
         )
+        self.idle_strategy = self._idle_detector.idle_strategy
+        self.idle_regex = self._idle_detector.idle_regex
+        self._output_idle_threshold = self._idle_detector.output_idle_threshold
+        self.waiting_config = self._idle_detector.waiting_config
+        self._waiting_regex = self._idle_detector.waiting_regex
+        self._waiting_require_idle = self._idle_detector.waiting_require_idle
+        self._waiting_idle_timeout = self._idle_detector.waiting_idle_timeout
         self._waiting_pattern_time: float | None = None  # When pattern was last seen
-        self._waiting_expiry: float = float(
-            self.waiting_config.get("waiting_expiry", WAITING_EXPIRY_SECONDS)
-        )
+        self._waiting_expiry = self._idle_detector.waiting_expiry
 
         # Compound signal: task_active flag (#314)
         self._task_active_count: int = 0
@@ -597,45 +561,24 @@ class TerminalController(StatusObserverMixin):
 
     def _check_pattern_idle(self) -> bool:
         """Check for pattern-based idle detection. Must be called with lock held."""
-        if self.idle_strategy not in ("pattern", "hybrid") or not self.idle_regex:
-            return False
-
-        pattern_use = self.idle_config.get("pattern_use", "always")
-        should_check = pattern_use == "always" or (
-            pattern_use == "startup_only" and not self._pattern_detected
-        )
-        if not should_check:
-            return False
-
         search_window = self.output_buffer[-IDLE_CHECK_WINDOW:]
-        if self.idle_regex.search(search_window):
+        if self._idle_detector.check_pattern_idle(
+            search_window, self._pattern_detected
+        ):
             self._pattern_detected = True
             return True
         return False
 
     def _check_timeout_idle(self) -> bool:
         """Check for timeout-based idle detection. Must be called with lock held."""
-        if self.idle_strategy not in ("timeout", "hybrid"):
-            return False
-
-        # For hybrid mode, only use timeout after pattern detected
-        if self.idle_strategy == "hybrid" and not self._pattern_detected:
-            return False
-
-        if not self._last_output_time:
-            return False
-
-        elapsed: float = time.time() - self._last_output_time
-        return bool(elapsed >= self._output_idle_threshold)
+        return self._idle_detector.check_timeout_idle(
+            last_output_time=self._last_output_time,
+            pattern_detected=self._pattern_detected,
+        )
 
     def _evaluate_idle_status(self, pattern_match: bool, timeout_idle: bool) -> bool:
         """Evaluate idle status based on strategy and detection results."""
-        strategy_map = {
-            "pattern": pattern_match,
-            "timeout": timeout_idle,
-            "hybrid": pattern_match or timeout_idle,
-        }
-        return strategy_map.get(self.idle_strategy, False)
+        return self._idle_detector.evaluate_idle_status(pattern_match, timeout_idle)
 
     def _determine_new_status(self, is_idle: bool, is_waiting: bool) -> str:
         """Determine the new status based on idle and waiting state.
@@ -648,50 +591,17 @@ class TerminalController(StatusObserverMixin):
             New status string: "READY", "WAITING", "PROCESSING", "DONE",
             or "SHUTTING_DOWN".
         """
-        # SHUTTING_DOWN is sticky — once set, no idle/waiting check can
-        # revert it.  This prevents the monitor thread from overwriting
-        # the status while stop() is waiting for the process to exit.
-        if self.status == "SHUTTING_DOWN":
-            return "SHUTTING_DOWN"
-
-        # Base status from idle/waiting detection
-        if is_waiting:
-            base_status = "WAITING"
-        elif is_idle:
-            base_status = "READY"
-        else:
-            base_status = "PROCESSING"
-
-        # Compound signal: suppress READY when task/locks active (#314)
-        if base_status == "READY" and (
-            self._is_task_protection_active() or self._has_file_locks()
-        ):
-            base_status = "PROCESSING"
-
-        # Handle DONE state transitions
-        if self.status != "DONE":
-            return base_status
-
-        # In DONE state: check for transition conditions
-        if not is_idle and not is_waiting:
-            # New activity detected
-            self._done_time = None
-            return "PROCESSING"
-
-        if is_waiting:
-            # WAITING takes priority over DONE
-            self._done_time = None
-            return "WAITING"
-
-        done_timeout_expired = self._done_time and (
-            time.time() - self._done_time >= DONE_TIMEOUT_SECONDS
+        decision = self._idle_detector.determine_new_status(
+            current_status=self.status,
+            is_idle=is_idle,
+            is_waiting=is_waiting,
+            done_time=self._done_time,
+            task_protection_active=self._is_task_protection_active(),
+            has_file_locks=self._has_file_locks(),
         )
-        if done_timeout_expired:
+        if decision.clear_done_time:
             self._done_time = None
-            return "READY"
-
-        # Stay in DONE state
-        return "DONE"
+        return decision.new_status
 
     def _check_waiting_state(self, new_data: bytes) -> bool:
         """Check if agent is in WAITING state (user input prompt).
@@ -707,69 +617,36 @@ class TerminalController(StatusObserverMixin):
         Returns:
             True if in WAITING state, False otherwise.
         """
-        if not self._waiting_regex:
-            return False
-
-        # Check new_data only for pattern (fixes false positive from stale buffer)
-        # Strip ANSI escape sequences so TUI-rendered prompts (ratatui, Ink,
-        # Bubble Tea) match the plain-text regex from the profile YAML.
-        new_text = (
-            strip_ansi(new_data.decode("utf-8", errors="replace")) if new_data else ""
+        is_waiting, self._waiting_pattern_time = (
+            self._idle_detector.check_waiting_state(
+                new_data=new_data,
+                output_buffer=self.output_buffer,
+                last_output_time=self._last_output_time,
+                waiting_pattern_time=self._waiting_pattern_time,
+            )
         )
-        pattern_in_new = bool(new_text and self._waiting_regex.search(new_text))
-
-        if pattern_in_new:
-            # Fresh pattern match — update timestamp
-            self._waiting_pattern_time = time.time()
-        elif self._waiting_pattern_time is None:
-            # No fresh match and no prior match — not waiting
-            return False
-
-        # Auto-expire: if pattern was seen too long ago, do a lightweight
-        # re-check of the buffer tail.  If the pattern is still present
-        # (e.g., selection UI still on screen), refresh the timestamp
-        # instead of expiring.  This avoids false READY when a user is
-        # still looking at a prompt beyond the expiry window (#140 review).
-        if self._waiting_pattern_time is not None:
-            elapsed = time.time() - self._waiting_pattern_time
-            if elapsed > self._waiting_expiry:
-                # Lightweight re-check: last 512 bytes of buffer
-                tail = strip_ansi(
-                    self.output_buffer[-512:].decode("utf-8", errors="replace")
-                )
-                if self._waiting_regex.search(tail):
-                    # Pattern still visible — refresh timestamp
-                    self._waiting_pattern_time = time.time()
-                else:
-                    self._waiting_pattern_time = None
-                    return False
-
-        # Check if waiting conditions are met
-        if not self._waiting_require_idle:
-            return True
-
-        if not (self._waiting_pattern_time and self._last_output_time):
-            return False
-
-        time_since_output = time.time() - self._last_output_time
-        return time_since_output >= self._waiting_idle_timeout
+        return is_waiting
 
     def _check_idle_state(self, new_data: bytes) -> None:
         """Check idle state using configured strategy (pattern, timeout, or hybrid)."""
         with self.lock:
-            pattern_match = self._check_pattern_idle()
-            timeout_idle = self._check_timeout_idle()
-
-            # Determine idle status based on strategy
-            # READY = idle, ready for input
-            # PROCESSING = actively working
-            is_idle = self._evaluate_idle_status(pattern_match, timeout_idle)
-
-            # Check for WAITING state (user input prompt)
-            is_waiting = self._check_waiting_state(new_data)
-
-            # Determine new status based on idle state
-            new_status = self._determine_new_status(is_idle, is_waiting)
+            evaluation = self._idle_detector.check_idle_state(
+                new_data=new_data,
+                output_buffer=self.output_buffer[-IDLE_CHECK_WINDOW:],
+                last_output_time=self._last_output_time,
+                pattern_detected=self._pattern_detected,
+                waiting_pattern_time=self._waiting_pattern_time,
+                current_status=self.status,
+                done_time=self._done_time,
+                task_protection_active=self._is_task_protection_active(),
+                has_file_locks=self._has_file_locks(),
+            )
+            self._pattern_detected = evaluation.pattern_detected
+            self._waiting_pattern_time = evaluation.waiting_pattern_time
+            if evaluation.clear_done_time:
+                self._done_time = None
+            is_idle = evaluation.is_idle
+            new_status = evaluation.new_status
 
             # Update status and sync to registry (only if changed)
             if new_status != self.status:
