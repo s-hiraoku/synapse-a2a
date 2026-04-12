@@ -18,8 +18,7 @@ import threading
 import time
 import tty
 from collections.abc import Callable
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from synapse.file_safety import FileSafetyManager
@@ -35,15 +34,16 @@ from synapse.config import (
     POST_WRITE_IDLE_DELAY,
     STARTUP_DELAY,
     TASK_PROTECTION_TIMEOUT,
-    WAITING_EXPIRY_SECONDS,
     WRITE_PROCESSING_DELAY,
 )
+from synapse.controller_status import StatusObserverMixin
+from synapse.idle_detector import IdleDetector
 from synapse.long_message import format_file_reference, get_long_message_store
 from synapse.mcp.server import MCP_INSTRUCTIONS_DEFAULT_URI
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.skills import load_skill_sets
-from synapse.status import DONE_TIMEOUT_SECONDS
+from synapse.terminal_writer import TerminalWriter
 from synapse.utils import (
     RoleFileNotFoundError,
     format_a2a_message,
@@ -102,7 +102,7 @@ def strip_ansi(text: str) -> str:
     return text
 
 
-class TerminalController:
+class TerminalController(StatusObserverMixin):
     def __init__(
         self,
         command: str,
@@ -152,56 +152,21 @@ class TerminalController:
             }
 
         self.idle_config = idle_detection or {"strategy": "timeout", "timeout": 1.5}
-        self.idle_strategy = self.idle_config.get("strategy", "pattern")
-
-        # Compile pattern regex if strategy uses it
-        self.idle_regex = None
         self._pattern_detected = False
-
-        if self.idle_strategy in ("pattern", "hybrid"):
-            pattern = self.idle_config.get("pattern", "")
-            try:
-                if pattern == "BRACKETED_PASTE_MODE":
-                    self.idle_regex = re.compile(b"\x1b\\[\\?2004h")
-                elif pattern:
-                    self.idle_regex = re.compile(pattern.encode("utf-8"))
-            except re.error as e:
-                logger.error(
-                    f"Invalid idle detection pattern '{pattern}': {e}. "
-                    f"Falling back to timeout-based idle detection."
-                )
-                self.idle_regex = None
-            except Exception as e:
-                logger.error(
-                    f"Unexpected error compiling pattern '{pattern}': {e}. "
-                    f"Falling back to timeout-based idle detection."
-                )
-                self.idle_regex = None
-
-        # Timeout settings
-        timeout = self.idle_config.get("timeout", 1.5)
-        self._output_idle_threshold = timeout
-
-        # WAITING detection configuration (regex-based)
-        self.waiting_config = waiting_detection or {}
-        self._waiting_regex: re.Pattern[str] | None = None
-        waiting_regex_str = self.waiting_config.get("regex")
-        if waiting_regex_str:
-            try:
-                # Use MULTILINE flag so ^ and $ match per-line in multi-line outputs
-                self._waiting_regex = re.compile(waiting_regex_str, re.MULTILINE)
-            except re.error as e:
-                logger.error(
-                    f"Invalid waiting_detection regex '{waiting_regex_str}': {e}"
-                )
-        self._waiting_require_idle: bool = self.waiting_config.get("require_idle", True)
-        self._waiting_idle_timeout: float = float(
-            self.waiting_config.get("idle_timeout", 0.5)
+        self._idle_detector = IdleDetector(
+            idle_detection=self.idle_config,
+            waiting_detection=waiting_detection,
+            strip_ansi_fn=strip_ansi,
         )
+        self.idle_strategy = self._idle_detector.idle_strategy
+        self.idle_regex = self._idle_detector.idle_regex
+        self._output_idle_threshold = self._idle_detector.output_idle_threshold
+        self.waiting_config = self._idle_detector.waiting_config
+        self._waiting_regex = self._idle_detector.waiting_regex
+        self._waiting_require_idle = self._idle_detector.waiting_require_idle
+        self._waiting_idle_timeout = self._idle_detector.waiting_idle_timeout
         self._waiting_pattern_time: float | None = None  # When pattern was last seen
-        self._waiting_expiry: float = float(
-            self.waiting_config.get("waiting_expiry", WAITING_EXPIRY_SECONDS)
-        )
+        self._waiting_expiry = self._idle_detector.waiting_expiry
 
         # Compound signal: task_active flag (#314)
         self._task_active_count: int = 0
@@ -427,6 +392,36 @@ class TerminalController:
         self._auto_approve_last_time: float | None = None
         self._auto_approve_stopped: bool = False
         self._auto_approve_lock = threading.Lock()
+        self._terminal_writer = TerminalWriter(
+            self,
+            agent_id=self.agent_id,
+            agent_type=self.agent_type,
+            write_delay=self._write_delay,
+            submit_retry_delay=self._submit_retry_delay,
+            bracketed_paste=self._bracketed_paste,
+            typing_char_delay=self._typing_char_delay,
+            typing_max_chars=self._typing_max_chars,
+            submit_confirm_timeout=self._submit_confirm_timeout,
+            submit_confirm_poll_interval=self._submit_confirm_poll_interval,
+            submit_confirm_retries=self._submit_confirm_retries,
+            long_submit_confirm_timeout=self._long_submit_confirm_timeout,
+            long_submit_confirm_retries=self._long_submit_confirm_retries,
+            copilot_compact_paste_re=_COPILOT_COMPACT_PASTE_RE,
+            copilot_saved_paste_re=_COPILOT_SAVED_PASTE_RE,
+            kkp_disable_seq=_KKP_DISABLE_SEQ,
+            copilot_submit_nudge_delay=_COPILOT_SUBMIT_NUDGE_DELAY,
+            copilot_long_submit_nudge_delay=_COPILOT_LONG_SUBMIT_NUDGE_DELAY,
+            copilot_paste_echo_poll=_COPILOT_PASTE_ECHO_POLL,
+            copilot_paste_echo_timeout=_COPILOT_PASTE_ECHO_TIMEOUT,
+            copilot_paste_echo_settle=_COPILOT_PASTE_ECHO_SETTLE,
+            strip_ansi=strip_ansi,
+            logger=logger,
+            os_module=os,
+            time_module=time,
+            termios_module=termios,
+            contextlib_module=contextlib,
+            math_module=math,
+        )
 
         if self._auto_approve_enabled:
             self.on_status_change(self._handle_auto_approve)
@@ -479,156 +474,6 @@ class TerminalController:
             self._auto_approve_count,
         )
         self.write(self._auto_approve_response)
-
-    def on_status_change(self, callback: Callable[[str, str], None]) -> None:
-        """Register a callback invoked on status transitions.
-
-        Args:
-            callback: Called with (old_status, new_status) on a daemon thread.
-        """
-        self._status_callbacks.append(callback)
-
-    def _dispatch_status_callbacks(self, old_status: str, new_status: str) -> None:
-        """Run registered status callbacks without blocking the caller."""
-        if not self._status_callbacks:
-            return
-
-        cbs = list(self._status_callbacks)
-
-        def _fire_callbacks() -> None:
-            for cb in cbs:
-                try:
-                    cb(old_status, new_status)
-                except Exception:
-                    logger.exception("Status callback error")
-
-        threading.Thread(target=_fire_callbacks, daemon=True).start()
-
-    def attach_observation_collector(
-        self, collector: ObservationCollector | None
-    ) -> None:
-        """Attach an observation collector and status-change hook."""
-        self._observation_collector = collector
-        if self._observation_attached or not collector:
-            return
-
-        def _record_status(old_status: str, new_status: str) -> None:
-            self.record_status_change(old_status, new_status, "status_transition")
-
-        self.on_status_change(_record_status)
-        self._observation_attached = True
-
-    def _ensure_observation_collector(self) -> ObservationCollector | None:
-        """Lazily initialize the observation collector from environment."""
-        if self._observation_collector is None:
-            try:
-                from synapse.observation import ObservationCollector
-
-                self.attach_observation_collector(ObservationCollector.from_env())
-            except Exception:
-                logger.exception("Failed to initialize observation collector")
-                return None
-        return self._observation_collector
-
-    def record_status_change(
-        self, old_status: str, new_status: str, trigger: str
-    ) -> None:
-        """Record a controller status transition if observation is enabled."""
-        collector = self._ensure_observation_collector()
-        if not collector or not self.agent_id:
-            return
-        collector.record_status_change(
-            agent_id=self.agent_id,
-            agent_type=self.agent_type,
-            from_status=old_status,
-            to_status=new_status,
-            trigger=trigger,
-        )
-
-    def record_task_received(
-        self,
-        message: str,
-        sender: str | None,
-        priority: int,
-    ) -> None:
-        """Record a received task if observation is enabled."""
-        collector = self._ensure_observation_collector()
-        if not collector or not self.agent_id:
-            return
-        collector.record_task_received(
-            agent_id=self.agent_id,
-            agent_type=self.agent_type,
-            message=message,
-            sender=sender,
-            priority=priority,
-        )
-
-    def record_task_completed(
-        self,
-        task_id: str,
-        duration: float | None,
-        status: str,
-        output_summary: str,
-    ) -> None:
-        """Record a completed task if observation is enabled."""
-        collector = self._ensure_observation_collector()
-        if not collector or not self.agent_id:
-            return
-        collector.record_task_completed(
-            agent_id=self.agent_id,
-            agent_type=self.agent_type,
-            task_id=task_id,
-            duration=duration,
-            status=status,
-            output_summary=output_summary,
-        )
-
-    def record_error(
-        self,
-        error_type: str,
-        error_message: str,
-        recovery_action: str | None = None,
-    ) -> None:
-        """Record an error if observation is enabled."""
-        collector = self._ensure_observation_collector()
-        if not collector or not self.agent_id:
-            return
-        collector.record_error(
-            agent_id=self.agent_id,
-            agent_type=self.agent_type,
-            error_type=error_type,
-            error_message=error_message,
-            recovery_action=recovery_action,
-        )
-
-    @staticmethod
-    def task_duration_seconds(created_at: str | None) -> float | None:
-        """Return elapsed seconds since task creation timestamp."""
-        if not created_at:
-            return None
-        try:
-            created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-        return max(
-            0.0,
-            (
-                datetime.now(timezone.utc) - created_dt.astimezone(timezone.utc)
-            ).total_seconds(),
-        )
-
-    def set_task_active(self) -> None:
-        """Increment task active count (suppresses READY while > 0)."""
-        with self.lock:
-            self._task_active_count += 1
-            self._task_active_since = time.time()
-
-    def clear_task_active(self) -> None:
-        """Decrement task active count (allows READY when reaches 0)."""
-        with self.lock:
-            self._task_active_count = max(0, self._task_active_count - 1)
-            if self._task_active_count == 0:
-                self._task_active_since = None
 
     def set_file_safety_manager(self, manager: FileSafetyManager) -> None:
         """Set FileSafetyManager for compound signal file lock detection."""
@@ -747,45 +592,24 @@ class TerminalController:
 
     def _check_pattern_idle(self) -> bool:
         """Check for pattern-based idle detection. Must be called with lock held."""
-        if self.idle_strategy not in ("pattern", "hybrid") or not self.idle_regex:
-            return False
-
-        pattern_use = self.idle_config.get("pattern_use", "always")
-        should_check = pattern_use == "always" or (
-            pattern_use == "startup_only" and not self._pattern_detected
-        )
-        if not should_check:
-            return False
-
         search_window = self.output_buffer[-IDLE_CHECK_WINDOW:]
-        if self.idle_regex.search(search_window):
+        if self._idle_detector.check_pattern_idle(
+            search_window, self._pattern_detected
+        ):
             self._pattern_detected = True
             return True
         return False
 
     def _check_timeout_idle(self) -> bool:
         """Check for timeout-based idle detection. Must be called with lock held."""
-        if self.idle_strategy not in ("timeout", "hybrid"):
-            return False
-
-        # For hybrid mode, only use timeout after pattern detected
-        if self.idle_strategy == "hybrid" and not self._pattern_detected:
-            return False
-
-        if not self._last_output_time:
-            return False
-
-        elapsed: float = time.time() - self._last_output_time
-        return bool(elapsed >= self._output_idle_threshold)
+        return self._idle_detector.check_timeout_idle(
+            last_output_time=self._last_output_time,
+            pattern_detected=self._pattern_detected,
+        )
 
     def _evaluate_idle_status(self, pattern_match: bool, timeout_idle: bool) -> bool:
         """Evaluate idle status based on strategy and detection results."""
-        strategy_map = {
-            "pattern": pattern_match,
-            "timeout": timeout_idle,
-            "hybrid": pattern_match or timeout_idle,
-        }
-        return strategy_map.get(self.idle_strategy, False)
+        return self._idle_detector.evaluate_idle_status(pattern_match, timeout_idle)
 
     def _determine_new_status(self, is_idle: bool, is_waiting: bool) -> str:
         """Determine the new status based on idle and waiting state.
@@ -798,50 +622,17 @@ class TerminalController:
             New status string: "READY", "WAITING", "PROCESSING", "DONE",
             or "SHUTTING_DOWN".
         """
-        # SHUTTING_DOWN is sticky — once set, no idle/waiting check can
-        # revert it.  This prevents the monitor thread from overwriting
-        # the status while stop() is waiting for the process to exit.
-        if self.status == "SHUTTING_DOWN":
-            return "SHUTTING_DOWN"
-
-        # Base status from idle/waiting detection
-        if is_waiting:
-            base_status = "WAITING"
-        elif is_idle:
-            base_status = "READY"
-        else:
-            base_status = "PROCESSING"
-
-        # Compound signal: suppress READY when task/locks active (#314)
-        if base_status == "READY" and (
-            self._is_task_protection_active() or self._has_file_locks()
-        ):
-            base_status = "PROCESSING"
-
-        # Handle DONE state transitions
-        if self.status != "DONE":
-            return base_status
-
-        # In DONE state: check for transition conditions
-        if not is_idle and not is_waiting:
-            # New activity detected
-            self._done_time = None
-            return "PROCESSING"
-
-        if is_waiting:
-            # WAITING takes priority over DONE
-            self._done_time = None
-            return "WAITING"
-
-        done_timeout_expired = self._done_time and (
-            time.time() - self._done_time >= DONE_TIMEOUT_SECONDS
+        decision = self._idle_detector.determine_new_status(
+            current_status=self.status,
+            is_idle=is_idle,
+            is_waiting=is_waiting,
+            done_time=self._done_time,
+            task_protection_active=self._is_task_protection_active(),
+            has_file_locks=self._has_file_locks(),
         )
-        if done_timeout_expired:
+        if decision.clear_done_time:
             self._done_time = None
-            return "READY"
-
-        # Stay in DONE state
-        return "DONE"
+        return decision.new_status
 
     def _check_waiting_state(self, new_data: bytes) -> bool:
         """Check if agent is in WAITING state (user input prompt).
@@ -857,69 +648,36 @@ class TerminalController:
         Returns:
             True if in WAITING state, False otherwise.
         """
-        if not self._waiting_regex:
-            return False
-
-        # Check new_data only for pattern (fixes false positive from stale buffer)
-        # Strip ANSI escape sequences so TUI-rendered prompts (ratatui, Ink,
-        # Bubble Tea) match the plain-text regex from the profile YAML.
-        new_text = (
-            strip_ansi(new_data.decode("utf-8", errors="replace")) if new_data else ""
+        is_waiting, self._waiting_pattern_time = (
+            self._idle_detector.check_waiting_state(
+                new_data=new_data,
+                output_buffer=self.output_buffer,
+                last_output_time=self._last_output_time,
+                waiting_pattern_time=self._waiting_pattern_time,
+            )
         )
-        pattern_in_new = bool(new_text and self._waiting_regex.search(new_text))
-
-        if pattern_in_new:
-            # Fresh pattern match — update timestamp
-            self._waiting_pattern_time = time.time()
-        elif self._waiting_pattern_time is None:
-            # No fresh match and no prior match — not waiting
-            return False
-
-        # Auto-expire: if pattern was seen too long ago, do a lightweight
-        # re-check of the buffer tail.  If the pattern is still present
-        # (e.g., selection UI still on screen), refresh the timestamp
-        # instead of expiring.  This avoids false READY when a user is
-        # still looking at a prompt beyond the expiry window (#140 review).
-        if self._waiting_pattern_time is not None:
-            elapsed = time.time() - self._waiting_pattern_time
-            if elapsed > self._waiting_expiry:
-                # Lightweight re-check: last 512 bytes of buffer
-                tail = strip_ansi(
-                    self.output_buffer[-512:].decode("utf-8", errors="replace")
-                )
-                if self._waiting_regex.search(tail):
-                    # Pattern still visible — refresh timestamp
-                    self._waiting_pattern_time = time.time()
-                else:
-                    self._waiting_pattern_time = None
-                    return False
-
-        # Check if waiting conditions are met
-        if not self._waiting_require_idle:
-            return True
-
-        if not (self._waiting_pattern_time and self._last_output_time):
-            return False
-
-        time_since_output = time.time() - self._last_output_time
-        return time_since_output >= self._waiting_idle_timeout
+        return is_waiting
 
     def _check_idle_state(self, new_data: bytes) -> None:
         """Check idle state using configured strategy (pattern, timeout, or hybrid)."""
         with self.lock:
-            pattern_match = self._check_pattern_idle()
-            timeout_idle = self._check_timeout_idle()
-
-            # Determine idle status based on strategy
-            # READY = idle, ready for input
-            # PROCESSING = actively working
-            is_idle = self._evaluate_idle_status(pattern_match, timeout_idle)
-
-            # Check for WAITING state (user input prompt)
-            is_waiting = self._check_waiting_state(new_data)
-
-            # Determine new status based on idle state
-            new_status = self._determine_new_status(is_idle, is_waiting)
+            evaluation = self._idle_detector.check_idle_state(
+                new_data=new_data,
+                output_buffer=self.output_buffer[-IDLE_CHECK_WINDOW:],
+                last_output_time=self._last_output_time,
+                pattern_detected=self._pattern_detected,
+                waiting_pattern_time=self._waiting_pattern_time,
+                current_status=self.status,
+                done_time=self._done_time,
+                task_protection_active=self._is_task_protection_active(),
+                has_file_locks=self._has_file_locks(),
+            )
+            self._pattern_detected = evaluation.pattern_detected
+            self._waiting_pattern_time = evaluation.waiting_pattern_time
+            if evaluation.clear_done_time:
+                self._done_time = None
+            is_idle = evaluation.is_idle
+            new_status = evaluation.new_status
 
             # Update status and sync to registry (only if changed)
             if new_status != self.status:
@@ -1293,338 +1051,91 @@ class TerminalController:
             self._identity_sending = False
 
     def _write_all(self, data: bytes) -> None:
-        """Write all bytes to the PTY, retrying on partial writes.
+        """Write all bytes to the PTY, retrying on partial writes."""
+        self._terminal_writer._write_all(data)
 
-        In interactive mode (pty.spawn), writes go through the inject pipe
-        so that pty._copy's select loop picks them up correctly.  In
-        background mode, writes go directly to master_fd.
+    @staticmethod
+    def _writer_os_module() -> Any:
+        return os
 
-        Args:
-            data: The bytes to write.
+    @staticmethod
+    def _writer_time_module() -> Any:
+        return time
 
-        Raises:
-            OSError: If ``os.write`` returns 0 (fd closed).
-        """
-        # Use inject pipe when available (interactive / pty.spawn mode)
-        fd = self._inject_write_fd or self.master_fd
-        assert fd is not None
-        total = len(data)
-        written = 0
-        while written < total:
-            n = os.write(fd, data[written:])
-            if n == 0:
-                raise OSError("os.write returned 0, fd may be closed")
-            written += n
+    @staticmethod
+    def _writer_termios_module() -> Any:
+        return termios
+
+    @staticmethod
+    def _writer_contextlib_module() -> Any:
+        return contextlib
+
+    @staticmethod
+    def _writer_math_module() -> Any:
+        return math
 
     def _should_type_input(self, data: str, submit_seq: str | None) -> bool:
         """Whether to emulate real typing instead of bracketed paste."""
-        return bool(
-            self.agent_type != "copilot"
-            and submit_seq
-            and self._typing_max_chars > 0
-            and len(data) <= self._typing_max_chars
-            and "\n" not in data
-            and "\r" not in data
-        )
+        return self._terminal_writer._should_type_input(data, submit_seq)
 
     def _write_typed_text(self, data: str) -> None:
         """Write text character-by-character to emulate actual keyboard input."""
-        typing_delay = self._typing_char_delay
-        for idx, char in enumerate(data):
-            self._write_all(char.encode("utf-8"))
-            if typing_delay > 0 and idx + 1 < len(data):
-                time.sleep(typing_delay)
+        self._terminal_writer._write_typed_text(data)
 
     def _is_long_submit_message(self, data: str) -> bool:
         """Whether Copilot confirmation should use long-message heuristics."""
-        if self.agent_type != "copilot":
-            return False
-        return "\n" in data or "\r" in data
+        return self._terminal_writer._is_long_submit_message(data)
 
     def _pending_submit_markers(self, data: str) -> list[str]:
         """Extract visible markers that indicate Copilot input still remains."""
-        data_stripped = data.strip()
-        if not data_stripped:
-            return []
-
-        markers: list[str] = [data_stripped]
-        if "[LONG MESSAGE - FILE ATTACHED]" in data_stripped:
-            markers.extend(
-                [
-                    "[LONG MESSAGE - FILE ATTACHED]",
-                    "Please read this file",
-                ]
-            )
-        elif self._is_long_submit_message(data):
-            lines = [line.strip() for line in data.splitlines() if line.strip()]
-            for line in lines:
-                if len(line) >= 8 and line not in markers:
-                    markers.append(line)
-
-        return markers
+        return self._terminal_writer._pending_submit_markers(data)
 
     @staticmethod
     def _tail_text(text: str, limit: int = 4000) -> str:
         """Keep only the most recent visible context for prompt checks."""
-        return text[-limit:]
+        return TerminalWriter._tail_text(text, limit=limit)
 
     def _has_copilot_pending_placeholder(self, current_tail: str) -> bool:
-        """Whether Copilot still shows a paste placeholder after submit.
-
-        Copilot can reuse placeholder labels such as ``[Paste #1 - 12 lines]``
-        across consecutive sends.  If the previous placeholder is still visible
-        after we inject a new message, that still means the current send has
-        not been confirmed yet even though the count did not increase.
-        """
-        return any(
-            p.search(current_tail)
-            for p in (_COPILOT_COMPACT_PASTE_RE, _COPILOT_SAVED_PASTE_RE)
-        )
+        """Whether Copilot still shows a paste placeholder after submit."""
+        return self._terminal_writer._has_copilot_pending_placeholder(current_tail)
 
     def _disable_kkp(self, reason: str, *, force: bool = False) -> None:
-        """Disable Kitty Keyboard Protocol on the PTY.
-
-        KKP changes Enter encoding from \\r to CSI 13 u, which can cause
-        our injected \\r to be ignored by Copilot's Ink TUI.  Thread-safe
-        via _write_lock to avoid interleaving with other PTY writes.
-
-        When *force* is True, send the disable sequence even if we have
-        already disabled KKP once.  Copilot's Ink TUI can re-push KKP
-        after we pop it (e.g. when re-initializing the input field after
-        processing a prompt), so we must be able to pop it again.
-        """
-        if self.master_fd is None or (self._kkp_disabled and not force):
-            return
-        try:
-            with self._write_lock:
-                if force or not self._kkp_disabled:
-                    self._write_all(_KKP_DISABLE_SEQ)
-                    self._kkp_disabled = True
-                    logger.debug(f"[{self.agent_id}] KKP {reason}")
-        except OSError:
-            pass
+        """Disable Kitty Keyboard Protocol on the PTY."""
+        self._terminal_writer._disable_kkp(reason, force=force)
 
     def _ensure_icrnl_disabled(self, submit_bytes: bytes) -> None:
-        """Clear ICRNL on the PTY if sending \\r and not already cleared.
-
-        Ink-based TUIs (Copilot) may re-enable ICRNL which translates
-        \\r→\\n.  Ink maps \\r to key.return (submit) but \\n to
-        key.enter (different event), so ICRNL must be off.
-        """
-        if (
-            submit_bytes == b"\r"
-            and not self._icrnl_cleared
-            and self.master_fd is not None
-        ):
-            try:
-                attrs = termios.tcgetattr(self.master_fd)
-                iflag = attrs[0]
-                if iflag & termios.ICRNL:
-                    attrs[0] = iflag & ~termios.ICRNL
-                    termios.tcsetattr(self.master_fd, termios.TCSANOW, attrs)
-                    logger.debug(f"[{self.agent_id}] ICRNL disabled for submit")
-                self._icrnl_cleared = True
-            except (termios.error, OSError):
-                pass
+        """Clear ICRNL on the PTY if sending CR and not already cleared."""
+        self._terminal_writer._ensure_icrnl_disabled(submit_bytes)
 
     def _wait_for_copilot_paste_echo(self, pre_paste_context: str) -> None:
-        """Wait for Copilot's Ink TUI to reflect the pasted text before Enter.
-
-        After bracketed paste, React's usePaste hook triggers a state update.
-        The TUI re-renders and writes new output to PTY (echo, placeholder, or
-        re-drawn prompt).  We poll PTY output until it changes from the
-        pre-paste snapshot, which signals that React's render cycle completed.
-
-        After detecting the echo, we add a small stabilization delay because
-        Ink updates the screen *before* committing the pasted text into its
-        internal input buffer (setState is asynchronous in React).  Without
-        this settle window, CR can arrive while the buffer is still empty.
-
-        Falls back to write_delay if no change is detected within the timeout.
-        """
-        start = time.monotonic()
-        deadline = start + _COPILOT_PASTE_ECHO_TIMEOUT
-        poll_count = 0
-        while time.monotonic() < deadline:
-            current = self._tail_text(strip_ansi(self.get_context()))
-            poll_count += 1
-            if current != pre_paste_context:
-                elapsed = time.monotonic() - start
-                logger.debug(
-                    f"[{self.agent_id}] paste echo detected after {elapsed:.3f}s "
-                    f"(polls={poll_count}), "
-                    f"settling {_COPILOT_PASTE_ECHO_SETTLE}s for React state commit"
-                )
-                time.sleep(_COPILOT_PASTE_ECHO_SETTLE)
-                return
-            time.sleep(_COPILOT_PASTE_ECHO_POLL)
-        logger.info(
-            f"[{self.agent_id}] paste echo not detected within "
-            f"{_COPILOT_PASTE_ECHO_TIMEOUT}s (polls={poll_count}), "
-            f"falling back to write_delay"
-        )
-        if self._write_delay > 0:
-            time.sleep(self._write_delay)
+        """Wait for Copilot's Ink TUI to reflect the pasted text before Enter."""
+        self._terminal_writer._wait_for_copilot_paste_echo(pre_paste_context)
 
     def write(
         self,
         data: str,
         submit_seq: str | None = None,
     ) -> bool:
-        """Write data to the controlled process PTY with optional submit sequence.
-
-        Data and submit_seq are written as separate os.write() calls with a
-        delay between them so the submit sequence arrives *outside* any
-        bracketed paste boundary and is treated as a keypress, not literal
-        text.
-
-        When ``_bracketed_paste`` is enabled, data is explicitly wrapped in
-        ``ESC[200~`` ... ``ESC[201~`` markers so Ink-based TUIs (e.g.
-        Copilot CLI) route it through ``usePaste`` as a single event.
-
-        Args:
-            data: The data to write.
-            submit_seq: Optional submit sequence (e.g., Enter key).
-
-        Returns:
-            True if write succeeded, False if process not running.
-        """
-        if not self.running:
-            return False
-
-        if self.master_fd is None:
-            raise ValueError(f"master_fd is None (interactive={self.interactive})")
-
-        with self.lock:
-            previous_status = self.status
-            self.status = "PROCESSING"
-
-        with self._write_lock:
-            try:
-                # Copilot: replace line-start '/' with fullwidth solidus to
-                # prevent slash-command autocomplete.  Only target line-start
-                # slashes; interior slashes (URLs, paths) are left intact.
-                # Skipped when bracketed paste is enabled (1.0.12+) because
-                # pasted text goes through usePaste, not useInput.
-                if (
-                    self.agent_type == "copilot"
-                    and not self._bracketed_paste
-                    and "/" in data
-                ):
-                    data = "".join(
-                        ("\uff0f" + line[1:]) if line.startswith("/") else line
-                        for line in data.splitlines(keepends=True)
-                    )
-                pre_paste_context = self._tail_text(strip_ansi(self.get_context()))
-                pre_submit_context = (
-                    pre_paste_context
-                    if self._should_confirm_submit(
-                        data, submit_seq and submit_seq.encode("utf-8") or b""
-                    )
-                    else ""
-                )
-                use_typed_input = self._should_type_input(data, submit_seq)
-                if use_typed_input:
-                    self._write_typed_text(data)
-                else:
-                    data_bytes = data.encode("utf-8")
-                    if self._bracketed_paste:
-                        data_bytes = b"\x1b[200~" + data_bytes + b"\x1b[201~"
-                    self._write_all(data_bytes)
-                    # Drain the master fd to ensure the complete bracketed
-                    # paste payload (including close marker ESC[201~) has been
-                    # delivered to the slave before we start waiting for echo
-                    # or sending CR.  Without this, the OS may split a large
-                    # write and deliver the close marker in a separate read(),
-                    # confusing Ink's paste boundary detection.
-                    if self._bracketed_paste and self.master_fd is not None:
-                        with contextlib.suppress(termios.error, OSError):
-                            termios.tcdrain(self.master_fd)
-                if submit_seq:
-                    submit_bytes = submit_seq.encode("utf-8")
-                    if self.agent_type == "copilot" and self._bracketed_paste:
-                        self._wait_for_copilot_paste_echo(pre_paste_context)
-                    elif self._write_delay > 0:
-                        time.sleep(self._write_delay)
-                    self._ensure_icrnl_disabled(submit_bytes)
-                    # Proactively disable Kitty Keyboard Protocol before
-                    # submit if it hasn't been caught by the output monitor.
-                    if not self._kkp_disabled and self.agent_type == "copilot":
-                        self._disable_kkp("proactively disabled")
-                    self._write_all(submit_bytes)
-                    if (
-                        self._submit_retry_delay is not None
-                        and not use_typed_input
-                        and self.agent_type != "copilot"
-                    ):
-                        time.sleep(self._submit_retry_delay)
-                        self._write_all(submit_bytes)
-                    if pre_submit_context:
-                        with self.lock:
-                            self.status = previous_status
-                    self._confirm_submit_if_needed(
-                        data,
-                        submit_bytes,
-                        previous_status,
-                        previous_context=pre_submit_context,
-                    )
-                return True
-            except OSError as e:
-                logger.error(f"Write to PTY failed: {e}")
-                raise
+        """Write data to the controlled process PTY with optional submit sequence."""
+        return self._terminal_writer.write(data, submit_seq=submit_seq)
 
     def _should_confirm_submit(self, data: str, submit_bytes: bytes) -> bool:
         """Whether submit confirmation should run for this write."""
-        retries = self._submit_confirm_retries
-        if self._is_long_submit_message(data) and self._long_submit_confirm_retries:
-            retries = self._long_submit_confirm_retries
-        return bool(
-            data
-            and submit_bytes
-            and self.agent_type == "copilot"
-            and self._submit_confirm_timeout is not None
-            and self._submit_confirm_poll_interval is not None
-            and retries > 0
-        )
+        return self._terminal_writer._should_confirm_submit(data, submit_bytes)
 
     def _copilot_submit_nudge_delay(self, data: str) -> float | None:
         """Return the short pre-confirmation Enter retry delay for Copilot."""
-        if self.agent_type != "copilot":
-            return None
-        if (
-            self._submit_confirm_timeout is None
-            or self._submit_confirm_poll_interval is None
-        ):
-            return None
-        return (
-            _COPILOT_LONG_SUBMIT_NUDGE_DELAY
-            if self._is_long_submit_message(data)
-            else _COPILOT_SUBMIT_NUDGE_DELAY
-        )
+        return self._terminal_writer._copilot_submit_nudge_delay(data)
 
     def _submit_confirmed(
         self, data: str, initial_status: str, previous_context: str
     ) -> bool:
         """Best-effort submit confirmation for Copilot PTY injections."""
-        plain = strip_ansi(self.get_context())
-        current_tail = self._tail_text(plain)
-        markers = self._pending_submit_markers(data)
-        pending = any(marker in current_tail for marker in markers)
-        if not pending and self.agent_type == "copilot":
-            pending = self._has_copilot_pending_placeholder(current_tail)
-
-        current_status = self.status
-        if initial_status == "READY" and current_status != "READY":
-            return not pending
-        if current_status in {"PROCESSING", "DONE"}:
-            return not pending
-        if current_status == "WAITING" and initial_status != "WAITING":
-            return not pending
-
-        if not markers:
-            return True
-
-        return not pending
+        return self._terminal_writer._submit_confirmed(
+            data,
+            initial_status,
+            previous_context,
+        )
 
     def _confirm_submit_if_needed(
         self,
@@ -1634,79 +1145,11 @@ class TerminalController:
         previous_context: str,
     ) -> None:
         """Retry submit for Copilot when injected text appears to remain pending."""
-        if not self._should_confirm_submit(data, submit_bytes):
-            return
-
-        assert self._submit_confirm_timeout is not None
-        assert self._submit_confirm_poll_interval is not None
-        confirm_timeout = self._submit_confirm_timeout
-        confirm_retries = self._submit_confirm_retries
-        if self._is_long_submit_message(data):
-            if self._long_submit_confirm_timeout is not None:
-                confirm_timeout = self._long_submit_confirm_timeout
-            if self._long_submit_confirm_retries is not None:
-                confirm_retries = self._long_submit_confirm_retries
-
-        poll_limit = max(
-            1,
-            math.ceil(confirm_timeout / self._submit_confirm_poll_interval),
-        )
-        nudge_delay = self._copilot_submit_nudge_delay(data)
-        if nudge_delay is not None:
-            time.sleep(nudge_delay)
-            if not self._submit_confirmed(data, initial_status, previous_context):
-                self._write_all(submit_bytes)
-
-        for attempt in range(confirm_retries + 1):
-            for _ in range(poll_limit):
-                if self._submit_confirmed(data, initial_status, previous_context):
-                    return
-                time.sleep(self._submit_confirm_poll_interval)
-
-            if attempt < confirm_retries:
-                self._write_all(submit_bytes)
-
-        # Last resort: KKP may have been re-enabled during the retry
-        # window.  Force-disable it and send one final CR.  This covers
-        # the case where Copilot re-pushes KKP after processing the
-        # previous prompt, causing all our \r retries to be silently
-        # re-encoded as CSI 13 u.
-        if self.agent_type == "copilot":
-            self._disable_kkp("force re-disabled on confirmation failure", force=True)
-            # Also re-clear ICRNL in case Ink toggled it back.
-            # Reset the cache flag AND perform the actual termios clear
-            # so the final CR is not translated to \n.
-            self._icrnl_cleared = False
-            self._ensure_icrnl_disabled(submit_bytes)
-            self._write_all(submit_bytes)
-            # Brief wait + final check
-            time.sleep(nudge_delay or _COPILOT_SUBMIT_NUDGE_DELAY)
-            if self._submit_confirmed(data, initial_status, previous_context):
-                logger.info(
-                    f"[{self.agent_id}] submit recovered after KKP force-disable"
-                )
-                return
-
-        # Dump diagnostic info on failure
-        plain = strip_ansi(self.get_context())
-        tail = self._tail_text(plain)
-        markers = self._pending_submit_markers(data)
-        has_placeholder = self._has_copilot_pending_placeholder(tail)
-        message = (
-            f"[{self.agent_id}] submit confirmation failed after "
-            f"{confirm_retries} retries"
-        )
-        logger.warning(message)
-        logger.debug(
-            f"[{self.agent_id}] submit_diag: "
-            f"markers={markers!r} "
-            f"has_placeholder={has_placeholder} "
-            f"status={self.status} "
-            f"tail_last200={tail[-200:]!r}"
-        )
-        self._log_inject(
-            "WARN",
-            f"submit confirmation failed retries={confirm_retries}",
+        self._terminal_writer._confirm_submit_if_needed(
+            data,
+            submit_bytes,
+            initial_status,
+            previous_context,
         )
 
     def interrupt(self) -> None:

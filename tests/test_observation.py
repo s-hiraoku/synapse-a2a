@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 import time
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -187,6 +188,123 @@ def test_terminal_controller_records_status_changes(tmp_path):
         and row["data"]["to_status"] == "READY"
         for row in rows
     )
+
+
+def test_attach_observation_collector_registers_status_hook_once():
+    """Attaching collectors repeatedly should not duplicate callbacks."""
+    controller = TerminalController(
+        command="echo test",
+        idle_regex=r"\$",
+        agent_id="synapse-claude-8100",
+        agent_type="claude",
+    )
+    first = Mock()
+    second = Mock()
+
+    controller.attach_observation_collector(first)
+    controller.attach_observation_collector(second)
+
+    assert controller._observation_collector is second
+    assert controller._observation_attached is True
+    assert len(controller._status_callbacks) == 1
+
+
+def test_ensure_observation_collector_from_env_failure_returns_none():
+    """Collector init failures should be swallowed and return None."""
+    controller = TerminalController(
+        command="echo test",
+        idle_regex=r"\$",
+        agent_id="synapse-claude-8100",
+        agent_type="claude",
+    )
+
+    with patch("synapse.observation.ObservationCollector.from_env") as from_env:
+        from_env.side_effect = RuntimeError("boom")
+        assert controller._ensure_observation_collector() is None
+
+
+def test_record_methods_forward_expected_payloads():
+    """Controller record helpers should forward exact payloads to the collector."""
+    controller = TerminalController(
+        command="echo test",
+        idle_regex=r"\$",
+        agent_id="synapse-claude-8100",
+        agent_type="claude",
+    )
+    collector = Mock()
+    controller.attach_observation_collector(collector)
+
+    controller.record_status_change("PROCESSING", "READY", "idle_detected")
+    controller.record_task_received("Run tests", "synapse-codex-8110", 4)
+    controller.record_task_completed("task-123", 2.5, "completed", "Done")
+    controller.record_error("timeout", "request timed out", "retry later")
+
+    collector.record_status_change.assert_called_once_with(
+        agent_id="synapse-claude-8100",
+        agent_type="claude",
+        from_status="PROCESSING",
+        to_status="READY",
+        trigger="idle_detected",
+    )
+    collector.record_task_received.assert_called_once_with(
+        agent_id="synapse-claude-8100",
+        agent_type="claude",
+        message="Run tests",
+        sender="synapse-codex-8110",
+        priority=4,
+    )
+    collector.record_task_completed.assert_called_once_with(
+        agent_id="synapse-claude-8100",
+        agent_type="claude",
+        task_id="task-123",
+        duration=2.5,
+        status="completed",
+        output_summary="Done",
+    )
+    collector.record_error.assert_called_once_with(
+        agent_id="synapse-claude-8100",
+        agent_type="claude",
+        error_type="timeout",
+        error_message="request timed out",
+        recovery_action="retry later",
+    )
+
+
+def test_record_methods_noop_without_agent_id():
+    """Controller record helpers should no-op when agent identity is missing."""
+    controller = TerminalController(command="echo test", idle_regex=r"\$")
+    collector = Mock()
+    controller.attach_observation_collector(collector)
+
+    controller.record_status_change("PROCESSING", "READY", "idle_detected")
+    controller.record_task_received("Run tests", "synapse-codex-8110", 4)
+    controller.record_task_completed("task-123", 2.5, "completed", "Done")
+    controller.record_error("timeout", "request timed out", "retry later")
+
+    collector.record_status_change.assert_not_called()
+    collector.record_task_received.assert_not_called()
+    collector.record_task_completed.assert_not_called()
+    collector.record_error.assert_not_called()
+
+
+def test_status_callbacks_continue_after_callback_error():
+    """Callback dispatch should isolate exceptions and continue to later callbacks."""
+    controller = TerminalController(command="echo test", idle_regex=r"\$")
+    observed: list[tuple[str, str]] = []
+
+    def _broken(old_status: str, new_status: str) -> None:
+        raise RuntimeError(f"{old_status}->{new_status}")
+
+    def _healthy(old_status: str, new_status: str) -> None:
+        observed.append((old_status, new_status))
+
+    controller.on_status_change(_broken)
+    controller.on_status_change(_healthy)
+
+    with patch("synapse.controller_status.threading.Thread", _ImmediateThread):
+        controller._dispatch_status_callbacks("PROCESSING", "READY")
+
+    assert observed == [("PROCESSING", "READY")]
 
 
 class _ImmediateThread:
