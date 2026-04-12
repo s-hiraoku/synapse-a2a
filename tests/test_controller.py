@@ -9,6 +9,7 @@ import pytest
 from synapse.config import WRITE_PROCESSING_DELAY
 from synapse.controller import TerminalController
 from synapse.registry import AgentRegistry
+from synapse.terminal_writer import TerminalWriter
 from tests.helpers import read_stored_instruction
 
 
@@ -428,6 +429,61 @@ class TestSubmitSequence:
 
 class TestInterAgentMessageWrite:
     """Tests for inter-agent message writing."""
+
+    def test_controller_initializes_terminal_writer(self):
+        """Controller should own a TerminalWriter for PTY write behavior."""
+        ctrl = TerminalController(
+            command="echo test",
+            idle_regex=r"\$",
+            agent_id="synapse-copilot-8140",
+            agent_type="copilot",
+            submit_seq="\r",
+            write_delay=0.25,
+            bracketed_paste=True,
+            typing_char_delay=0.1,
+            typing_max_chars=42,
+            submit_confirm_timeout=0.5,
+            submit_confirm_poll_interval=0.05,
+            submit_confirm_retries=2,
+            long_submit_confirm_timeout=1.0,
+            long_submit_confirm_retries=3,
+        )
+
+        assert isinstance(ctrl._terminal_writer, TerminalWriter)
+        assert ctrl._terminal_writer.agent_id == "synapse-copilot-8140"
+        assert ctrl._terminal_writer.agent_type == "copilot"
+        assert ctrl._terminal_writer.write_delay == 0.25
+        assert ctrl._terminal_writer.bracketed_paste is True
+        assert ctrl._terminal_writer.typing_char_delay == 0.1
+        assert ctrl._terminal_writer.typing_max_chars == 42
+        assert ctrl._terminal_writer.submit_confirm_timeout == 0.5
+        assert ctrl._terminal_writer.submit_confirm_poll_interval == 0.05
+        assert ctrl._terminal_writer.submit_confirm_retries == 2
+        assert ctrl._terminal_writer.long_submit_confirm_timeout == 1.0
+        assert ctrl._terminal_writer.long_submit_confirm_retries == 3
+
+    def test_write_delegates_to_terminal_writer(self):
+        """Controller.write should delegate PTY injection to TerminalWriter."""
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
+
+        with patch.object(
+            ctrl._terminal_writer,
+            "write",
+            return_value=True,
+        ) as mock_writer_write:
+            result = ctrl.write("hello", submit_seq="\r")
+
+        assert result is True
+        mock_writer_write.assert_called_once_with("hello", submit_seq="\r")
+
+    def test_write_all_delegates_to_terminal_writer(self):
+        """Controller._write_all should delegate to TerminalWriter."""
+        ctrl = TerminalController(command="echo test", idle_regex=r"\$")
+
+        with patch.object(ctrl._terminal_writer, "_write_all") as mock_writer_write_all:
+            ctrl._write_all(b"hello")
+
+        mock_writer_write_all.assert_called_once_with(b"hello")
 
     @pytest.fixture
     def mock_os_write(self):
