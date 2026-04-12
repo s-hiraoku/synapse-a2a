@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Default configuration values
 DEFAULT_THRESHOLD = 200  # Characters (measured limit is 200-300)
 DEFAULT_TTL = 3600  # 1 hour
+DEFAULT_CLEANUP_INTERVAL = 300.0  # 5 minutes between lazy cleanup sweeps
 DEFAULT_MESSAGE_DIR = Path(tempfile.gettempdir()) / "synapse-a2a" / "messages"
 
 
@@ -56,6 +57,7 @@ class LongMessageStore:
         self.message_dir = message_dir
         self.threshold = threshold
         self.ttl = ttl
+        self._last_cleanup_ts: float = 0.0
 
         # Create directory if it doesn't exist
         self.message_dir.mkdir(parents=True, exist_ok=True)
@@ -106,6 +108,7 @@ class LongMessageStore:
                 temp_path.unlink()
             raise
 
+        self.maybe_cleanup_expired()
         return file_path
 
     def read_message(self, file_path: Path) -> str | None:
@@ -155,6 +158,27 @@ class LongMessageStore:
 
         return removed
 
+    def maybe_cleanup_expired(self, interval: float = DEFAULT_CLEANUP_INTERVAL) -> int:
+        """
+        Run cleanup_expired at most once per interval seconds.
+
+        Throttled lazy cleanup intended to be called from write paths
+        (e.g. store_message) so temp files do not accumulate between
+        explicit cleanup calls. The first invocation always runs because
+        the initial _last_cleanup_ts is 0.
+
+        Args:
+            interval: Minimum seconds between cleanup sweeps.
+
+        Returns:
+            Number of files removed in this call (0 when throttled).
+        """
+        now = time.time()
+        if now - self._last_cleanup_ts < interval:
+            return 0
+        self._last_cleanup_ts = now
+        return self.cleanup_expired()
+
 
 # Singleton instance
 _store_instance: LongMessageStore | None = None
@@ -189,6 +213,9 @@ def get_long_message_store() -> LongMessageStore:
             threshold=_get_env_int("SYNAPSE_LONG_MESSAGE_THRESHOLD", DEFAULT_THRESHOLD),
             ttl=_get_env_int("SYNAPSE_LONG_MESSAGE_TTL", DEFAULT_TTL),
         )
+        # Reclaim any stale files left behind by a previous process.
+        _store_instance.cleanup_expired()
+        _store_instance._last_cleanup_ts = time.time()
 
     return _store_instance
 

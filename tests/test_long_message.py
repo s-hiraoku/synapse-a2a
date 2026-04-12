@@ -303,6 +303,178 @@ class TestCleanupExpired:
         assert removed == 0
 
 
+class TestMaybeCleanupExpired:
+    """Tests for the maybe_cleanup_expired throttled cleanup."""
+
+    def test_first_call_runs_cleanup(self, tmp_path: Path) -> None:
+        """First maybe_cleanup_expired call should run cleanup even though
+        no interval has elapsed, since _last_cleanup_ts starts at 0.
+        """
+        from synapse.long_message import LongMessageStore
+
+        message_dir = tmp_path / "messages"
+        store = LongMessageStore(
+            message_dir=message_dir,
+            threshold=200,
+            ttl=1,
+        )
+        # Create a stale file directly to bypass store_message's own
+        # maybe_cleanup_expired call, which would otherwise update
+        # _last_cleanup_ts before the assertion runs.
+        stale = message_dir / "stale.txt"
+        stale.write_text("old", encoding="utf-8")
+        past = time.time() - 10
+        os.utime(stale, (past, past))
+
+        removed = store.maybe_cleanup_expired()
+
+        assert removed == 1
+        assert not stale.exists()
+
+    def test_second_call_within_interval_is_noop(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """A second call before the interval elapses should skip cleanup."""
+        from synapse.long_message import LongMessageStore
+
+        message_dir = tmp_path / "messages"
+        store = LongMessageStore(
+            message_dir=message_dir,
+            threshold=200,
+            ttl=1,
+        )
+        base = 10_000.0
+        monkeypatch.setattr("synapse.long_message.time.time", lambda: base)
+
+        # First call establishes _last_cleanup_ts = base.
+        store.maybe_cleanup_expired(interval=300.0)
+
+        # Create an expired file after the first cleanup.
+        file_path = store.store_message("stale", "content")
+        os.utime(file_path, (base - 10, base - 10))
+
+        # Jump only 100 seconds — less than the 300s interval.
+        monkeypatch.setattr("synapse.long_message.time.time", lambda: base + 100)
+        removed = store.maybe_cleanup_expired(interval=300.0)
+
+        assert removed == 0
+        assert file_path.exists()
+
+    def test_call_after_interval_runs_cleanup(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """A call after the interval elapses should run cleanup again."""
+        from synapse.long_message import LongMessageStore
+
+        message_dir = tmp_path / "messages"
+        store = LongMessageStore(
+            message_dir=message_dir,
+            threshold=200,
+            ttl=1,
+        )
+        base = 10_000.0
+        monkeypatch.setattr("synapse.long_message.time.time", lambda: base)
+
+        # First call establishes _last_cleanup_ts = base.
+        store.maybe_cleanup_expired(interval=300.0)
+
+        file_path = store.store_message("stale", "content")
+        os.utime(file_path, (base - 10, base - 10))
+
+        # Jump forward by more than the interval.
+        monkeypatch.setattr("synapse.long_message.time.time", lambda: base + 400)
+        removed = store.maybe_cleanup_expired(interval=300.0)
+
+        assert removed == 1
+        assert not file_path.exists()
+
+
+class TestStoreMessageAutoCleanup:
+    """store_message should invoke maybe_cleanup_expired at the end."""
+
+    def test_store_message_triggers_maybe_cleanup(self, tmp_path: Path) -> None:
+        """Each store_message call should delegate to maybe_cleanup_expired."""
+        from synapse.long_message import LongMessageStore
+
+        store = LongMessageStore(
+            message_dir=tmp_path / "messages",
+            threshold=200,
+            ttl=3600,
+        )
+
+        calls: list[float] = []
+        original = store.maybe_cleanup_expired
+
+        def tracked(interval: float = 300.0) -> int:
+            calls.append(interval)
+            return original(interval)
+
+        # Replace after __init__ so constructor-side cleanup is not counted.
+        store.maybe_cleanup_expired = tracked  # type: ignore[method-assign]
+        store.store_message("task-1", "hello")
+
+        assert calls, "maybe_cleanup_expired should be called by store_message"
+
+
+class TestGetLongMessageStoreInitialCleanup:
+    """get_long_message_store should run one cleanup when creating the
+    singleton so stale files left by a previous process are reclaimed.
+    """
+
+    def test_singleton_creation_reclaims_stale_files(self, tmp_path: Path) -> None:
+        """get_long_message_store should delete stale files on first call."""
+        from synapse.long_message import get_long_message_store
+
+        message_dir = tmp_path / "messages"
+        message_dir.mkdir(parents=True)
+        stale = message_dir / "stale-task.txt"
+        stale.write_text("leftover", encoding="utf-8")
+        past = time.time() - 10_000
+        os.utime(stale, (past, past))
+
+        with patch.dict(
+            os.environ,
+            {
+                "SYNAPSE_LONG_MESSAGE_DIR": str(message_dir),
+                "SYNAPSE_LONG_MESSAGE_TTL": "3600",
+            },
+        ):
+            import synapse.long_message
+
+            synapse.long_message._store_instance = None
+            get_long_message_store()
+
+        assert not stale.exists()
+
+    def test_singleton_reuse_does_not_rerun_cleanup(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """Only the first get_long_message_store call should trigger cleanup."""
+        import synapse.long_message
+        from synapse.long_message import LongMessageStore, get_long_message_store
+
+        synapse.long_message._store_instance = None
+
+        cleanup_calls: list[None] = []
+        original_cleanup = LongMessageStore.cleanup_expired
+
+        def tracked(self: LongMessageStore) -> int:
+            cleanup_calls.append(None)
+            return original_cleanup(self)
+
+        monkeypatch.setattr(LongMessageStore, "cleanup_expired", tracked)
+
+        with patch.dict(
+            os.environ,
+            {"SYNAPSE_LONG_MESSAGE_DIR": str(tmp_path / "messages")},
+        ):
+            get_long_message_store()
+            get_long_message_store()
+            get_long_message_store()
+
+        assert len(cleanup_calls) == 1
+
+
 class TestGetLongMessageStore:
     """Tests for the get_long_message_store factory function."""
 
