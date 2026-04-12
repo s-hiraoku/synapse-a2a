@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -10,6 +12,7 @@ from synapse.workflow import Workflow, WorkflowStep
 from synapse.workflow_runner import (
     MAX_RUNS,
     StepResult,
+    _apply_task_result,
     _extract_task_output,
     _has_working_tasks,
     _is_self_target,
@@ -280,8 +283,9 @@ async def test_wait_mode_polls_until_completed(monkeypatch):
     _patch_workflow_send(monkeypatch, _mock_send)
 
     # Mock _poll_task_completion to return completed with output
-    async def _mock_poll(endpoint, task_id):
+    async def _mock_poll(endpoint, task_id, *, target_is_self=False):
         assert task_id == "task-wait-123"
+        assert target_is_self is False
         return "completed", "Final result from agent"
 
     monkeypatch.setattr("synapse.workflow_runner._poll_task_completion", _mock_poll)
@@ -313,7 +317,8 @@ async def test_wait_mode_agent_task_failed(monkeypatch):
 
     _patch_workflow_send(monkeypatch, _mock_send)
 
-    async def _mock_poll(endpoint, task_id):
+    async def _mock_poll(endpoint, task_id, *, target_is_self=False):
+        assert target_is_self is False
         return "failed", "Syntax error in generated code"
 
     monkeypatch.setattr("synapse.workflow_runner._poll_task_completion", _mock_poll)
@@ -345,7 +350,8 @@ async def test_wait_mode_agent_task_canceled(monkeypatch):
 
     _patch_workflow_send(monkeypatch, _mock_send)
 
-    async def _mock_poll(endpoint, task_id):
+    async def _mock_poll(endpoint, task_id, *, target_is_self=False):
+        assert target_is_self is False
         return "canceled", ""
 
     monkeypatch.setattr("synapse.workflow_runner._poll_task_completion", _mock_poll)
@@ -379,7 +385,7 @@ async def test_notify_mode_does_not_poll(monkeypatch):
 
     poll_called = False
 
-    async def _mock_poll(endpoint, task_id):
+    async def _mock_poll(endpoint, task_id, *, target_is_self=False):
         nonlocal poll_called
         poll_called = True
         return "completed", ""
@@ -960,6 +966,143 @@ async def test_poll_task_completion_input_required_returns_failed(monkeypatch):
     assert "permission" in output.lower()
 
 
+@pytest.mark.asyncio
+async def test_poll_task_completion_input_required_self_target_retries(monkeypatch):
+    """target_is_self=True: input_required is transient, polling continues."""
+    import httpx
+
+    call_count = 0
+
+    async def _mock_get(self, url, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            data = {"task": {"id": "t1", "status": {"state": "input_required"}}}
+        else:
+            data = {
+                "task": {
+                    "id": "t1",
+                    "status": {"state": "completed"},
+                    "artifacts": [{"parts": [{"type": "text", "text": "done"}]}],
+                }
+            }
+        return httpx.Response(200, json=data, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", _mock_get)
+
+    async def _noop_sleep(_):
+        pass
+
+    monkeypatch.setattr("synapse.workflow_runner.asyncio.sleep", _noop_sleep)
+
+    status, output = await _poll_task_completion(
+        "http://localhost:8100",
+        "t1",
+        target_is_self=True,
+    )
+
+    assert status == "completed"
+    assert output == "done"
+    assert call_count >= 2
+
+
+@pytest.mark.asyncio
+async def test_poll_task_completion_input_required_self_target_timeout(monkeypatch):
+    """target_is_self=True: persistent input_required times out to completed/empty."""
+    import httpx
+
+    current_time = 100.0
+
+    async def _mock_get(self, url, **kwargs):
+        data = {"task": {"id": "t1", "status": {"state": "input_required"}}}
+        return httpx.Response(200, json=data, request=httpx.Request("GET", url))
+
+    async def _mock_sleep(delay):
+        nonlocal current_time
+        current_time += delay
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", _mock_get)
+    monkeypatch.setattr("synapse.workflow_runner.asyncio.sleep", _mock_sleep)
+    monkeypatch.setattr("synapse.workflow_runner.time.time", lambda: current_time)
+    monkeypatch.setattr("synapse.workflow_runner._POLL_TIMEOUT", 0.05)
+    monkeypatch.setattr("synapse.config.TASK_POLL_INTERVAL", 0.01)
+
+    status, output = await _poll_task_completion(
+        "http://localhost:8100",
+        "t1",
+        target_is_self=True,
+    )
+
+    assert status == "completed"
+    assert output == ""
+
+
+@pytest.mark.asyncio
+async def test_apply_task_result_passes_target_is_self_for_self_target(monkeypatch):
+    """_apply_task_result forwards target_is_self=True into polling."""
+
+    mock_poll = AsyncMock(return_value=("completed", "x"))
+    monkeypatch.setattr("synapse.workflow_runner._poll_task_completion", mock_poll)
+
+    step = StepResult(step_index=0, target="self", message="hi", status="running")
+    wf_step = SimpleNamespace(
+        target="self",
+        response_mode="wait",
+        message="hi",
+        priority=0,
+    )
+
+    await _apply_task_result(
+        step,
+        0,
+        "",
+        "",
+        "t1",
+        wf_step,
+        "http://localhost:9999",
+        target_is_self=True,
+    )
+
+    mock_poll.assert_awaited_once_with(
+        "http://localhost:9999",
+        "t1",
+        target_is_self=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_apply_task_result_passes_target_is_self_false_for_other(monkeypatch):
+    """_apply_task_result forwards target_is_self=False into polling."""
+
+    mock_poll = AsyncMock(return_value=("completed", "x"))
+    monkeypatch.setattr("synapse.workflow_runner._poll_task_completion", mock_poll)
+
+    step = StepResult(step_index=0, target="agent1", message="hi", status="running")
+    wf_step = SimpleNamespace(
+        target="agent1",
+        response_mode="wait",
+        message="hi",
+        priority=0,
+    )
+
+    await _apply_task_result(
+        step,
+        0,
+        "",
+        "",
+        "t1",
+        wf_step,
+        "http://localhost:9999",
+        target_is_self=False,
+    )
+
+    mock_poll.assert_awaited_once_with(
+        "http://localhost:9999",
+        "t1",
+        target_is_self=False,
+    )
+
+
 # ---------------------------------------------------------------------------
 # 17. _has_working_tasks treats input_required as blocking (#533)
 # ---------------------------------------------------------------------------
@@ -998,7 +1141,8 @@ async def test_wait_mode_input_required_fails_step(monkeypatch):
 
     _patch_workflow_send(monkeypatch, _mock_send)
 
-    async def _mock_poll(endpoint, task_id):
+    async def _mock_poll(endpoint, task_id, *, target_is_self=False):
+        assert target_is_self is False
         return (
             "failed",
             "Agent requires permission approval — check auto-approve configuration",

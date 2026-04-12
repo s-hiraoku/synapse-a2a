@@ -160,6 +160,7 @@ class _WorkflowHelper:
             task_id,
             wf_step,
             self.endpoint,
+            target_is_self=_is_self_target(wf_step.target, self.sender_info),
         )
 
     async def _ensure_started(self) -> tuple[bool, str | None]:
@@ -495,6 +496,8 @@ def _extract_task_output(task_data: dict) -> str:
 async def _poll_task_completion(
     endpoint: str,
     task_id: str,
+    *,
+    target_is_self: bool = False,
 ) -> tuple[str, str]:
     """Poll target agent's task until terminal state. Returns (status, output)."""
     from synapse.config import COMPLETED_TASK_STATES, TASK_POLL_INTERVAL
@@ -513,7 +516,7 @@ async def _poll_task_completion(
                 status = _extract_task_status(task_data)
                 if status in COMPLETED_TASK_STATES:
                     return status, _extract_task_output(task_data)
-                if status == "input_required":
+                if status == "input_required" and not target_is_self:
                     return "failed", (
                         "Agent requires permission approval"
                         " — check auto-approve configuration"
@@ -673,6 +676,7 @@ async def _apply_task_result(
     endpoint: str | None,
     *,
     humanize_target: str | None = None,
+    target_is_self: bool = False,
 ) -> None:
     """Apply send/poll results to a StepResult.
 
@@ -680,7 +684,11 @@ async def _apply_task_result(
     to avoid duplicating the returncode/status branching logic.
     """
     if returncode == 0 and wf_step.response_mode == "wait" and task_id and endpoint:
-        final_status, final_output = await _poll_task_completion(endpoint, task_id)
+        final_status, final_output = await _poll_task_completion(
+            endpoint,
+            task_id,
+            target_is_self=target_is_self,
+        )
         if final_status == "failed":
             step.status = "failed"
             step.error = final_output or "Agent task failed"
@@ -711,7 +719,8 @@ async def _execute_step(
     helper: _WorkflowHelper | None = None,
 ) -> None:
     """Execute a single workflow step via direct A2A HTTP send."""
-    if _is_self_target(wf_step.target, sender_info):
+    target_is_self = _is_self_target(wf_step.target, sender_info)
+    if target_is_self:
         if helper is None:
             step.status = "failed"
             step.error = "Workflow helper is unavailable"
@@ -757,6 +766,7 @@ async def _execute_step(
         wf_step,
         endpoint,
         humanize_target=wf_step.target,
+        target_is_self=target_is_self,
     )
 
 
