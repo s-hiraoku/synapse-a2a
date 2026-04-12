@@ -7,15 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.25.1] - 2026-04-12
 
+### Fixed
+
+- `synapse send` to Codex agents now handles HTTP 409 (agent busy) explicitly with a clear "Agent busy (working task). Retry after Ns" warning instead of silently failing as "local send failed" (#554)
+- `send_to_local()` now logs diagnostic warnings at every failure path (UDS transport errors, HTTP status errors, missing UDS socket, outer request exceptions) instead of returning `None` without explanation; set `SYNAPSE_LOG_LEVEL=DEBUG` to see details (#542)
+- `synapse send` now prints a clear warning when the sender agent cannot be auto-identified, advising users to set `SYNAPSE_AGENT_ID` or use `--from` (#543)
+- `--message-file`, `--task-file`, and `--stdin` inputs no longer trigger false shell-expansion warnings on backticks or `$()` — `_warn_shell_expansion()` is now only applied to positional arguments where shell expansion is actually possible (#544)
+- Codex agent status detection now uses hybrid idle detection (`strategy: "hybrid"` with `pattern_use: "startup_only"`) to avoid false READY transitions during LLM thinking time, while still avoiding the false positives that motivated the original timeout-only approach (#537)
+- `"local send failed"` error now hints at `SYNAPSE_LOG_LEVEL=DEBUG` for diagnostic details
+- Pre-existing mypy type error in `synapse/commands/spawn_cmd.py` (`port` variable redefinition) resolved
+
 ### Added
 
-- feat: add 5 built-in CoordinationPattern subclasses (#541)
-- Implemented and auto-registered built-in pattern classes for `generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, and `shared-state`
+- `synapse send --task-file / -T PATH` flag reads a file as the message body, mirroring the flag on `synapse spawn` (#545)
+
+### Changed
+
+- `_resolve_message()` now returns `(message, source)` tuple so callers can branch on input source; `_warn_shell_expansion()` is skipped for non-positional sources
+- UDS 409 handler normalized to `Retry-After` header casing for consistency with the TCP path
+- `logger.warning` in the `retry_without_reply_to` 404 retry path converted from f-string to lazy `%s` formatting
 
 ### Documentation
 
-- Updated docs and site-docs references for `synapse multiagent` / `synapse map`
-- Updated Synapse plugin skill docs and synced expanded skill copies for built-in coordination patterns
+- Document `--task-file` / `-T` flag across README, README.zh, `guides/usage.md`, `guides/references.md`, and `guides/a2a-communication.md`
+- Add troubleshooting guidance for 409 busy errors, missing `SYNAPSE_AGENT_ID`, and `SYNAPSE_LOG_LEVEL=DEBUG` diagnostic usage in `guides/troubleshooting.md`
+- Update `guides/profiles.md` Codex section to reflect hybrid idle detection configuration
+- Remove stale `--task` / `--callback` flag rows from `guides/references.md` (conflicted with new `-T` alias)
+
+### Tests
+
+- Add 29 new test cases across `test_a2a_client.py` (6), `test_send_message_file.py` (9), `test_tools_a2a.py` (1), `test_compound_signal.py` (4), `test_interactive_idle_detection.py` (1), covering all failure paths and new behaviors
+- Update existing `MagicMock`-based tests in `test_send_processing_wait.py` and `test_send_working_dir.py` to set `args.task_file = None` for the new `_resolve_message()` API
 
 ## [0.25.0] - 2026-04-11
 

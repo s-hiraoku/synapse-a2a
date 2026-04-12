@@ -6,8 +6,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.25.1
 
-- **Added**: Five built-in `CoordinationPattern` subclasses are now implemented and auto-registered in `BUILTIN_PATTERNS` (`generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state`) (#541)
-- **Documentation**: Updated CLI/site-docs references for `synapse multiagent` / `synapse map` and built-in coordination patterns
+- **Fixed**: `synapse send` to Codex agents no longer fails with cryptic "local send failed" — HTTP 409 (agent busy) is now surfaced as "Agent busy (working task). Retry after Ns" (#554)
+- **Fixed**: `send_to_local()` logs diagnostic warnings at every failure path; set `SYNAPSE_LOG_LEVEL=DEBUG` for details (#542)
+- **Fixed**: `synapse send` warns when sender agent cannot be identified, advising to set `SYNAPSE_AGENT_ID` (#543)
+- **Fixed**: `--message-file`, `--task-file`, and `--stdin` inputs no longer trigger false backtick shell-expansion warnings (#544)
+- **Fixed**: Codex agent status uses hybrid idle detection with startup-only pattern matching, improving status accuracy during LLM thinking time (#537)
+- **Added**: `synapse send --task-file / -T PATH` flag mirroring the flag on `synapse spawn` (#545)
 
 ### v0.25.0
 
