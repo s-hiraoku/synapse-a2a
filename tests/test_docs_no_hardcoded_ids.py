@@ -31,13 +31,21 @@ AGENT_FACING_PATHS = [
 
 def _collect_files() -> list[Path]:
     """Collect all text files from agent-facing paths."""
+    # Exclude worktree-internal copies: they hold snapshots of older branches
+    # that are out of scope for this repo's main branch and must not fail the
+    # lint on this checkout.
+    worktrees_root = ROOT / ".synapse" / "worktrees"
     files: list[Path] = []
     for path in AGENT_FACING_PATHS:
         if path.is_file():
             files.append(path)
         elif path.is_dir():
             for ext in ("*.md", "*.txt", "*.yaml", "*.yml", "*.json"):
-                files.extend(path.rglob(ext))
+                for found in path.rglob(ext):
+                    try:
+                        found.relative_to(worktrees_root)
+                    except ValueError:
+                        files.append(found)
     return sorted(set(files))
 
 
