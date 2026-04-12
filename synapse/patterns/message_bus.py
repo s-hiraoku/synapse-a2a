@@ -99,22 +99,6 @@ class MessageBusPattern(CoordinationPattern):
             auto_approve=config.router.auto_approve,
         )
 
-        topic_handles: list[tuple[str, list[Any]]] = []
-        for topic in config.topics:
-            subscribers = [
-                await self.spawn_agent(
-                    subscriber.profile,
-                    name=subscriber.name or None,
-                    role=subscriber.role,
-                    skill_set=subscriber.skill_set,
-                    worktree=subscriber.worktree,
-                    branch=subscriber.branch,
-                    auto_approve=subscriber.auto_approve,
-                )
-                for subscriber in topic.subscribers
-            ]
-            topic_handles.append((topic.name, subscribers))
-
         routed = await self.send(router, task, response_mode="wait")
         if routed.status == "failed" or routed.error:
             return TaskResult(
@@ -129,8 +113,20 @@ class MessageBusPattern(CoordinationPattern):
             return TaskResult(status="stopped", output="\n".join(outputs))
 
         failures: list[str] = []
-        for topic_name, subscribers in topic_handles:
-            fanout_message = f"Original task:\n{task}\n\nRouter output:\n{routed.output}\n\nTopic:\n{topic_name}"
+        for topic in config.topics:
+            subscribers = [
+                await self.spawn_agent(
+                    subscriber.profile,
+                    name=subscriber.name or None,
+                    role=subscriber.role,
+                    skill_set=subscriber.skill_set,
+                    worktree=subscriber.worktree,
+                    branch=subscriber.branch,
+                    auto_approve=subscriber.auto_approve,
+                )
+                for subscriber in topic.subscribers
+            ]
+            fanout_message = f"Original task:\n{task}\n\nRouter output:\n{routed.output}\n\nTopic:\n{topic.name}"
             results = await self.send_all(
                 subscribers, fanout_message, response_mode="wait"
             )
