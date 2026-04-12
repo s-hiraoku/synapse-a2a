@@ -537,6 +537,28 @@ synapse workflow sync
 
 Auto-generates `SKILL.md` files from all workflow YAML definitions into `.claude/skills/` and `.agents/skills/`. Removes orphaned auto-generated skills whose workflow YAML no longer exists. Hand-written skills are never overwritten.
 
+## Multi-Agent Patterns
+
+```bash
+synapse multiagent init <type> [--name NAME] [--project | --user] [--force]
+synapse multiagent list [--project | --user]
+synapse multiagent show <name> [--project | --user]
+synapse multiagent run <name> --task "<task>" [--project | --user] [--dry-run] [--async]
+synapse multiagent status <run_id>
+synapse multiagent stop <run_id>
+synapse map ...    # Alias for synapse multiagent
+```
+
+Declarative coordination patterns define how agents should collaborate rather than listing imperative workflow steps. The built-in pattern types are:
+
+- `generator-verifier`
+- `orchestrator-subagent`
+- `agent-teams`
+- `message-bus`
+- `shared-state`
+
+Pattern definitions are stored in `.synapse/patterns/` (project) or `~/.synapse/patterns/` (user). `synapse multiagent run` requires `--task` (or `-t`) to provide the task description. Use `--dry-run` to preview execution without spawning agents, or `--async` to start a background run and inspect it later with `synapse multiagent status`.
+
 ## Settings
 
 ```bash

@@ -114,11 +114,12 @@ For user guides, see the [`/guides`](../guides/) directory.
 ### マルチエージェントパターン
 
 - **Multi-Agent Patterns** — 宣言的なエージェント協調パターン
-  - `synapse/patterns/` — パターンの基盤クラス、ストア、ランナー
+  - `synapse/patterns/` — パターンの基盤クラス、ストア、ランナー、組み込みパターン実装
   - `synapse/commands/multiagent.py` — CLI ハンドラ (`synapse multiagent` / `synapse map`)
   - `synapse/canvas/routes/multiagent.py` — Canvas API ルート (`/api/multiagent`)
   - `synapse/canvas/static/canvas-multiagent.js` — Canvas UI のパターン表示
   - 5つの組み込みテンプレート: `generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state`
+  - 5つの組み込みパターンクラスは `synapse.patterns` の import 時に自動登録され、`BUILTIN_PATTERNS` に反映される
   - Workflow（命令的なステップ列）とは異なり、エージェントの振る舞いルールを定義
   - パターン保存先: `.synapse/patterns/` (project) / `~/.synapse/patterns/` (user)
 

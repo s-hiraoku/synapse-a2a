@@ -11,6 +11,8 @@ Storage:
 
 from __future__ import annotations
 
+import importlib
+
 from synapse.patterns.base import (
     AgentHandle,
     CoordinationPattern,
@@ -40,3 +42,13 @@ def register_pattern(cls: type[CoordinationPattern]) -> type[CoordinationPattern
     """Decorator to register a built-in pattern class."""
     BUILTIN_PATTERNS[cls.name] = cls
     return cls
+
+
+for _module_name in (
+    "synapse.patterns.agent_teams",
+    "synapse.patterns.generator_verifier",
+    "synapse.patterns.message_bus",
+    "synapse.patterns.orchestrator_subagent",
+    "synapse.patterns.shared_state",
+):
+    importlib.import_module(_module_name)
