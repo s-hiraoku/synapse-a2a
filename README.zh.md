@@ -795,10 +795,15 @@ synapse send <target> "<message>" [--from <sender>] [--priority <1-5>] [--wait |
 |------|------|------|
 | `--from` | `-f` | 发送者运行时 ID（Runtime ID）（用于回复识别） |
 | `--priority` | `-p` | 优先级 1-4：正常，5：紧急停止（发送 SIGINT） |
+| `--message-file` | `-F` | 从文件读取消息（`-` 表示 stdin）。通过文件传递的内容不经过 shell，不会触发反引号等 shell 展开警告 |
+| `--task-file` | `-T` | 从任务文件读取消息（`-` 表示 stdin）。与 `--message-file` 等价，用于表达"这是任务说明"的意图 |
+| `--stdin` | - | 从 stdin 读取消息 |
 | `--wait` | - | 同步阻塞 - 等待接收者通过 `synapse reply` 回复 |
 | `--notify` | - | 异步通知 - 任务完成后接收通知（默认） |
 | `--silent` | - | 发送即忘 - 无需回复或通知 |
 | `--force` | - | 绕过工作目录不匹配检查进行发送 |
+
+**消息来源：** 必须从 `positional message`、`--message-file`、`--task-file`、`--stdin` 中恰好选择一个。通过文件或 stdin 传递的长消息（含反引号、代码块、Markdown 等）不会再触发 shell 展开的误警告。
 
 **示例：**
 
@@ -817,6 +822,8 @@ synapse send claude "你好" --priority 1
 
 # 长消息支持 (自动切换到临时文件模式)
 synapse send claude --message-file /path/to/message.txt --silent
+synapse send claude --task-file /path/to/tasks/auth.md --notify   # 与 --message-file 等价（任务说明语义）
+synapse send claude -T /path/to/tasks/auth.md --notify            # -T 是 --task-file 的短选项
 echo "非常长的内容..." | synapse send claude --stdin --silent
 
 # 文件附件
@@ -837,7 +844,9 @@ synapse send claude "你好" --from $SYNAPSE_AGENT_ID
 
 **默认行为：** 默认使用 `--notify`（完成后进行异步通知）。
 
-**重要：** 始终使用 `--from` 加上你的运行时 ID（Runtime ID）（格式：`synapse-<type>-<port>`）。
+**重要：** 始终使用 `--from` 加上你的运行时 ID（Runtime ID）（格式：`synapse-<type>-<port>`）。当无法识别发送者时，Synapse 会输出 `Warning: Could not identify sender agent. Set SYNAPSE_AGENT_ID or use --from.`，请设置 `SYNAPSE_AGENT_ID` 或显式传递 `--from`。
+
+**故障排查：** 当 `synapse send` 返回 `Error sending message: local send failed` 时，请以 `SYNAPSE_LOG_LEVEL=DEBUG` 重新运行以查看 UDS/TCP 的详细失败原因（HTTP 状态码、端点等）。若目标正在处理任务，将返回 HTTP 409 并显示 `Agent busy (working task)`，可用 `synapse status <target>` 查看进度，或使用 `-p 5` 紧急打断。
 
 ### synapse reply 命令
 

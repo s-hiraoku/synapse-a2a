@@ -10,7 +10,7 @@ import argparse
 import os
 from io import StringIO
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -25,11 +25,13 @@ class TestResolveMessage:
         self,
         message=None,
         message_file=None,
+        task_file=None,
         stdin=False,
     ) -> argparse.Namespace:
         return argparse.Namespace(
             message=message,
             message_file=message_file,
+            task_file=task_file,
             stdin=stdin,
         )
 
@@ -38,7 +40,16 @@ class TestResolveMessage:
         from synapse.tools.a2a import _resolve_message
 
         args = self._make_args(message="hello world")
-        assert _resolve_message(args) == "hello world"
+        message, source = _resolve_message(args)
+        assert message == "hello world"
+        assert source == "positional"
+
+    def test_resolve_message_returns_tuple_positional(self):
+        """Positional message returns message and source tuple."""
+        from synapse.tools.a2a import _resolve_message
+
+        args = self._make_args(message="message text")
+        assert _resolve_message(args) == ("message text", "positional")
 
     def test_message_file(self, tmp_path):
         """--message-file reads content from file."""
@@ -47,7 +58,18 @@ class TestResolveMessage:
         msg_file = tmp_path / "msg.txt"
         msg_file.write_text("file content here", encoding="utf-8")
         args = self._make_args(message_file=str(msg_file))
-        assert _resolve_message(args) == "file content here"
+        message, source = _resolve_message(args)
+        assert message == "file content here"
+        assert source == "message_file"
+
+    def test_resolve_message_returns_tuple_message_file(self, tmp_path):
+        """--message-file returns content and source tuple."""
+        from synapse.tools.a2a import _resolve_message
+
+        msg_file = tmp_path / "msg.txt"
+        msg_file.write_text("from message file", encoding="utf-8")
+        args = self._make_args(message_file=str(msg_file))
+        assert _resolve_message(args) == ("from message file", "message_file")
 
     def test_message_file_not_found(self):
         """--message-file with nonexistent file raises SystemExit."""
@@ -63,7 +85,17 @@ class TestResolveMessage:
 
         args = self._make_args(stdin=True)
         with patch("sys.stdin", StringIO("stdin content")):
-            assert _resolve_message(args) == "stdin content"
+            message, source = _resolve_message(args)
+            assert message == "stdin content"
+            assert source == "stdin"
+
+    def test_resolve_message_returns_tuple_stdin(self):
+        """--stdin returns content and source tuple."""
+        from synapse.tools.a2a import _resolve_message
+
+        args = self._make_args(stdin=True)
+        with patch("sys.stdin", StringIO("stdin tuple")):
+            assert _resolve_message(args) == ("stdin tuple", "stdin")
 
     def test_message_file_dash_reads_stdin(self):
         """--message-file - reads from stdin."""
@@ -71,7 +103,9 @@ class TestResolveMessage:
 
         args = self._make_args(message_file="-")
         with patch("sys.stdin", StringIO("stdin via dash")):
-            assert _resolve_message(args) == "stdin via dash"
+            message, source = _resolve_message(args)
+            assert message == "stdin via dash"
+            assert source == "message_file"
 
     def test_no_source_error(self):
         """No message source raises SystemExit."""
@@ -94,6 +128,30 @@ class TestResolveMessage:
         from synapse.tools.a2a import _resolve_message
 
         args = self._make_args(message="hello", message_file="/tmp/x.txt")
+        with pytest.raises(SystemExit):
+            _resolve_message(args)
+
+    def test_task_file_reads_content(self, tmp_path):
+        """--task-file reads content from file."""
+        from synapse.tools.a2a import _resolve_message
+
+        task_file = tmp_path / "task.txt"
+        task_file.write_text("task file content", encoding="utf-8")
+        args = self._make_args(task_file=str(task_file))
+        assert _resolve_message(args) == ("task file content", "task_file")
+
+    def test_task_file_and_message_file_conflict(self, tmp_path):
+        """--task-file conflicts with --message-file."""
+        from synapse.tools.a2a import _resolve_message
+
+        msg_file = tmp_path / "msg.txt"
+        task_file = tmp_path / "task.txt"
+        msg_file.write_text("message", encoding="utf-8")
+        task_file.write_text("task", encoding="utf-8")
+        args = self._make_args(
+            message_file=str(msg_file),
+            task_file=str(task_file),
+        )
         with pytest.raises(SystemExit):
             _resolve_message(args)
 
@@ -237,3 +295,163 @@ class TestShellExpansionWarning:
         _warn_shell_expansion("a normal message")
         captured = capsys.readouterr()
         assert captured.err == ""
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_message_file_no_backtick_warning(
+        self,
+        mock_registry_cls,
+        _mock_sender,
+        _mock_running,
+        _mock_port,
+        mock_client_cls,
+        tmp_path,
+        capsys,
+    ):
+        """--message-file content skips shell expansion warning."""
+        from synapse.tools.a2a import cmd_send
+
+        msg_file = tmp_path / "msg.txt"
+        msg_file.write_text("check `date` here", encoding="utf-8")
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1234,
+                "endpoint": "http://localhost:8100",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="working", artifacts=[]
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            target="claude",
+            message=None,
+            message_file=str(msg_file),
+            task_file=None,
+            stdin=False,
+            priority=1,
+            sender=None,
+            response_mode="notify",
+            attach=None,
+            force=False,
+        )
+
+        cmd_send(args)
+
+        captured = capsys.readouterr()
+        assert "WARNING" not in captured.err
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_stdin_no_backtick_warning(
+        self,
+        mock_registry_cls,
+        _mock_sender,
+        _mock_running,
+        _mock_port,
+        mock_client_cls,
+        capsys,
+    ):
+        """--stdin content skips shell expansion warning."""
+        from synapse.tools.a2a import cmd_send
+
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1234,
+                "endpoint": "http://localhost:8100",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="working", artifacts=[]
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            target="claude",
+            message=None,
+            message_file=None,
+            task_file=None,
+            stdin=True,
+            priority=1,
+            sender=None,
+            response_mode="notify",
+            attach=None,
+            force=False,
+        )
+
+        with patch("sys.stdin", StringIO("check `date` here")):
+            cmd_send(args)
+
+        captured = capsys.readouterr()
+        assert "WARNING" not in captured.err
+
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_positional_backtick_warning_still_works(
+        self,
+        mock_registry_cls,
+        _mock_sender,
+        _mock_running,
+        _mock_port,
+        mock_client_cls,
+        capsys,
+    ):
+        """Positional messages still emit shell expansion warning."""
+        from synapse.tools.a2a import cmd_send
+
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1234,
+                "endpoint": "http://localhost:8100",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="working", artifacts=[]
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            target="claude",
+            message="check `date` here",
+            message_file=None,
+            task_file=None,
+            stdin=False,
+            priority=1,
+            sender=None,
+            response_mode="notify",
+            attach=None,
+            force=False,
+        )
+
+        cmd_send(args)
+
+        captured = capsys.readouterr()
+        assert "WARNING" in captured.err

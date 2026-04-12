@@ -452,6 +452,58 @@ class TestCmdSend:
         assert "Success" in captured.out
         assert "task-123" in captured.out
 
+    @patch("synapse.tools.a2a.A2AClient")
+    @patch("synapse.tools.a2a.is_port_open", return_value=True)
+    @patch("synapse.tools.a2a.is_process_running", return_value=True)
+    @patch("synapse.tools.a2a.build_sender_info", return_value={})
+    @patch("synapse.tools.a2a.AgentRegistry")
+    def test_cmd_send_empty_sender_info_prints_warning(
+        self,
+        mock_registry_cls,
+        _mock_sender,
+        _mock_running,
+        _mock_port,
+        mock_client_cls,
+        capsys,
+    ):
+        """Empty sender info warns but does not block the send."""
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {
+            "synapse-claude-8100": {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "port": 8100,
+                "pid": 1234,
+                "endpoint": "http://localhost:8100",
+            }
+        }
+        mock_registry_cls.return_value = mock_registry
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = MagicMock(
+            id="task-123", status="working", artifacts=[]
+        )
+        mock_client_cls.return_value = mock_client
+
+        args = argparse.Namespace(
+            target="claude",
+            message="hello world",
+            message_file=None,
+            task_file=None,
+            stdin=False,
+            priority=1,
+            sender=None,
+            response_mode="notify",
+            attach=None,
+            force=False,
+        )
+
+        cmd_send(args)
+
+        mock_client.send_to_local.assert_called_once()
+        captured = capsys.readouterr()
+        assert "Set SYNAPSE_AGENT_ID or use --from" in captured.err
+
     @patch("synapse.tools.a2a.AgentRegistry")
     def test_cmd_send_agent_not_found(self, mock_registry_cls, capsys):
         """Should error when agent not found."""

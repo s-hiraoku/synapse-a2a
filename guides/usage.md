@@ -902,8 +902,9 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--wai
 | オプション | 短縮形 | デフォルト | 説明 |
 |-----------|--------|-----------|------|
 | `target` | - | 必須 | 送信先エージェント |
-| `message` | - | - | メッセージ内容（positional / `--message-file` / `--stdin` のいずれか） |
+| `message` | - | - | メッセージ内容（positional / `--message-file` / `--task-file` / `--stdin` のいずれか） |
 | `--message-file` | `-F` | - | ファイルからメッセージ読み込み（`-` で stdin） |
+| `--task-file` | `-T` | - | タスクファイル（Markdown 等）からメッセージ読み込み（`-` で stdin）。`--message-file` と等価だが、タスク指示用途であることを明示する別名 |
 | `--stdin` | - | false | 標準入力からメッセージ読み込み |
 | `--from` | `-f` | - | 送信元エージェントID（省略可: `SYNAPSE_AGENT_ID` から自動検出） |
 | `--priority` | `-p` | 3 | 優先度 (1-5) |
@@ -914,6 +915,8 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--wai
 | `--force` | - | false | 作業ディレクトリの不一致チェックをバイパスして送信（同一リポジトリのワークツリー間では不要） |
 
 **Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは `--notify`（非同期通知）になります。待たない場合は `--silent` を指定してください。`--silent` でも受信側完了時に sender 側 history のステータスは best-effort で更新されます（`sent` → `completed` / `failed` / `canceled`、通知不達時は `sent` のまま）。
+
+**Note**: `--message-file` / `--task-file` / `--stdin` 経由で渡されるメッセージは shell 展開を経由しないため、バックティック（` `` `）等を含んでいても shell 展開の警告は表示されません。コードブロックやスクリプトを含む長文メッセージを送信する際に推奨されます。
 
 **レスポンスモードの使い分け**:
 
@@ -947,6 +950,10 @@ synapse send claude "処理を止めて" --priority 5
 # ファイルから送信（'-' は stdin）
 synapse send codex --message-file ./message.txt --silent
 cat ./message.txt | synapse send codex --message-file - --silent
+
+# タスクファイルから送信（--message-file と等価、-T 短縮形）
+synapse send codex --task-file ./tasks/auth.md --notify
+synapse send codex -T ./tasks/auth.md --notify
 
 # 添付ファイル付き（同期待機）
 synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --wait

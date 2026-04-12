@@ -300,7 +300,9 @@ command: "codex"
 args: []
 submit_sequence: "\r"
 idle_detection:
-  strategy: "timeout"
+  strategy: "hybrid"
+  pattern: "›"
+  pattern_use: "startup_only"
   timeout: 3.0
   task_protection_timeout: 30
 waiting_detection:
@@ -315,8 +317,7 @@ env:
 **特徴**:
 
 - OpenAI Codex CLI 用
-- **timeout 戦略**: プロンプトパターンが会話履歴に含まれるため、タイムアウトベースで検出
-- 3.0 秒のタイムアウト
+- **hybrid 戦略（`startup_only` パターン）**: 起動時のみ `›` プロンプトでパターンマッチし、以降は 3.0 秒のタイムアウトベースで検出。会話履歴にプロンプト文字列が現れても誤検出しないため、処理中のステータス精度が向上します（[#537](https://github.com/s-hiraoku/synapse-a2a/issues/537)）。
 - **compound signal**: `task_protection_timeout: 30` — A2A タスク処理中の誤 READY 遷移を抑制
 - **WAITING 検出**: 番号付き選択肢、`Press [Ee]nter to confirm`、`Would you like to` を検出 + `waiting_expiry: 10` で自動クリア
 

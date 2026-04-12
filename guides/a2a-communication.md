@@ -50,7 +50,7 @@ AIエージェントが他のエージェントにメッセージを送信する
 ### 基本構文
 
 ```bash
-synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--wait | --notify | --silent] [--force]
+synapse send <AGENT> "<MESSAGE>|--message-file PATH|--task-file PATH|--stdin" [--from <SENDER>] [--priority <1-5>] [--wait | --notify | --silent] [--force]
 ```
 
 ### パラメータ
@@ -58,12 +58,18 @@ synapse send <AGENT> "<MESSAGE>" [--from <SENDER>] [--priority <1-5>] [--wait | 
 | パラメータ | 説明 |
 |-----------|------|
 | `target` | ターゲットの指定（解決優先順位順）: カスタム名（例: `my-claude`）、フルID（例: `synapse-claude-8100`）、タイプ-ポート（例: `claude-8100`）、またはタイプ（例: `claude`、単一インスタンスのみ） |
+| `message` | positional 引数。`--message-file` / `--task-file` / `--stdin` のいずれか1つで置き換え可能 |
+| `--message-file, -F` | ファイルからメッセージ読み込み（`-` で stdin） |
+| `--task-file, -T` | タスクファイルからメッセージ読み込み（`-` で stdin）。`--message-file` と等価だがタスク指示用途を明示する別名 |
+| `--stdin` | 標準入力からメッセージ読み込み |
 | `--from, -f` | 送信元エージェントID（省略可: `SYNAPSE_AGENT_ID` から自動検出） |
 | `--priority, -p` | 優先度 1-4 通常、5 = 緊急割り込み（SIGINT送信） |
 | `--wait` | 同期待機モード - 送信側がブロックして `synapse reply` を待つ |
 | `--notify` | 非同期通知モード - タスク完了時に通知を受け取る（デフォルト） |
 | `--silent` | ワンウェイモード - 送りっぱなし、返信・通知不要 |
 | `--force` | 作業ディレクトリの不一致チェックをバイパスして送信（同一リポジトリのワークツリー間では不要） |
+
+> **Note**: `--message-file` / `--task-file` / `--stdin` で渡される内容は shell 展開を経由しないため、バックティック（` `` `）やコードブロックを含むメッセージでも展開警告は出ません。コードや長文の指示を送る際に推奨されます。
 
 **作業ディレクトリチェック**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。ただし、ワークツリーの関係（親リポジトリ ↔ 子ワークツリー、兄弟ワークツリー）は自動検出されるため、同一リポジトリのワークツリー間では `--force` は不要です。異なるプロジェクトの場合のみ `--force` でバイパスしてください。
 
@@ -87,6 +93,10 @@ synapse send codex "テストして" --force
 
 # 明示指定（サンドボックス環境向け）
 synapse send gemini "分析して" --from synapse-claude-8100
+
+# タスクファイルからメッセージを読み込み（バックティック警告なし）
+synapse send codex --task-file ./tasks/implement-auth.md --notify
+synapse send codex -T ./tasks/implement-auth.md --notify   # -T は --task-file の短縮形
 ```
 
 **送信元の自動検出:** `--from` は省略可能です。Synapse は `SYNAPSE_AGENT_ID` 環境変数（起動時に自動設定）から送信元を検出し、次にプロセス祖先のマッチングにフォールバックします。サンドボックス環境（Codex など）では明示的に `--from` を指定してください。
@@ -346,6 +356,15 @@ synapse send codex "テストを書いて"
    ```
 
 3. **HTTP 503 が返る場合**: エージェントが初期化中（identity instruction 送信完了前）です。Readiness Gate により、初期化が完了するまで `/tasks/send` と `/tasks/send-priority` は 503 を返します。`Retry-After: 5` ヘッダーに従い再試行してください。Priority 5（緊急割り込み）と返信メッセージ（`in_reply_to`）はゲートをバイパスします。
+
+4. **`Agent busy (working task)` と表示される場合**: ターゲットエージェントが現在タスクを処理中（HTTP 409）です。`synapse send` は通常最大 30 秒間 PROCESSING の解消を待ちますが、それでも解消しない場合にこの警告が返されます。`synapse status <target>` で現在のタスクを確認するか、`-p 5`（緊急割り込み）で割り込んでください。
+
+5. **`local send failed` エラー**: 送信時にローカル配送経路（UDS/TCP）への接続が失敗しました。`SYNAPSE_LOG_LEVEL=DEBUG` を設定して再実行すると、HTTP ステータスコードやエンドポイント情報を含む詳細ログが出力されます。
+   ```bash
+   SYNAPSE_LOG_LEVEL=DEBUG synapse send codex "test" --silent
+   ```
+
+6. **`Warning: Could not identify sender agent` と表示される場合**: 送信元エージェントが特定できませんでした（`SYNAPSE_AGENT_ID` 未設定かつ PID 祖先マッチングも失敗）。Codex 等のサンドボックス環境では環境変数が伝播しないことがあるため、`--from <your-agent-id>` を明示してください。
 
 ### タイムアウトする
 

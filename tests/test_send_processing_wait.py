@@ -14,6 +14,7 @@ def _make_args(
     args.target = "claude"
     args.message = "hello"
     args.message_file = None
+    args.task_file = None
     args.stdin = False
     args.attach = None
     args.priority = priority

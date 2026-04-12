@@ -200,7 +200,7 @@ def cmd_team_start(args: argparse.Namespace) -> None:
         name = parts[1] if len(parts) > 1 and parts[1] else None
         role = parts[2] if len(parts) > 2 and parts[2] else None
         skill_set = parts[3] if len(parts) > 3 and parts[3] else None
-        port = int(parts[4]) if len(parts) > 4 and parts[4] else None
+        port_num = int(parts[4]) if len(parts) > 4 and parts[4] else None
 
         wt: str | bool | None = None
         if worktree_opt:
@@ -212,7 +212,7 @@ def cmd_team_start(args: argparse.Namespace) -> None:
         try:
             prepared = prepare_spawn(
                 profile=profile,
-                port=port,
+                port=port_num,
                 name=name,
                 role=role,
                 skill_set=skill_set,

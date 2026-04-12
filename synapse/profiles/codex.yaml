@@ -5,10 +5,12 @@ env:
   TERM: "xterm-256color"
 
 # Multi-strategy idle detection configuration
-# Codex: Use timeout-based detection (more reliable than pattern matching)
-# Pattern matching is unreliable because prompt patterns may appear in conversation history
+# Codex uses hybrid detection: prompt match at startup, then timeout-based idle checks
+# startup_only avoids false positives from prompt text appearing in conversation history
 idle_detection:
-  strategy: "timeout"
+  strategy: "hybrid"
+  pattern: "›"
+  pattern_use: "startup_only"
   timeout: 3.0               # 3.0 seconds of no output = idle
   task_protection_timeout: 30  # Compound signal: suppress READY during A2A task
 

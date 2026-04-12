@@ -218,6 +218,72 @@ class TestCompoundSignalCombined:
         assert ctrl._task_active_count == 0
 
 
+class TestCodexHybridStrategy:
+    """Tests for Codex hybrid idle detection behavior."""
+
+    def test_codex_hybrid_profile_configuration(self):
+        """Codex profile should use hybrid idle detection with startup-only prompt matching."""
+        profile = yaml.safe_load((PROFILES_DIR / "codex.yaml").read_text())
+
+        assert profile["idle_detection"] == {
+            "strategy": "hybrid",
+            "pattern": "›",
+            "pattern_use": "startup_only",
+            "timeout": 3.0,
+            "task_protection_timeout": 30,
+        }
+
+    def test_codex_hybrid_strategy_startup_pattern_detection(self):
+        """Hybrid strategy should detect the Codex prompt once during startup."""
+        ctrl = _make_controller(
+            idle_detection={
+                "strategy": "hybrid",
+                "pattern": "›",
+                "pattern_use": "startup_only",
+                "timeout": 0.5,
+            }
+        )
+
+        ctrl.output_buffer = "›".encode()
+
+        assert ctrl._check_pattern_idle() is True
+        assert ctrl._pattern_detected is True
+
+    def test_codex_hybrid_after_startup_uses_timeout(self):
+        """After startup prompt detection, startup-only matching should stop triggering."""
+        ctrl = _make_controller(
+            idle_detection={
+                "strategy": "hybrid",
+                "pattern": "›",
+                "pattern_use": "startup_only",
+                "timeout": 0.5,
+            }
+        )
+        ctrl._pattern_detected = True
+        ctrl.output_buffer = "›".encode()
+
+        assert ctrl._check_pattern_idle() is False
+
+    def test_codex_hybrid_task_protection_still_works(self):
+        """Task protection should still suppress READY when hybrid timeout says idle."""
+        ctrl = _make_controller(
+            idle_detection={
+                "strategy": "hybrid",
+                "pattern": "›",
+                "pattern_use": "startup_only",
+                "timeout": 0.1,
+                "task_protection_timeout": 30,
+            }
+        )
+        ctrl.set_task_active()
+        ctrl._pattern_detected = True
+        ctrl._last_output_time = time.time() - 10.0
+
+        ctrl._check_idle_state(b"")
+
+        assert ctrl.status == "PROCESSING"
+
+
 # ============================================================
 # WAITING False Positive Fix Tests (#140)
 # ============================================================

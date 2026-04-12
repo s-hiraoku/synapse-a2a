@@ -221,6 +221,43 @@ class TestInteractiveHybridStrategy:
         # Should be READY (timeout-based, not pattern)
         assert controller.status == "READY"
 
+    def test_codex_hybrid_idle_detection(self, temp_registry):
+        """Codex hybrid config should use prompt detection once, then timeout."""
+        agent_id = "test-interactive-codex-hybrid-1"
+
+        controller = TerminalController(
+            command="echo",
+            idle_detection={
+                "strategy": "hybrid",
+                "pattern": "›",
+                "pattern_use": "startup_only",
+                "timeout": 3.0,
+            },
+            registry=temp_registry,
+            agent_id=agent_id,
+            agent_type="codex",
+            port=8108,
+        )
+
+        temp_registry.register(agent_id, "codex", 8108, status="PROCESSING")
+
+        controller.output_buffer = "›".encode()
+        with patch("synapse.controller.threading.Thread"):
+            controller._check_idle_state("›".encode())
+
+        assert controller.status == "READY"
+        assert controller._pattern_detected is True
+
+        controller.output_buffer = b"processing output"
+        controller._last_output_time = time.time()
+        controller._append_output(b"processing output")
+        controller._check_idle_state(b"processing output")
+        assert controller.status == "PROCESSING"
+
+        controller._last_output_time = time.time() - 3.1
+        controller._check_idle_state(b"")
+        assert controller.status == "READY"
+
 
 class TestInteractiveTerminalHandling:
     """Tests for terminal mode preservation in interactive mode."""

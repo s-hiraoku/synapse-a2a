@@ -278,6 +278,7 @@ class A2AClient:
             A2ATask if successful, None otherwise
         """
         if local_only and not uds_path:
+            logger.warning("Cannot send: local_only=True but no UDS path provided")
             return None
 
         def _update_transport(transport_type: str | None) -> None:
@@ -397,8 +398,13 @@ class A2AClient:
                                 result = uds_response.json()
                                 task_data = result.get("task", result)
                                 break
-                        except httpx.TransportError:
+                        except httpx.TransportError as exc:
                             if idx == len(retries):
+                                logger.warning(
+                                    "UDS transport failed after %d retries: %s",
+                                    len(retries),
+                                    exc,
+                                )
                                 # UDS failed, clear transport before TCP fallback
                                 _update_transport(None)
                                 if local_only:
@@ -409,10 +415,30 @@ class A2AClient:
                             if e.response.status_code == 404 and in_reply_to:
                                 retry_without_reply_to = True
                                 break
+                            if e.response.status_code == 409:
+                                retry_after = e.response.headers.get(
+                                    "Retry-After", "unknown"
+                                )
+                                logger.warning(
+                                    "Agent busy (working task). Retry after %ss. "
+                                    "Status: %d",
+                                    retry_after,
+                                    e.response.status_code,
+                                )
+                                _update_transport(None)
+                                return None
+                            logger.warning(
+                                "UDS HTTP error (status %d): %s",
+                                e.response.status_code,
+                                e,
+                            )
                             _update_transport(None)
                             return None
                 else:
                     if local_only:
+                        logger.warning(
+                            "UDS socket not found at %s and local_only=True", uds_path
+                        )
                         return None
 
             if task_data is None and not retry_without_reply_to:
@@ -434,13 +460,26 @@ class A2AClient:
                         and in_reply_to
                     ):
                         retry_without_reply_to = True
+                    elif (
+                        hasattr(e.response, "status_code")
+                        and e.response.status_code == 409
+                    ):
+                        retry_after = e.response.headers.get("Retry-After", "unknown")
+                        logger.warning(
+                            "Agent busy (working task). Retry after %ss. Status: %d",
+                            retry_after,
+                            e.response.status_code,
+                        )
+                        _update_transport(None)
+                        return None
                     else:
                         raise
 
             # Retry without in_reply_to if we got 404 (task not found)
             if retry_without_reply_to:
                 logger.warning(
-                    f"--reply-to {in_reply_to} not found (404), retrying as new message"
+                    "--reply-to %s not found (404), retrying as new message",
+                    in_reply_to,
                 )
                 _update_transport(None)
                 return self.send_to_local(
@@ -511,7 +550,7 @@ class A2AClient:
         except requests.exceptions.RequestException as e:
             # Clear transport status on error
             _update_transport(None)
-            print(f"Failed to send message to local agent: {e}")
+            logger.warning("Failed to send message to local agent: %s", e)
             return None
 
     def _wait_for_task_completion(
