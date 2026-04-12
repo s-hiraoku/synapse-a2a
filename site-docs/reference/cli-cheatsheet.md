@@ -95,7 +95,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse multiagent init <type>` | Create a pattern template (`generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state`) |
 | `synapse multiagent list` | List saved patterns |
 | `synapse multiagent show <name>` | Show a pattern definition |
-| `synapse multiagent run <name> "<task>"` | Execute a saved pattern |
+| `synapse multiagent run <name> --task "<task>"` | Execute a saved pattern (`--task` is required) |
 | `synapse multiagent status <run_id>` | Show pattern run status |
 | `synapse multiagent stop <run_id>` | Stop a running pattern |
 | `synapse map ...` | Alias for `synapse multiagent ...` |

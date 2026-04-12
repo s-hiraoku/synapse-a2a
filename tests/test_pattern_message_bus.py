@@ -70,7 +70,12 @@ async def test_message_bus_run_fans_out_by_topic() -> None:
     router_prompt = pattern.send.await_args.args[1]
     fanout_prompt = pattern.send_all.await_args.args[1]
     assert "Broadcast deployment event" in router_prompt
-    assert "events" in fanout_prompt
+    expected_fanout_prompt = (
+        "Original task:\nBroadcast deployment event\n\n"
+        "Router output:\nevents\n\n"
+        "Topic:\nevents"
+    )
+    assert fanout_prompt == expected_fanout_prompt
 
 
 @pytest.mark.asyncio
@@ -129,6 +134,32 @@ async def test_message_bus_honors_stop_before_fanout() -> None:
 
     assert result.status == "stopped"
     assert result.output == "events"
+    pattern.send_all.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_message_bus_propagates_router_failure() -> None:
+    from synapse.patterns.message_bus import MessageBusConfig, MessageBusPattern
+
+    pattern = MessageBusPattern(run_id="run-bus")
+    router = _handle("Router", 9401)
+    subscriber_one = _handle("Handler-1", 9402)
+    subscriber_two = _handle("Handler-2", 9403)
+    pattern.spawn_agent = AsyncMock(
+        side_effect=[router, subscriber_one, subscriber_two]
+    )
+    pattern.send = AsyncMock(
+        return_value=TaskResult(status="failed", error="router failed")
+    )
+    pattern.send_all = AsyncMock()
+
+    result = await pattern.run(
+        "Broadcast deployment event",
+        MessageBusConfig.from_dict(_PATTERN_TEMPLATES["message-bus"]),
+    )
+
+    assert result.status == "failed"
+    assert result.error == "router failed"
     pattern.send_all.assert_not_awaited()
 
 

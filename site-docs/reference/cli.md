@@ -543,7 +543,7 @@ Auto-generates `SKILL.md` files from all workflow YAML definitions into `.claude
 synapse multiagent init <type> [--name NAME] [--project | --user] [--force]
 synapse multiagent list [--project | --user]
 synapse multiagent show <name> [--project | --user]
-synapse multiagent run <name> "<task>" [--project | --user] [--dry-run] [--async]
+synapse multiagent run <name> --task "<task>" [--project | --user] [--dry-run] [--async]
 synapse multiagent status <run_id>
 synapse multiagent stop <run_id>
 synapse map ...    # Alias for synapse multiagent
@@ -557,7 +557,7 @@ Declarative coordination patterns define how agents should collaborate rather th
 - `message-bus`
 - `shared-state`
 
-Pattern definitions are stored in `.synapse/patterns/` (project) or `~/.synapse/patterns/` (user). Use `--dry-run` to preview execution without spawning agents, or `--async` to start a background run and inspect it later with `synapse multiagent status`.
+Pattern definitions are stored in `.synapse/patterns/` (project) or `~/.synapse/patterns/` (user). `synapse multiagent run` requires `--task` (or `-t`) to provide the task description. Use `--dry-run` to preview execution without spawning agents, or `--async` to start a background run and inspect it later with `synapse multiagent status`.
 
 ## Settings
 

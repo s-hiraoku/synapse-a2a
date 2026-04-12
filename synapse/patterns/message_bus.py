@@ -116,6 +116,14 @@ class MessageBusPattern(CoordinationPattern):
             topic_handles.append((topic.name, subscribers))
 
         routed = await self.send(router, task, response_mode="wait")
+        if routed.status == "failed" or routed.error:
+            return TaskResult(
+                status=routed.status or "failed",
+                output=routed.output,
+                error=routed.error,
+                task_id=routed.task_id,
+                artifacts=routed.artifacts,
+            )
         outputs = [routed.output] if routed.output else []
         if self.should_stop:
             return TaskResult(status="stopped", output="\n".join(outputs))
