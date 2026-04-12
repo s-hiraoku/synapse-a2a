@@ -503,7 +503,7 @@ skill_set=developer
 エージェントにメッセージを送信します。
 
 ```bash
-synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [--priority N] [--attach PATH] [--wait | --notify | --silent] [--task]
+synapse send <target> <message|--message-file PATH|--task-file PATH|--stdin> [--from AGENT_ID] [--priority N] [--attach PATH] [--wait | --notify | --silent]
 ```
 
 **ターゲット指定方法**:
@@ -518,8 +518,9 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 | 引数 | 必須 | 説明 |
 |------|------|------|
 | `target` | Yes | 送信先エージェント（上記形式） |
-| `message` | No | メッセージ内容（positional / `--message-file` / `--stdin` のいずれか） |
+| `message` | No | メッセージ内容（positional / `--message-file` / `--task-file` / `--stdin` のいずれか） |
 | `--message-file`, `-F` | No | ファイルからメッセージ読み込み（`-` で stdin） |
+| `--task-file`, `-T` | No | タスクファイル（Markdown 等）からメッセージ読み込み（`-` で stdin）。`--message-file` と同じ読み込みロジックだがタスク指示用途を明示する別名 |
 | `--stdin` | No | 標準入力からメッセージ読み込み |
 | `--from`, `-f` | No | 送信元エージェントID（省略可: `SYNAPSE_AGENT_ID` から自動検出） |
 | `--priority`, `-p` | No | 優先度 1-5（デフォルト: 3） |
@@ -527,15 +528,14 @@ synapse send <target> <message|--message-file PATH|--stdin> [--from AGENT_ID] [-
 | `--wait` | No | 同期待機モード - 送信側がブロックして `synapse reply` を待つ |
 | `--notify` | No | 非同期通知モード - タスク完了時に通知を受け取る（デフォルト） |
 | `--silent` | No | ワンウェイモード - 送りっぱなし、返信・通知不要 |
-| `--callback` | No | タスク完了時（completed/failed）に送信側で実行するコマンド（--silent時のみ） |
-| `--task`, `-T` | No | ボードタスクを自動作成し、送信メッセージと紐付ける。受信側は自動 claim、A2A タスク完了時に自動 complete |
 | `--force` | No | 作業ディレクトリの不一致チェックをバイパスして送信（同一リポジトリのワークツリー間では不要） |
 
 **Note**: `a2a.flow=auto`（デフォルト）の場合、フラグなしは `--notify`（非同期通知）になります。
 **Note**: `--silent` でも受信側完了時に sender 側 history のステータスは best-effort で更新されます（`sent` → `completed` / `failed` / `canceled`、通知不達時は `sent` のまま）。
-**Note**: メッセージの入力元は **positional / `--message-file` / `--stdin` のいずれか1つ** を指定します。
-**Note**: `--task` / `-T` を指定すると、送信時にボードタスクを自動作成し、A2A タスクと紐付けます。受信側は自動 claim し、A2A タスク完了時にボードタスクも自動 complete されます。PTY 表示には `[Task: XXXXXXXX]` タグが付与されます。
+**Note**: メッセージの入力元は **positional / `--message-file` / `--task-file` / `--stdin` のいずれか1つ** を指定します。`--message-file` / `--task-file` / `--stdin` を使う場合はバックティック等の shell 展開警告は表示されません（ファイル・標準入力経由のコンテンツは shell によって展開されないため）。
 **Note**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。ただし、ワークツリーの関係（親リポジトリ ↔ 子ワークツリー、兄弟ワークツリー）は自動検出されるため `--force` は不要です。異なるプロジェクトの場合のみ `--force` でバイパスしてください。
+**Note**: 送信元エージェントが特定できない場合（`SYNAPSE_AGENT_ID` 未設定かつ PID マッチングも失敗）、`Warning: Could not identify sender agent. Set SYNAPSE_AGENT_ID or use --from.` を表示します。サンドボックス環境では `--from` を明示指定してください。
+**Note**: `local send failed` エラー時は `SYNAPSE_LOG_LEVEL=DEBUG` を設定して再実行すると、HTTP ステータス等の詳細ログが出力されます（UDS/TCP 接続失敗、HTTP 409 "Agent busy" 等）。
 
 **レスポンスモードの使い分け**:
 
@@ -565,12 +565,12 @@ synapse send claude "Hello!"                                  # --from 自動検
 synapse send claude-8100 "Hello"                               # 同タイプが複数の場合
 synapse send gemini "止まれ" -p 5
 synapse send codex --message-file ./message.txt --silent
+synapse send codex --task-file ./tasks/auth.md --notify       # タスクファイルからメッセージ読み込み
+synapse send codex -T ./tasks/auth.md --notify                # -T は --task-file の短縮形
 echo "from stdin" | synapse send codex --stdin --silent
 synapse send codex "このファイルを見て" -a ./a.py -a ./b.txt --silent
 synapse send codex "設計して" --force                           # 異なるプロジェクトのエージェントに送信（同一リポのワークツリーなら不要）
 synapse send claude "Hello!" --from synapse-codex-8121         # 明示指定（サンドボックス環境向け）
-synapse send codex "認証を実装して" --task                     # ボードタスク自動作成＆紐付け
-synapse send codex "バグ修正して" -T --silent                  # -T は --task の短縮形
 ```
 
 ---

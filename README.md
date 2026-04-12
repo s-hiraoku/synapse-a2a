@@ -996,10 +996,15 @@ When multiple agents of the same type are running, type-only (e.g., `claude`) wi
 |--------|-------|-------------|
 | `--from` | `-f` | Sender Runtime ID (optional; auto-detected from `SYNAPSE_AGENT_ID`) |
 | `--priority` | `-p` | Priority 1-4: normal, 5: emergency stop (sends SIGINT) |
+| `--message-file` | `-F` | Read message from a file (`-` for stdin). Skips shell-expansion warnings for backticks/code blocks |
+| `--task-file` | `-T` | Read message from a task file (`-` for stdin). Equivalent to `--message-file`; use when the content is a task specification (Markdown, etc.) |
+| `--stdin` | - | Read message from stdin |
 | `--wait` | - | Synchronous blocking - wait for receiver to reply with `synapse reply` |
 | `--notify` | - | Async notification - get notified when task completes (default) |
 | `--silent` | - | Fire and forget - no reply or notification needed |
 | `--force` | - | Bypass working directory mismatch check (only needed for truly different projects; worktree agents of the same repo are auto-detected) |
+
+**Message sources:** Exactly one of `positional message`, `--message-file`, `--task-file`, or `--stdin` must be supplied. File/stdin inputs bypass the shell, so messages containing backticks, code fences, or long Markdown no longer trigger false shell-expansion warnings.
 
 `--wait` and `--notify` spawn a sender-side task that produces structured A2A reply artifacts derived from the PTY output delta captured since task start. Synapse uses this delta, not the raw terminal tail, to reduce status-line noise in replies. TUI response cleaning (`clean_copilot_response()`) now runs for all agents, stripping Ink TUI artifacts (spinners, box-drawing borders, status bar, input echo) before finalization. In server mode, startup/runtime logs stay off stderr so they do not leak into the agent TUI. Quota-exhaustion output such as `402 You have no quota` is classified as a failed task instead of a normal reply.
 
@@ -1036,6 +1041,8 @@ synapse send claude "Hello" --priority 1
 
 # Long message support (automatic temp-file fallback)
 synapse send claude --message-file /path/to/message.txt --silent
+synapse send claude --task-file /path/to/tasks/auth.md --notify   # alias for --message-file (task-specification intent)
+synapse send claude -T /path/to/tasks/auth.md --notify            # -T short form
 echo "very long content..." | synapse send claude --stdin --silent
 
 # File attachments
@@ -1056,7 +1063,9 @@ synapse send claude "Hello" --from $SYNAPSE_AGENT_ID
 
 **Default behavior:** With `a2a.flow=auto` (default), `synapse send` uses `--notify` mode — the command returns immediately and you receive a PTY notification when the receiver completes. Use `--wait` for synchronous blocking, or `--silent` for fire-and-forget (no completion notification).
 
-**Sender auto-detection:** `--from` is optional. Synapse auto-detects the sender using `SYNAPSE_AGENT_ID` (set at startup), then falls back to PID matching (process ancestry). Use explicit `--from` only in sandboxed environments (like Codex) where env vars may not propagate.
+**Sender auto-detection:** `--from` is optional. Synapse auto-detects the sender using `SYNAPSE_AGENT_ID` (set at startup), then falls back to PID matching (process ancestry). Use explicit `--from` only in sandboxed environments (like Codex) where env vars may not propagate. If the sender cannot be identified, Synapse prints `Warning: Could not identify sender agent. Set SYNAPSE_AGENT_ID or use --from.` and the outbound message has an empty sender field — set `SYNAPSE_AGENT_ID` or pass `--from` to fix it.
+
+**Troubleshooting delivery failures:** If `synapse send` prints `Error sending message: local send failed`, re-run with `SYNAPSE_LOG_LEVEL=DEBUG` to see UDS/TCP failure details, HTTP status codes, and endpoint information. Common causes include an HTTP 409 `Agent busy (working task)` when the target is mid-task (use `synapse status <target>` to check, or `-p 5` to interrupt), or the target agent being unreachable on its local socket.
 
 ### synapse reply Command
 

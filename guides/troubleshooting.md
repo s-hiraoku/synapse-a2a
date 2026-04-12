@@ -296,7 +296,61 @@ synapse claude --port 8200
 
 ---
 
-### 3.3 HTTP リクエストがタイムアウトする
+### 3.3 `synapse send` が `local send failed` で失敗する
+
+**症状**:
+```
+Error sending message: local send failed
+  Use SYNAPSE_LOG_LEVEL=DEBUG for details.
+```
+
+**原因**:
+ローカル配送経路（UDS またはループバック TCP）への接続・送信が失敗しました。UDS ソケットが存在しない、接続拒否、HTTP エラーレスポンス、タイムアウト等が考えられます。
+
+**対処法**:
+
+1. **詳細ログを有効化して再実行**:
+   ```bash
+   SYNAPSE_LOG_LEVEL=DEBUG synapse send <target> "test" --silent
+   ```
+   `~/.synapse/logs/shell.log` または stderr に UDS/TCP の失敗理由（接続拒否、HTTP ステータス等）が出力されます。
+
+2. **ターゲットエージェントが起動しているか確認**:
+   ```bash
+   synapse list
+   curl http://localhost:<port>/status
+   ```
+
+3. **`Agent busy (working task)`（HTTP 409）の場合**: ターゲットがタスク処理中です。`synapse status <target>` で進捗を確認し、必要に応じて `-p 5` で緊急割り込みしてください。`synapse send` は通常 PROCESSING 解消を最大 30 秒待ちますが、それを超える長時間処理ではこの警告が返されます。
+
+---
+
+### 3.4 `Warning: Could not identify sender agent`
+
+**症状**:
+```
+Warning: Could not identify sender agent. Set SYNAPSE_AGENT_ID or use --from.
+```
+
+**原因**:
+`SYNAPSE_AGENT_ID` 環境変数が未設定で、プロセス祖先による PID マッチングも失敗しました。Codex 等のサンドボックス環境で環境変数が伝播しない場合によく発生します。
+
+**対処法**:
+
+```bash
+# 自分のエージェント ID を明示指定
+synapse send <target> "message" --from synapse-codex-8121
+
+# または環境変数で設定
+export SYNAPSE_AGENT_ID=synapse-codex-8121
+synapse send <target> "message"
+```
+
+自分のエージェント ID は `synapse list` で確認できます。
+
+---
+
+### 3.5 HTTP リクエストがタイムアウトする
 
 **症状**:
 - `curl` がタイムアウトする

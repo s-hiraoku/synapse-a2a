@@ -411,7 +411,7 @@ class A2AClient:
                                 break
                             if e.response.status_code == 409:
                                 retry_after = e.response.headers.get(
-                                    "retry-after", "unknown"
+                                    "Retry-After", "unknown"
                                 )
                                 logger.warning(
                                     "Agent busy (working task). Retry after %ss. "
@@ -472,7 +472,8 @@ class A2AClient:
             # Retry without in_reply_to if we got 404 (task not found)
             if retry_without_reply_to:
                 logger.warning(
-                    f"--reply-to {in_reply_to} not found (404), retrying as new message"
+                    "--reply-to %s not found (404), retrying as new message",
+                    in_reply_to,
                 )
                 _update_transport(None)
                 return self.send_to_local(
