@@ -41,6 +41,12 @@ class IdleDetector:
         self.idle_config = idle_detection or {"strategy": "timeout", "timeout": 1.5}
         self.idle_strategy = self.idle_config.get("strategy", "pattern")
         self.idle_regex = self._compile_idle_regex()
+        if (
+            self.idle_strategy in ("pattern", "hybrid")
+            and self.idle_config.get("pattern")
+            and self.idle_regex is None
+        ):
+            self.idle_strategy = "timeout"
         self.output_idle_threshold = self.idle_config.get("timeout", 1.5)
 
         self.waiting_config = waiting_detection or {}
@@ -161,7 +167,7 @@ class IdleDetector:
             time.time() - done_time >= DONE_TIMEOUT_SECONDS
         )
         if done_timeout_expired:
-            return StatusDecision("READY", clear_done_time=True)
+            return StatusDecision(base_status, clear_done_time=True)
 
         return StatusDecision("DONE")
 

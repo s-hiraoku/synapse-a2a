@@ -336,7 +336,7 @@ class TerminalWriter:
         retries = self.submit_confirm_retries
         if (
             self.owner._is_long_submit_message(data)
-            and self.long_submit_confirm_retries
+            and self.long_submit_confirm_retries is not None
         ):
             retries = self.long_submit_confirm_retries
         return bool(
