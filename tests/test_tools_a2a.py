@@ -230,7 +230,7 @@ class TestBuildSenderInfo:
     def test_handles_registry_exception(self, mock_registry_cls, monkeypatch):
         """Should handle registry exceptions gracefully."""
         monkeypatch.delenv("SYNAPSE_AGENT_ID", raising=False)
-        mock_registry_cls.side_effect = Exception("Registry error")
+        mock_registry_cls.side_effect = OSError("Registry error")
 
         result = build_sender_info()
 

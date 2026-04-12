@@ -66,7 +66,7 @@ def _list_databases() -> list[dict[str, Any]]:
                         "scope": scope,
                     }
                 )
-            except Exception:
+            except (OSError, sqlite3.Error):
                 continue
     return databases
 

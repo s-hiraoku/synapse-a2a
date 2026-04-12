@@ -7,6 +7,7 @@ Each canvas format maps to an optimal download format via FORMAT_DOWNLOAD_MAP.
 from __future__ import annotations
 
 import base64
+import binascii
 import csv
 import io
 import json
@@ -256,7 +257,7 @@ def _image_to_native(block: dict) -> tuple[bytes, str, str]:
         mime = f"image/{fmt}"
         try:
             data = base64.b64decode(m.group(2), validate=True)
-        except Exception:
+        except (binascii.Error, ValueError):
             return body.encode("utf-8"), ".txt", "text/plain; charset=utf-8"
         return data, ext, mime
     # Fallback: treat as text reference

@@ -56,7 +56,7 @@ class TestRunAppleScriptExtended:
     def test_exception_handling(self, mock_run, mock_which):
         """Should catch general exceptions."""
         mock_which.return_value = "/usr/bin/osascript"
-        mock_run.side_effect = Exception("Unexpected error")
+        mock_run.side_effect = OSError("Unexpected error")
 
         assert _run_applescript("script") is False
 

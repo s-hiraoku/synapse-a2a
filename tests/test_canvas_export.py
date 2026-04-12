@@ -225,6 +225,23 @@ def test_export_image_data_uri():
     assert mime == "image/png"
 
 
+def test_export_image_invalid_base64_falls_back_to_text():
+    card = {
+        "card_id": "imgbad12-3456",
+        "title": "Broken Image",
+        "template": "",
+        "content": [
+            {"format": "image", "body": "data:image/png;base64,not-valid-base64!!!"}
+        ],
+    }
+
+    data, filename, mime = export_card(card)
+
+    assert data == b"data:image/png;base64,not-valid-base64!!!"
+    assert filename.endswith(".txt")
+    assert mime == "text/plain; charset=utf-8"
+
+
 # ============================================================
 # Group C — JSON converters
 # ============================================================

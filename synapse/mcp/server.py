@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 from collections.abc import Callable
@@ -166,7 +167,7 @@ class SynapseMCPServer:
         """Create a FileSafetyManager when available."""
         try:
             return FileSafetyManager()
-        except Exception as exc:
+        except (OSError, sqlite3.Error) as exc:
             logger.debug("FileSafetyManager unavailable: %s", exc)
             return None
 
@@ -174,7 +175,7 @@ class SynapseMCPServer:
         if self._cached_settings is None:
             try:
                 self._cached_settings = self._settings_factory()
-            except Exception as exc:
+            except (OSError, TypeError, ValueError) as exc:
                 logger.error("Failed to load SynapseSettings: %s", exc)
                 raise RuntimeError(f"Failed to load settings: {exc}") from exc
         return self._cached_settings
@@ -420,7 +421,7 @@ class SynapseMCPServer:
             from synapse.canvas import server as canvas_server
 
             canvas_server._broadcast_event("card_created", result)
-        except Exception as exc:  # pragma: no cover - best effort broadcast
+        except Exception as exc:  # pragma: no cover — broad catch: best-effort SSE broadcast; import or runtime errors are non-fatal
             logger.debug("Failed to broadcast Canvas SSE event: %s", exc)
 
         return result
@@ -484,7 +485,7 @@ class SynapseMCPServer:
         try:
             registry = self._registry_factory()
             agents = registry.list_agents()
-        except Exception as exc:
+        except (OSError, TypeError, ValueError) as exc:
             logger.warning("Failed to list agents from registry: %s", exc)
             return {"agents": [], "error": str(exc)}
 
@@ -498,7 +499,7 @@ class SynapseMCPServer:
                 transport = registry.get_transport_display(agent_id)
                 entry["transport"] = transport or "-"
                 result.append(entry)
-            except Exception as exc:
+            except (AttributeError, OSError, TypeError, ValueError) as exc:
                 logger.warning("Failed to process agent %s: %s", agent_id, exc)
                 continue
 
@@ -791,7 +792,7 @@ class SynapseMCPServer:
             if manager is None:
                 return {"locked_by_others": {}, "risk": "none"}
             locks = manager.list_locks()
-        except Exception as exc:
+        except (OSError, TypeError, ValueError) as exc:
             logger.debug("File conflict detection unavailable: %s", exc)
             return {"locked_by_others": {}, "risk": "none"}
 
@@ -1189,7 +1190,7 @@ class SynapseMCPServer:
                 "id": request_id,
                 "error": {"code": -32002, "message": f"Unknown resource: {exc}"},
             }
-        except Exception as exc:  # pragma: no cover - defensive server path
+        except Exception as exc:  # pragma: no cover — broad catch: JSON-RPC error boundary; must return structured error for any failure
             logger.exception("MCP request failed")
             return {
                 "jsonrpc": "2.0",

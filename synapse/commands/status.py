@@ -168,7 +168,7 @@ class StatusCommand:
             return self._history_manager.list_observations(
                 agent_name=agent_name, limit=5
             )
-        except Exception:
+        except Exception:  # broad catch: history lookup is optional status info
             return []
 
     def _get_file_locks(self, info: dict[str, Any]) -> list[dict[str, Any]]:
@@ -182,5 +182,5 @@ class StatusCommand:
                 if agent_id
                 else []
             )
-        except Exception:
+        except Exception:  # broad catch: lock lookup is optional status info
             return []

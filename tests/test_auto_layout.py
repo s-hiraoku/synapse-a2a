@@ -529,9 +529,7 @@ class TestGetTmuxAutoSplit:
         """Should return None if tmux command fails."""
         from synapse.terminal_jump import _get_tmux_auto_split
 
-        with patch(
-            "synapse.terminal_jump.subprocess.run", side_effect=Exception("fail")
-        ):
+        with patch("synapse.terminal_jump.subprocess.run", side_effect=OSError("fail")):
             result = _get_tmux_auto_split()
         assert result is None
 

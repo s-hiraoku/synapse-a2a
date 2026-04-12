@@ -199,7 +199,9 @@ class ListCommand:
             old_settings = termios.tcgetattr(fd)
             tty.setcbreak(fd)
             return (old_settings, fd)
-        except Exception:
+        except (
+            Exception
+        ):  # broad catch: terminal setup must not crash non-TTY environments
             return None
 
     def _restore_terminal(self, saved: tuple[Any, Any] | None) -> None:
@@ -215,7 +217,7 @@ class ListCommand:
 
             old_settings, fd = saved
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        except Exception:
+        except Exception:  # broad catch: terminal restore must not crash
             pass
 
     def _read_key_nonblocking(self) -> str | None:
@@ -313,11 +315,13 @@ class ListCommand:
             # Return first character
             return buf[0:1].decode("utf-8", errors="ignore") or None
 
-        except Exception:
+        except Exception:  # broad catch: key read must not crash the TUI
             pass
         finally:
             # Always restore original flags
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(
+                Exception
+            ):  # broad catch: flag restore must not crash
                 fcntl.fcntl(fd, fcntl.F_SETFL, flags)
 
         return None
@@ -386,7 +390,7 @@ class ListCommand:
             return observer
         except ImportError:
             return None
-        except Exception:
+        except Exception:  # broad catch: file watcher is optional enhancement
             return None
 
     def _run_rich_tui(
@@ -728,10 +732,10 @@ class ListCommand:
 
         # Get version for display
         try:
-            from importlib.metadata import version
+            from importlib.metadata import PackageNotFoundError, version
 
             pkg_version = version("synapse-a2a")
-        except Exception:
+        except (ImportError, PackageNotFoundError):
             pkg_version = "unknown"
 
         from rich.console import Console

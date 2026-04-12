@@ -39,7 +39,7 @@ def get_terminal_width() -> int:
         import shutil
 
         return shutil.get_terminal_size().columns
-    except Exception:
+    except (OSError, ValueError):
         return 80
 
 

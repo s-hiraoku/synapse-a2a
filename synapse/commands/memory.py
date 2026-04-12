@@ -69,9 +69,9 @@ def _memory_broadcast_notify(key: str) -> None:
                         print(f"  Failed: {name}: no response")
                     else:
                         print(f"  Notified: {name}")
-                except Exception as e:
+                except Exception as e:  # broad catch: notification is best-effort
                     print(f"  Failed: {name}: {e}")
-    except Exception as e:
+    except Exception as e:  # broad catch: broadcast is best-effort
         print(f"  Broadcast failed: {e}", file=sys.stderr)
 
 

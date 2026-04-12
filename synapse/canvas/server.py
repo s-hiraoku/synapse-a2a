@@ -415,7 +415,7 @@ def _collect_static_sections() -> dict[str, Any]:
                     "agent_dirs": sk.agent_dirs,
                 }
             )
-    except Exception:
+    except (OSError, RuntimeError):
         logger.debug("Failed to collect skills", exc_info=True)
     result["skills"] = skills
 
@@ -432,7 +432,7 @@ def _collect_static_sections() -> dict[str, Any]:
                     "skills": ss.skills,
                 }
             )
-    except Exception:
+    except OSError:
         logger.debug("Failed to collect skill sets", exc_info=True)
     result["skill_sets"] = skill_sets
 
@@ -452,7 +452,7 @@ def _collect_static_sections() -> dict[str, Any]:
                     "created_at": s.created_at or "",
                 }
             )
-    except Exception:
+    except (OSError, RuntimeError):
         logger.debug("Failed to collect sessions", exc_info=True)
     result["sessions"] = sessions
 
@@ -471,7 +471,7 @@ def _collect_static_sections() -> dict[str, Any]:
                     "step_count": wf.step_count,
                 }
             )
-    except Exception:
+    except (OSError, RuntimeError):
         logger.debug("Failed to collect workflows", exc_info=True)
     result["workflows"] = workflows
 
@@ -492,7 +492,7 @@ def _collect_static_sections() -> dict[str, Any]:
                 else "(not set)",
                 "description": _ENV_DESCRIPTIONS.get(key, ""),
             }
-    except Exception:
+    except (AttributeError, TypeError):
         logger.debug("Failed to collect environment", exc_info=True)
     result["environment"] = environment
 
@@ -815,7 +815,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
                 tip_text = _extract_tip_text(tc.get("content"))
                 if tip_text:
                     tips.append({"card_id": tc["card_id"], "text": tip_text})
-        except Exception:
+        except sqlite3.Error:
             logger.debug("Failed to collect tips", exc_info=True)
 
         return {

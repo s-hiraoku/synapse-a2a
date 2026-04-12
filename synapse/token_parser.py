@@ -53,7 +53,7 @@ def parse_tokens(agent_type: str | None, output: Any) -> TokenUsage | None:
             return None
 
         return parser(output)
-    except Exception as e:
+    except (ValueError, KeyError, TypeError, AttributeError) as e:
         print(
             f"Warning: token parsing failed for {agent_type}: {e}",
             file=sys.stderr,

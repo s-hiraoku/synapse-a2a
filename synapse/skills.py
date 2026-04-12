@@ -564,7 +564,7 @@ def _try_skill_creator_init(name: str, skill_dir: Path, synapse_dir: Path) -> bo
             if hasattr(mod, "init_skill"):
                 mod.init_skill(name, skill_dir)
                 return True
-    except Exception as e:
+    except (OSError, ImportError, AttributeError, TypeError, ValueError) as e:
         logger.warning(f"skill-creator init failed for '{name}': {e}")
 
     return False
@@ -1109,7 +1109,7 @@ def ensure_core_skills(agent_type: str) -> list[str]:
                 messages.append(
                     f"Auto-deployed core skill '{skill_name}' to {agent_type}"
                 )
-            except Exception as e:
+            except OSError as e:
                 messages.append(f"Failed to auto-deploy '{skill_name}': {e}")
 
     return messages

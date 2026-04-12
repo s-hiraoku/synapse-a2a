@@ -835,7 +835,7 @@ class TestSkillCreatorInitLogging:
         with (
             patch(
                 "importlib.util.spec_from_file_location",
-                side_effect=RuntimeError("boom"),
+                side_effect=ImportError("boom"),
             ),
             patch("synapse.skills.logger") as mock_logger,
         ):

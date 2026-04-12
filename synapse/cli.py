@@ -11,6 +11,7 @@ import logging
 import os
 import shutil
 import signal
+import sqlite3
 import subprocess
 import sys
 import time
@@ -156,8 +157,7 @@ def install_skills() -> None:
                 print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
                 # Copy to .agents as well
                 _copy_skill_to_agents(claude_target, skill_name)
-    except Exception:
-        # Silently ignore installation errors
+    except Exception:  # broad catch: best-effort skill install must never block startup
         pass
 
 
@@ -194,7 +194,7 @@ def _copy_skill_to_agents(
                 f"\x1b[32m[Synapse]\x1b[0m Copied {skill_name} skill to {agents_target}"
             )
         return str(agents_target)
-    except Exception:
+    except OSError:
         return None
 
 
@@ -309,7 +309,10 @@ def _send_shutdown_request(agent_info: dict, timeout_seconds: int = 30) -> bool:
 
     try:
         import httpx
+    except ImportError:
+        return False
 
+    try:
         url = f"http://localhost:{port}/tasks/send"
         payload = {
             "message": {
@@ -331,7 +334,7 @@ def _send_shutdown_request(agent_info: dict, timeout_seconds: int = 30) -> bool:
             url, json=payload, headers=headers, timeout=request_timeout
         )
         return bool(response.status_code == 200)
-    except Exception:
+    except (httpx.HTTPError, OSError):
         return False
 
 
@@ -353,7 +356,7 @@ def _try_cleanup_worktree(agent_info: dict, merge: bool = False) -> None:
         wt_info = worktree_info_from_registry(wt_path, wt_branch, wt_base)
         is_tty = sys.stdin.isatty() and sys.stdout.isatty()
         cleanup_worktree(wt_info, interactive=is_tty, merge=merge)
-    except Exception:
+    except Exception:  # broad catch: cleanup must never interrupt callers
         logging.getLogger(__name__).warning(
             "Worktree cleanup failed for %s", wt_path, exc_info=True
         )
@@ -661,11 +664,11 @@ def cmd_status(args: argparse.Namespace) -> None:
     registry = AgentRegistry()
     try:
         history = HistoryManager(get_history_db_path())
-    except Exception:
+    except (OSError, sqlite3.Error):
         history = None
     try:
         file_safety = FileSafetyManager.from_env()
-    except Exception:
+    except (OSError, ValueError, KeyError):
         file_safety = None
 
     cmd = StatusCommand(
@@ -785,7 +788,7 @@ def cmd_agents_list(args: argparse.Namespace) -> None:
                 )
             Console().print(table)
             return
-        except Exception:
+        except ImportError:
             pass
 
     print(f"{'ID':<20} {'NAME':<20} {'PROFILE':<10} {'SCOPE':<8}")
@@ -1781,6 +1784,7 @@ def cmd_canvas_plan(args: argparse.Namespace) -> None:
 def _wait_and_open_browser(url: str, timeout: float = 10.0) -> None:
     """Poll Canvas health endpoint until ready, then open in browser."""
     import time
+    import urllib.error
     import urllib.request
 
     health_url = url.rstrip("/") + "/api/health"
@@ -1791,7 +1795,7 @@ def _wait_and_open_browser(url: str, timeout: float = 10.0) -> None:
             if resp.status == 200:
                 _open_canvas_browser(url)
                 return
-        except Exception:
+        except (urllib.error.URLError, OSError):
             pass
         time.sleep(0.3)
 
@@ -2064,7 +2068,7 @@ def _post_to_task_agent(task_id: str, action: str, payload: dict | None = None) 
             )
             if response.status_code == 200:
                 return True
-        except Exception:
+        except (httpx.HTTPError, OSError):
             continue
 
     return False
@@ -2144,7 +2148,7 @@ def interactive_skill_set_setup() -> str | None:
         if 0 <= selected_idx < len(items):
             return items[selected_idx][0]
         return None
-    except Exception:
+    except ImportError:
         pass
 
     # Fallback: plain numbered prompt.
@@ -2353,9 +2357,9 @@ def cmd_run_interactive(
 
         try:
             core_msgs = ensure_core_skills(profile)
-        except Exception:
+        except OSError:
             core_msgs = []
-    except Exception:
+    except ImportError:
         core_msgs = []
 
     for msg in core_msgs:
@@ -2736,11 +2740,11 @@ def main() -> None:
                 port = next_port
         return
 
-    from importlib.metadata import version
+    from importlib.metadata import PackageNotFoundError, version
 
     try:
         pkg_version = version("synapse-a2a")
-    except Exception:
+    except PackageNotFoundError:
         pkg_version = "unknown"
 
     parser = argparse.ArgumentParser(

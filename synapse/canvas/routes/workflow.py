@@ -40,7 +40,7 @@ async def workflow_list() -> dict[str, Any]:
         store = WorkflowStore()
         for workflow in store.list_workflows():
             workflows.append(_workflow_to_dict(workflow))
-    except Exception:
+    except (OSError, RuntimeError):
         server_module.logger.debug("Failed to list workflows", exc_info=True)
     return {"workflows": workflows, "project_dir": str(Path.cwd())}
 
@@ -57,7 +57,7 @@ async def workflow_run(name: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
 
     body: dict[str, Any] = {}
-    with contextlib.suppress(Exception):
+    with contextlib.suppress(ValueError, UnicodeDecodeError):
         body = await request.json()
     continue_on_error = body.get("continue_on_error", False)
     sender_info = {
