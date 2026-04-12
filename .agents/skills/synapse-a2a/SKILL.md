@@ -42,6 +42,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Open Canvas | `synapse canvas open` (auto-starts server, opens browser) |
 | Sync workflow skills | `synapse workflow sync` (regenerate skills from workflow YAMLs, remove orphans) |
 | Run workflow (auto-spawn) | `synapse workflow run <name> --auto-spawn` (spawn missing agents on the fly) |
+| Multi-agent patterns | `synapse map init/list/show/run/status/stop` (built-in: `generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state`) |
 | Wiki ingest | `synapse wiki ingest <source> [--scope project\|global]` (ingest a source file into the wiki) |
 | Wiki query | `synapse wiki query "<question>" [--scope project\|global]` (search wiki pages) |
 | Wiki lint | `synapse wiki lint [--scope project\|global]` (validate wiki consistency) |

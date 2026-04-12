@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.25.1
+
+- **Added**: Five built-in `CoordinationPattern` subclasses are now implemented and auto-registered in `BUILTIN_PATTERNS` (`generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state`) (#541)
+- **Documentation**: Updated CLI/site-docs references for `synapse multiagent` / `synapse map` and built-in coordination patterns
+
 ### v0.25.0
 
 - **Added**: Multi-agent coordination patterns engine — declarative YAML-based patterns with 5 built-in types (generator-verifier, orchestrator-subagent, agent-teams, message-bus, shared-state)
