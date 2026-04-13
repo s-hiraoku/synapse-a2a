@@ -83,7 +83,10 @@ steps:
 
 Pre-built workflow templates for common patterns:
 
-- `post-impl`: docs + simplify + release
+- `post-impl` (3 variants): docs + simplify + release, then commit/PR/autofix
+  - `post-impl.yaml` — `target: self` (in-process via PTY self-injection)
+  - `post-impl-claude.yaml` — `target: claude`, finalizes with `/autofix-pr`
+  - `post-impl-codex.yaml` — `target: codex`, finalizes with `/pr-guardian`
 - `review-cycle`: review + test + fix
 - `deploy-pipeline`: build + test + staging + production
 - `onboarding`: bootstrap + context-share + first-task

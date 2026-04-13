@@ -220,6 +220,12 @@ When a workflow step has `target: self`, the workflow runner:
 
 ### Example
 
+The repo ships three `post-impl` variants that illustrate the different targeting modes:
+
+- `workflows/post-impl.yaml` — `target: self` (in-process via PTY self-injection, shown below)
+- `workflows/post-impl-claude.yaml` — `target: claude`, finalizes with `/autofix-pr`
+- `workflows/post-impl-codex.yaml` — `target: codex`, finalizes with `/pr-guardian`
+
 ```yaml
 name: post-impl
 auto_spawn: true
