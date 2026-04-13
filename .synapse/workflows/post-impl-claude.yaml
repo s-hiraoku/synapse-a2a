@@ -1,0 +1,31 @@
+name: post-impl-claude
+description: >
+  Post-implementation workflow for Claude Code agents: docs/simplify/sync in parallel,
+  then release, commit all changes, create PR, and autofix with /autofix-pr.
+auto_spawn: true
+steps:
+  - target: claude
+    message: "/parallel-docs-simplify-sync"
+    priority: 3
+    response_mode: wait
+    timeout: 600
+  - target: claude
+    message: "/release"
+    priority: 3
+    response_mode: wait
+    timeout: 300
+  - target: claude
+    message: "変更をコミットしてください。実装内容に応じて分割コミットでも単一コミットでも構いません。Conventional Commits形式でお願いします。"
+    priority: 3
+    response_mode: wait
+    timeout: 300
+  - target: claude
+    message: "PRを作成してください。ベースブランチはmainです。タイトルと本文は実装内容から自動生成してください。"
+    priority: 3
+    response_mode: wait
+    timeout: 300
+  - target: claude
+    message: "/autofix-pr"
+    priority: 3
+    response_mode: wait
+    timeout: 3600
