@@ -4,6 +4,15 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.25.2
+
+- **Fixed**: `synapse spawn` auto-approve flag collision — passing `--dangerously-bypass-approvals-and-sandbox` (or other alternative approval flags) no longer conflicts with the profile's default `--full-auto`. Profiles can now declare `alternative_flags`; injection is skipped when any known approval flag is already present, including `--flag=value` forms
+- **Fixed**: `input_required` is treated as transient for `target: self` workflow steps — `synapse workflow run post-impl-codex` no longer fails at step 1 with a spurious permission-approval error; non-self behavior is unchanged (#551, #564)
+- **Added**: Five built-in `CoordinationPattern` subclasses (`agent-teams`, `generator-verifier`, `message-bus`, `orchestrator-subagent`, `shared-state`) registered via `synapse.patterns.BUILTIN_PATTERNS` and runnable via `synapse multiagent` / `synapse map` (#541, #560)
+- **Added**: Automatic cleanup of expired long-message temp files — `LongMessageStore` sweeps after writes (throttled 5 min) and at singleton init, preventing accumulation under `/tmp/synapse-a2a/messages` (#559, #562)
+- **Added**: `post-impl-claude` workflow variant (`target: claude`, ends with `/autofix-pr`), completing the claude/codex/self trio (#566)
+- **Changed**: `post-impl` workflow variants realigned so file name, `target:`, and execution semantics are consistent — `post-impl.yaml` is now `target: self`, `post-impl-codex.yaml` is now `target: codex` (#566)
+
 ### v0.25.1
 
 - **Fixed**: `synapse send` to Codex agents no longer fails with cryptic "local send failed" — HTTP 409 (agent busy) is now surfaced as "Agent busy (working task). Retry after Ns" (#554)
