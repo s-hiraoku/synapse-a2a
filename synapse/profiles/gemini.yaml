@@ -34,5 +34,10 @@ waiting_detection:
 # Gemini --yolo enables Docker sandbox by default
 auto_approve:
   cli_flag: "--yolo"
+  # -y is the short alias for --yolo; --approval-mode sets a specific mode.
+  # If any of these are present, skip --yolo injection.
+  alternative_flags:
+    - "-y"
+    - "--approval-mode"
   runtime_response: "\r"
   deny_response: "\x1b"

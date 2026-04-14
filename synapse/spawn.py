@@ -28,6 +28,15 @@ from synapse.terminal_jump import (
 )
 
 
+def _tool_args_contains_flag(tool_args: list[str], flag: str) -> bool:
+    # Matches `--flag` and `--flag=value`; the `=` form is only checked for
+    # dash-prefixed flags so that positional tokens can't masquerade as one.
+    if not flag or not flag.startswith("-"):
+        return flag in tool_args if flag else False
+    prefix = f"{flag}="
+    return any(arg == flag or arg.startswith(prefix) for arg in tool_args)
+
+
 def _get_tmux_pane_ids() -> set[str]:
     """Return the set of current tmux pane IDs."""
     try:
@@ -184,9 +193,15 @@ def prepare_spawn(
     auto_approve_config = profile_config.get("auto_approve", {})
 
     if auto_approve and auto_approve_config:
-        # Inject CLI flag if not already present
+        # Skip injection if the user already passed any mutually-exclusive
+        # approval flag (e.g. Codex --full-auto vs --dangerously-bypass-...).
         cli_flag = auto_approve_config.get("cli_flag")
-        if cli_flag and cli_flag not in resolved_tool_args:
+        alternative_flags = auto_approve_config.get("alternative_flags") or []
+        known_flags = {cli_flag, *alternative_flags} - {None}
+        already_present = any(
+            _tool_args_contains_flag(resolved_tool_args, flag) for flag in known_flags
+        )
+        if cli_flag and not already_present:
             resolved_tool_args.insert(0, cli_flag)
 
         # Inject environment variable flag (e.g., OpenCode)

@@ -50,5 +50,8 @@ waiting_detection:
 # --allow-all is the canonical form; Copilot also accepts --yolo as an alias.
 auto_approve:
   cli_flag: "--allow-all"
+  # Copilot accepts --yolo as an alias for --allow-all.
+  alternative_flags:
+    - "--yolo"
   runtime_response: "1\r"
   deny_response: "\x1b"

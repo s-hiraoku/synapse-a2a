@@ -49,7 +49,13 @@ synapse team start claude gemini --no-auto-approve
 | never | `-a never` | 承認を一切求めない（サンドボックス制限は有効） |
 | yolo | `--dangerously-bypass-approvals-and-sandbox` | 承認とサンドボックスの両方をバイパス |
 
-**Synapse での動作:** `--full-auto`（サンドボックス付き自動承認）が自動注入される。WAITING 検知時は `y` + Enter を送信。
+**Synapse での動作:** `--full-auto`（サンドボックス付き自動承認）が自動注入される。ただしユーザーが `tool_args` に別系統の承認フラグ（`--dangerously-bypass-approvals-and-sandbox`、`--ask-for-approval`、`-a`、`--sandbox`、`-s`）を渡した場合は `--full-auto` 注入をスキップし、フラグ衝突による起動失敗を防ぐ。WAITING 検知時は `y` + Enter を送信。
+
+```bash
+# ユーザー指定フラグを優先（--full-auto は注入されない）
+synapse spawn codex -- --dangerously-bypass-approvals-and-sandbox
+synapse spawn codex -- --ask-for-approval never --sandbox workspace-write
+```
 
 設定: `~/.codex/config.toml` のプロファイルで `approval_policy = "never"` を定義し、`codex --profile <name>` で切替可能。
 
@@ -61,7 +67,7 @@ synapse team start claude gemini --no-auto-approve
 | auto_edit | `--approval-mode=auto_edit` | ファイル読み書きのみ自動承認 |
 | 特定ツール | `--allowed-tools "ShellTool(git status)"` | 指定ツールのみバイパス |
 
-**Synapse での動作:** `--yolo` が自動注入される。WAITING 検知時は Enter（第一選択肢 "Allow once" を選択）を送信。
+**Synapse での動作:** `--yolo` が自動注入される。ユーザーが `-y` または `--approval-mode` を明示的に渡した場合は `--yolo` 注入をスキップする。WAITING 検知時は Enter（第一選択肢 "Allow once" を選択）を送信。
 
 セッション中 `Ctrl+Y` でトグル可能。設定: `~/.gemini/settings.json` で `"approvalMode": "auto_edit"` 等。
 
@@ -84,7 +90,7 @@ CLI フラグ（`--dangerously-skip-permissions`）は Feature Request として
 | no-ask-user | `--no-ask-user` | 明確化質問の抑制 |
 | Autopilot | Autopilot モード | 各ステップを自律実行。`--allow-all` との併用で完全自律 |
 
-**Synapse での動作:** `--allow-all` が自動注入される。WAITING 検知時は `1`（Yes）+ Enter を送信。
+**Synapse での動作:** `--allow-all` が自動注入される。ユーザーが別名の `--yolo` を明示的に渡した場合は `--allow-all` 注入をスキップする。WAITING 検知時は `1`（Yes）+ Enter を送信。
 
 セッション中 `/yolo` または `/allow-all` コマンドでも有効化可能。
 
@@ -92,7 +98,7 @@ CLI フラグ（`--dangerously-skip-permissions`）は Feature Request として
 
 ### 2層構造
 
-1. **起動時（CLI フラグ注入）:** `spawn_agent()` / `prepare_spawn()` がプロファイルの `auto_approve.cli_flag` を `tool_args` に自動追加。これにより CLI 自体のパーミッションシステムがバイパスされる。
+1. **起動時（CLI フラグ注入）:** `spawn_agent()` / `prepare_spawn()` がプロファイルの `auto_approve.cli_flag` を `tool_args` に自動追加。これにより CLI 自体のパーミッションシステムがバイパスされる。ユーザーが `tool_args` に `cli_flag` もしくは `alternative_flags` のいずれかを既に指定している場合は注入をスキップし、フラグ衝突を避ける（`--flag` と `--flag=value` の両形式を検出）。
 
 2. **実行時（WAITING 自動応答）:** フラグが効かないケース（一部のプロンプトタイプ、CLI のバージョン差異）に対応。コントローラーが WAITING ステータスを検知し、プロファイル固有の承認応答を PTY に送信。
 
@@ -112,10 +118,24 @@ CLI フラグ（`--dangerously-skip-permissions`）は Feature Request として
 ```yaml
 auto_approve:
   cli_flag: "--dangerously-skip-permissions"  # 起動時に注入する CLI フラグ
+  # 同一 CLI が受け付ける代替承認フラグ。ユーザーがこれらを tool_args に
+  # 渡している場合、cli_flag の注入をスキップしてフラグ衝突を防ぐ。
+  # 例（Codex）: --dangerously-bypass-approvals-and-sandbox, -a, --sandbox …
+  alternative_flags: []
   runtime_response: "y\r"                      # WAITING 時に送信する応答
   max_consecutive: 0                            # 連続承認上限（0 = 無制限）
   cooldown: 0.0                                # 承認間隔（秒、0.0 = なし）
 ```
+
+各プロファイルの現在の `alternative_flags`:
+
+| Profile | cli_flag | alternative_flags |
+|---------|----------|-------------------|
+| Claude Code | `--dangerously-skip-permissions` | （なし） |
+| Codex CLI | `--full-auto` | `--dangerously-bypass-approvals-and-sandbox`, `--ask-for-approval`, `-a`, `--sandbox`, `-s` |
+| Gemini CLI | `--yolo` | `-y`, `--approval-mode` |
+| OpenCode | （env var） | （なし） |
+| Copilot CLI | `--allow-all` | `--yolo` |
 
 ### 無効化方法
 
@@ -129,6 +149,10 @@ SYNAPSE_AUTO_APPROVE=false synapse spawn claude
 
 # 手動フラグ指定（auto-approve の CLI フラグ注入をスキップし、自分で指定）
 synapse spawn claude --no-auto-approve -- --enable-auto-mode
+
+# auto-approve は有効のまま別系統の承認フラグへ差し替え（Codex 例）
+# alternative_flags にマッチするため --full-auto は注入されない
+synapse spawn codex -- --dangerously-bypass-approvals-and-sandbox
 ```
 
 ## 権限確認の検知と承認 (Permission Detection)
