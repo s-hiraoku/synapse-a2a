@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.2] - 2026-04-15
+
+### Added
+
+- **Built-in CoordinationPattern library (#541, #560):** five ready-to-use multi-agent patterns (`agent-teams`, `generator-verifier`, `message-bus`, `orchestrator-subagent`, `shared-state`) are now registered via `synapse.patterns.BUILTIN_PATTERNS` and available through `synapse multiagent` (alias `synapse map`) for `init`, `run`, and management. Each pattern ships with unit and integration tests.
+- **Automatic cleanup of long-message temp files (#559, #562):** `LongMessageStore` now throttles `cleanup_expired()` via a new `maybe_cleanup_expired()` helper (default 5-minute interval, 1/12 of the 1-hour TTL) that runs after every successful `store_message()` write, and also sweeps once when the singleton is first created so stale files from a previous process are reclaimed at startup. Prevents indefinite accumulation of files under `/tmp/synapse-a2a/messages`. `history.db` still holds the full message text, so cleanup is lossless.
+- **`post-impl-claude` workflow (#566):** new `target: claude` variant that ends with `/autofix-pr` (a Claude Code built-in). Joins the existing `post-impl` (`target: self`) and `post-impl-codex` (`target: codex`) variants so file name, `target:` field, and execution semantics line up consistently.
+
+### Changed
+
+- **`post-impl` workflow variants realigned (#566):** `post-impl.yaml` is now the `target: self` in-process variant (was `target: codex`), and `post-impl-codex.yaml` is now `target: codex` (was `target: self`). `post-impl-codex` continues to use `/code-simplifier` per its Codex-specific notes. `synapse workflow sync` was run to propagate the rename to `.claude/skills/` and `.agents/skills/`, removing orphan `my-review/` and `user-wf/` skill directories in the process.
+
+### Fixed
+
+- **`synapse spawn` auto-approve flag collision:** `synapse spawn codex -- --dangerously-bypass-approvals-and-sandbox` (and similar overrides) no longer fails to start because the default `--full-auto` flag was being injected alongside the user's override. Each profile's `auto_approve` config can now declare `alternative_flags`, and `spawn.py` skips `cli_flag` injection when any known approval flag — primary or alternative, in `--flag` or `--flag=value` form — is already present in `tool_args`. Codex, Gemini, and Copilot profiles now list their mutually-exclusive approval flags; Claude and OpenCode need no alternatives.
+- **`input_required` treated as transient for self-target workflow steps (#551, #564):** `synapse workflow run post-impl-codex` was failing at step 1 with `Agent requires permission approval` even though auto-approve was configured correctly. For steps with `target: self`, A2A self-injection produces a brief `input_required` window while the message is accepted, and the agent processes the message on its next turn — there is no external human to approve. `_poll_task_completion` now accepts a keyword-only `target_is_self` flag (forwarded by `_apply_task_result` via the existing `_is_self_target` helper) and treats `input_required` as a transient state in that case, continuing to poll instead of short-circuiting to failure. Non-self behavior is unchanged, so genuine "human stuck" signals still fast-fail. Brings the poller into agreement with `_wait_for_helper_idle`, which already treats `input_required` as blocking via `BLOCKING_TASK_STATES`.
+
+### Dependencies
+
+- Update `actions/upload-pages-artifact` to v5 (#565).
+
 ## [0.25.1] - 2026-04-12
 
 ### Fixed
@@ -3336,6 +3357,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.25.1...HEAD
+[0.25.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.2...v0.25.0
 [0.24.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.1...v0.24.2

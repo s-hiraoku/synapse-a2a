@@ -108,6 +108,7 @@ synapse spawn claude --name Tester --role "test writer"
 synapse spawn claude --worktree feature-auth
 synapse spawn codex --branch renovate/major-eslint-monorepo   # --branch auto-enables --worktree
 synapse spawn claude --no-auto-approve             # Disable auto-approve
+synapse spawn codex -- --dangerously-bypass-approvals-and-sandbox  # User-supplied approval flag; --full-auto injection is skipped
 synapse spawn gemini --task "Write tests for auth" --notify    # Spawn + auto-send task
 synapse spawn claude --task-file /tmp/instructions.md --wait   # Task from file
 synapse merge my-agent                             # Merge worktree branch (agent stays running)
@@ -332,6 +333,8 @@ States: READY → PROCESSING → DONE → READY (auto after 10s), WAITING, SHUTT
 Compound signal: PROCESSING→READY suppressed when `task_active` flag set or file locks held.
 
 **WAITING auto-approve**: When an agent enters WAITING status (permission prompt detected), the controller automatically sends the profile-specific approval response (e.g., `y\r` for Claude, `\r` for Gemini). PTY output is passed through `strip_ansi()` before regex matching, ensuring reliable WAITING detection for TUI-based agents (ratatui, Ink, Bubble Tea). Enabled by default for spawned agents; disable with `--no-auto-approve` or `SYNAPSE_AUTO_APPROVE=false`. Safety: unlimited consecutive approvals by default (`max_consecutive=0`), no cooldown (`cooldown=0.0`). Set `max_consecutive` to a positive integer to cap consecutive approvals. See [docs/agent-permission-modes.md](agent-permission-modes.md).
+
+**Startup CLI flag injection**: `prepare_spawn()` injects the profile's `auto_approve.cli_flag` into the spawned CLI's argv unless the user already supplied an equivalent flag. Each profile declares an optional `auto_approve.alternative_flags` list of mutually-exclusive approval/sandbox flags that the same CLI also accepts (e.g., Codex also accepts `--dangerously-bypass-approvals-and-sandbox`, `--ask-for-approval`, `-a`, `--sandbox`, `-s`; Gemini accepts `-y`, `--approval-mode`; Copilot accepts `--yolo`). If any of these tokens is already in the user-supplied `tool_args` (matching both `--flag` and `--flag=value` forms), injection is skipped so that two mutually-exclusive flags are never passed together — a previous bug that caused `synapse spawn codex -- --dangerously-bypass-approvals-and-sandbox` to fail at startup.
 
 **WAITING → input_required (A2A)**: When an agent enters WAITING status, the A2A task status is mapped to `input_required` per the Google A2A spec. The task metadata includes `x-permission-prompt` (the detected prompt text) and `x-permission-options` (available responses). Callers can approve or deny via the permission endpoints below. See [docs/permission-detection-spec.md](permission-detection-spec.md).
 
