@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import json
 import logging
 import multiprocessing
 import os
@@ -35,12 +36,14 @@ logger = logging.getLogger(__name__)
 _SPAWN_MAX_WAIT_SECONDS = 30
 MAX_WORKFLOW_DEPTH = 10
 
-# Retry a send when the target reports "Agent busy (working task)". This
-# happens transiently between two back-to-back workflow steps while the
-# previous step's task is still finalizing. Bounded so a genuinely stuck
-# target still surfaces as a step failure.
-_BUSY_RETRY_MAX = 5
-_BUSY_RETRY_BACKOFF = 2  # seconds; scaled by attempt number
+# Retry a send when the target reports "Agent busy (working task)". Workflow
+# steps are often long-running (minutes of model work), so the retry window
+# must be generous: up to 10 checks at 30s intervals (~5 minutes total).
+# Between checks we also poll the target's /tasks endpoint to detect the
+# moment it becomes idle, so the retry fires as early as the target is ready
+# rather than wasting full 30s sleeps when the lull is brief.
+_BUSY_RETRY_MAX = 10
+_BUSY_RETRY_INTERVAL = 30  # seconds between busy checks
 _BUSY_MARKER = "Agent busy"
 
 
@@ -257,14 +260,57 @@ def _should_auto_spawn(step: WorkflowStep, effective_auto_spawn: bool) -> bool:
     return step.auto_spawn or effective_auto_spawn
 
 
+def _workflow_spawn_tool_args(profile: str) -> list[str] | None:
+    """Pick tool_args for a workflow-triggered spawn.
+
+    Workflow runs typically batch many short-lived permission requests
+    (``cp``, ``git``, ``gh``, ``pytest``) against a long-running child.
+    The profile's default ``auto_approve.cli_flag`` (e.g. ``--full-auto``)
+    leaves the child's sandbox in ``workspace-write`` mode, which prompts
+    for approval on any action outside cwd/workspace. Those prompts drain
+    the full runtime-approval budget — and the first regex miss leaves
+    the child stuck waiting for a human who isn't coming.
+
+    Prefer the profile's first ``alternative_flag`` when it exists (e.g.
+    ``--dangerously-bypass-approvals-and-sandbox`` for codex) so a
+    workflow-driven child just runs. A user starting an interactive agent
+    via ``synapse spawn`` / ``synapse team start`` still gets the safer
+    ``--full-auto`` default — nothing about those paths changes.
+
+    Returns None when the profile has no auto-approve config or no
+    alternative flags; in that case the caller falls through to the
+    profile's default.
+    """
+    try:
+        from synapse.server import load_profile
+
+        profile_config = load_profile(profile)
+    except Exception:  # broad: missing profile, yaml error, etc.
+        return None
+    if not isinstance(profile_config, dict):
+        return None
+    auto_approve_config = profile_config.get("auto_approve")
+    if not isinstance(auto_approve_config, dict):
+        return None
+    alternatives = auto_approve_config.get("alternative_flags")
+    if not isinstance(alternatives, list) or not alternatives:
+        return None
+    flag = str(alternatives[0] or "").strip()
+    if not flag:
+        return None
+    return [flag]
+
+
 def _try_spawn_agent(profile: str) -> bool:
     """Spawn an agent by profile name. Returns True on success."""
     try:
         from synapse.spawn import spawn_agent
 
-        result = spawn_agent(profile)
+        tool_args = _workflow_spawn_tool_args(profile)
+        result = spawn_agent(profile, tool_args=tool_args)
         if result.status == "submitted":
-            print(f"  Spawned {profile} agent (port {result.port})")
+            suffix = f" with {' '.join(tool_args)}" if tool_args else ""
+            print(f"  Spawned {profile} agent (port {result.port}){suffix}")
             return True
         print(
             f"  Warning: spawn {profile} returned status '{result.status}'",
@@ -273,6 +319,44 @@ def _try_spawn_agent(profile: str) -> bool:
         return False
     except (ImportError, OSError, RuntimeError) as e:
         print(f"  Warning: failed to spawn '{profile}': {e}", file=sys.stderr)
+        return False
+
+
+def _target_has_no_working_task(target: str) -> bool:
+    """Return True when *target* currently has no working/input_required task.
+
+    Uses the resolver with ``local_only=True`` so bare-type targets only
+    match an agent in the caller's working directory. Returns False on any
+    error (conservative — caller keeps waiting rather than racing into 409).
+    """
+    from synapse.registry import AgentRegistry
+    from synapse.tools.a2a import _resolve_target_agent
+
+    try:
+        agents = AgentRegistry().list_agents()
+        agent, _err = _resolve_target_agent(target, agents, local_only=True)
+        if agent is None:
+            return False
+        endpoint = agent.get("endpoint")
+        if not endpoint:
+            return False
+        import urllib.request
+
+        with urllib.request.urlopen(
+            f"{str(endpoint).rstrip('/')}/tasks", timeout=5
+        ) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        tasks = data.get("tasks") if isinstance(data, dict) else data
+        if not isinstance(tasks, list):
+            return False
+        for task in tasks:
+            status = task.get("status") if isinstance(task, dict) else ""
+            if isinstance(status, dict):
+                status = status.get("state", "")
+            if status in ("working", "input_required"):
+                return False
+        return True
+    except Exception:  # broad: any transient HTTP/parse error → keep waiting
         return False
 
 
@@ -350,23 +434,29 @@ def _run_step(
         local_only=True,
     )
 
-    # 409 Agent busy can occur briefly between two workflow steps while the
-    # previous step's task is still being finalized in the target's task
-    # store. Retry a few times with backoff so normal post-impl flows where
-    # steps target the same agent back-to-back don't bail out on a transient
-    # busy state. Stays bounded so a genuinely stuck target still surfaces.
+    # 409 Agent busy can occur transiently between back-to-back workflow
+    # steps while the previous step's task is still finalizing in the
+    # target's task store, or while the target is processing a large body
+    # of work from the prior step. Poll the target's /tasks endpoint until
+    # it drains; as soon as there is no working/input_required task, fire
+    # the retry. This avoids wasting the full interval sleep when the lull
+    # is short, while still bounding the total wait to ~5 minutes so a
+    # genuinely stuck target still surfaces as a step failure.
     result = subprocess.run(cmd, capture_output=True, text=True)
     for attempt in range(_BUSY_RETRY_MAX):
         stderr_for_busy = result.stderr or ""
         if result.returncode == 0 or _BUSY_MARKER not in stderr_for_busy:
             break
-        wait_seconds = _BUSY_RETRY_BACKOFF * (attempt + 1)
         print(
-            f"  Target agent busy; retrying in {wait_seconds}s "
+            f"  Target agent busy; waiting up to {_BUSY_RETRY_INTERVAL}s for idle "
             f"(attempt {attempt + 1}/{_BUSY_RETRY_MAX})...",
             file=sys.stderr,
         )
-        time.sleep(wait_seconds)
+        wait_deadline = time.monotonic() + _BUSY_RETRY_INTERVAL
+        while time.monotonic() < wait_deadline:
+            if _target_has_no_working_task(step.target):
+                break
+            time.sleep(2)
         result = subprocess.run(cmd, capture_output=True, text=True)
 
     # Check if agent not found (or only exists in a different working

@@ -6,6 +6,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.25.2
 
+- **Fixed**: Parent-side permission handling no longer deadlocks on child `input_required` prompts — children now send structured escalation metadata, the Approval Gate can auto-dispatch approve/deny/escalate, and `synapse send --wait` stays alive until parent intervention or timeout (#571)
 - **Fixed**: `synapse list` Rich TUI now opens on the alternate screen, keeping live redraws stable during status updates
 - **Fixed**: `synapse spawn` auto-approve flag collision — passing `--dangerously-bypass-approvals-and-sandbox` (or other alternative approval flags) no longer conflicts with the profile's default `--full-auto`. Profiles can now declare `alternative_flags`; injection is skipped when any known approval flag is already present, including `--flag=value` forms
 - **Fixed**: `input_required` is treated as transient for `target: self` workflow steps — `synapse workflow run post-impl-codex` no longer fails at step 1 with a spurious permission-approval error; non-self behavior is unchanged (#551, #564)

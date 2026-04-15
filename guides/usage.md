@@ -1535,7 +1535,7 @@ curl http://localhost:8100/status
 |----|------|
 | `PROCESSING` | 処理中・起動中 |
 | `READY` | 待機中（プロンプト表示中） |
-| `WAITING` | 権限プロンプト待ち（A2A では `input_required` にマッピング）。`POST /tasks/{id}/permission/approve` または `/deny` で応答可能 |
+| `WAITING` | 権限プロンプト待ち（A2A では `input_required` にマッピング）。親エージェントには自動通知され、Approval Gate か `POST /tasks/{id}/permission/approve` / `/deny` で応答可能 |
 | `NOT_STARTED` | 未起動 |
 
 ---

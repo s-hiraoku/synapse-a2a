@@ -360,6 +360,11 @@ _SENT_MESSAGE_METADATA_KEY = "_sent_message"
 _REPLY_ARTIFACTS_METADATA_KEY = "reply_artifacts"
 _REPLY_STATUS_METADATA_KEY = "reply_status"
 _REPLY_ERROR_METADATA_KEY = "reply_error"
+# Permission escalation metadata — populated by the child when it notifies
+# its parent that a task is stuck in input_required. Used by the Approval
+# Gate on the parent side to auto-approve/deny or escalate to human. See
+# synapse/approval_gate.py and issue #571.
+_PERMISSION_ESCALATION_METADATA_KEY = "permission_escalation"
 
 
 def _load_reply_artifacts(metadata: dict[str, Any]) -> list[Artifact] | None:
@@ -515,6 +520,9 @@ async def _send_response_to_sender(
     sender_endpoint: str,
     self_agent_id: str,
     sender_task_id: str | None = None,
+    *,
+    self_endpoint: str | None = None,
+    self_agent_type: str | None = None,
 ) -> bool:
     """
     Send task response back to the original sender.
@@ -527,6 +535,11 @@ async def _send_response_to_sender(
         sender_endpoint: The endpoint URL of the sender agent
         self_agent_id: This agent's ID for sender identification
         sender_task_id: The task ID on the sender's server (for in_reply_to)
+        self_endpoint: The child's own endpoint (e.g. http://localhost:8126),
+            used to populate the structured permission_escalation metadata
+            so the parent's Approval Gate can call back directly.
+        self_agent_type: The child's profile type (e.g. ``"codex"``), used
+            by the parent's Approval Gate to apply per-profile policy.
 
     Returns:
         True if response was sent successfully, False otherwise
@@ -559,6 +572,23 @@ async def _send_response_to_sender(
         ],
         _REPLY_STATUS_METADATA_KEY: task.status,
     }
+    # If the child is notifying the parent about a stuck input_required task,
+    # include a structured escalation block so the parent's Approval Gate can
+    # decide/apply without having to parse the artifact text. The legacy
+    # artifact-based notification still ships alongside, so human operators
+    # and older parents see the same text as before.
+    if task.status == "input_required" and self_endpoint:
+        permission_block = (task.metadata or {}).get("permission")
+        if isinstance(permission_block, dict):
+            escalation: dict[str, Any] = {
+                "task_id": task.id,
+                "child_endpoint": self_endpoint.rstrip("/"),
+                "child_agent_id": self_agent_id,
+                "permission": dict(permission_block),
+            }
+            if self_agent_type:
+                escalation["child_agent_type"] = self_agent_type
+            response_metadata[_PERMISSION_ESCALATION_METADATA_KEY] = escalation
     payload = {
         "message": {"role": "agent", "parts": response_parts},
         "metadata": response_metadata,
@@ -989,6 +1019,8 @@ def create_a2a_router(
                         si.sender_endpoint,
                         agent_id or "unknown",
                         sender_task_id=si.sender_task_id,
+                        self_endpoint=f"http://localhost:{port}",
+                        self_agent_type=agent_type,
                     )
                     _run_async_from_sync(coro)
                 return
@@ -1055,6 +1087,67 @@ def create_a2a_router(
 
         metadata = request.metadata or {}
         in_reply_to = metadata.get("in_reply_to")
+
+        # Approval Gate (issue #571): if this incoming message carries a
+        # structured permission escalation from a child, run it through the
+        # gate before involving PTY or task_store write paths. The gate
+        # auto-approves / denies / escalates based on policy so non-interactive
+        # parents (workflow runners, nested spawns) never silently deadlock
+        # on a child's permission prompt.
+        escalation = metadata.get(_PERMISSION_ESCALATION_METADATA_KEY)
+        if isinstance(escalation, dict) and escalation.get("task_id"):
+            try:
+                from synapse.approval_gate import (
+                    decide_and_apply,
+                    request_from_a2a_metadata,
+                )
+
+                gate_request = request_from_a2a_metadata(
+                    task_id=str(escalation.get("task_id", "")),
+                    endpoint=str(escalation.get("child_endpoint", "")),
+                    target_agent_id=str(escalation.get("child_agent_id", "")),
+                    target_agent_type=str(escalation.get("child_agent_type", "")),
+                    metadata=dict(escalation.get("permission") or {}),
+                )
+                gate_decision, gate_ok = decide_and_apply(gate_request)
+                logger.info(
+                    "approval_gate: incoming escalation task=%s decision=%s ok=%s",
+                    gate_request.task_id,
+                    gate_decision.value,
+                    gate_ok,
+                )
+                # Record an in-memory task for history/visibility, then return
+                # without touching the PTY. We intentionally skip reply-stack
+                # bookkeeping and controller writes because this was a
+                # machine-to-machine escalation, not a user-visible message.
+                escalation_task = task_store.create(
+                    request.message,
+                    request.context_id,
+                    metadata={
+                        **metadata,
+                        "handled_by_approval_gate": True,
+                        "approval_gate_decision": gate_decision.value,
+                    },
+                )
+                task_store.update_status(
+                    escalation_task.id,
+                    "completed" if gate_ok else "failed",
+                )
+                updated_escalation = task_store.get(escalation_task.id)
+                if updated_escalation is None:
+                    raise HTTPException(
+                        status_code=500, detail="Escalation task disappeared"
+                    )
+                return SendMessageResponse(task=updated_escalation)
+            except HTTPException:
+                raise
+            except Exception as exc:  # broad: gate errors should not block PTY path
+                logger.warning(
+                    "approval_gate: dispatch failed for incoming escalation: %s",
+                    exc,
+                )
+                # Fall through to the normal PTY delivery path so the message
+                # still reaches the parent as a legacy text notification.
 
         if in_reply_to:
             # Support prefix match for short IDs from PTY display

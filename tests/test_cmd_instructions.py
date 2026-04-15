@@ -149,7 +149,7 @@ class TestInstructionsFiles:
         assert "claude.md" in output
 
     def test_files_shows_default_files(self, temp_synapse_dir: Path) -> None:
-        """Should list default instruction files when no agent type specified."""
+        """Should list fallback instruction files for agent types without overrides."""
         output_lines: list[str] = []
 
         with patch("synapse.settings.Path.cwd", return_value=temp_synapse_dir.parent):
@@ -163,10 +163,13 @@ class TestInstructionsFiles:
             cmd.files(agent_type="gemini")
 
         output = "\n".join(output_lines)
-        assert "default.md" in output
+        assert "Instruction files for 'gemini':" in output
+        assert "file-safety.md" in output
+        assert "wiki.md" in output
+        assert "shared-memory.md" in output
 
     def test_files_no_files_configured(self, tmp_path: Path) -> None:
-        """Should show message when no files are configured."""
+        """Should still list built-in supplemental instruction files."""
         synapse_dir = tmp_path / ".synapse"
         synapse_dir.mkdir()
         settings_file = synapse_dir / "settings.json"
@@ -184,7 +187,10 @@ class TestInstructionsFiles:
             cmd.files(agent_type="codex")
 
         output = "\n".join(output_lines)
-        assert "no instruction files" in output.lower() or "none" in output.lower()
+        assert "Instruction files for 'codex':" in output
+        assert "file-safety.md" in output
+        assert "wiki.md" in output
+        assert "shared-memory.md" in output
 
 
 class TestInstructionsSend:

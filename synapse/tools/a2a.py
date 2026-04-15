@@ -6,10 +6,14 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import requests
 
 from synapse.a2a_client import A2AClient
+
+if TYPE_CHECKING:
+    from synapse.a2a_client import A2ATask
 from synapse.a2a_compat import (
     _REPLY_ARTIFACTS_METADATA_KEY,
     _REPLY_ERROR_METADATA_KEY,
@@ -74,6 +78,77 @@ def cmd_cleanup(args: argparse.Namespace) -> None:
             print(f"  - {agent_id}")
     else:
         print("No stale entries found.")
+
+
+def _wait_for_parent_intervention(
+    *,
+    endpoint: str,
+    task_id: str,
+    timeout_s: int,
+    uds_path: str | None = None,
+) -> "A2ATask | None":
+    """Poll a child task that entered ``input_required`` until it reaches a
+    terminal state.
+
+    The Approval Gate (``synapse.approval_gate``, issue #571) handles the
+    escalation side: when the child server flips a task to input_required,
+    ``_on_status_change`` already sends a structured permission notification
+    to the parent, and the parent's own ``_send_task_message`` handler auto-
+    dispatches it through ``decide_and_apply``. That call eventually posts
+    to ``/tasks/<id>/permission/{approve,deny}`` on this same child, which
+    unblocks the PTY and returns the task to ``working`` → ``completed``.
+
+    This helper therefore keeps the sender subprocess alive and simply polls
+    the task until it terminates. Returns the final task on terminal state,
+    or ``None`` on timeout (parent never intervened).
+    """
+    from synapse.a2a_client import A2ATask
+    from synapse.config import COMPLETED_TASK_STATES, TASK_POLL_INTERVAL
+
+    if not endpoint:
+        return None
+
+    base = endpoint.rstrip("/")
+    url = f"{base}/tasks/{task_id}"
+    deadline = time.time() + max(timeout_s, 0)
+    last_task_status: str | None = None
+
+    while time.time() < deadline:
+        data: dict | None = None
+        try:
+            if uds_path:
+                import httpx
+
+                transport = httpx.HTTPTransport(uds=uds_path)
+                with httpx.Client(transport=transport, timeout=10.0) as client:
+                    uds_resp = client.get(url)
+                    uds_resp.raise_for_status()
+                    data = uds_resp.json()
+            else:
+                http_resp = requests.get(url, timeout=10)
+                http_resp.raise_for_status()
+                data = http_resp.json()
+        except Exception:  # broad: transient HTTP errors shouldn't abort the watch
+            time.sleep(TASK_POLL_INTERVAL)
+            continue
+
+        if data is None:
+            time.sleep(TASK_POLL_INTERVAL)
+            continue
+
+        task = A2ATask.from_dict(data, fallback_id=task_id)
+        status = task.status
+        if status != last_task_status:
+            print(
+                f"  Task {task_id[:8]} status: {status}",
+                file=sys.stderr,
+            )
+            last_task_status = status
+        if status in COMPLETED_TASK_STATES:
+            return task
+        time.sleep(TASK_POLL_INTERVAL)
+
+    return None
 
 
 def cmd_send(args: argparse.Namespace) -> None:
@@ -268,45 +343,98 @@ def cmd_send(args: argparse.Namespace) -> None:
         sender_info=sender_info,
     )
 
-    # If the target stopped in input_required while we were waiting, the
-    # child is blocked on parent input (permission approval, clarification,
-    # etc.). The A2AClient already stopped polling by design (#513). We must
-    # exit non-zero so workflow runners and scripts treat this as "step not
-    # done" rather than "step completed". The parent agent can inspect the
-    # pty_context from stderr and either approve via
-    # /tasks/<id>/permission/approve or send a follow-up message.
-    if task.status == "input_required":
+    # If the target stopped in input_required while we were waiting (wait
+    # mode only), the child is blocked on parent input — typically a
+    # permission prompt like "1. Yes, proceed  2. No, tell Codex what to do".
+    # The A2AClient stopped polling early (#513) to surface this to the
+    # caller, but we should NOT give up: the child is still running and
+    # perfectly recoverable once the parent responds.
+    #
+    # Instead, stay alive and keep polling the task endpoint. When the
+    # parent intervenes (either via POST /tasks/<id>/permission/approve, or
+    # by sending a clarification message), the child's PTY unblocks, its
+    # task returns to ``working``, and eventually reaches a terminal state.
+    # We then print the final artifacts and exit 0 just like a normal wait.
+    #
+    # This preserves the invariant "parent is responsible for its children"
+    # without forcing the runner/script to guess whether a busy-looking child
+    # is hung or waiting for help.
+    if response_mode == "wait" and task.status == "input_required":
+        endpoint_url = str(target_agent.get("endpoint") or "").rstrip("/")
+        display_target = target_agent.get("name") or target_agent.get("agent_id", "")
         pty_context = ""
         metadata = getattr(task, "metadata", None) or {}
         permission = metadata.get("permission") if isinstance(metadata, dict) else None
         if isinstance(permission, dict):
             pty_context = str(permission.get("pty_context", "") or "")
+
         print(
-            f"Error: Target task {task_id} is in input_required state — "
-            "parent intervention required.",
+            f"Note: Target task {task_id} is in input_required state — "
+            "waiting for parent intervention.",
             file=sys.stderr,
         )
-        print(
-            f"  Endpoint: {target_agent.get('endpoint', 'unknown')}",
-            file=sys.stderr,
-        )
+        if endpoint_url:
+            print(f"  Endpoint: {endpoint_url}", file=sys.stderr)
         print(f"  Task ID:  {task_id}", file=sys.stderr)
         if pty_context:
             preview = (
                 pty_context if len(pty_context) <= 300 else pty_context[:297] + "..."
             )
             print(f"  PTY hint: {preview}", file=sys.stderr)
-        print(
-            "  Approve:  "
-            f"curl -X POST {target_agent.get('endpoint', '').rstrip('/')}/tasks/{task_id}/permission/approve",
-            file=sys.stderr,
+        if endpoint_url:
+            print(
+                f"  Approve:  curl -X POST {endpoint_url}/tasks/{task_id}/permission/approve",
+                file=sys.stderr,
+            )
+        if display_target:
+            print(
+                "  Or send a clarification message with: "
+                f"synapse send {display_target} '<reply>' --local-only",
+                file=sys.stderr,
+            )
+
+        try:
+            intervention_timeout_s = int(
+                os.environ.get("SYNAPSE_PARENT_INTERVENTION_TIMEOUT", "1800")
+            )
+        except ValueError:
+            intervention_timeout_s = 1800
+        if intervention_timeout_s < 0:
+            intervention_timeout_s = 1800
+
+        final_task = _wait_for_parent_intervention(
+            endpoint=endpoint_url,
+            task_id=task_id,
+            timeout_s=intervention_timeout_s,
+            uds_path=uds_path,
         )
-        print(
-            "  Or send a clarification message with: "
-            f"synapse send {target_agent.get('name') or target_agent.get('agent_id', '')} '<reply>' --local-only",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+
+        if final_task is None:
+            print(
+                "Error: Parent did not intervene within "
+                f"{intervention_timeout_s}s; task still input_required.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
+        # Update local task ref and re-display results.
+        task = final_task
+        print(f"  Resolved Status: {task.status}")
+        task_error = getattr(task, "error", None)
+        if task.status == "failed" and task_error:
+            code, message = _format_task_error(task_error)
+            print(f"  Error: {code} - {message}")
+        elif task.artifacts:
+            print("  Response:")
+            for artifact in task.artifacts:
+                artifact_type = artifact.get("type", "unknown")
+                content = _artifact_display_text(artifact)
+                if content:
+                    indented = str(content).replace("\n", "\n    ")
+                    print(f"    [{artifact_type}] {indented}")
+
+        if task.status in ("failed", "canceled"):
+            sys.exit(1)
 
 
 def cmd_broadcast(args: argparse.Namespace) -> None:

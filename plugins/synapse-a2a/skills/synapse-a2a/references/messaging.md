@@ -204,9 +204,9 @@ synapse send codex "run tests" --local-only --notify
 
 When a child task stops in `input_required`, the child is blocked on parent input — typically a permission approval, but also clarifying questions (e.g. `/release patch|minor|major?`) or any interactive prompt the child cannot answer by itself. Synapse surfaces this to the parent in two complementary ways:
 
-1. **`synapse send --wait` exits non-zero (exit code 2).** The CLI prints the task_id, endpoint, pty_context preview, and the exact `curl` / `synapse send` commands the parent can use to unblock the child. Workflow runners treat this as a step failure and halt, so they never race ahead into a 409 `Agent busy` against the still-working child.
+1. **The child agent proactively notifies its parent** via A2A when it transitions into `input_required` (see `_on_status_change` in the server). The parent receives both the legacy text artifact and a structured `permission_escalation` block containing the child endpoint, task id, agent type, and permission metadata. The parent-side Approval Gate can consume that block and automatically decide `approve`, `deny`, or `escalate`.
 
-2. **The child agent proactively notifies its parent** via A2A when it transitions into `input_required` (see `_on_status_change` in the server). The parent receives a structured message with the pty context and task id.
+2. **`synapse send --wait` no longer treats `input_required` as terminal.** The CLI prints the task_id, endpoint, pty_context preview, and the exact `curl` / `synapse send` commands the parent can use to unblock the child, then keeps polling until the task reaches a terminal state. If no parent intervention arrives before `SYNAPSE_PARENT_INTERVENTION_TIMEOUT` (default 1800s), it exits non-zero (exit code 2).
 
 As the parent, when you see either signal, inspect the context and do one of:
 

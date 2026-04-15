@@ -2031,7 +2031,7 @@ flowchart LR
 | POST | `/tasks/{id}/permission/approve` | 権限プロンプトを承認（プロファイル固有の承認レスポンスをエージェント PTY に送信） |
 | POST | `/tasks/{id}/permission/deny` | 権限プロンプトを拒否（プロファイルの `deny_response` をエージェント PTY に送信） |
 
-> **ステータスマッピング**: エージェントが WAITING 状態に入ると、A2A タスクステータスは Google A2A 仕様に準拠して `input_required` にマッピングされます。タスクメタデータには `x-permission-prompt`（検出されたプロンプトテキスト）と `x-permission-options`（利用可能なレスポンス）が含まれます。詳細は [docs/permission-detection-spec.md](../docs/permission-detection-spec.md) を参照。
+> **ステータスマッピング**: エージェントが WAITING 状態に入ると、A2A タスクステータスは Google A2A 仕様に準拠して `input_required` にマッピングされます。子エージェントは従来の permission metadata に加え、親側 Approval Gate が処理できる `permission_escalation` ブロックを送信します。`synapse send --wait` は `input_required` を終端失敗とみなさず、親の介入で解消されるか `SYNAPSE_PARENT_INTERVENTION_TIMEOUT` に達するまで待機します。詳細は [docs/permission-detection-spec.md](../docs/permission-detection-spec.md) を参照。
 
 #### Shared Memory API
 

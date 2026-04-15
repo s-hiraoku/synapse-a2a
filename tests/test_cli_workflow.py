@@ -1008,6 +1008,74 @@ def test_run_step_retries_on_agent_busy(
     assert call_count == 2
 
 
+def test_workflow_spawn_tool_args_uses_profile_alternative_flag() -> None:
+    """workflow auto-spawn should pick the profile's first alternative
+    auto-approve flag (e.g. --dangerously-bypass-approvals-and-sandbox for
+    codex) so batch workflow runs aren't derailed by runtime approval
+    prompts that the default --full-auto sandbox issues."""
+    from synapse.commands.workflow import _workflow_spawn_tool_args
+
+    profile_yaml = {
+        "auto_approve": {
+            "cli_flag": "--full-auto",
+            "alternative_flags": [
+                "--dangerously-bypass-approvals-and-sandbox",
+                "--ask-for-approval",
+            ],
+            "runtime_response": "y\r",
+            "deny_response": "\x1b",
+        }
+    }
+
+    with patch("synapse.server.load_profile", return_value=profile_yaml):
+        result = _workflow_spawn_tool_args("codex")
+
+    assert result == ["--dangerously-bypass-approvals-and-sandbox"]
+
+
+def test_workflow_spawn_tool_args_returns_none_when_no_alternatives() -> None:
+    """When a profile has no alternative_flags, workflow spawn falls back
+    to the profile default (None tool_args)."""
+    from synapse.commands.workflow import _workflow_spawn_tool_args
+
+    profile_yaml = {
+        "auto_approve": {
+            "cli_flag": "--some-flag",
+            "runtime_response": "y\r",
+        }
+    }
+
+    with patch("synapse.server.load_profile", return_value=profile_yaml):
+        result = _workflow_spawn_tool_args("some-profile")
+
+    assert result is None
+
+
+def test_try_spawn_agent_passes_workflow_tool_args() -> None:
+    """_try_spawn_agent must forward the profile's alternative flag to
+    spawn_agent when available."""
+    from synapse.commands.workflow import _try_spawn_agent
+
+    mock_result = MagicMock()
+    mock_result.status = "submitted"
+    mock_result.port = 8126
+
+    with (
+        patch(
+            "synapse.commands.workflow._workflow_spawn_tool_args",
+            return_value=["--dangerously-bypass-approvals-and-sandbox"],
+        ),
+        patch("synapse.spawn.spawn_agent", return_value=mock_result) as mock_spawn,
+    ):
+        ok = _try_spawn_agent("codex")
+
+    assert ok is True
+    call_kwargs = mock_spawn.call_args.kwargs
+    assert call_kwargs.get("tool_args") == [
+        "--dangerously-bypass-approvals-and-sandbox"
+    ]
+
+
 def test_wait_for_agent_uses_local_only() -> None:
     """_wait_for_agent must query the resolver with local_only=True so a
     bare-type target like 'codex' is not satisfied by an instance already

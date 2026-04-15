@@ -83,7 +83,7 @@ When `--silent` is used, the sender does not wait for a reply. However, the rece
 | `/tasks/{task_id}/permission/approve` | POST | Approve a runtime permission prompt (task must be `input_required`) |
 | `/tasks/{task_id}/permission/deny` | POST | Deny a runtime permission prompt (task must be `input_required`) |
 
-When a spawned agent hits a permission prompt (e.g., tool approval), the controller detects WAITING status, which maps to the A2A `input_required` task state. The agent automatically notifies its caller with the permission context and approve/deny URLs. The caller (or Canvas UI) can then approve or deny via these endpoints.
+When a spawned agent hits a permission prompt (e.g., tool approval), the controller detects WAITING status, which maps to the A2A `input_required` task state. The child automatically notifies its caller with the permission context and a structured `permission_escalation` block. The parent-side Approval Gate can then auto-dispatch approve/deny/escalate, or a human/Canvas UI can still call these endpoints manually. In `synapse send --wait`, the sender keeps polling until that parent intervention resolves the child task or the intervention timeout expires.
 
 **Preconditions:**
 - Returns **HTTP 404** if the task is not found

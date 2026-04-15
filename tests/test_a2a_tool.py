@@ -91,14 +91,19 @@ class TestA2AToolSend:
         assert call_kwargs.get("local_only", False) is False
         mock_port_open.assert_not_called()
 
-    def test_cmd_send_input_required_exits_nonzero(self, monkeypatch, capsys):
-        """After send_to_local returns a task stuck in input_required, cmd_send
-        must print pty_context/approve hints and exit non-zero so the workflow
-        runner doesn't mistake an input-waiting child for a completed step.
+    def test_cmd_send_input_required_waits_for_parent_intervention(
+        self, monkeypatch, capsys
+    ):
+        """When the child returns input_required, cmd_send must NOT exit —
+        the parent is responsible for its children, so the sender stays
+        alive polling the task endpoint until the parent intervenes
+        (approve/deny or clarification reply) and the task reaches a
+        terminal state. Exits 0 on eventual completion.
         """
         target_agent = {
             "agent_id": "synapse-codex-9001",
             "agent_type": "codex",
+            "name": "codex-9001",
             "port": 9001,
             "endpoint": "http://localhost:9001",
             "pid": 555,
@@ -112,10 +117,78 @@ class TestA2AToolSend:
         input_required_task.status = "input_required"
         input_required_task.artifacts = []
         input_required_task.metadata = {
-            "permission": {
-                "pty_context": "Allow Bash: rm -rf /tmp/demo? [Y/n]",
-            }
+            "permission": {"pty_context": "1. Yes, proceed (y)  2. No (esc)"}
         }
+        input_required_task.error = None
+
+        resolved_task = MagicMock()
+        resolved_task.id = "task-ir-1"
+        resolved_task.status = "completed"
+        resolved_task.artifacts = [{"type": "text", "text": "PR opened"}]
+        resolved_task.error = None
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = input_required_task
+
+        monkeypatch.setattr("synapse.tools.a2a.AgentRegistry", lambda: mock_registry)
+        monkeypatch.setattr("synapse.tools.a2a.A2AClient", lambda: mock_client)
+        monkeypatch.setattr("synapse.tools.a2a.is_process_running", lambda pid: True)
+        monkeypatch.setattr("synapse.tools.a2a.is_port_open", lambda *a, **k: True)
+        monkeypatch.setattr(
+            "synapse.tools.a2a._record_sent_message", lambda **kwargs: None
+        )
+        monkeypatch.setattr("synapse.tools.a2a.build_sender_info", lambda *a, **k: {})
+        monkeypatch.setattr(
+            "synapse.tools.a2a._wait_for_parent_intervention",
+            lambda **kwargs: resolved_task,
+        )
+
+        args = argparse.Namespace(
+            target="codex",
+            priority=3,
+            sender=None,
+            response_mode="wait",
+            message="Please release",
+            message_file=None,
+            task_file=None,
+            stdin=False,
+            attach=None,
+            force=False,
+            local_only=True,
+        )
+
+        cmd_send(args)  # must return normally when parent intervenes
+
+        captured = capsys.readouterr()
+        combined = captured.out + captured.err
+        # The diagnostic banner was printed so the parent knows what to do
+        assert "input_required" in combined
+        assert "task-ir-1" in combined
+        # And the resolved artifact is displayed after intervention
+        assert "PR opened" in combined
+
+    def test_cmd_send_input_required_timeout_exits_nonzero(self, monkeypatch, capsys):
+        """If the parent never intervenes within the timeout window, the
+        wait helper returns None and cmd_send exits 2 so the caller knows
+        the step did not complete. This is a safety bound on an otherwise
+        patient wait, not a default failure path."""
+        target_agent = {
+            "agent_id": "synapse-codex-9001",
+            "agent_type": "codex",
+            "name": "codex-9001",
+            "port": 9001,
+            "endpoint": "http://localhost:9001",
+            "pid": 555,
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {"synapse-codex-9001": target_agent}
+
+        input_required_task = MagicMock()
+        input_required_task.id = "task-ir-2"
+        input_required_task.status = "input_required"
+        input_required_task.artifacts = []
+        input_required_task.metadata = {}
         input_required_task.error = None
 
         mock_client = MagicMock()
@@ -129,6 +202,10 @@ class TestA2AToolSend:
             "synapse.tools.a2a._record_sent_message", lambda **kwargs: None
         )
         monkeypatch.setattr("synapse.tools.a2a.build_sender_info", lambda *a, **k: {})
+        monkeypatch.setattr(
+            "synapse.tools.a2a._wait_for_parent_intervention",
+            lambda **kwargs: None,  # simulate timeout
+        )
 
         args = argparse.Namespace(
             target="codex",
@@ -149,11 +226,9 @@ class TestA2AToolSend:
         with pytest.raises(SystemExit) as exc_info:
             cmd_send(args)
 
-        assert exc_info.value.code != 0
+        assert exc_info.value.code == 2
         captured = capsys.readouterr()
-        combined = captured.out + captured.err
-        assert "input_required" in combined
-        assert "task-ir-1" in combined
+        assert "did not intervene" in captured.err
 
     def test_cmd_send_local_only_restricts_to_same_working_dir(self, monkeypatch):
         """--local-only should forward local_only=True to _resolve_target_agent.

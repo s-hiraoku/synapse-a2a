@@ -1,6 +1,6 @@
 # Permission Detection Spec
 
-spawn/team start で呼び出したエージェントが権限確認で止まった場合に、呼び出し元が status で気づき承認/拒否できる仕組み。
+spawn/team start で呼び出したエージェントが権限確認で止まった場合に、呼び出し元が status で気づき承認/拒否できる仕組み。現在は parent-side Approval Gate が structured escalation metadata を受け取り、自動 approve/deny/escalate を判断できる。
 
 ## 背景
 
@@ -14,6 +14,7 @@ spawn/team start で呼び出したエージェントが権限確認で止まっ
 2. 通知には「何で止まっているか」（PTY コンテキスト）を含める
 3. 呼び出し元が API で承認/拒否できる
 4. ユーザーは status 表示（Canvas / `synapse list`）で気づける
+5. `synapse send --wait` は `input_required` を終端失敗とみなさず、親の介入後に最終状態まで待ち続ける
 
 ## アーキテクチャ
 
@@ -30,9 +31,11 @@ spawn/team start で呼び出したエージェントが権限確認で止まっ
     |<-- input_required 通知 (自動) -------|  (FastAPI が HTTP で送信)
     |    permission.pty_context:            |
     |    "Allow Bash: rm -rf? [Y/n]"       |
+    |    permission_escalation:             |
+    |    {task_id, child_endpoint, ...}     |
     |                                      |
-    |-- 判断: 安全 → approve API ---------->|
-    |    POST /tasks/{id}/permission/approve|
+    |-- Approval Gate: decide/apply ------->|
+    |    approve / deny / escalate          |
     |                                      |-- controller.write("y\r")
     |                                      |-- PTY: 承認 -> 実行再開
     |                                      |
@@ -123,10 +126,21 @@ Response: {"status": "denied", "task_id": "task-123"}
     "sender": { "sender_id": "synapse-claude-8101" },
     "response_mode": "silent",
     "in_reply_to": "sender-task-id",
-    "_reply_status": "input_required"
+    "_reply_status": "input_required",
+    "permission_escalation": {
+      "task_id": "task-123",
+      "child_endpoint": "http://localhost:8101",
+      "child_agent_id": "synapse-claude-8101",
+      "child_agent_type": "claude",
+      "permission": {
+        "pty_context": "Allow Bash: rm -rf /tmp/test? [Y/n]"
+      }
+    }
   }
 }
 ```
+
+親サーバーはこの `permission_escalation` を受け取ると Approval Gate に渡し、ポリシーに従って `approve` / `deny` / `escalate` を選ぶ。Gate が失敗した場合でも、従来どおり artifact テキストを見て人手で対応できる。
 
 ## プロファイル設定
 
@@ -157,13 +171,15 @@ PERMISSION HANDLING - When Spawned Agents Need Approval:
 ## auto-approve との関係
 
 - `auto-approve` 有効時: controller が直接 PTY に承認を送信。`_on_status_change` は発火するが、WAITING 状態が短時間で解消されるため `input_required` 通知は実質的に送られない（WAITING → PROCESSING が高速に遷移）
-- `auto-approve` 無効時（`--no-auto-approve`）: WAITING が持続し、`_on_status_change` が `input_required` 通知を呼び出し元に送信。呼び出し元が approve/deny API で応答するまで待機
+- `auto-approve` 無効時（`--no-auto-approve`）: WAITING が持続し、`_on_status_change` が `input_required` 通知を呼び出し元に送信する。親は Approval Gate で自動応答するか、人手で approve/deny API を叩く。`synapse send --wait` はこの介入を待ってから完了/失敗を返す
 
 ## 変更ファイル
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `synapse/a2a_compat.py` | WAITING→input_required マッピング、_on_status_change 拡張、permission metadata、approve/deny API |
+| `synapse/a2a_compat.py` | WAITING→input_required マッピング、structured permission escalation metadata、Approval Gate dispatch |
+| `synapse/approval_gate.py` | 親側の approve / deny / escalate ポリシー判定と API dispatch |
+| `synapse/tools/a2a.py` | `synapse send --wait` が親の介入後までポーリング継続 |
 | `synapse/server.py` | deny_response の配線 |
 | `synapse/profiles/*.yaml` | deny_response 追加（全5プロファイル） |
 | Synapse instructions | 承認フローの行動指針 |
