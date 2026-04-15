@@ -98,7 +98,7 @@ flowchart LR
 | **Agent Monitor** | Real-time status (READY/WAITING/PROCESSING/DONE), CURRENT task preview, terminal jump |
 | **Task History** | Automatic task tracking with search, export, and statistics (enabled by default) |
 | **Quality Gates** | Configurable hooks (`on_idle`, `on_task_completed`) that control status transitions |
-| **Permission Detection** | WAITING status maps to A2A `input_required` with `x-permission-prompt` metadata. Approve/deny via `POST /tasks/{id}/permission/approve` and `/deny` endpoints. Each profile defines a `deny_response` for rejection. See [Permission Modes](docs/agent-permission-modes.md) |
+| **Permission Detection** | WAITING status maps to A2A `input_required` with `x-permission-prompt` metadata. Child agents send structured escalation metadata to their parent, which can auto-approve/deny via the Approval Gate or fall back to manual `POST /tasks/{id}/permission/approve` and `/deny`. In `synapse send --wait`, the sender now keeps polling until the parent intervenes or the timeout expires. Each profile defines a `deny_response` for rejection. See [Permission Modes](docs/agent-permission-modes.md) |
 | **Plan Approval** | Plan-mode workflow with `synapse approve/reject` for human-in-the-loop review |
 | **Graceful Shutdown** | `synapse kill` sends shutdown request before SIGTERM (30s timeout, `-f` for force). Worktree branches are auto-merged back to the base branch on kill (uncommitted changes are WIP-committed first; conflicts preserve the branch with a warning). Use `--no-merge` to skip auto-merge |
 | **Delegate Mode** | `--delegate-mode` makes an agent a manager that delegates instead of editing files |
@@ -714,7 +714,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse rename <target>` | Assign name/role to agent |
 | `synapse set-summary <target> [text]` | Set persistent agent summary (120 chars). `--auto` generates from git context, `--clear` removes |
 | `synapse --version` | Show version |
-| `synapse list` | List running agents (Rich TUI with auto-refresh and terminal jump) |
+| `synapse list` | List running agents (Rich TUI in alternate screen with auto-refresh and terminal jump) |
 | `synapse list --plain` | Force one-shot plain-text output without entering the TUI |
 | `synapse list --json` | Output agent list as JSON array (for AI/programmatic consumption) |
 | `synapse status <target>` | Show detailed agent status (info, current task, history, file locks). Supports `--json` |
@@ -1540,7 +1540,7 @@ Real-time monitoring of agent status with terminal jump capability.
 ### Rich TUI Mode
 
 ```bash
-# Start Rich TUI with auto-refresh (default)
+# Start Rich TUI in the alternate screen with auto-refresh (default)
 synapse list
 
 # JSON output for AI/programmatic consumption

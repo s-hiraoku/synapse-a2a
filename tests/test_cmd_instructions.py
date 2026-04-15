@@ -148,11 +148,24 @@ class TestInstructionsFiles:
         output = "\n".join(output_lines)
         assert "claude.md" in output
 
-    def test_files_shows_default_files(self, temp_synapse_dir: Path) -> None:
-        """Should list default instruction files when no agent type specified."""
+    def test_files_shows_default_files(
+        self, temp_synapse_dir: Path, tmp_path: Path
+    ) -> None:
+        """Should list the configured default file when no agent-specific
+        override exists. Both the project cwd and the home dir are patched
+        to an empty temp location so the result is deterministic across
+        environments that may or may not have ``~/.synapse/wiki.md`` etc.
+        Otherwise an existing user home leaks extra supplemental files
+        (wiki.md, shared-memory.md, file-safety.md) into the test."""
         output_lines: list[str] = []
 
-        with patch("synapse.settings.Path.cwd", return_value=temp_synapse_dir.parent):
+        fake_home = tmp_path / "fake_home"
+        fake_home.mkdir()
+
+        with (
+            patch("synapse.settings.Path.cwd", return_value=temp_synapse_dir.parent),
+            patch("synapse.settings.Path.home", return_value=fake_home),
+        ):
             cmd = InstructionsCommand(
                 settings_factory=lambda: create_settings_from_dir(temp_synapse_dir),
                 registry_factory=lambda: MagicMock(spec=AgentRegistry),
@@ -166,15 +179,22 @@ class TestInstructionsFiles:
         assert "default.md" in output
 
     def test_files_no_files_configured(self, tmp_path: Path) -> None:
-        """Should show message when no files are configured."""
+        """Should show the 'no files configured' hint when neither the
+        project nor the home dir contain any instruction files."""
         synapse_dir = tmp_path / ".synapse"
         synapse_dir.mkdir()
         settings_file = synapse_dir / "settings.json"
         settings_file.write_text(json.dumps({"instructions": {}}))
 
+        fake_home = tmp_path / "fake_home"
+        fake_home.mkdir()
+
         output_lines: list[str] = []
 
-        with patch("synapse.settings.Path.cwd", return_value=tmp_path):
+        with (
+            patch("synapse.settings.Path.cwd", return_value=tmp_path),
+            patch("synapse.settings.Path.home", return_value=fake_home),
+        ):
             cmd = InstructionsCommand(
                 settings_factory=lambda: create_settings_from_dir(synapse_dir),
                 registry_factory=lambda: MagicMock(spec=AgentRegistry),

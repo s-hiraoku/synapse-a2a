@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import json
 import logging
 import multiprocessing
 import os
@@ -25,6 +26,7 @@ from synapse.workflow import (
     WorkflowStore,
 )
 from synapse.workflow_runner import (
+    _DIR_MISMATCH_MARKER,
     _HELPER_ENV_MARKER,
     _NO_AGENT_MARKER,
 )
@@ -33,6 +35,16 @@ logger = logging.getLogger(__name__)
 
 _SPAWN_MAX_WAIT_SECONDS = 30
 MAX_WORKFLOW_DEPTH = 10
+
+# Retry a send when the target reports "Agent busy (working task)". Workflow
+# steps are often long-running (minutes of model work), so the retry window
+# must be generous: up to 10 checks at 30s intervals (~5 minutes total).
+# Between checks we also poll the target's /tasks endpoint to detect the
+# moment it becomes idle, so the retry fires as early as the target is ready
+# rather than wasting full 30s sleeps when the lull is brief.
+_BUSY_RETRY_MAX = 10
+_BUSY_RETRY_INTERVAL = 30  # seconds between busy checks
+_BUSY_MARKER = "Agent busy"
 
 
 def _get_workflow_store() -> WorkflowStore:
@@ -248,14 +260,74 @@ def _should_auto_spawn(step: WorkflowStep, effective_auto_spawn: bool) -> bool:
     return step.auto_spawn or effective_auto_spawn
 
 
+def _workflow_spawn_tool_args(profile: str) -> list[str] | None:
+    """Pick tool_args for a workflow-triggered spawn.
+
+    Workflow runs typically batch many short-lived permission requests
+    (``cp``, ``git``, ``gh``, ``pytest``) against a long-running child.
+    The profile's default ``auto_approve.cli_flag`` (e.g. ``--full-auto``)
+    leaves the child's sandbox in ``workspace-write`` mode, which prompts
+    for approval on any action outside cwd/workspace. Those prompts drain
+    the full runtime-approval budget — and the first regex miss leaves
+    the child stuck waiting for a human who isn't coming.
+
+    Prefer the profile's first ``alternative_flag`` when it exists (e.g.
+    ``--dangerously-bypass-approvals-and-sandbox`` for codex) so a
+    workflow-driven child just runs. A user starting an interactive agent
+    via ``synapse spawn`` / ``synapse team start`` still gets the safer
+    ``--full-auto`` default — nothing about those paths changes.
+
+    Returns None when the profile has no auto-approve config or no
+    alternative flags; in that case the caller falls through to the
+    profile's default.
+    """
+    try:
+        from synapse.server import load_profile
+
+        profile_config = load_profile(profile)
+    except Exception:  # broad: missing profile, yaml error, etc.
+        return None
+    if not isinstance(profile_config, dict):
+        return None
+    auto_approve_config = profile_config.get("auto_approve")
+    if not isinstance(auto_approve_config, dict):
+        return None
+
+    # YAML ``alternative_flags:`` may arrive as None, a bare string, a list,
+    # or some other iterable. Mirror the normalization in ``spawn.py`` so a
+    # profile that uses the single-string shorthand is still honoured here,
+    # and strip/filter each entry so whitespace-only or empty entries don't
+    # leak into the spawn command line.
+    raw_alternatives = auto_approve_config.get("alternative_flags")
+    if raw_alternatives is None:
+        return None
+    if isinstance(raw_alternatives, str):
+        raw_items: list[object] = [raw_alternatives]
+    else:
+        try:
+            raw_items = list(raw_alternatives)
+        except TypeError:
+            raw_items = [raw_alternatives]
+    cleaned: list[str] = [s for s in (str(f or "").strip() for f in raw_items) if s]
+    if not cleaned:
+        return None
+    # The profile lists alternative_flags as mutually-exclusive approval
+    # variants (OR semantics — passing any one of them disables the default
+    # ``cli_flag``). For workflow-driven auto-spawn we only need one, and the
+    # first entry is the convention for "the most permissive bypass".
+    return [cleaned[0]]
+
+
 def _try_spawn_agent(profile: str) -> bool:
     """Spawn an agent by profile name. Returns True on success."""
     try:
         from synapse.spawn import spawn_agent
 
-        result = spawn_agent(profile)
+        tool_args = _workflow_spawn_tool_args(profile)
+        result = spawn_agent(profile, tool_args=tool_args)
         if result.status == "submitted":
-            print(f"  Spawned {profile} agent (port {result.port})")
+            suffix = f" with {' '.join(tool_args)}" if tool_args else ""
+            print(f"  Spawned {profile} agent (port {result.port}){suffix}")
             return True
         print(
             f"  Warning: spawn {profile} returned status '{result.status}'",
@@ -267,15 +339,58 @@ def _try_spawn_agent(profile: str) -> bool:
         return False
 
 
+def _target_has_no_working_task(target: str) -> bool:
+    """Return True when *target* currently has no working/input_required task.
+
+    Uses the resolver with ``local_only=True`` so bare-type targets only
+    match an agent in the caller's working directory. Returns False on any
+    error (conservative — caller keeps waiting rather than racing into 409).
+    """
+    from synapse.registry import AgentRegistry
+    from synapse.tools.a2a import _resolve_target_agent
+
+    try:
+        agents = AgentRegistry().list_agents()
+        agent, _err = _resolve_target_agent(target, agents, local_only=True)
+        if agent is None:
+            return False
+        endpoint = agent.get("endpoint")
+        if not endpoint:
+            return False
+        import urllib.request
+
+        with urllib.request.urlopen(
+            f"{str(endpoint).rstrip('/')}/tasks", timeout=5
+        ) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        tasks = data.get("tasks") if isinstance(data, dict) else data
+        if not isinstance(tasks, list):
+            return False
+        for task in tasks:
+            status = task.get("status") if isinstance(task, dict) else ""
+            if isinstance(status, dict):
+                status = status.get("state", "")
+            if status in ("working", "input_required"):
+                return False
+        return True
+    except Exception:  # broad: any transient HTTP/parse error → keep waiting
+        return False
+
+
 def _wait_for_agent(target: str, timeout: float = _SPAWN_MAX_WAIT_SECONDS) -> bool:
-    """Poll registry until target agent appears or timeout."""
+    """Poll registry until an agent matching *target* appears in the caller's
+    working directory. Uses ``local_only=True`` so bare-type targets like
+    ``codex`` are not satisfied by an instance running in a different repo —
+    otherwise auto-spawn would think the spawn succeeded as soon as any
+    codex registered anywhere on the machine, then immediately hit
+    ``No agent found`` on the local retry."""
     from synapse.registry import AgentRegistry
     from synapse.tools.a2a import _resolve_target_agent
 
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         agents = AgentRegistry().list_agents()
-        agent, _err = _resolve_target_agent(target, agents)
+        agent, _err = _resolve_target_agent(target, agents, local_only=True)
         if agent is not None:
             return True
         time.sleep(1)
@@ -333,14 +448,43 @@ def _run_step(
         priority=step.priority,
         response_mode=step.response_mode,
         sender=os.getenv("SYNAPSE_AGENT_ID"),
+        local_only=True,
     )
 
+    # 409 Agent busy can occur transiently between back-to-back workflow
+    # steps while the previous step's task is still finalizing in the
+    # target's task store, or while the target is processing a large body
+    # of work from the prior step. Poll the target's /tasks endpoint until
+    # it drains; as soon as there is no working/input_required task, fire
+    # the retry. This avoids wasting the full interval sleep when the lull
+    # is short, while still bounding the total wait to ~5 minutes so a
+    # genuinely stuck target still surfaces as a step failure.
     result = subprocess.run(cmd, capture_output=True, text=True)
+    for attempt in range(_BUSY_RETRY_MAX):
+        stderr_for_busy = result.stderr or ""
+        if result.returncode == 0 or _BUSY_MARKER not in stderr_for_busy:
+            break
+        print(
+            f"  Target agent busy; waiting up to {_BUSY_RETRY_INTERVAL}s for idle "
+            f"(attempt {attempt + 1}/{_BUSY_RETRY_MAX})...",
+            file=sys.stderr,
+        )
+        wait_deadline = time.monotonic() + _BUSY_RETRY_INTERVAL
+        while time.monotonic() < wait_deadline:
+            if _target_has_no_working_task(step.target):
+                break
+            time.sleep(2)
+        result = subprocess.run(cmd, capture_output=True, text=True)
 
-    # Check if agent not found and auto-spawn is enabled
+    # Check if agent not found (or only exists in a different working
+    # directory) and auto-spawn is enabled. With --local-only the resolver
+    # reports NO_AGENT when no same-dir candidate exists, but we still accept
+    # DIR_MISMATCH as a spawn trigger defensively in case a future code path
+    # relaxes local_only enforcement.
+    stderr_text = result.stderr or ""
     if (
         result.returncode != 0
-        and _NO_AGENT_MARKER in (result.stderr or "")
+        and (_NO_AGENT_MARKER in stderr_text or _DIR_MISMATCH_MARKER in stderr_text)
         and _should_auto_spawn(step, auto_spawn)
     ):
         print(f"  Agent '{step.target}' not found. Spawning...")

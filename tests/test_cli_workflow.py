@@ -936,6 +936,238 @@ def test_auto_spawn_wait_timeout(
         cmd_workflow_run(args)
 
 
+def test_run_step_passes_local_only_flag(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """Workflow step send must pass --local-only so bare-type targets only
+    resolve to agents in the caller's working directory."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_single_step_workflow(store, target="codex")
+
+    args = _make_args(workflow_name="spawn-wf")
+    mock_result = MagicMock(returncode=0, stdout="", stderr="")
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch(
+            "synapse.commands.workflow.subprocess.run", return_value=mock_result
+        ) as mock_run,
+    ):
+        cmd_workflow_run(args)
+
+    assert mock_run.call_count == 1
+    cmd = mock_run.call_args_list[0][0][0]
+    assert "--local-only" in cmd, f"workflow send must use --local-only, got: {cmd}"
+
+
+def test_run_step_retries_on_agent_busy(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """Transient ``Agent busy (working task)`` between back-to-back steps
+    should be retried, not surfaced as a step failure. Post-impl workflows
+    where consecutive steps target the same agent routinely see this while
+    the previous step's task finalizes."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_single_step_workflow(store, target="codex")
+
+    args = _make_args(workflow_name="spawn-wf")
+
+    call_count = 0
+
+    def _send_side_effect(cmd, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        result = MagicMock()
+        if call_count == 1:
+            result.returncode = 1
+            result.stdout = ""
+            result.stderr = "Agent busy (working task). Retry after 2s. Status: 409"
+        else:
+            result.returncode = 0
+            result.stdout = "Sent.\n"
+            result.stderr = ""
+        return result
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch(
+            "synapse.commands.workflow.subprocess.run", side_effect=_send_side_effect
+        ),
+        patch("synapse.commands.workflow.time.sleep"),
+        patch("synapse.commands.workflow.time.monotonic", side_effect=[0.0, 999.0]),
+        # Without mocking _target_has_no_working_task, the busy-retry inner
+        # loop would hit the real AgentRegistry + /tasks HTTP and either
+        # block waiting for a non-existent agent or crash depending on host
+        # state. Returning True makes the loop fire the retry immediately.
+        patch(
+            "synapse.commands.workflow._target_has_no_working_task",
+            return_value=True,
+        ),
+        # _wait_for_agent is only reached via the auto-spawn branch (when
+        # stderr carries NO_AGENT/DIR_MISMATCH), which this test does not
+        # trigger. Mock it defensively so a future code move into the
+        # busy-retry path cannot make the test environment-dependent.
+        patch("synapse.commands.workflow._wait_for_agent", return_value=True),
+    ):
+        cmd_workflow_run(args)
+
+    # First call failed with busy, second call succeeded. If the runner did
+    # not retry, cmd_workflow_run would sys.exit(1) and we'd never reach here.
+    assert call_count == 2
+
+
+def test_workflow_spawn_tool_args_uses_profile_alternative_flag() -> None:
+    """workflow auto-spawn should pick the profile's first alternative
+    auto-approve flag (e.g. --dangerously-bypass-approvals-and-sandbox for
+    codex) so batch workflow runs aren't derailed by runtime approval
+    prompts that the default --full-auto sandbox issues."""
+    from synapse.commands.workflow import _workflow_spawn_tool_args
+
+    profile_yaml = {
+        "auto_approve": {
+            "cli_flag": "--full-auto",
+            "alternative_flags": [
+                "--dangerously-bypass-approvals-and-sandbox",
+                "--ask-for-approval",
+            ],
+            "runtime_response": "y\r",
+            "deny_response": "\x1b",
+        }
+    }
+
+    with patch("synapse.server.load_profile", return_value=profile_yaml):
+        result = _workflow_spawn_tool_args("codex")
+
+    assert result == ["--dangerously-bypass-approvals-and-sandbox"]
+
+
+def test_workflow_spawn_tool_args_returns_none_when_no_alternatives() -> None:
+    """When a profile has no alternative_flags, workflow spawn falls back
+    to the profile default (None tool_args)."""
+    from synapse.commands.workflow import _workflow_spawn_tool_args
+
+    profile_yaml = {
+        "auto_approve": {
+            "cli_flag": "--some-flag",
+            "runtime_response": "y\r",
+        }
+    }
+
+    with patch("synapse.server.load_profile", return_value=profile_yaml):
+        result = _workflow_spawn_tool_args("some-profile")
+
+    assert result is None
+
+
+def test_try_spawn_agent_passes_workflow_tool_args() -> None:
+    """_try_spawn_agent must forward the profile's alternative flag to
+    spawn_agent when available."""
+    from synapse.commands.workflow import _try_spawn_agent
+
+    mock_result = MagicMock()
+    mock_result.status = "submitted"
+    mock_result.port = 8126
+
+    with (
+        patch(
+            "synapse.commands.workflow._workflow_spawn_tool_args",
+            return_value=["--dangerously-bypass-approvals-and-sandbox"],
+        ),
+        patch("synapse.spawn.spawn_agent", return_value=mock_result) as mock_spawn,
+    ):
+        ok = _try_spawn_agent("codex")
+
+    assert ok is True
+    call_kwargs = mock_spawn.call_args.kwargs
+    assert call_kwargs.get("tool_args") == [
+        "--dangerously-bypass-approvals-and-sandbox"
+    ]
+
+
+def test_wait_for_agent_uses_local_only() -> None:
+    """_wait_for_agent must query the resolver with local_only=True so a
+    bare-type target like 'codex' is not satisfied by an instance already
+    running in an unrelated working directory. Otherwise auto-spawn returns
+    early before the freshly-spawned local agent is actually registered,
+    and the immediate retry sees 'No agent found'."""
+    from synapse.commands.workflow import _wait_for_agent
+
+    captured: dict[str, object] = {}
+
+    def _fake_resolve(target, agents, *, local_only=False, sender_id=None):
+        captured["local_only"] = local_only
+        captured["target"] = target
+        return {"agent_id": "synapse-codex-9999"}, None
+
+    with (
+        patch(
+            "synapse.commands.workflow.AgentRegistry"
+            if False
+            else "synapse.registry.AgentRegistry"
+        ) as MockRegistry,
+        patch("synapse.tools.a2a._resolve_target_agent", side_effect=_fake_resolve),
+    ):
+        MockRegistry.return_value.list_agents.return_value = {}
+        ok = _wait_for_agent("codex", timeout=2.0)
+
+    assert ok is True
+    assert captured.get("local_only") is True
+    assert captured.get("target") == "codex"
+
+
+def test_auto_spawn_on_dir_mismatch(
+    tmp_path: Path, workflow_dirs: tuple[Path, Path]
+) -> None:
+    """When the target only exists in a different working directory, auto-spawn
+    should kick in and create a fresh agent in the current directory."""
+    from synapse.commands.workflow import cmd_workflow_run
+
+    project_dir, user_dir = workflow_dirs
+    store = _make_store(project_dir, user_dir)
+    _save_single_step_workflow(store, target="codex")
+
+    args = _make_args(workflow_name="spawn-wf", auto_spawn=True)
+
+    call_count = 0
+
+    def _send_side_effect(cmd, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        result = MagicMock()
+        if call_count == 1:
+            result.returncode = 1
+            result.stdout = ""
+            result.stderr = (
+                "Warning: Target agent 'codex-agent' is in a different directory"
+            )
+        else:
+            result.returncode = 0
+            result.stdout = "Sent.\n"
+            result.stderr = ""
+        return result
+
+    with (
+        patch("synapse.commands.workflow._get_workflow_store", return_value=store),
+        patch(
+            "synapse.commands.workflow.subprocess.run", side_effect=_send_side_effect
+        ) as mock_run,
+        patch(
+            "synapse.commands.workflow._try_spawn_agent", return_value=True
+        ) as mock_spawn,
+        patch("synapse.commands.workflow._wait_for_agent", return_value=True),
+    ):
+        cmd_workflow_run(args)
+
+    assert mock_run.call_count == 2
+    mock_spawn.assert_called_once_with("codex")
+
+
 def test_dry_run_shows_auto_spawn_tag(
     tmp_path: Path, workflow_dirs: tuple[Path, Path], capsys: pytest.CaptureFixture
 ) -> None:

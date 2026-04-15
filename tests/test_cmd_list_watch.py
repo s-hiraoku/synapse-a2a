@@ -4,7 +4,6 @@ import json
 import shutil
 import threading
 import time
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -43,9 +42,9 @@ def create_list_command(
 
 
 @pytest.fixture
-def temp_registry_dir():
+def temp_registry_dir(tmp_path):
     """Create a temporary registry directory."""
-    temp_dir = Path("/tmp/a2a_test_list_watch")
+    temp_dir = tmp_path / "a2a_test_list_watch"
     temp_dir.mkdir(parents=True, exist_ok=True)
     yield temp_dir
     shutil.rmtree(temp_dir, ignore_errors=True)
@@ -825,13 +824,14 @@ class TestFileWatcher:
         if observer is not None:
             # Observer should be running
             assert observer.is_alive()
+            time.sleep(0.1)
 
             # Create a JSON file to trigger the watcher
             test_file = temp_registry_dir / "test-agent.json"
             test_file.write_text('{"test": true}')
 
-            # Wait for the event to be set
-            change_event.wait(timeout=1.0)
+            # Give the watchdog observer a bit more time on slower CI hosts.
+            change_event.wait(timeout=2.0)
             assert change_event.is_set()
 
             # Cleanup

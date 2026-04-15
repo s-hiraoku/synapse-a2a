@@ -261,6 +261,29 @@ class TestListCommandCoverage:
 
         assert list_command._read_key_nonblocking.call_count == len(keys)
 
+    @patch("synapse.commands.renderers.rich_renderer.RichRenderer")
+    @patch("rich.live.Live")
+    def test_run_rich_tui_uses_alternate_screen(
+        self, mock_live, mock_renderer, list_command
+    ):
+        """Rich Live should use alternate screen for stable redraws."""
+        console = MagicMock()
+        registry = MagicMock()
+        registry.list_agents.return_value = {}
+
+        list_command._setup_nonblocking_input = MagicMock(return_value=("settings", 1))
+        list_command._restore_terminal = MagicMock()
+        list_command._create_file_watcher = MagicMock(return_value=MagicMock())
+        list_command._read_key_nonblocking = MagicMock(side_effect=["q"])
+
+        with contextlib.suppress(SystemExit):
+            list_command._run_rich_tui(registry, console, "1.0.0")
+
+        live_kwargs = mock_live.call_args.kwargs
+        assert live_kwargs["screen"] is True
+        assert live_kwargs["auto_refresh"] is False
+        assert live_kwargs["vertical_overflow"] == "crop"
+
     def _setup_tui_mocks(self, list_command, agents, keys):
         """Set up common mocks for Rich TUI tests.
 

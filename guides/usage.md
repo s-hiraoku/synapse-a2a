@@ -832,10 +832,10 @@ synapse list
 
 **Rich TUI モード（デフォルト）**:
 
-`synapse list` は常に Rich TUI によるインタラクティブな表示で起動します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます（10秒間隔のフォールバックポーリング）。
+`synapse list` は常に Rich TUI によるインタラクティブな表示で起動します。表示は alternate screen 上で描画されるため、再描画が安定します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます（10秒間隔のフォールバックポーリング）。
 
 ```bash
-synapse list                      # 自動更新 Rich TUI
+synapse list                      # alternate screen 上の自動更新 Rich TUI
 synapse list --json               # JSON 配列出力（AI/スクリプト向け）
 ```
 
@@ -1351,6 +1351,34 @@ steps:
 
 ネストした workflow は再帰的に展開されます。`A -> B -> A` のような循環参照はエラーになり、ネスト深さは 10 までです。
 
+#### ランタイム動作のポイント
+
+`synapse workflow run` は複数の安全装置を重ねて、長時間の自動化フロー中に親 PTY を占有しないように設計されています。
+
+- **CWD 絞り込み (local_only)** — `target: claude` のような型名ターゲットは、呼び出し元と同じワーキングディレクトリで動いているエージェントにのみ解決されます。別プロジェクトの同型エージェントに誤って送信されることはありません。該当するエージェントが存在しない場合は `--auto-spawn` と組み合わせてその場で新規起動します (下記参照)。
+- **`--auto-spawn` でスポーンされる子の権限フラグ** — workflow 経由で自動スポーンされる子エージェントには、プロファイルの `auto_approve.alternative_flags` の先頭が付与されます (例: codex なら `--dangerously-bypass-approvals-and-sandbox`)。バッチ実行されるワークフロー子は runtime permission prompt で止まらず走り切る必要があるため、`--full-auto` デフォルトではなく sandbox を解除した形で起動します。対話的に `synapse spawn` / `synapse team start` で起動する場合は従来通りの `--full-auto` デフォルトです。
+- **Busy retry** — 連続するステップの遷移期は、ターゲットが前ステップの finalization 中で短時間 busy になります。これを素早くリトライするため、runner は 409 応答を受けたら `/tasks` エンドポイントを 30 秒おきにポーリングして idle を待ち、最大 10 回 (約 5 分間) リトライします。ターゲットが idle になった瞬間に次の送信を走らせるので、無駄に sleep し続けることはありません。
+- **Approval Gate による自動承認** — 子エージェントが permission prompt で停止すると、子のサーバは親エージェントに構造化された escalation メッセージ (`permission_escalation` メタデータ付き) を送ります。親エージェントの受信ハンドラは `synapse/approval_gate.py` の Decision Engine に dispatch し、ポリシーに従って `POST /tasks/<id>/permission/approve` または `deny` を自動的に送り返します。親 PTY に人間への alert が出ることはなく、ポリシー経由で挙動を制御できます。
+- **`input_required` 時の待機セマンティクス** — `synapse send --wait` は、対象タスクが `input_required` に遷移した場合でも早期に exit せず、親エージェント (または Approval Gate) が介入してタスクが完了するまでポーリングを続けます。タイムアウトは `SYNAPSE_PARENT_INTERVENTION_TIMEOUT` 環境変数 (既定 1800 秒) で制御します。
+
+ポリシー設定の例 (`settings.json`):
+
+```json
+{
+  "approval_gate": {
+    "enabled": true,
+    "default_action": "approve",
+    "profile_overrides": {
+      "claude": "escalate"
+    }
+  }
+}
+```
+
+- `default_action`: `approve` (デフォルト) / `deny` / `escalate` (人間介入を要求)
+- `profile_overrides`: エージェントタイプ別の上書き
+- `enabled: false` にすると Approval Gate は常に `escalate` を返し、既存の「親が手動で curl で承認」フローに戻ります
+
 #### Canvas からの実行
 
 Canvas のブラウザ UI（`#/workflow`）からもワークフローを実行できます。ワークフローを選択して **Run** ボタンをクリックします。
@@ -1535,7 +1563,7 @@ curl http://localhost:8100/status
 |----|------|
 | `PROCESSING` | 処理中・起動中 |
 | `READY` | 待機中（プロンプト表示中） |
-| `WAITING` | 権限プロンプト待ち（A2A では `input_required` にマッピング）。`POST /tasks/{id}/permission/approve` または `/deny` で応答可能 |
+| `WAITING` | 権限プロンプト待ち（A2A では `input_required` にマッピング）。親エージェントには自動通知され、Approval Gate か `POST /tasks/{id}/permission/approve` / `/deny` で応答可能 |
 | `NOT_STARTED` | 未起動 |
 
 ---

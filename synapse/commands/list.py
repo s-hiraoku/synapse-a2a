@@ -372,7 +372,7 @@ class ListCommand:
         """
         try:
             from watchdog.events import FileSystemEventHandler
-            from watchdog.observers import Observer
+            from watchdog.observers.polling import PollingObserver
 
             class RegistryChangeHandler(FileSystemEventHandler):
                 def __init__(self, event: Event) -> None:
@@ -383,7 +383,9 @@ class ListCommand:
                     if event.src_path.endswith(".json"):
                         self._event.set()
 
-            observer = Observer()
+            # Prefer polling for the registry dir watcher: it is more reliable
+            # across tmpfs/FSEvents combinations than the native observer.
+            observer = PollingObserver()
             handler = RegistryChangeHandler(change_event)
             observer.schedule(handler, str(registry_dir), recursive=False)
             observer.start()
@@ -460,6 +462,7 @@ class ListCommand:
             with Live(
                 console=console,
                 auto_refresh=False,
+                screen=True,
                 vertical_overflow="crop",
             ) as live:
                 while True:

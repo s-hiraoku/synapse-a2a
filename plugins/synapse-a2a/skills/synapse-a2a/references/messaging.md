@@ -188,6 +188,41 @@ synapse interrupt gemini "Stop and review"
 synapse send codex "STOP" --priority 5
 ```
 
+## Local-only Resolution (`--local-only`)
+
+`--local-only` restricts target resolution to agents whose `working_dir` matches the caller's current directory. Without it, bare-type targets like `codex` or `claude` can fall back to an agent in a completely different repository, which is almost never what you want when a workflow is coordinating siblings inside one project.
+
+```bash
+# Only resolve to a codex in the caller's WD (or worktree pair).
+# Fails with "No agent found" if none is local, letting --auto-spawn create one.
+synapse send codex "run tests" --local-only --notify
+```
+
+**Workflow runner uses this automatically.** Every step in `synapse workflow run` is dispatched with `--local-only` so that `target: codex` in a YAML never leaks to an unrelated codex agent in another directory. When combined with `--auto-spawn`, a missing same-WD target is spawned fresh in the caller's working directory instead of silently reusing an elsewhere-running instance.
+
+## Handling `input_required`
+
+When a child task stops in `input_required`, the child is blocked on parent input — typically a permission approval, but also clarifying questions (e.g. `/release patch|minor|major?`) or any interactive prompt the child cannot answer by itself. Synapse surfaces this to the parent in two complementary ways:
+
+1. **The child agent proactively notifies its parent** via A2A when it transitions into `input_required` (see `_on_status_change` in the server). The parent receives both the legacy text artifact and a structured `permission_escalation` block containing the child endpoint, task id, agent type, and permission metadata. The parent-side Approval Gate can consume that block and automatically decide `approve`, `deny`, or `escalate`.
+
+2. **`synapse send --wait` no longer treats `input_required` as terminal.** The CLI prints the task_id, endpoint, pty_context preview, and the exact `curl` / `synapse send` commands the parent can use to unblock the child, then keeps polling until the task reaches a terminal state. If no parent intervention arrives before `SYNAPSE_PARENT_INTERVENTION_TIMEOUT` (default 1800s), it exits non-zero (exit code 2).
+
+As the parent, when you see either signal, inspect the context and do one of:
+
+```bash
+# Approve a permission prompt
+curl -X POST "<endpoint>/tasks/<task_id>/permission/approve"
+
+# Deny a permission prompt
+curl -X POST "<endpoint>/tasks/<task_id>/permission/deny"
+
+# Send a clarification reply (child resumes once its PTY gets the text)
+synapse send <child> "<clarifying answer>" --local-only --notify
+```
+
+Never treat `input_required` as "done" — that is how workflow runners previously drifted into 409 cascades when a child was quietly waiting for the parent to answer.
+
 ## Agent Status
 
 | Status | Meaning | Color |
