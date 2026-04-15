@@ -10,7 +10,7 @@ This skill updates the project version, plugin version, and changelog.
 ## Usage
 
 ```
-/release <version-type-or-number> [description]
+/release [version-type-or-number] [description]
 ```
 
 ### Version Types
@@ -19,6 +19,29 @@ This skill updates the project version, plugin version, and changelog.
 - `minor` - Increment minor version (e.g., 0.2.12 → 0.3.0)
 - `major` - Increment major version (e.g., 0.2.12 → 1.0.0)
 - `X.Y.Z` - Set specific version (e.g., 1.0.0)
+
+### Version Type is Optional — Auto-detect from Conventional Commits
+
+If the version type is omitted, auto-detect the bump level from commits since the
+latest tag using the standard [Semantic Versioning](https://semver.org/) +
+[Conventional Commits](https://www.conventionalcommits.org/) mapping:
+
+- **major** — any commit contains `BREAKING CHANGE:` in the body or `!` before the
+  colon in the subject (e.g. `feat!:`, `refactor(core)!:`).
+- **minor** — otherwise, at least one `feat:` (or `feat(scope):`) commit.
+- **patch** — otherwise (fixes, chores, docs, etc.).
+
+Procedure:
+
+1. `git describe --tags --abbrev=0` → latest tag (fall back to "all history" if none).
+2. `git log <tag>..HEAD` → commits to classify.
+3. If the range is empty, abort with `No commits since <tag>; nothing to release`.
+4. Print the detected bump type with a one-line commit count summary, then continue
+   with the normal bump flow. Do not prompt for confirmation — this keeps
+   non-interactive workflows like `post-impl-codex` unblocked.
+
+**Explicit argument always wins.** If the user passes `patch`/`minor`/`major`/`X.Y.Z`,
+skip auto-detection entirely.
 
 ### Description (Optional)
 

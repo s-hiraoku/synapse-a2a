@@ -90,3 +90,103 @@ class TestA2AToolSend:
         # local_only defaults to False (allows HTTP fallback if UDS fails)
         assert call_kwargs.get("local_only", False) is False
         mock_port_open.assert_not_called()
+
+    def test_cmd_send_input_required_exits_nonzero(self, monkeypatch, capsys):
+        """After send_to_local returns a task stuck in input_required, cmd_send
+        must print pty_context/approve hints and exit non-zero so the workflow
+        runner doesn't mistake an input-waiting child for a completed step.
+        """
+        target_agent = {
+            "agent_id": "synapse-codex-9001",
+            "agent_type": "codex",
+            "port": 9001,
+            "endpoint": "http://localhost:9001",
+            "pid": 555,
+        }
+
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {"synapse-codex-9001": target_agent}
+
+        input_required_task = MagicMock()
+        input_required_task.id = "task-ir-1"
+        input_required_task.status = "input_required"
+        input_required_task.artifacts = []
+        input_required_task.metadata = {
+            "permission": {
+                "pty_context": "Allow Bash: rm -rf /tmp/demo? [Y/n]",
+            }
+        }
+        input_required_task.error = None
+
+        mock_client = MagicMock()
+        mock_client.send_to_local.return_value = input_required_task
+
+        monkeypatch.setattr("synapse.tools.a2a.AgentRegistry", lambda: mock_registry)
+        monkeypatch.setattr("synapse.tools.a2a.A2AClient", lambda: mock_client)
+        monkeypatch.setattr("synapse.tools.a2a.is_process_running", lambda pid: True)
+        monkeypatch.setattr("synapse.tools.a2a.is_port_open", lambda *a, **k: True)
+        monkeypatch.setattr(
+            "synapse.tools.a2a._record_sent_message", lambda **kwargs: None
+        )
+        monkeypatch.setattr("synapse.tools.a2a.build_sender_info", lambda *a, **k: {})
+
+        args = argparse.Namespace(
+            target="codex",
+            priority=3,
+            sender=None,
+            response_mode="wait",
+            message="Please release",
+            message_file=None,
+            task_file=None,
+            stdin=False,
+            attach=None,
+            force=False,
+            local_only=True,
+        )
+
+        import pytest
+
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_send(args)
+
+        assert exc_info.value.code != 0
+        captured = capsys.readouterr()
+        combined = captured.out + captured.err
+        assert "input_required" in combined
+        assert "task-ir-1" in combined
+
+    def test_cmd_send_local_only_restricts_to_same_working_dir(self, monkeypatch):
+        """--local-only should forward local_only=True to _resolve_target_agent.
+
+        This makes workflow send paths only resolve to agents sharing the
+        caller's working directory, never falling back to agents elsewhere.
+        """
+        captured: dict[str, object] = {}
+
+        def _fake_resolve(target, agents, *, local_only=False, sender_id=None):
+            captured["local_only"] = local_only
+            captured["target"] = target
+            return None, "No agent found matching 'codex'"
+
+        mock_registry = MagicMock()
+        mock_registry.list_agents.return_value = {}
+        monkeypatch.setattr("synapse.tools.a2a.AgentRegistry", lambda: mock_registry)
+        monkeypatch.setattr("synapse.tools.a2a._resolve_target_agent", _fake_resolve)
+
+        args = argparse.Namespace(
+            target="codex",
+            priority=1,
+            sender=None,
+            response_mode="notify",
+            message="Hello",
+            local_only=True,
+            force=False,
+        )
+
+        import pytest
+
+        with pytest.raises(SystemExit):
+            cmd_send(args)
+
+        assert captured.get("local_only") is True
+        assert captured.get("target") == "codex"

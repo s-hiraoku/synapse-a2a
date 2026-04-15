@@ -48,6 +48,7 @@ def _build_a2a_cmd(
     response_mode: str | None = None,
     attachments: list[str] | None = None,
     force: bool = False,
+    local_only: bool = False,
 ) -> list[str]:
     """Build command arguments for a2a.py subcommand."""
     import tempfile
@@ -88,6 +89,8 @@ def _build_a2a_cmd(
         cmd.append(f"--{response_mode}")
     if force:
         cmd.append("--force")
+    if local_only:
+        cmd.append("--local-only")
 
     return cmd
 

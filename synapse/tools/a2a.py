@@ -89,10 +89,14 @@ def cmd_send(args: argparse.Namespace) -> None:
     agents = reg.list_agents()
     sender_id = getattr(args, "sender", None) or os.getenv("SYNAPSE_AGENT_ID")
 
-    # Resolve target agent
+    # Resolve target agent. --local-only restricts candidates to agents in
+    # the caller's working directory so bare-type targets never fall back to
+    # agents running elsewhere (used by workflow runner).
+    local_only = bool(getattr(args, "local_only", False))
     target_agent, error = _resolve_target_agent(
         args.target,
         agents,
+        local_only=local_only,
         sender_id=sender_id,
     )
     if error or target_agent is None:
@@ -263,6 +267,46 @@ def cmd_send(args: argparse.Namespace) -> None:
         priority=args.priority,
         sender_info=sender_info,
     )
+
+    # If the target stopped in input_required while we were waiting, the
+    # child is blocked on parent input (permission approval, clarification,
+    # etc.). The A2AClient already stopped polling by design (#513). We must
+    # exit non-zero so workflow runners and scripts treat this as "step not
+    # done" rather than "step completed". The parent agent can inspect the
+    # pty_context from stderr and either approve via
+    # /tasks/<id>/permission/approve or send a follow-up message.
+    if task.status == "input_required":
+        pty_context = ""
+        metadata = getattr(task, "metadata", None) or {}
+        permission = metadata.get("permission") if isinstance(metadata, dict) else None
+        if isinstance(permission, dict):
+            pty_context = str(permission.get("pty_context", "") or "")
+        print(
+            f"Error: Target task {task_id} is in input_required state — "
+            "parent intervention required.",
+            file=sys.stderr,
+        )
+        print(
+            f"  Endpoint: {target_agent.get('endpoint', 'unknown')}",
+            file=sys.stderr,
+        )
+        print(f"  Task ID:  {task_id}", file=sys.stderr)
+        if pty_context:
+            preview = (
+                pty_context if len(pty_context) <= 300 else pty_context[:297] + "..."
+            )
+            print(f"  PTY hint: {preview}", file=sys.stderr)
+        print(
+            "  Approve:  "
+            f"curl -X POST {target_agent.get('endpoint', '').rstrip('/')}/tasks/{task_id}/permission/approve",
+            file=sys.stderr,
+        )
+        print(
+            "  Or send a clarification message with: "
+            f"synapse send {target_agent.get('name') or target_agent.get('agent_id', '')} '<reply>' --local-only",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
 
 def cmd_broadcast(args: argparse.Namespace) -> None:
@@ -635,6 +679,17 @@ def main() -> None:
         action="store_true",
         default=False,
         help="Send even if target is in a different working directory",
+    )
+    p_send.add_argument(
+        "--local-only",
+        dest="local_only",
+        action="store_true",
+        default=False,
+        help=(
+            "Restrict target resolution to agents in the caller's working "
+            "directory. Used by workflow runner so bare-type targets never "
+            "fall back to agents in other directories."
+        ),
     )
 
     # broadcast command

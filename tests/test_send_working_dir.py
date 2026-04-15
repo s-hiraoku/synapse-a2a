@@ -242,6 +242,7 @@ class TestCmdSendWithForce:
         args.sender = None
         args.response_mode = "silent"
         args.force = False
+        args.local_only = False
 
         mock_task = MagicMock()
         mock_task.id = "test-task-id"
@@ -277,6 +278,7 @@ class TestCmdSendWithForce:
         args.sender = None
         args.response_mode = "silent"
         args.force = False
+        args.local_only = False
 
         with (
             patch("synapse.tools.a2a.AgentRegistry") as MockRegistry,
@@ -305,6 +307,7 @@ class TestCmdSendWithForce:
         args.sender = None
         args.response_mode = "silent"
         args.force = True
+        args.local_only = False
 
         mock_task = MagicMock()
         mock_task.id = "test-task-id"

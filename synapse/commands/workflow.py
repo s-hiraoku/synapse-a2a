@@ -25,6 +25,7 @@ from synapse.workflow import (
     WorkflowStore,
 )
 from synapse.workflow_runner import (
+    _DIR_MISMATCH_MARKER,
     _HELPER_ENV_MARKER,
     _NO_AGENT_MARKER,
 )
@@ -33,6 +34,14 @@ logger = logging.getLogger(__name__)
 
 _SPAWN_MAX_WAIT_SECONDS = 30
 MAX_WORKFLOW_DEPTH = 10
+
+# Retry a send when the target reports "Agent busy (working task)". This
+# happens transiently between two back-to-back workflow steps while the
+# previous step's task is still finalizing. Bounded so a genuinely stuck
+# target still surfaces as a step failure.
+_BUSY_RETRY_MAX = 5
+_BUSY_RETRY_BACKOFF = 2  # seconds; scaled by attempt number
+_BUSY_MARKER = "Agent busy"
 
 
 def _get_workflow_store() -> WorkflowStore:
@@ -268,14 +277,19 @@ def _try_spawn_agent(profile: str) -> bool:
 
 
 def _wait_for_agent(target: str, timeout: float = _SPAWN_MAX_WAIT_SECONDS) -> bool:
-    """Poll registry until target agent appears or timeout."""
+    """Poll registry until an agent matching *target* appears in the caller's
+    working directory. Uses ``local_only=True`` so bare-type targets like
+    ``codex`` are not satisfied by an instance running in a different repo —
+    otherwise auto-spawn would think the spawn succeeded as soon as any
+    codex registered anywhere on the machine, then immediately hit
+    ``No agent found`` on the local retry."""
     from synapse.registry import AgentRegistry
     from synapse.tools.a2a import _resolve_target_agent
 
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         agents = AgentRegistry().list_agents()
-        agent, _err = _resolve_target_agent(target, agents)
+        agent, _err = _resolve_target_agent(target, agents, local_only=True)
         if agent is not None:
             return True
         time.sleep(1)
@@ -333,14 +347,37 @@ def _run_step(
         priority=step.priority,
         response_mode=step.response_mode,
         sender=os.getenv("SYNAPSE_AGENT_ID"),
+        local_only=True,
     )
 
+    # 409 Agent busy can occur briefly between two workflow steps while the
+    # previous step's task is still being finalized in the target's task
+    # store. Retry a few times with backoff so normal post-impl flows where
+    # steps target the same agent back-to-back don't bail out on a transient
+    # busy state. Stays bounded so a genuinely stuck target still surfaces.
     result = subprocess.run(cmd, capture_output=True, text=True)
+    for attempt in range(_BUSY_RETRY_MAX):
+        stderr_for_busy = result.stderr or ""
+        if result.returncode == 0 or _BUSY_MARKER not in stderr_for_busy:
+            break
+        wait_seconds = _BUSY_RETRY_BACKOFF * (attempt + 1)
+        print(
+            f"  Target agent busy; retrying in {wait_seconds}s "
+            f"(attempt {attempt + 1}/{_BUSY_RETRY_MAX})...",
+            file=sys.stderr,
+        )
+        time.sleep(wait_seconds)
+        result = subprocess.run(cmd, capture_output=True, text=True)
 
-    # Check if agent not found and auto-spawn is enabled
+    # Check if agent not found (or only exists in a different working
+    # directory) and auto-spawn is enabled. With --local-only the resolver
+    # reports NO_AGENT when no same-dir candidate exists, but we still accept
+    # DIR_MISMATCH as a spawn trigger defensively in case a future code path
+    # relaxes local_only enforcement.
+    stderr_text = result.stderr or ""
     if (
         result.returncode != 0
-        and _NO_AGENT_MARKER in (result.stderr or "")
+        and (_NO_AGENT_MARKER in stderr_text or _DIR_MISMATCH_MARKER in stderr_text)
         and _should_auto_spawn(step, auto_spawn)
     ):
         print(f"  Agent '{step.target}' not found. Spawning...")
