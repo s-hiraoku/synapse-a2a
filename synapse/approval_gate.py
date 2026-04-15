@@ -26,7 +26,12 @@ flow share one response mechanism rather than each rebuilding it.
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import re
+import threading
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -34,6 +39,31 @@ from typing import Any
 import requests
 
 logger = logging.getLogger(__name__)
+
+
+# Substrings that identify a child stuck on a non-permission terminal
+# state. Sending the profile's runtime_response (``y\r`` etc.) to these
+# screens has no effect, so the Approval Gate must short-circuit to
+# ESCALATE instead of entering an approve/re-escalate flood loop. The
+# canonical example is the OpenAI usage-limit banner captured during
+# the Step D diagnostic (2026-04-15): ``■ You've hit your usage limit.
+# Upgrade to Pro (...) try again at Apr 17th, 2026 6:28 AM``.
+_BLOCKED_STATE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"hit your usage limit", re.IGNORECASE),
+    re.compile(r"Upgrade to Pro", re.IGNORECASE),
+    re.compile(r"try again at .+ (AM|PM)", re.IGNORECASE),
+)
+
+
+def _is_blocked_state(pty_context: str) -> bool:
+    """True if *pty_context* looks like a non-permission terminal state.
+
+    A ``True`` return means auto-approving would not unblock the child,
+    so the gate must escalate to a human operator instead.
+    """
+    if not pty_context:
+        return False
+    return any(p.search(pty_context) for p in _BLOCKED_STATE_PATTERNS)
 
 
 class ApprovalDecision(str, Enum):
@@ -128,13 +158,25 @@ def decide(request: ApprovalRequest) -> ApprovalDecision:
     Policy order:
     1. If the gate is disabled, always escalate (preserves legacy manual
        parent intervention).
-    2. Per-profile override (keyed by ``target_agent_type``) wins over the
-       default.
-    3. Fall back to the configured ``default_action`` (approve unless
+    2. If the child's ``pty_context`` matches a known blocked-state
+       banner (e.g. OpenAI usage limit), escalate regardless of policy
+       — approving would send ``y\\r`` to a modal that does not accept
+       it and the child would re-escalate indefinitely.
+    3. Per-profile override (keyed by ``target_agent_type``) wins over
+       the default.
+    4. Fall back to the configured ``default_action`` (approve unless
        settings say otherwise).
     """
     policy = _load_policy()
     if not policy.get("enabled", True):
+        return ApprovalDecision.ESCALATE
+
+    if _is_blocked_state(request.pty_context):
+        logger.info(
+            "approval_gate: blocked-state detected on task %s (%s); escalating",
+            request.task_id,
+            request.target_agent_id,
+        )
         return ApprovalDecision.ESCALATE
 
     overrides: dict[str, str] = policy.get("profile_overrides") or {}
@@ -244,6 +286,77 @@ def decide_and_apply(request: ApprovalRequest) -> tuple[ApprovalDecision, bool]:
     decision = decide(request)
     ok = apply(request, decision)
     return decision, ok
+
+
+class EscalationDeduper:
+    """Thread-safe TTL guard that collapses repeat escalations.
+
+    The Step D diagnostic (2026-04-15) captured four distinct task_ids
+    carrying the same blocked-state ``pty_context`` within a 4 second
+    window — the child kept minting fresh tasks as each
+    ``permission/approve`` failed to unblock the underlying modal.
+    Pure task_id dedupe does not catch this because the task_ids are
+    all different; the dedupe key must be
+    ``(target_agent_id, hash(pty_context))`` so the same child stuck on
+    the same screen cannot walk around the guard by cycling task ids.
+
+    Empty ``pty_context`` values are never treated as duplicates — we
+    cannot prove the child is in the same state, so suppression would
+    be unsafe.
+    """
+
+    def __init__(
+        self,
+        *,
+        ttl_seconds: float = 60.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._ttl = float(ttl_seconds)
+        self._clock = clock
+        self._entries: dict[tuple[str, str], float] = {}
+        self._lock = threading.Lock()
+
+    def _key(self, request: ApprovalRequest) -> tuple[str, str] | None:
+        if not request.pty_context:
+            return None
+        digest = hashlib.sha1(
+            request.pty_context.encode("utf-8", errors="replace")
+        ).hexdigest()
+        return (request.target_agent_id, digest)
+
+    def seen(self, request: ApprovalRequest) -> bool:
+        """Record *request* and return True if it is a duplicate.
+
+        Expired entries are swept opportunistically on each call so the
+        map cannot grow without bound.
+        """
+        key = self._key(request)
+        if key is None:
+            return False
+        now = self._clock()
+        with self._lock:
+            self._entries = {
+                k: ts for k, ts in self._entries.items() if now - ts <= self._ttl
+            }
+            if key in self._entries:
+                return True
+            self._entries[key] = now
+            return False
+
+
+_default_deduper = EscalationDeduper(ttl_seconds=60.0)
+
+
+def get_default_deduper() -> EscalationDeduper:
+    """Return the process-wide escalation dedupe guard.
+
+    Callers on the incoming-escalation path consult this before running
+    ``decide_and_apply`` so a child stuck on the same blocked screen
+    cannot flood the parent with identical escalations under different
+    task ids. Tests may construct their own :class:`EscalationDeduper`
+    directly; production code uses this singleton.
+    """
+    return _default_deduper
 
 
 def request_from_a2a_metadata(

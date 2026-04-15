@@ -1099,6 +1099,7 @@ def create_a2a_router(
             try:
                 from synapse.approval_gate import (
                     decide_and_apply,
+                    get_default_deduper,
                     request_from_a2a_metadata,
                 )
 
@@ -1114,6 +1115,36 @@ def create_a2a_router(
                     target_agent_type=str(escalation.get("child_agent_type", "")),
                     metadata={"permission": dict(permission_block)},
                 )
+                # Dedupe guard: a child stuck on the same blocked-state
+                # screen (e.g. usage-limit banner) mints a fresh task_id
+                # every few seconds, so task-id dedupe on its own is not
+                # enough. Suppress repeat escalations that share the same
+                # (target_agent_id, pty_context) within the TTL window —
+                # the original decision already did whatever was possible
+                # for that screen. Record the duplicate as a completed
+                # task so observers see the request was handled.
+                if get_default_deduper().seen(gate_request):
+                    logger.info(
+                        "approval_gate: deduped repeat escalation task=%s on %s",
+                        gate_request.task_id,
+                        gate_request.target_agent_id,
+                    )
+                    escalation_task = task_store.create(
+                        request.message,
+                        request.context_id,
+                        metadata={
+                            **metadata,
+                            "handled_by_approval_gate": True,
+                            "approval_gate_deduped": True,
+                        },
+                    )
+                    task_store.update_status(escalation_task.id, "completed")
+                    updated_escalation = task_store.get(escalation_task.id)
+                    if updated_escalation is None:
+                        raise HTTPException(
+                            status_code=500, detail="Escalation task disappeared"
+                        )
+                    return SendMessageResponse(task=updated_escalation)
                 gate_decision, gate_ok = decide_and_apply(gate_request)
                 logger.info(
                     "approval_gate: incoming escalation task=%s decision=%s ok=%s",
