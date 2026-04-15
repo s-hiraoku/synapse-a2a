@@ -89,9 +89,16 @@ class TestApprovalGateDecide:
         # A different profile still hits the default
         assert decide(_req(agent_type="claude")) is ApprovalDecision.APPROVE
 
-    def test_invalid_default_action_falls_back_to_approve(
+    def test_invalid_default_action_falls_back_to_escalate(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """When a caller bypasses ``_load_policy`` and hands the gate a
+        malformed ``default_action`` value, ``decide`` must fall back to
+        ``ESCALATE`` — silently auto-approving on a config typo is worse
+        than routing the request through a human. (The normal
+        ``_load_policy`` path already filters bad values, so this only
+        matters for direct monkeypatches and tests.)"""
+
         def _policy() -> dict[str, Any]:
             return {
                 "enabled": True,
@@ -100,7 +107,7 @@ class TestApprovalGateDecide:
             }
 
         monkeypatch.setattr("synapse.approval_gate._load_policy", _policy)
-        assert decide(_req()) is ApprovalDecision.APPROVE
+        assert decide(_req()) is ApprovalDecision.ESCALATE
 
 
 class TestApprovalGateApply:

@@ -1000,6 +1000,15 @@ def test_run_step_retries_on_agent_busy(
             "synapse.commands.workflow.subprocess.run", side_effect=_send_side_effect
         ),
         patch("synapse.commands.workflow.time.sleep"),
+        patch("synapse.commands.workflow.time.monotonic", side_effect=[0.0, 999.0]),
+        # Without mocking _target_has_no_working_task, the busy-retry inner
+        # loop would hit the real AgentRegistry + /tasks HTTP and either
+        # block waiting for a non-existent agent or crash depending on host
+        # state. Returning True makes the loop fire the retry immediately.
+        patch(
+            "synapse.commands.workflow._target_has_no_working_task",
+            return_value=True,
+        ),
     ):
         cmd_workflow_run(args)
 

@@ -153,7 +153,16 @@ def decide(request: ApprovalRequest) -> ApprovalDecision:
     try:
         return ApprovalDecision(default_action)
     except ValueError:
-        return ApprovalDecision.APPROVE
+        # Malformed settings value. Prefer the safe side (escalate to a
+        # human) rather than silently auto-approving based on a typo —
+        # mirrors the ``disabled`` branch above. The ``_load_policy`` loader
+        # normally filters bad values out, so this path only fires when a
+        # caller bypasses the loader (e.g., tests or direct monkeypatch).
+        logger.warning(
+            "approval_gate: invalid default_action %r, escalating",
+            default_action,
+        )
+        return ApprovalDecision.ESCALATE
 
 
 def apply(

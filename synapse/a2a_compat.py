@@ -1102,12 +1102,17 @@ def create_a2a_router(
                     request_from_a2a_metadata,
                 )
 
+                # ``request_from_a2a_metadata`` reads the permission block
+                # from ``metadata["permission"]``, so wrap the dict in the
+                # same shape the child's task_store writes rather than
+                # unwrapping it (CodeRabbit review on #570).
+                permission_block = escalation.get("permission") or {}
                 gate_request = request_from_a2a_metadata(
                     task_id=str(escalation.get("task_id", "")),
                     endpoint=str(escalation.get("child_endpoint", "")),
                     target_agent_id=str(escalation.get("child_agent_id", "")),
                     target_agent_type=str(escalation.get("child_agent_type", "")),
-                    metadata=dict(escalation.get("permission") or {}),
+                    metadata={"permission": dict(permission_block)},
                 )
                 gate_decision, gate_ok = decide_and_apply(gate_request)
                 logger.info(
@@ -1142,12 +1147,34 @@ def create_a2a_router(
             except HTTPException:
                 raise
             except Exception as exc:  # broad: gate errors should not block PTY path
+                # Don't fall through to the legacy PTY path: the legacy path
+                # treats ``reply_status == "input_required"`` as a completed
+                # reply (everything except ``"failed"`` is completed), which
+                # silently confirms the child's blocked task back to the
+                # waiting ``synapse send --wait`` subprocess. Record the
+                # escalation as a failed local task instead so the gate
+                # failure is visible and the sender's poll loop keeps waiting
+                # for a real resolution (CodeRabbit review on #570).
                 logger.warning(
                     "approval_gate: dispatch failed for incoming escalation: %s",
                     exc,
                 )
-                # Fall through to the normal PTY delivery path so the message
-                # still reaches the parent as a legacy text notification.
+                escalation_task = task_store.create(
+                    request.message,
+                    request.context_id,
+                    metadata={
+                        **metadata,
+                        "handled_by_approval_gate": False,
+                        "approval_gate_error": str(exc),
+                    },
+                )
+                task_store.update_status(escalation_task.id, "failed")
+                updated_escalation = task_store.get(escalation_task.id)
+                if updated_escalation is None:
+                    raise HTTPException(
+                        status_code=500, detail="Escalation task disappeared"
+                    ) from exc
+                return SendMessageResponse(task=updated_escalation)
 
         if in_reply_to:
             # Support prefix match for short IDs from PTY display

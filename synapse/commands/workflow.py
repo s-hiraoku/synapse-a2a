@@ -292,10 +292,23 @@ def _workflow_spawn_tool_args(profile: str) -> list[str] | None:
     auto_approve_config = profile_config.get("auto_approve")
     if not isinstance(auto_approve_config, dict):
         return None
-    alternatives = auto_approve_config.get("alternative_flags")
-    if not isinstance(alternatives, list) or not alternatives:
+
+    # YAML ``alternative_flags:`` may arrive as None, a bare string, a list,
+    # or some other iterable. Mirror the normalization in ``spawn.py`` so a
+    # profile that uses the single-string shorthand is still honoured here.
+    raw_alternatives = auto_approve_config.get("alternative_flags")
+    if raw_alternatives is None:
         return None
-    flag = str(alternatives[0] or "").strip()
+    if isinstance(raw_alternatives, str):
+        normalized = [raw_alternatives]
+    else:
+        try:
+            normalized = [str(f) for f in raw_alternatives]
+        except TypeError:
+            normalized = [str(raw_alternatives)]
+    if not normalized:
+        return None
+    flag = str(normalized[0] or "").strip()
     if not flag:
         return None
     return [flag]
