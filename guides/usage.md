@@ -1360,6 +1360,8 @@ steps:
 - **Busy retry** — 連続するステップの遷移期は、ターゲットが前ステップの finalization 中で短時間 busy になります。これを素早くリトライするため、runner は 409 応答を受けたら `/tasks` エンドポイントを 30 秒おきにポーリングして idle を待ち、最大 10 回 (約 5 分間) リトライします。ターゲットが idle になった瞬間に次の送信を走らせるので、無駄に sleep し続けることはありません。
 - **Approval Gate による自動承認** — 子エージェントが permission prompt で停止すると、子のサーバは親エージェントに構造化された escalation メッセージ (`permission_escalation` メタデータ付き) を送ります。親エージェントの受信ハンドラは `synapse/approval_gate.py` の Decision Engine に dispatch し、ポリシーに従って `POST /tasks/<id>/permission/approve` または `deny` を自動的に送り返します。親 PTY に人間への alert が出ることはなく、ポリシー経由で挙動を制御できます。
 - **`input_required` 時の待機セマンティクス** — `synapse send --wait` は、対象タスクが `input_required` に遷移した場合でも早期に exit せず、親エージェント (または Approval Gate) が介入してタスクが完了するまでポーリングを続けます。タイムアウトは `SYNAPSE_PARENT_INTERVENTION_TIMEOUT` 環境変数 (既定 1800 秒) で制御します。
+- **仮想ターミナルでの waiting_detection 評価 (#572)** — 子エージェントの PTY 出力はバイト列のまま regex にかけると、ratatui などの TUI が cursor motion (`\x1b[H`) で同じ座標を繰り返し書き換えるため `Working•Working•orking` のように破壊された文字列になっていました。現在は `pyte` ベースの仮想ターミナル (`synapse/pty_renderer.py`) に raw bytes をフィードし、レンダリング後の画面テキストに対して waiting_detection regex を評価しています。alt-screen buffer (`\x1b[?1049h/l`) の enter/leave もラッパー側で追跡しており、全画面オーバーレイの内容が正しく露出します。
+- **`GET /debug/pty`** — 任意のエージェントの現在のレンダリング済み画面を JSON (`{display: [...], cursor: {x, y}, alt_screen: bool, columns, rows}`) で取得できるデバッグ用エンドポイントです。waiting_detection が期待通りに動かない時、regex が何を見ているかを親から直接確認できます。例: `curl http://localhost:8126/debug/pty | jq .display`。
 
 ポリシー設定の例 (`settings.json`):
 

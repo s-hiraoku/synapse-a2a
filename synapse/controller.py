@@ -40,6 +40,7 @@ from synapse.controller_status import StatusObserverMixin
 from synapse.idle_detector import IdleDetector
 from synapse.long_message import format_file_reference, get_long_message_store
 from synapse.mcp.server import MCP_INSTRUCTIONS_DEFAULT_URI
+from synapse.pty_renderer import PtyRenderer
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.skills import load_skill_sets
@@ -153,10 +154,12 @@ class TerminalController(StatusObserverMixin):
 
         self.idle_config = idle_detection or {"strategy": "timeout", "timeout": 1.5}
         self._pattern_detected = False
+        self._pty_renderer = PtyRenderer(columns=120, rows=40)
         self._idle_detector = IdleDetector(
             idle_detection=self.idle_config,
             waiting_detection=waiting_detection,
             strip_ansi_fn=strip_ansi,
+            renderer=self._pty_renderer,
         )
         self.idle_strategy = self._idle_detector.idle_strategy
         self.idle_regex = self._idle_detector.idle_regex
@@ -1473,6 +1476,7 @@ class TerminalController(StatusObserverMixin):
             self.output_buffer += data
             if len(self.output_buffer) > self._max_buffer:
                 self.output_buffer = self.output_buffer[-self._max_buffer :]
+            self._pty_renderer.feed(data)
 
             # If a \r was deferred from the previous chunk, resolve it now.
             if self._pending_cr:

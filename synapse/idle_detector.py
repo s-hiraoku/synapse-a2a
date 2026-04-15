@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from synapse.config import WAITING_EXPIRY_SECONDS
+from synapse.pty_renderer import PtyRenderer
 from synapse.status import DONE_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ class IdleDetector:
         waiting_detection: dict | None = None,
         *,
         strip_ansi_fn: Callable[[str], str] | None = None,
+        renderer: PtyRenderer | None = None,
     ) -> None:
         self.idle_config = idle_detection or {"strategy": "timeout", "timeout": 1.5}
         self.idle_strategy = self.idle_config.get("strategy", "pattern")
@@ -57,6 +59,7 @@ class IdleDetector:
             self.waiting_config.get("waiting_expiry", WAITING_EXPIRY_SECONDS)
         )
         self._strip_ansi = strip_ansi_fn or (lambda text: text)
+        self._renderer = renderer
 
     def _compile_idle_regex(self) -> re.Pattern[bytes] | None:
         if self.idle_strategy not in ("pattern", "hybrid"):
@@ -182,12 +185,18 @@ class IdleDetector:
         if not self.waiting_regex:
             return False, waiting_pattern_time
 
-        new_text = (
-            self._strip_ansi(new_data.decode("utf-8", errors="replace"))
-            if new_data
-            else ""
-        )
-        pattern_in_new = bool(new_text and self.waiting_regex.search(new_text))
+        if self._renderer is not None:
+            if new_data:
+                self._renderer.feed(new_data)
+            screen_text = self._renderer.render_text()
+            pattern_in_new = bool(new_data and self.waiting_regex.search(screen_text))
+        else:
+            new_text = (
+                self._strip_ansi(new_data.decode("utf-8", errors="replace"))
+                if new_data
+                else ""
+            )
+            pattern_in_new = bool(new_text and self.waiting_regex.search(new_text))
 
         if pattern_in_new:
             waiting_pattern_time = time.time()
@@ -197,10 +206,16 @@ class IdleDetector:
         if waiting_pattern_time is not None:
             elapsed = time.time() - waiting_pattern_time
             if elapsed > self.waiting_expiry:
-                tail = self._strip_ansi(
+                buffer_text = self._strip_ansi(
                     output_buffer[-512:].decode("utf-8", errors="replace")
                 )
-                if self.waiting_regex.search(tail):
+                still_visible = bool(self.waiting_regex.search(buffer_text))
+                if self._renderer is not None:
+                    screen_text = self._renderer.render_text()
+                    still_visible = still_visible and bool(
+                        self.waiting_regex.search(screen_text)
+                    )
+                if still_visible:
                     waiting_pattern_time = time.time()
                 else:
                     return False, None
