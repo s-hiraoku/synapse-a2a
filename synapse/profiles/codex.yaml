@@ -23,11 +23,16 @@ input_ready_pattern: "›"                       # Codex shows › when ready fo
 # Codex uses ratatui TUI with › selector for approval overlays
 # Source: codex-rs/tui/src/bottom_pane/approval_overlay.rs
 # UI: › 1. Yes, proceed (y) / Yes, and don't ask again (a) / No, and tell Codex (esc)
+# The regex also catches the "Approaching rate limits" model-switch modal
+# and other numbered selectors that share the same › prefix, because
+# codex keeps introducing new prompt variants and the numbered-selector
+# shape is the most stable signal we have. See issue tracking the deeper
+# waiting_detection / alternate-screen-buffer fix for the longer-term plan.
 waiting_detection:
-  regex: "›\\s+\\d+\\.|Yes, proceed|Yes, and don't ask again|No, and tell Codex|Press [Ee]nter to confirm|Would you like to"
+  regex: "›\\s+\\d+\\.|Yes, proceed|Yes, and don't ask again|No, and tell Codex|Press [Ee]nter to confirm|Would you like to|Approaching rate limits|Switch to gpt-|Keep current model"
   require_idle: true
   idle_timeout: 0.5
-  waiting_expiry: 10                           # Auto-clear WAITING after 10s
+  waiting_expiry: 30                           # Auto-clear WAITING after 30s to give the parent a realistic window to intervene
 
 # Auto-approve configuration
 # --full-auto = -a on-request -s workspace-write (sandboxed auto-approve)
