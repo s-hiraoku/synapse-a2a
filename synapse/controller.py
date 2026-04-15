@@ -1185,6 +1185,16 @@ class TerminalController(StatusObserverMixin):
             raw = "".join(self._render_buffer)
         return strip_ansi(raw)
 
+    def pty_snapshot(self) -> dict[str, Any]:
+        """Return the rendered virtual terminal state.
+
+        Exposes the pyte-backed screen so debug and diagnostic callers
+        (e.g. ``GET /debug/pty``) can inspect what waiting_detection
+        evaluates against without reaching into private attributes.
+        """
+        with self.lock:
+            return self._pty_renderer.snapshot()
+
     def set_done(self) -> None:
         """Set status to DONE (task completed).
 
@@ -1476,7 +1486,6 @@ class TerminalController(StatusObserverMixin):
             self.output_buffer += data
             if len(self.output_buffer) > self._max_buffer:
                 self.output_buffer = self.output_buffer[-self._max_buffer :]
-            self._pty_renderer.feed(data)
 
             # If a \r was deferred from the previous chunk, resolve it now.
             if self._pending_cr:

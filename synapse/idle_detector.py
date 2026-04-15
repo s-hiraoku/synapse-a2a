@@ -185,18 +185,22 @@ class IdleDetector:
         if not self.waiting_regex:
             return False, waiting_pattern_time
 
-        if self._renderer is not None:
-            if new_data:
+        # Quiet-tick fast path: no new bytes and nothing previously
+        # detected — skip the render/strip work entirely.
+        if not new_data and waiting_pattern_time is None:
+            return False, None
+
+        if new_data:
+            if self._renderer is not None:
                 self._renderer.feed(new_data)
-            screen_text = self._renderer.render_text()
-            pattern_in_new = bool(new_data and self.waiting_regex.search(screen_text))
+                pattern_in_new = bool(
+                    self.waiting_regex.search(self._renderer.render_text())
+                )
+            else:
+                new_text = self._strip_ansi(new_data.decode("utf-8", errors="replace"))
+                pattern_in_new = bool(self.waiting_regex.search(new_text))
         else:
-            new_text = (
-                self._strip_ansi(new_data.decode("utf-8", errors="replace"))
-                if new_data
-                else ""
-            )
-            pattern_in_new = bool(new_text and self.waiting_regex.search(new_text))
+            pattern_in_new = False
 
         if pattern_in_new:
             waiting_pattern_time = time.time()

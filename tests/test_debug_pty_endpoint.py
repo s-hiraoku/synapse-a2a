@@ -39,7 +39,7 @@ def renderer_with_working_overlay() -> PtyRenderer:
 def controller(renderer_with_working_overlay: PtyRenderer) -> MagicMock:
     c = MagicMock()
     c.status = "PROCESSING"
-    c._pty_renderer = renderer_with_working_overlay
+    c.pty_snapshot = renderer_with_working_overlay.snapshot
     return c
 
 
@@ -96,13 +96,11 @@ class TestDebugPtyEndpoint:
         response = client.get("/debug/pty")
         assert response.status_code == 503
 
-    def test_handles_controller_without_renderer(self) -> None:
-        """Legacy controllers (pre-PR) without a ``_pty_renderer``
-        attribute should degrade to 503 rather than 500."""
-        legacy = MagicMock()
+    def test_handles_controller_without_pty_snapshot(self) -> None:
+        """Legacy controllers without a ``pty_snapshot`` method should
+        degrade to 503 rather than 500."""
+        legacy = MagicMock(spec=["status", "on_status_change"])
         legacy.status = "PROCESSING"
-        # Explicitly delete so getattr(..., None) returns None:
-        del legacy._pty_renderer
         app = FastAPI()
         app.include_router(create_a2a_router(legacy, "codex", 8126, "\n"))
         client = TestClient(app)

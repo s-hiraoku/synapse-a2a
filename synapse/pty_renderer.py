@@ -37,14 +37,6 @@ class PtyRenderer:
         self._saved_display: list[str] | None = None
 
     @property
-    def columns(self) -> int:
-        return self._columns
-
-    @property
-    def rows(self) -> int:
-        return self._rows
-
-    @property
     def in_alt_screen(self) -> bool:
         return self._in_alt_screen
 

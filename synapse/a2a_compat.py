@@ -1384,14 +1384,9 @@ def create_a2a_router(
         text as the TUI would have drawn it, with cursor motion and
         erase sequences already resolved.
         """
-        from synapse.pty_renderer import PtyRenderer
-
-        if controller is None:
-            raise HTTPException(status_code=503, detail="controller not attached")
-        renderer: PtyRenderer | None = getattr(controller, "_pty_renderer", None)
-        if renderer is None:
+        if controller is None or not hasattr(controller, "pty_snapshot"):
             raise HTTPException(status_code=503, detail="pty renderer not available")
-        snapshot: dict[str, Any] = renderer.snapshot()
+        snapshot: dict[str, Any] = controller.pty_snapshot()
         return snapshot
 
     # --------------------------------------------------------
