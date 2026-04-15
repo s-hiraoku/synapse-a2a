@@ -1009,6 +1009,11 @@ def test_run_step_retries_on_agent_busy(
             "synapse.commands.workflow._target_has_no_working_task",
             return_value=True,
         ),
+        # _wait_for_agent is only reached via the auto-spawn branch (when
+        # stderr carries NO_AGENT/DIR_MISMATCH), which this test does not
+        # trigger. Mock it defensively so a future code move into the
+        # busy-retry path cannot make the test environment-dependent.
+        patch("synapse.commands.workflow._wait_for_agent", return_value=True),
     ):
         cmd_workflow_run(args)
 

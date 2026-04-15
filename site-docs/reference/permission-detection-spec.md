@@ -126,7 +126,7 @@ Response: {"status": "denied", "task_id": "task-123"}
     "sender": { "sender_id": "synapse-claude-8101" },
     "response_mode": "silent",
     "in_reply_to": "sender-task-id",
-    "_reply_status": "input_required",
+    "reply_status": "input_required",
     "permission_escalation": {
       "task_id": "task-123",
       "child_endpoint": "http://localhost:8101",

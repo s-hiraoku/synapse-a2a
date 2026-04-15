@@ -188,6 +188,20 @@ def apply(
         return True
 
     if not request.endpoint or not request.task_id:
+        missing = []
+        if not request.endpoint:
+            missing.append("endpoint")
+        if not request.task_id:
+            missing.append("task_id")
+        logger.warning(
+            "approval_gate: cannot apply %s — missing %s "
+            "(task_id=%r, endpoint=%r, target_agent_id=%r)",
+            decision.value,
+            ", ".join(missing),
+            request.task_id,
+            request.endpoint,
+            request.target_agent_id,
+        )
         return False
 
     path = (

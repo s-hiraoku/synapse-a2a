@@ -33,8 +33,12 @@ latest tag using the standard [Semantic Versioning](https://semver.org/) +
 
 Procedure:
 
-1. `git describe --tags --abbrev=0` → latest tag (fall back to "all history" if none).
-2. `git log <tag>..HEAD` → commits to classify.
+1. `git describe --tags --abbrev=0` → latest tag. If this command exits non-zero
+   because the repository has no tags yet, fall back to the full history:
+   `git log HEAD --pretty=%H%x00%s%x00%b` (initial commit → HEAD) and treat
+   every commit as "unreleased".
+2. Otherwise `git log <tag>..HEAD --pretty=%H%x00%s%x00%b` → commits to
+   classify. (NUL-separated fields keep multi-line bodies parseable.)
 3. If the range is empty, abort with `No commits since <tag>; nothing to release`.
 4. Print the detected bump type with a one-line commit count summary, then continue
    with the normal bump flow. Do not prompt for confirmation — this keeps

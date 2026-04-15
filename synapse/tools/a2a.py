@@ -2,6 +2,7 @@ import argparse
 import contextlib
 import json
 import os
+import shlex
 import sys
 import time
 import uuid
@@ -387,8 +388,6 @@ def cmd_send(args: argparse.Namespace) -> None:
                 file=sys.stderr,
             )
         if display_target:
-            import shlex
-
             quoted_target = shlex.quote(str(display_target))
             print(
                 "  Or send a clarification message with: "

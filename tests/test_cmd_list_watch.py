@@ -815,7 +815,6 @@ class TestFileWatcher:
 
     def test_create_file_watcher(self, temp_registry_dir):
         """Should create file watcher for registry directory."""
-        import time
         from threading import Event
 
         list_cmd = create_list_command()

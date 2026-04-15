@@ -295,23 +295,27 @@ def _workflow_spawn_tool_args(profile: str) -> list[str] | None:
 
     # YAML ``alternative_flags:`` may arrive as None, a bare string, a list,
     # or some other iterable. Mirror the normalization in ``spawn.py`` so a
-    # profile that uses the single-string shorthand is still honoured here.
+    # profile that uses the single-string shorthand is still honoured here,
+    # and strip/filter each entry so whitespace-only or empty entries don't
+    # leak into the spawn command line.
     raw_alternatives = auto_approve_config.get("alternative_flags")
     if raw_alternatives is None:
         return None
     if isinstance(raw_alternatives, str):
-        normalized = [raw_alternatives]
+        raw_items: list[object] = [raw_alternatives]
     else:
         try:
-            normalized = [str(f) for f in raw_alternatives]
+            raw_items = list(raw_alternatives)
         except TypeError:
-            normalized = [str(raw_alternatives)]
-    if not normalized:
+            raw_items = [raw_alternatives]
+    cleaned: list[str] = [s for s in (str(f or "").strip() for f in raw_items) if s]
+    if not cleaned:
         return None
-    flag = str(normalized[0] or "").strip()
-    if not flag:
-        return None
-    return [flag]
+    # The profile lists alternative_flags as mutually-exclusive approval
+    # variants (OR semantics — passing any one of them disables the default
+    # ``cli_flag``). For workflow-driven auto-spawn we only need one, and the
+    # first entry is the convention for "the most permissive bypass".
+    return [cleaned[0]]
 
 
 def _try_spawn_agent(profile: str) -> bool:
