@@ -1608,7 +1608,7 @@ For Copilot specifically, bracketed paste is enabled because Copilot CLI 1.0.12+
 
 ### WAITING Detection
 
-WAITING detection is enabled in all five profiles (claude, codex, gemini, opencode, copilot). The [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) false positive issue was resolved by matching only against fresh PTY output (`new_data`) and adding auto-expiry (`waiting_expiry`, default 10s) with buffer tail re-check. PTY output is now passed through `strip_ansi()` before regex matching, ensuring reliable detection for TUI-based agents (ratatui, Ink, Bubble Tea) where ANSI escape sequences previously interfered with pattern matching.
+WAITING detection is enabled in all five profiles (claude, codex, gemini, opencode, copilot). The [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) false positive issue was resolved by matching only against fresh PTY output (`new_data`) and adding auto-expiry (`waiting_expiry`, default 10s) with buffer tail re-check. As of [#572](https://github.com/s-hiraoku/synapse-a2a/issues/572), the waiting_detection regex is evaluated against a `pyte`-backed virtual terminal (`synapse/pty_renderer.py`) that replays cursor-motion CSI sequences in place, so TUI-based agents (ratatui, Ink, Bubble Tea) that overwrite the same cells are matched against the text a human actually sees rather than an ANSI-stripped byte stream. Alt-screen buffer (`\x1b[?1049h/l`) enter/leave is tracked, and a new `GET /debug/pty` endpoint on each per-agent A2A server returns the rendered screen as JSON (`{display, cursor, alt_screen, columns, rows}`) for debugging regex matches.
 
 Detects agents waiting for user input (selection UI, Y/n prompts) using agent-specific regex patterns:
 
