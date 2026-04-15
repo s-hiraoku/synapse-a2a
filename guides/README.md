@@ -186,6 +186,16 @@ flowchart TD
 - Registry ファイル構造
 - プロファイル YAML スキーマ
 
+### [multi-agent-patterns.md](multi-agent-patterns.md)
+**マルチエージェント協調パターンガイド**
+
+- 型 vs インスタンスの 2 層構造
+- 5 つの組み込みパターンの使い分けと YAML スキーマ
+- `synapse map` CLI ワークフロー（init → 編集 → dry-run → run）
+- Canvas Multi Agent タブ連携
+- 新しいパターン型を追加する手順
+- サンプル: [`examples/patterns/`](../examples/patterns/)
+
 ---
 
 ## 4. 外部連携

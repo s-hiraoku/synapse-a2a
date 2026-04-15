@@ -1,0 +1,34 @@
+# orchestrator-subagent: decompose a task into named subtasks and synthesize
+# the combined results.
+#
+# Use this when:
+#   - A task has clearly separable aspects that can be investigated in parallel
+#   - You want one "lead" agent to produce the final written answer
+#
+# Run:
+#   synapse map run research-synthesis --task "Compare OAuth2 vs OIDC for our app" --dry-run
+#   synapse map run research-synthesis --task "Compare OAuth2 vs OIDC for our app"
+
+name: research-synthesis
+pattern: orchestrator-subagent
+description: Decompose research into aspects, delegate, and synthesize
+
+orchestrator:
+  profile: claude
+  name: Lead
+  # The lead agent receives the subagent outputs and writes the final answer.
+
+# Each subtask becomes its own spawned subagent. The subagent receives the
+# primary task plus its own subtask message and should respond with findings
+# for that aspect only.
+subtasks:
+  - name: security
+    message: "Focus on security trade-offs, known CVEs, and threat models."
+  - name: interoperability
+    message: "Focus on client/library support across popular ecosystems."
+  - name: operations
+    message: "Focus on token lifecycle, key rotation, and monitoring."
+
+# When true, all subagents run concurrently. When false, they run one after
+# another (useful when later subtasks depend on earlier output being stable).
+parallel: true

@@ -88,6 +88,8 @@ synapse workflow status <run_id>                 # Check workflow run status
 synapse workflow sync                            # Re-generate skills from all workflow YAMLs
 
 # Multi-Agent Patterns (declarative coordination, alias: synapse map)
+# See guides/multi-agent-patterns.md for the conceptual guide and YAML schemas.
+# Sample YAMLs are in examples/patterns/.
 synapse multiagent init generator-verifier --name my-pattern
 synapse multiagent init orchestrator-subagent --name decompose --user
 synapse multiagent init agent-teams --name workers --force

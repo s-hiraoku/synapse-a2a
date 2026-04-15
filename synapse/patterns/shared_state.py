@@ -131,3 +131,29 @@ class SharedStatePattern(CoordinationPattern):
 
         aggregate = await self.wiki_query(task)
         return TaskResult(status=status, output=aggregate)
+
+    def describe_plan(self, task: str, config: PatternConfig) -> list[str]:
+        config = cast(SharedStateConfig, config)
+        lines = [
+            f"Task: {task}",
+            f"Shared store: {config.shared_store}",
+        ]
+        if config.shared_store != "wiki":
+            lines.append(
+                "  (UNSUPPORTED — v1 only accepts 'wiki'; run will raise PatternError)"
+            )
+        lines.append(f"Spawn {len(config.agents)} agent(s):")
+        for agent in config.agents:
+            role = f" role={agent.role!r}" if agent.role else ""
+            lines.append(
+                f"  - {agent.name or 'unnamed'} profile={agent.profile or '?'}{role}"
+            )
+        lines.append(
+            "Each agent writes findings to wiki key <run_id>-<agent_name> in parallel"
+        )
+        lines.append(
+            f"Termination: {config.termination.mode} "
+            f"(budget={config.termination.budget}s)"
+        )
+        lines.append("Aggregate the final answer via `synapse wiki query`")
+        return lines

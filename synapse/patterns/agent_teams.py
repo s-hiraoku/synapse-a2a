@@ -182,3 +182,30 @@ class AgentTeamsPattern(CoordinationPattern):
 
         completed_outputs = [output for output in outputs if output]
         return TaskResult(status=stop_status, output="\n".join(completed_outputs))
+
+    def describe_plan(self, task: str, config: PatternConfig) -> list[str]:
+        config = cast(AgentTeamsConfig, config)
+        team = config.team
+        queue = config.task_queue
+        completion = config.completion
+        lines = [
+            f"Task: {task}",
+            f"Spawn {max(team.count, 1)} worker(s) ({team.name}-1 .. {team.name}-{max(team.count, 1)}) "
+            f"profile={team.profile or '?'} worktree={team.worktree}",
+            f"Task queue source: {queue.source}",
+        ]
+        if queue.source != "inline":
+            lines.append(
+                "  (UNSUPPORTED — v1 only accepts 'inline'; run will raise PatternError)"
+            )
+        if queue.tasks:
+            lines.append(f"Queue items ({len(queue.tasks)}):")
+            for item in queue.tasks:
+                lines.append(f"  - {item}")
+        else:
+            lines.append("Queue is empty — workers will exit immediately")
+        lines.append(
+            f"Completion mode: {completion.mode} (timeout={completion.timeout}s)"
+        )
+        lines.append("Workers pull from the queue concurrently until it drains")
+        return lines

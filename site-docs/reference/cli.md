@@ -539,6 +539,10 @@ Auto-generates `SKILL.md` files from all workflow YAML definitions into `.claude
 
 ## Multi-Agent Patterns
 
+> Conceptual guide with YAML schemas, pattern selection heuristics, and
+> extension instructions: [`guides/multi-agent-patterns.md`](../../guides/multi-agent-patterns.md).
+> Ready-to-run sample YAMLs: [`examples/patterns/`](../../examples/patterns/).
+
 ```bash
 synapse multiagent init <type> [--name NAME] [--project | --user] [--force]
 synapse multiagent list [--project | --user]
