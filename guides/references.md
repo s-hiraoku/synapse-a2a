@@ -262,7 +262,7 @@ synapse stop <profile|id>
 
 ### 1.5 synapse list
 
-実行中のエージェント一覧を Rich TUI で表示します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます。
+実行中のエージェント一覧を Rich TUI で表示します。alternate screen 上で描画するため、再描画が安定します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます。
 
 ```bash
 synapse list              # Rich TUI（デフォルト）

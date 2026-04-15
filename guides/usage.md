@@ -832,10 +832,10 @@ synapse list
 
 **Rich TUI モード（デフォルト）**:
 
-`synapse list` は常に Rich TUI によるインタラクティブな表示で起動します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます（10秒間隔のフォールバックポーリング）。
+`synapse list` は常に Rich TUI によるインタラクティブな表示で起動します。表示は alternate screen 上で描画されるため、再描画が安定します。ファイルウォッチャーにより、エージェントのステータス変更時に自動更新されます（10秒間隔のフォールバックポーリング）。
 
 ```bash
-synapse list                      # 自動更新 Rich TUI
+synapse list                      # alternate screen 上の自動更新 Rich TUI
 synapse list --json               # JSON 配列出力（AI/スクリプト向け）
 ```
 

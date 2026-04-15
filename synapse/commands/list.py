@@ -460,6 +460,7 @@ class ListCommand:
             with Live(
                 console=console,
                 auto_refresh=False,
+                screen=True,
                 vertical_overflow="crop",
             ) as live:
                 while True:
