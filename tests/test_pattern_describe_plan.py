@@ -209,3 +209,45 @@ def test_dry_run_output_uses_describe_plan(
     assert "max_iterations: 3" not in out
     assert "on_failure: escalate" not in out
     assert "pattern: generator-verifier" not in out
+
+
+def test_run_rejects_unknown_pattern_type_without_traceback(
+    tmp_path, monkeypatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`synapse map run` (non-dry-run) must handle unknown pattern types
+    gracefully by exiting 1 with a stderr message, not by letting the
+    ValueError from PatternRunner._resolve_pattern_class bubble up as a
+    traceback."""
+    import argparse
+
+    from synapse.commands.multiagent import cmd_multiagent_run
+    from synapse.patterns.runner import PatternRunner
+    from synapse.patterns.store import PatternStore
+
+    store_dir = tmp_path / ".synapse" / "patterns"
+    store = PatternStore(
+        project_dir=store_dir, user_dir=tmp_path / ".home" / ".synapse" / "patterns"
+    )
+    store.save({"name": "broken", "pattern": "not-a-real-pattern-type"})
+
+    real_runner = PatternRunner()
+    monkeypatch.setattr("synapse.commands.multiagent._get_pattern_store", lambda: store)
+    monkeypatch.setattr(
+        "synapse.commands.multiagent._get_pattern_runner", lambda: real_runner
+    )
+
+    args = argparse.Namespace(
+        pattern_name="broken",
+        task="do it",
+        dry_run=False,
+        run_async=False,
+        project=False,
+        user=False,
+    )
+    with pytest.raises(SystemExit) as excinfo:
+        cmd_multiagent_run(args)
+
+    assert excinfo.value.code == 1
+    err = capsys.readouterr().err
+    assert "not-a-real-pattern-type" in err
+    assert "Error:" in err

@@ -257,7 +257,7 @@ def cmd_multiagent_run(args: argparse.Namespace) -> None:
             if wait_for_run
             else runner.get_run(run_id)
         )
-    except PatternError as e:
+    except (PatternError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 

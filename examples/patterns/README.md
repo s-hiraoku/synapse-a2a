@@ -27,7 +27,7 @@ Once copied, patterns appear in:
 
 - `synapse map list`
 - The Canvas **Multi Agent** tab
-- `GET /api/multiagent/patterns`
+- `GET /api/multiagent`
 
 ## Files
 
