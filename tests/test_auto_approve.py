@@ -369,6 +369,63 @@ class TestSpawnAutoApproveInjection:
         assert "--yolo" not in prepared.tool_args
         assert "-y" in prepared.tool_args
 
+    def test_flag_equals_value_form_skips_injection(self) -> None:
+        """`--approval-mode=auto_edit` should satisfy the `--approval-mode`
+        alternative flag and skip --yolo injection, and the user's
+        `--flag=value` token must be preserved verbatim in tool_args.
+        """
+        from synapse.spawn import prepare_spawn
+
+        with (
+            patch(
+                "synapse.spawn.load_profile",
+                return_value={
+                    "auto_approve": {
+                        "cli_flag": "--yolo",
+                        "alternative_flags": ["-y", "--approval-mode"],
+                        "runtime_response": "\\r",
+                    }
+                },
+            ),
+            patch("synapse.spawn.is_port_available", return_value=True),
+        ):
+            prepared = prepare_spawn(
+                "gemini",
+                port=8110,
+                tool_args=["--approval-mode=auto_edit"],
+            )
+
+        assert prepared.tool_args is not None
+        assert "--yolo" not in prepared.tool_args
+        assert "--approval-mode=auto_edit" in prepared.tool_args
+
+    def test_alternative_flags_string_shorthand_is_normalized(self) -> None:
+        """A bare-string `alternative_flags: "--yolo"` YAML shorthand must be
+        normalized to a single-element list, not iterated character by
+        character (which would otherwise spuriously match "-" and "y" in
+        tool_args).
+        """
+        from synapse.spawn import prepare_spawn
+
+        with (
+            patch(
+                "synapse.spawn.load_profile",
+                return_value={
+                    "auto_approve": {
+                        "cli_flag": "--allow-all",
+                        "alternative_flags": "--yolo",
+                        "runtime_response": "1\\r",
+                    }
+                },
+            ),
+            patch("synapse.spawn.is_port_available", return_value=True),
+        ):
+            prepared = prepare_spawn("copilot", port=8120, tool_args=["--yolo"])
+
+        assert prepared.tool_args is not None
+        assert "--allow-all" not in prepared.tool_args
+        assert "--yolo" in prepared.tool_args
+
     def test_auto_approve_false_no_injection(self) -> None:
         """When auto_approve=False, no CLI flag should be injected."""
         from synapse.spawn import prepare_spawn

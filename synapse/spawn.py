@@ -196,7 +196,20 @@ def prepare_spawn(
         # Skip injection if the user already passed any mutually-exclusive
         # approval flag (e.g. Codex --full-auto vs --dangerously-bypass-...).
         cli_flag = auto_approve_config.get("cli_flag")
-        alternative_flags = auto_approve_config.get("alternative_flags") or []
+        # YAML `alternative_flags:` may arrive as None, a bare string
+        # (single-flag shorthand), or a non-list iterable; normalize to a list
+        # of strings so unpacking into `known_flags` can't explode a string
+        # into its individual characters.
+        raw_alternatives = auto_approve_config.get("alternative_flags")
+        if raw_alternatives is None:
+            alternative_flags: list[str] = []
+        elif isinstance(raw_alternatives, str):
+            alternative_flags = [raw_alternatives]
+        else:
+            try:
+                alternative_flags = [str(f) for f in raw_alternatives]
+            except TypeError:
+                alternative_flags = [str(raw_alternatives)]
         known_flags = {cli_flag, *alternative_flags} - {None}
         already_present = any(
             _tool_args_contains_flag(resolved_tool_args, flag) for flag in known_flags
