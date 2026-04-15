@@ -224,16 +224,22 @@ def cmd_multiagent_run(args: argparse.Namespace) -> None:
         print(f"Error: Pattern '{name}' not found.", file=sys.stderr)
         sys.exit(1)
 
+    runner = _get_pattern_runner()
+    pattern_type = pattern.get("pattern", name)
+
     if getattr(args, "dry_run", False):
         print("DRY RUN")
-        print(f"Pattern: {pattern.get('name', name)}")
-        print(f"Task: {args.task}")
-        print(yaml.safe_dump(pattern, sort_keys=False))
+        print(f"Pattern: {pattern.get('name', name)} (type: {pattern_type})")
+        try:
+            plan = runner.describe_plan(pattern_type, args.task, config=pattern)
+        except (PatternError, ValueError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        for line in plan:
+            print(line)
         return
 
-    runner = _get_pattern_runner()
     try:
-        pattern_type = pattern.get("pattern", name)
         run_id = asyncio.run(
             runner.run_pattern(pattern_type, args.task, config=pattern)
         )

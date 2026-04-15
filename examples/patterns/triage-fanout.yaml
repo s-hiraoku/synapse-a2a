@@ -1,0 +1,36 @@
+# message-bus: route a task through a single router, then fan out the router's
+# output to a group of topic subscribers.
+#
+# Use this when:
+#   - One agent needs to classify/enrich the task first
+#   - Several specialists then process the classified task in parallel
+#   - You want the final result to aggregate all subscriber outputs
+#
+# Note: v1 is an explicit single-pass fan-out, not a persistent broker. The
+# router runs exactly once; each topic is processed once.
+#
+# Run:
+#   synapse map run triage-fanout --task "Bug report: login fails on Safari" --dry-run
+#   synapse map run triage-fanout --task "Bug report: login fails on Safari"
+
+name: triage-fanout
+pattern: message-bus
+description: Classify an incoming issue and fan out to specialist handlers
+
+router:
+  profile: claude
+  name: Triage
+  # The router receives the raw task and should produce a classified summary
+  # that every subscriber can consume (e.g. priority, component, reproduction).
+
+topics:
+  - name: engineering
+    subscribers:
+      - profile: claude
+        name: Backend-Specialist
+      - profile: claude
+        name: Frontend-Specialist
+  - name: support
+    subscribers:
+      - profile: claude
+        name: Customer-Reply-Drafter

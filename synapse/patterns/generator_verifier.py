@@ -149,6 +149,29 @@ class GeneratorVerifierPattern(CoordinationPattern):
             )
         return TaskResult(status="failed", output=latest_output, error=latest_feedback)
 
+    def describe_plan(self, task: str, config: PatternConfig) -> list[str]:
+        config = cast(GeneratorVerifierConfig, config)
+        gen = config.generator
+        ver = config.verifier
+        lines = [
+            f"Task: {task}",
+            f"Spawn Generator ({gen.name or 'unnamed'}) "
+            f"profile={gen.profile or '?'} worktree={gen.worktree}",
+            f"Spawn Verifier ({ver.name or 'unnamed'}) "
+            f"profile={ver.profile or '?'} worktree={ver.worktree}",
+            f"Loop up to {max(config.max_iterations, 1)} iteration(s):",
+            "  1. Send task to Generator and await output",
+            "  2. Send Generator output to Verifier with criteria",
+            "  3. If Verifier replies PASS, stop and return output",
+            "     Otherwise feed Verifier feedback back to Generator",
+        ]
+        if ver.criteria:
+            lines.append("Criteria (text only, not executed):")
+            for item in ver.criteria:
+                lines.append(f"  - {item}")
+        lines.append(f"On failure after all iterations: {config.on_failure}")
+        return lines
+
     @staticmethod
     def _generator_prompt(task: str, iteration: int, feedback: str) -> str:
         prompt = f"Task:\n{task}\n\nIteration: {iteration}"

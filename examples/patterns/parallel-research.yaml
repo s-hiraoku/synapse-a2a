@@ -1,0 +1,40 @@
+# shared-state: multiple agents collaborate by writing findings to the shared
+# project wiki, and the pattern returns an aggregated answer via `synapse wiki
+# query`.
+#
+# Use this when:
+#   - Several agents contribute facts/notes to a shared knowledge store
+#   - You want the final answer to be derived from the wiki, not from any
+#     single agent's direct reply
+#   - The work is time-bounded (you'd rather stop at a deadline than wait)
+#
+# Note: v1 only supports `shared_store: wiki`. Other backends raise an error.
+#
+# Run:
+#   synapse map run parallel-research --task "Current state of agentic IDEs" --dry-run
+#   synapse map run parallel-research --task "Current state of agentic IDEs"
+
+name: parallel-research
+pattern: shared-state
+description: Agents research aspects in parallel and collaborate through the wiki
+
+agents:
+  - profile: claude
+    name: Reviewer-Tools
+    role: "Survey of commercial and open-source agentic IDE tooling"
+  - profile: claude
+    name: Reviewer-UX
+    role: "User experience patterns and workflow ergonomics"
+  - profile: claude
+    name: Reviewer-Risks
+    role: "Failure modes, safety, and cost considerations"
+
+# Currently fixed to "wiki". Each agent writes to a wiki key of the form
+# "<run_id>-<agent_name>", and the pattern aggregates with `synapse wiki query`.
+shared_store: wiki
+
+termination:
+  # time-budget — stop after `budget` seconds even if some agents are still running
+  # all-done    — wait until every agent finishes
+  mode: time-budget
+  budget: 900   # 15 minutes

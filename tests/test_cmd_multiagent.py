@@ -110,6 +110,17 @@ class FakePatternRunner:
         self.runs: dict[str, SimpleNamespace] = {}
         self.stop_calls: list[str] = []
 
+    def describe_plan(
+        self,
+        pattern_type: str,
+        task: str,
+        config: dict[str, Any] | None = None,
+    ) -> list[str]:
+        return [
+            f"Task: {task}",
+            f"Plan for {pattern_type} would run here",
+        ]
+
     async def run_pattern(
         self,
         pattern_type: str,
@@ -394,7 +405,11 @@ def test_run_dry_run(
     captured = capsys.readouterr()
     assert "DRY RUN" in captured.out
     assert "review-flow" in captured.out
+    assert "generator-verifier" in captured.out
     assert "Review the auth module" in captured.out
+    # The new dry-run output is a plan preview, not a raw YAML dump
+    assert "generator:" not in captured.out
+    assert "max_iterations:" not in captured.out
 
 
 def test_run_async_prints_run_id(

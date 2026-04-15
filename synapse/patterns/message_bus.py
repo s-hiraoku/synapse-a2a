@@ -147,3 +147,31 @@ class MessageBusPattern(CoordinationPattern):
         return TaskResult(
             status="completed", output="\n".join(output for output in outputs if output)
         )
+
+    def describe_plan(self, task: str, config: PatternConfig) -> list[str]:
+        config = cast(MessageBusConfig, config)
+        router = config.router
+        lines = [
+            f"Task: {task}",
+            f"Spawn Router ({router.name or 'unnamed'}) "
+            f"profile={router.profile or '?'}",
+            "Send task to Router and await routing output",
+        ]
+        if not config.topics:
+            lines.append("(No topics defined — run would return the router output)")
+        for topic in config.topics:
+            lines.append(
+                f"Topic '{topic.name}': spawn {len(topic.subscribers)} subscriber(s)"
+            )
+            for subscriber in topic.subscribers:
+                lines.append(
+                    f"  - {subscriber.name or 'unnamed'} "
+                    f"profile={subscriber.profile or '?'}"
+                )
+            lines.append(
+                f"  Fan out router output to all '{topic.name}' subscribers in parallel"
+            )
+        lines.append(
+            "Aggregate router and subscriber outputs; any subscriber failure marks the run failed"
+        )
+        return lines

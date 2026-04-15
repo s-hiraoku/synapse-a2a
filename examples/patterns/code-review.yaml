@@ -1,0 +1,40 @@
+# generator-verifier: iterative generate → verify → fix loop.
+#
+# Use this when:
+#   - A single agent produces an artifact (code, doc, plan)
+#   - Another agent checks it against textual criteria
+#   - You want up to N retry rounds before escalating
+#
+# Run:
+#   synapse map run code-review --task "Review the auth module" --dry-run
+#   synapse map run code-review --task "Review the auth module"
+
+name: code-review
+pattern: generator-verifier
+description: Generate a change and verify it against review criteria
+
+generator:
+  profile: claude
+  name: Generator
+  # When true, the generator runs inside an isolated git worktree so its edits
+  # don't collide with other agents or with your working tree.
+  worktree: true
+
+verifier:
+  profile: claude
+  name: Verifier
+  # Criteria are passed to the verifier as plain text — they are NOT executed.
+  # Phrase them so the verifier can reason about whether the output satisfies
+  # them and reply "PASS" or an explanation of what to fix.
+  criteria:
+    - "All new functions have docstrings"
+    - "No new `eval` or `exec` calls"
+    - "Public API signatures are unchanged"
+
+# How many generate→verify rounds to attempt before giving up.
+max_iterations: 3
+
+# What to do if the loop exhausts iterations without a PASS:
+#   escalate — return status=failed with the last feedback (default)
+#   accept   — return status=completed with the last output
+on_failure: escalate

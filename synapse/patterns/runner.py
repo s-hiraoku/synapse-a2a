@@ -63,6 +63,23 @@ class PatternRunner:
         self._live_patterns: dict[str, Any] = {}
         self._tasks: dict[str, asyncio.Task[None]] = {}
 
+    def describe_plan(
+        self,
+        pattern_type: str,
+        task: str,
+        config: dict | None = None,
+    ) -> list[str]:
+        """Return a side-effect-free execution preview for ``pattern_type``.
+
+        Instantiates the pattern class, parses the config, and calls the
+        pattern's ``describe_plan`` hook. No agents are spawned and no A2A
+        traffic is generated.
+        """
+        pattern_cls = self._resolve_pattern_class(pattern_type)
+        pattern = pattern_cls(run_id="")
+        parsed_config = self._build_config(pattern, config)
+        return list(pattern.describe_plan(task, parsed_config))
+
     async def run_pattern(
         self,
         pattern_type: str,

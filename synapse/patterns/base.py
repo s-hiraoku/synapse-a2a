@@ -313,3 +313,14 @@ class CoordinationPattern(ABC):
     @abstractmethod
     async def run(self, task: str, config: PatternConfig) -> TaskResult:
         """Execute the coordination pattern."""
+
+    def describe_plan(self, task: str, config: PatternConfig) -> list[str]:
+        """Return a human-readable preview of what ``run`` would do.
+
+        Subclasses should override this to list the agents that would be
+        spawned, the messages that would be sent, and any verification or
+        termination rules that would be enforced. Implementations MUST NOT
+        perform spawns, A2A calls, or other side effects — the result is
+        consumed by ``synapse map run ... --dry-run``.
+        """
+        return [f"{self.__class__.__name__}: no plan preview available"]

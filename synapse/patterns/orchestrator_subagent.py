@@ -140,6 +140,22 @@ class OrchestratorSubagentPattern(CoordinationPattern):
             artifacts=synthesis.artifacts,
         )
 
+    def describe_plan(self, task: str, config: PatternConfig) -> list[str]:
+        config = cast(OrchestratorSubagentConfig, config)
+        lead = config.orchestrator
+        mode = "parallel" if config.parallel else "sequential"
+        lines = [
+            f"Task: {task}",
+            f"Spawn Orchestrator ({lead.name or 'unnamed'}) "
+            f"profile={lead.profile or '?'}",
+            f"Spawn {len(config.subtasks)} subagent(s) ({mode}):",
+        ]
+        for subtask in config.subtasks:
+            lines.append(f"  - {subtask.name}: {subtask.message}")
+        lines.append("Dispatch subtasks in " + mode + " and collect outputs")
+        lines.append("Ask Orchestrator to synthesize a final response")
+        return lines
+
     @staticmethod
     def _parallel_prompt(task: str, subtasks: list[SubtaskConfig]) -> str:
         subtask_lines = "\n".join(
