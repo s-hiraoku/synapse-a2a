@@ -30,6 +30,7 @@ from synapse.auth import generate_api_key
 from synapse.commands import history as history_commands
 from synapse.commands import memory as memory_commands
 from synapse.commands import messaging as messaging_commands
+from synapse.commands.doctor import cmd_doctor
 from synapse.commands.external import (
     cmd_external_add,
     cmd_external_info,
@@ -2790,6 +2791,37 @@ Documentation: https://github.com/s-hiraoku/synapse-a2a""",
         "--version", "-V", action="version", version=f"%(prog)s {pkg_version}"
     )
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
+
+    # doctor
+    p_doctor = subparsers.add_parser(
+        "doctor",
+        help="Run Synapse health checks",
+        description="Run Synapse health checks and detect orphan managed resources.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_doctor.add_argument(
+        "--root",
+        type=Path,
+        default=Path.cwd(),
+        help="Project root to check (default: current directory)",
+    )
+    p_doctor.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit 1 when orphan listeners or stale sockets are found",
+    )
+    p_doctor.add_argument(
+        "--clean",
+        action="store_true",
+        help="Clean orphan listeners and stale sockets after confirmation",
+    )
+    p_doctor.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip cleanup confirmation prompts",
+    )
+    p_doctor.set_defaults(func=cmd_doctor)
 
     # start (background)
     p_start = subparsers.add_parser(
