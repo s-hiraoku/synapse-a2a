@@ -31,7 +31,7 @@ from synapse.config import (
     CONTEXT_RECENT_SIZE,
 )
 from synapse.controller import TerminalController
-from synapse.error_detector import detect_task_status, is_input_required
+from synapse.error_detector import detect_task_status
 from synapse.history import HistoryManager
 from synapse.long_message import (
     LongMessageStore,
@@ -1025,11 +1025,12 @@ def create_a2a_router(
                     _run_async_from_sync(coro)
                 return
 
-            if old == "WAITING" and new == "PROCESSING":
+            if old == "WAITING":
                 for task in task_store.list_tasks():
                     if task.status == "input_required":
                         task_store.update_status(task.id, "working")
-                return
+                # Fall through to the READY/DONE finalization below so
+                # that WAITING → READY completes working tasks normally.
 
             if new not in ("READY", "DONE"):
                 return
@@ -1809,10 +1810,15 @@ def create_a2a_router(
             synapse_status = controller.status
             context = controller.get_context()
 
-            # Check for input_required state first
-            if is_input_required(context):
-                task_store.update_status(task_id, "input_required")
-            elif synapse_status in ("READY", "DONE"):
+            # NOTE: the previous code checked ``is_input_required(context)``
+            # here and wrote ``input_required`` into task_store. That was a
+            # rogue write in a GET handler — a read-only endpoint should not
+            # have side effects. The ``_on_status_change`` callback is now
+            # the single writer for ``input_required`` transitions (issue
+            # #569). Removing this branch also prevents PTY context remnants
+            # from re-setting ``input_required`` after the controller has
+            # already exited WAITING.
+            if synapse_status in ("READY", "DONE"):
                 recent_context = context[-CONTEXT_RECENT_SIZE:]
                 updated_task = _finalize_working_task(task_id, context, recent_context)
 
