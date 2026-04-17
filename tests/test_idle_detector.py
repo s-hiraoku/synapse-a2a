@@ -101,10 +101,9 @@ def test_waiting_detection_with_renderer_resolves_cursor_motion():
 
 
 def test_waiting_detection_renderer_path_expiry_refresh():
-    """With a renderer, expiry refresh re-scans both the raw output
-    tail and the rendered screen. If both still show the prompt, the
-    WAITING state persists. This mirrors the real runtime where raw
-    bytes and the virtual screen are kept in sync by the controller."""
+    """With a renderer, expiry refresh uses the rendered screen as the
+    source of truth. If the prompt is visible on the rendered screen,
+    the WAITING state persists regardless of raw buffer state."""
     raw = b"\x1b[HProceed?"
     renderer = PtyRenderer(columns=80, rows=24)
     renderer.feed(raw)
@@ -131,9 +130,8 @@ def test_waiting_detection_renderer_path_expiry_refresh():
 
 
 def test_waiting_detection_renderer_path_clears_when_screen_gone():
-    """Conversely, when both the raw tail and the rendered screen no
-    longer contain the waiting pattern, expiry should clear the
-    WAITING state."""
+    """Conversely, when the rendered screen no longer contains the
+    waiting pattern, expiry should clear the WAITING state."""
     renderer = PtyRenderer(columns=80, rows=24)
     renderer.feed(b"idle prompt >")
     detector = IdleDetector(
@@ -155,6 +153,46 @@ def test_waiting_detection_renderer_path_clears_when_screen_gone():
 
     assert is_waiting is False
     assert refreshed is None
+
+
+def test_waiting_detection_renderer_path_survives_garbled_raw_tail():
+    """Core #572 scenario: raw tail is destroyed by cursor-motion
+    overwrites but the rendered screen still shows the prompt.
+    The renderer path should preserve WAITING."""
+    renderer = PtyRenderer(columns=80, rows=24)
+    # Feed cursor-home + repeated "Working" overwrites + prompt on row 2.
+    # The raw bytes produce garbled strip_ansi output, but pyte resolves
+    # the overwrites so the screen cleanly shows "Proceed?" on row 2.
+    garbled_raw = (
+        b"\x1b[H" + b"Working" * 10
+        + b"\x1b[H" + b"Working" * 10
+        + b"\x1b[2;1HProceed?"
+    )
+    renderer.feed(garbled_raw)
+
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": r"Proceed\?",
+            "require_idle": False,
+            "waiting_expiry": 0.1,
+        },
+        renderer=renderer,
+    )
+
+    # Raw tail is large enough that "Proceed?" falls outside the
+    # last 512 bytes after strip_ansi — only the renderer can see it.
+    big_raw = b"X" * 2048 + garbled_raw
+    waiting_pattern_time = time.time() - 0.2
+    is_waiting, refreshed = detector.check_waiting_state(
+        new_data=b"",
+        output_buffer=big_raw,
+        last_output_time=time.time() - 1.0,
+        waiting_pattern_time=waiting_pattern_time,
+    )
+
+    assert is_waiting is True
+    assert refreshed is not None
+    assert refreshed > waiting_pattern_time
 
 
 def test_waiting_detection_without_renderer_uses_strip_ansi():

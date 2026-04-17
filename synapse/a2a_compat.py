@@ -1376,7 +1376,7 @@ def create_a2a_router(
     # --------------------------------------------------------
 
     @router.get("/debug/pty")
-    async def get_debug_pty() -> dict[str, Any]:
+    async def get_debug_pty(_: Any = Depends(require_auth)) -> dict[str, Any]:
         """Return the child's rendered virtual terminal state.
 
         Used to diagnose waiting_detection misses: the raw PTY byte

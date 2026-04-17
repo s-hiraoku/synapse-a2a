@@ -305,7 +305,7 @@ curl http://localhost:8100/debug/pty | jq .display
 
 ```json
 {
-  "display": "... rendered screen, one line per row ...",
+  "display": ["... row 1 ...", "... row 2 ..."],
   "cursor": {"x": 12, "y": 4},
   "alt_screen": false,
   "columns": 120,
@@ -315,7 +315,7 @@ curl http://localhost:8100/debug/pty | jq .display
 
 | Field | Description |
 |-------|-------------|
-| `display` | Current rendered screen as a single newline-joined string |
+| `display` | Current rendered screen as an array of rendered rows (`string[]`) |
 | `cursor` | Cursor position `{x, y}` in cell coordinates |
 | `alt_screen` | `true` when the application is on the xterm alternate screen buffer |
 | `columns` / `rows` | Virtual terminal dimensions |

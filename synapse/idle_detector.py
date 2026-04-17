@@ -193,16 +193,17 @@ class IdleDetector:
         if new_data:
             if self._renderer is not None:
                 self._renderer.feed(new_data)
-                pattern_in_new = bool(
+                # renderer path: match against the full rendered screen
+                pattern_visible = bool(
                     self.waiting_regex.search(self._renderer.render_text())
                 )
             else:
                 new_text = self._strip_ansi(new_data.decode("utf-8", errors="replace"))
-                pattern_in_new = bool(self.waiting_regex.search(new_text))
+                pattern_visible = bool(self.waiting_regex.search(new_text))
         else:
-            pattern_in_new = False
+            pattern_visible = False
 
-        if pattern_in_new:
+        if pattern_visible:
             waiting_pattern_time = time.time()
         elif waiting_pattern_time is None:
             return False, None
@@ -210,15 +211,15 @@ class IdleDetector:
         if waiting_pattern_time is not None:
             elapsed = time.time() - waiting_pattern_time
             if elapsed > self.waiting_expiry:
-                buffer_text = self._strip_ansi(
-                    output_buffer[-512:].decode("utf-8", errors="replace")
-                )
-                still_visible = bool(self.waiting_regex.search(buffer_text))
                 if self._renderer is not None:
-                    screen_text = self._renderer.render_text()
-                    still_visible = still_visible and bool(
-                        self.waiting_regex.search(screen_text)
+                    still_visible = bool(
+                        self.waiting_regex.search(self._renderer.render_text())
                     )
+                else:
+                    buffer_text = self._strip_ansi(
+                        output_buffer[-512:].decode("utf-8", errors="replace")
+                    )
+                    still_visible = bool(self.waiting_regex.search(buffer_text))
                 if still_visible:
                     waiting_pattern_time = time.time()
                 else:

@@ -17,12 +17,53 @@ full-screen overlays are exposed cleanly.
 
 from __future__ import annotations
 
+import codecs
 from typing import Any
 
 import pyte
 
 _ALT_SCREEN_ENTER = "\x1b[?1049h"
 _ALT_SCREEN_LEAVE = "\x1b[?1049l"
+
+
+def _split_trailing_incomplete_csi(text: str) -> tuple[str, str]:
+    """Split an incomplete ESC/CSI sequence off the end of *text*.
+
+    Returns ``(pending, clean)`` where *pending* is the trailing
+    fragment that might be the start of an escape sequence (held back
+    for the next ``feed`` call) and *clean* is the remainder that is
+    safe to process now.
+    """
+    if not text:
+        return "", ""
+    last_esc = text.rfind("\x1b")
+    if last_esc == -1:
+        return "", text
+    tail = text[last_esc:]
+    # A complete CSI sequence ends with a letter (@ through ~).
+    # If the tail is just ESC or ESC[ followed by parameter bytes
+    # (digits, semicolons, question marks) but no final byte, it is
+    # incomplete and must be held back.
+    if len(tail) == 1:
+        # Bare ESC — could be start of CSI, OSC, SS2/SS3, etc.
+        return tail, text[:last_esc]
+    if tail[1] == "[":
+        # CSI: \x1b[ followed by parameter/intermediate bytes, ended
+        # by a byte in 0x40–0x7E range.
+        for i in range(2, len(tail)):
+            ch = tail[i]
+            if "\x40" <= ch <= "\x7e":
+                # Complete sequence found — nothing to hold back.
+                return "", text
+        # Reached end of tail without a final byte.
+        return tail, text[:last_esc]
+    if tail[1] == "]":
+        # OSC: terminated by ST (\x1b\\) or BEL (\x07).
+        if "\x07" in tail or "\x1b\\" in tail[1:]:
+            return "", text
+        return tail, text[:last_esc]
+    # Two-character escape (e.g. \x1b= , \x1bM) — already complete.
+    return "", text
 
 
 class PtyRenderer:
@@ -35,6 +76,8 @@ class PtyRenderer:
         self._stream = pyte.Stream(self._screen)
         self._in_alt_screen = False
         self._saved_display: list[str] | None = None
+        self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
+        self._pending = ""
 
     @property
     def in_alt_screen(self) -> bool:
@@ -48,11 +91,15 @@ class PtyRenderer:
         """Feed a chunk of PTY output into the virtual screen.
 
         Accepts either bytes (typical output from ``os.read``) or a
-        pre-decoded string. Invalid UTF-8 is tolerated via replacement.
+        pre-decoded string. Uses an incremental decoder so multi-byte
+        UTF-8 split across ``os.read`` boundaries is handled correctly.
         """
-        text = (
-            data.decode("utf-8", errors="replace") if isinstance(data, bytes) else data
-        )
+        if isinstance(data, bytes):
+            text = self._decoder.decode(data, final=False)
+        else:
+            text = data
+        text = self._pending + text
+        self._pending, text = _split_trailing_incomplete_csi(text)
         # Handle alt-screen transitions ourselves: pyte does not treat
         # DECSET 1049 as a distinct buffer, so we snapshot/restore the
         # primary display across the toggle to keep the rendered view

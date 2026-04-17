@@ -29,7 +29,7 @@ input_ready_pattern: "›"                       # Codex shows › when ready fo
 # shape is the most stable signal we have. See issue tracking the deeper
 # waiting_detection / alternate-screen-buffer fix for the longer-term plan.
 waiting_detection:
-  regex: "›\\s+\\d+\\.|Yes, proceed|Yes, and don't ask again|No, and tell Codex|Press [Ee]nter to confirm|Would you like to|Approaching rate limits|Switch to gpt-|Keep current model|hit your usage limit"
+  regex: "›\\s+\\d+\\.|Yes, proceed|Yes, and don't ask again|No, and tell Codex|Press [Ee]nter to confirm|Would you like to|Approaching rate limits|Switch to gpt-|Keep current model|You've hit your usage limit"
   require_idle: true
   idle_timeout: 0.5
   waiting_expiry: 30                           # Auto-clear WAITING after 30s to give the parent a realistic window to intervene

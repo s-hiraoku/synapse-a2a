@@ -186,3 +186,33 @@ def test_constructor_dimensions_respected(columns: int, rows: int) -> None:
     snap = r.snapshot()
     assert snap["columns"] == columns
     assert snap["rows"] == rows
+
+
+class TestIncrementalDecoding:
+    def test_split_utf8_across_chunks(self) -> None:
+        """Multi-byte UTF-8 split across os.read() calls must not
+        produce replacement characters."""
+        r = PtyRenderer(columns=80, rows=24)
+        # '日' is U+65E5 = 3 bytes: e6 97 a5
+        r.feed(b"\xe6\x97")
+        r.feed(b"\xa5")
+        assert "日" in r.render()[0]
+
+    def test_split_csi_across_chunks(self) -> None:
+        """Alt-screen marker split across two feed() calls must still
+        be detected."""
+        r = PtyRenderer(columns=80, rows=24)
+        r.feed(b"primary")
+        # Split \x1b[?1049h across two calls
+        r.feed(b"\x1b[?10")
+        r.feed(b"49hoverlay")
+        assert r.in_alt_screen is True
+        text = "\n".join(r.render())
+        assert "overlay" in text
+        assert "primary" not in text
+
+    def test_complete_csi_not_held_back(self) -> None:
+        """A complete CSI at the end of a chunk should not be deferred."""
+        r = PtyRenderer(columns=80, rows=24)
+        r.feed(b"hello\x1b[2;1Hworld")
+        assert r.render()[1] == "world"
