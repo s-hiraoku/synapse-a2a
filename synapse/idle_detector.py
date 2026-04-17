@@ -211,15 +211,24 @@ class IdleDetector:
         if waiting_pattern_time is not None:
             elapsed = time.time() - waiting_pattern_time
             if elapsed > self.waiting_expiry:
-                if self._renderer is not None:
+                # Always check the raw output buffer tail — this is the
+                # single source that compound_signal tests manipulate
+                # via direct ``ctrl.output_buffer = ...`` assignment.
+                buffer_text = self._strip_ansi(
+                    output_buffer[-512:].decode("utf-8", errors="replace")
+                )
+                still_visible = bool(self.waiting_regex.search(buffer_text))
+                # When a renderer is available, the pattern must also
+                # be present on the rendered screen. AND semantics: if
+                # *either* source loses the pattern the WAITING state
+                # clears. This prevents the renderer's cumulative
+                # screen from keeping WAITING alive after the raw buffer
+                # has moved on (e.g. the test replaces output_buffer
+                # directly without feeding the renderer).
+                if self._renderer is not None and still_visible:
                     still_visible = bool(
                         self.waiting_regex.search(self._renderer.render_text())
                     )
-                else:
-                    buffer_text = self._strip_ansi(
-                        output_buffer[-512:].decode("utf-8", errors="replace")
-                    )
-                    still_visible = bool(self.waiting_regex.search(buffer_text))
                 if still_visible:
                     waiting_pattern_time = time.time()
                 else:
