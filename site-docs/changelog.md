@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.26.0
+
+- **Added**: Approval Gate policy expansion — prompt classification (`classify_prompt`), per-action dict-style `profile_overrides`, and risk classifier safety floor for destructive commands (#571 Phase 3, #578)
+- **Added**: Pyte-backed virtual terminal for `waiting_detection` — resolves ratatui cursor-motion garbling, tracks alt-screen buffer, adds `GET /debug/pty` endpoint (#572, #575)
+- **Fixed**: Approval Gate escalation flood — blocked-state floor + `EscalationDeduper` prevent children stuck on quota banners from flooding the parent inbox (#576)
+- **Fixed**: Status sync between controller and task_store — `input_required` tasks now revert on any exit from WAITING, and `GET /tasks/{id}` no longer writes side effects (#569, #577)
+
 ### v0.25.2
 
 - **Fixed**: Parent-side permission handling no longer deadlocks on child `input_required` prompts — children now send structured escalation metadata, the Approval Gate can auto-dispatch approve/deny/escalate, and `synapse send --wait` stays alive until parent intervention or timeout (#571)

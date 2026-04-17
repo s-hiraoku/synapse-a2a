@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.0] - 2026-04-17
+
+### Added
+
+- **Approval Gate policy expansion (#571 Phase 3, #578):** `classify_prompt` categorises PTY context into `permission_request`, `overwrite_confirm`, `dangerous_command`, `clarification_request`, `blocked`, or `unknown`. `profile_overrides` now accept a dict-of-dicts for per-prompt-class policy. `_is_high_risk` adds a safety floor that escalates destructive commands (`rm -rf`, `sudo`, `DROP TABLE`, `git push --force`) regardless of policy.
+- **Pyte-backed virtual terminal for waiting_detection (#572, #575):** raw PTY output is replayed through a `pyte.Screen` so cursor-motion CSI sequences resolve to the final cell state before regex evaluation. Alt-screen buffer enter/leave is tracked. New `GET /debug/pty` endpoint exposes the rendered screen as JSON. New dependency: `pyte>=0.8.2`.
+- **Multiagent patterns usability improvements (#574):** plan preview, samples, and guide for built-in coordination patterns.
+
+### Fixed
+
+- **Approval Gate escalation flood on blocked child states (#576):** blocked-state floor detects non-recoverable banners (`hit your usage limit`, `Upgrade to Pro`, `try again at … AM|PM`) and forces ESCALATE. `EscalationDeduper` (TTL 60s, keyed on `target_agent_id + sha1(pty_context)`) suppresses identical re-escalations.
+- **Status sync divergence between controller and task_store (#569, #577):** `_on_status_change` now reverts `input_required` tasks to `working` on any exit from WAITING (previously only WAITING→PROCESSING was handled). Removed rogue write in `GET /tasks/{id}` that re-set `input_required` from stale PTY context.
+- **Codex waiting_detection regex widened** to match the `hit your usage limit` OpenAI quota banner.
+
 ## [0.25.2] - 2026-04-15
 
 ### Added
@@ -3358,7 +3372,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.25.1...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.25.2...v0.26.0
 [0.25.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.25.1...v0.25.2
 [0.25.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.24.2...v0.25.0
