@@ -66,17 +66,20 @@ class TestIsPortAvailable:
 
     def test_available_port(self):
         """Should return True for available port."""
-        # Port 65432 is unlikely to be in use
-        assert is_port_available(65432) is True
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        assert is_port_available(port) is True
 
     def test_unavailable_port(self):
         """Should return False for unavailable port."""
         # Bind and listen to a port temporarily
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind(("localhost", 65433))
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
             s.listen(1)  # Need to listen to actually block the port
-            assert is_port_available(65433) is False
+            assert is_port_available(port) is False
 
 
 class TestIsProcessAlive:
@@ -174,6 +177,43 @@ class TestPortManager:
             port = port_manager.get_available_port("claude")
             assert port == 8101  # Skipped 8100
 
+    def test_get_available_port_detects_orphan_listener_warns_and_skips(
+        self, port_manager
+    ):
+        """Should skip unregistered listeners and tell users how to clean them."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            listener.bind(("127.0.0.1", 0))
+            listener.listen(1)
+            orphan_port = listener.getsockname()[1]
+            next_port = orphan_port + 1
+
+            with (
+                patch(
+                    "synapse.port_manager.get_port_range",
+                    return_value=(orphan_port, next_port),
+                ),
+                patch("synapse.port_manager.logger.warning") as warning,
+            ):
+                port = port_manager.get_available_port("test")
+
+        assert port == next_port
+        warning.assert_called_once()
+        message = warning.call_args[0][0]
+        assert "orphan listener" in message
+        assert "synapse doctor --clean" in message
+
+    def test_get_available_port_respects_mismatched_agent_id_shape(
+        self, port_manager, registry
+    ):
+        """Should treat any live registry entry for a port as occupying it."""
+        registry.register("custom-name", "claude", 8100)
+
+        with patch("synapse.port_manager.is_port_available", return_value=True):
+            port = port_manager.get_available_port("claude")
+
+        assert port == 8101
+
     def test_get_running_instances_empty(self, port_manager):
         """Should return empty list when no instances running."""
         running = port_manager.get_running_instances("claude")
@@ -220,6 +260,7 @@ class TestPortManager:
         assert "8100-8109" in error
         assert "synapse-claude-8100" in error
         assert "synapse stop claude" in error
+        assert "synapse doctor --clean" in error
 
     def test_format_exhaustion_error_empty(self, port_manager):
         """Should format error message even when no instances running."""
