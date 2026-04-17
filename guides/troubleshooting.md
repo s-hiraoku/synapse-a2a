@@ -296,6 +296,41 @@ synapse claude --port 8200
 
 ---
 
+### 3.2.1 孤立リスナーによるポート枯渇（`synapse doctor`）
+
+**症状**:
+- エージェントを `synapse list` で見ると生きていないのに、管理ポート範囲 (8100–8149) が全て使用中で新規起動に失敗する
+- レジストリ (`~/.a2a/registry/`) にエントリがないプロセスが管理ポートで LISTEN している
+- UDS ソケット (`/tmp/synapse-a2a/*.sock`) がレジストリと対応しない状態で残っている
+
+**原因**:
+`synapse` プロセスが異常終了した場合、レジストリファイルと UDS ソケットがクリーンアップされないことがありました。ポートは LISTEN 中で残るため port-manager が再利用できず、見かけ上「空きポートなし」になります。v0.26.0 以降で順次修正され、通常終了時は `registry.unregister_self()` が原子的に `.json` を消し、`port-manager` は孤立リスナーを正しく検出するようになっています。
+
+**確認 / 復旧**:
+
+```bash
+# 孤立リスナーと stale ソケットをレポート
+synapse doctor
+
+# 対話的に終了・削除（PID ごとに確認）
+synapse doctor --clean
+
+# 確認プロンプトを飛ばして一括クリーン
+synapse doctor --clean -y
+
+# CI で孤立が残っていれば失敗させる
+synapse doctor --strict
+```
+
+`synapse doctor --clean` は以下を行います。
+
+1. 管理ポート範囲で LISTEN しているが、生きているレジストリエントリと紐付かないプロセスを `SIGTERM`（5 秒後に `SIGKILL`）で終了します。
+2. レジストリに対応しない `/tmp/synapse-a2a/*.sock` (`SYNAPSE_UDS_DIR` で上書き可) を削除します。
+
+**注意**: `--clean` は確認なしで `-y` を付けない限り、各孤立プロセスごとに対話プロンプトが出ます。自動化ジョブで使う場合は `--clean -y` を指定してください。
+
+---
+
 ### 3.3 `synapse send` が `local send failed` で失敗する
 
 **症状**:

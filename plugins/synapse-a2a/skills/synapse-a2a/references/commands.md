@@ -797,6 +797,33 @@ Configure which columns to display in `synapse list`:
 | `required` | Show approval prompt before sending initial instructions (default) |
 | `auto` | Skip approval prompt, send instructions automatically |
 
+## Health Checks
+
+Diagnose project setup issues and detect orphan managed resources (port listeners and UDS sockets without a live registry entry).
+
+```bash
+# Report settings / skill-sync / ports / dependencies, plus orphan listeners and stale sockets
+synapse doctor
+
+# Exit 1 when orphan listeners or stale sockets are present (for CI)
+synapse doctor --strict
+
+# Terminate orphan listeners and remove stale sockets (prompts per orphan)
+synapse doctor --clean
+
+# Skip confirmation prompts (for automation)
+synapse doctor --clean -y
+
+# Check a project root other than the current directory
+synapse doctor --root /path/to/project
+```
+
+**What `--clean` does:**
+- Orphan listeners on managed ports (8100–8149 and related ranges) are terminated with `SIGTERM`, escalating to `SIGKILL` after 5 seconds.
+- Socket files under `$SYNAPSE_UDS_DIR` (default `/tmp/synapse-a2a`) without a matching registry file are removed.
+
+**When to use:** after `synapse list` shows no agents but a new `synapse <profile>` fails with `Address already in use`, or when previous `synapse` processes crashed without cleaning up.
+
 ## Instructions Management
 
 Manage initial instructions sent to agents at startup.

@@ -755,6 +755,10 @@ Save this agent definition for reuse? [y/N]:
 | `synapse skills apply <target> <set_name>` | Apply skill set to running agent (`--dry-run` to preview) |
 | `synapse config` | Settings management (interactive TUI) |
 | `synapse config show` | Show current settings |
+| `synapse doctor` | Run health checks; also detects orphan port listeners in the managed range and stale UDS sockets |
+| `synapse doctor --clean` | Terminate orphan listeners and remove stale sockets (prompts per orphan; `-y` to skip prompts) |
+| `synapse doctor --strict` | Exit 1 when orphan listeners or stale sockets are present (for CI / scripts) |
+| `synapse worktree prune` | Remove orphan worktrees whose directories no longer exist but whose git refs remain |
 | `synapse approve <task_id>` | Approve a plan |
 | `synapse reject <task_id>` | Reject a plan with reason |
 | `synapse team start` | Launch agents (1st=handoff, rest=new panes). Defaults to `--worktree` isolation; opt out with `--no-worktree`. `--all-new` for all new panes |
