@@ -14,6 +14,8 @@ import pytest
 from synapse.mcp.server import SynapseMCPServer, UnknownMCPResourceError
 from synapse.settings import SynapseSettings
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 def _create_settings(root: Path) -> SynapseSettings:
     synapse_dir = root / ".synapse"
@@ -155,6 +157,12 @@ def test_list_resources_always_includes_default() -> None:
     resources = server.list_resources()
 
     assert any(item.uri == "synapse://instructions/default" for item in resources)
+
+
+def test_file_safety_instruction_template_mentions_worktree_signal() -> None:
+    template = REPO_ROOT / "synapse" / "templates" / ".synapse" / "file-safety.md"
+
+    assert "SYNAPSE_WORKTREE_PATH" in template.read_text(encoding="utf-8")
 
 
 def test_bootstrap_agent_wraps_settings_load_value_error() -> None:
