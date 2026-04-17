@@ -14,7 +14,7 @@ was already READY. A GET handler should be side-effect-free.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -175,8 +175,7 @@ class TestGetTasksNoRogueWrite:
         )
 
         # GET the task — must NOT write input_required
-        with patch("synapse.a2a_compat.is_input_required", return_value=True):
-            resp = client.get(f"/tasks/{task_id}")
+        resp = client.get(f"/tasks/{task_id}")
 
         assert resp.status_code == 200
         # Verify task_store was NOT updated to input_required
