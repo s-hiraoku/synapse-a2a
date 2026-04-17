@@ -40,6 +40,7 @@ from synapse.controller_status import StatusObserverMixin
 from synapse.idle_detector import IdleDetector
 from synapse.long_message import format_file_reference, get_long_message_store
 from synapse.mcp.server import MCP_INSTRUCTIONS_DEFAULT_URI
+from synapse.pty_renderer import PtyRenderer
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.skills import load_skill_sets
@@ -153,10 +154,12 @@ class TerminalController(StatusObserverMixin):
 
         self.idle_config = idle_detection or {"strategy": "timeout", "timeout": 1.5}
         self._pattern_detected = False
+        self._pty_renderer = PtyRenderer(columns=120, rows=40)
         self._idle_detector = IdleDetector(
             idle_detection=self.idle_config,
             waiting_detection=waiting_detection,
             strip_ansi_fn=strip_ansi,
+            renderer=self._pty_renderer,
         )
         self.idle_strategy = self._idle_detector.idle_strategy
         self.idle_regex = self._idle_detector.idle_regex
@@ -1181,6 +1184,16 @@ class TerminalController(StatusObserverMixin):
                 self._pending_cr = False
             raw = "".join(self._render_buffer)
         return strip_ansi(raw)
+
+    def pty_snapshot(self) -> dict[str, Any]:
+        """Return the rendered virtual terminal state.
+
+        Exposes the pyte-backed screen so debug and diagnostic callers
+        (e.g. ``GET /debug/pty``) can inspect what waiting_detection
+        evaluates against without reaching into private attributes.
+        """
+        with self.lock:
+            return self._pty_renderer.snapshot()
 
     def set_done(self) -> None:
         """Set status to DONE (task completed).

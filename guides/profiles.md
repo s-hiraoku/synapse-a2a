@@ -306,7 +306,7 @@ idle_detection:
   timeout: 3.0
   task_protection_timeout: 30
 waiting_detection:
-  regex: "^\\s+\\d+\\.\\s+.+$|Press [Ee]nter to confirm|Would you like to"
+  regex: "^\\s+\\d+\\.\\s+.+$|Press [Ee]nter to confirm|Would you like to|You've hit your usage limit"
   require_idle: true
   idle_timeout: 0.5
   waiting_expiry: 10
@@ -319,7 +319,8 @@ env:
 - OpenAI Codex CLI 用
 - **hybrid 戦略（`startup_only` パターン）**: 起動時のみ `›` プロンプトでパターンマッチし、以降は 3.0 秒のタイムアウトベースで検出。会話履歴にプロンプト文字列が現れても誤検出しないため、処理中のステータス精度が向上します（[#537](https://github.com/s-hiraoku/synapse-a2a/issues/537)）。
 - **compound signal**: `task_protection_timeout: 30` — A2A タスク処理中の誤 READY 遷移を抑制
-- **WAITING 検出**: 番号付き選択肢、`Press [Ee]nter to confirm`、`Would you like to` を検出 + `waiting_expiry: 10` で自動クリア
+- **WAITING 検出**: 番号付き選択肢、`Press [Ee]nter to confirm`、`Would you like to`、および OpenAI のクォータ枯渇バナー `You've hit your usage limit` を検出 + `waiting_expiry: 10` で自動クリア。`You've hit your usage limit` は厳密には「ブロック中」に近い意味ですが、現状は WAITING として親エージェントに通知し、Approval Gate 側で判断させる設計です（将来的に `blocked` 状態として分離予定、[#572](https://github.com/s-hiraoku/synapse-a2a/issues/572)）。
+- **仮想ターミナルでの regex 評価 ([#572](https://github.com/s-hiraoku/synapse-a2a/issues/572))**: ratatui ベースの codex TUI は同じセルを cursor motion で重ね書きするため、waiting_detection は pyte ベースの仮想ターミナル (`synapse/pty_renderer.py`) にレンダリングした画面テキストに対して評価されます。regex が実際に見ている画面は `curl http://localhost:<port>/debug/pty | jq .display` で確認できます。
 
 ---
 

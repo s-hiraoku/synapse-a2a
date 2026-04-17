@@ -1361,6 +1361,8 @@ steps:
 - **Approval Gate による自動承認** — 子エージェントが permission prompt で停止すると、子のサーバは親エージェントに構造化された escalation メッセージ (`permission_escalation` メタデータ付き) を送ります。親エージェントの受信ハンドラは `synapse/approval_gate.py` の Decision Engine に dispatch し、ポリシーに従って `POST /tasks/<id>/permission/approve` または `deny` を自動的に送り返します。親 PTY に人間への alert が出ることはなく、ポリシー経由で挙動を制御できます。
 - **Blocked-state 検出 と エスカレーション dedupe** — 子の `pty_context` が `hit your usage limit` / `Upgrade to Pro` / `try again at ... AM|PM` のような**approve で解決しない terminal 状態**を示している場合、Approval Gate はポリシー設定に関わらず自動で `escalate` に落とします。approve を送っても modal が受け取らず、子が同じ画面で新しい task_id を生成して無限に再エスカレーションするのを防ぎます。加えて `EscalationDeduper` (TTL 60 秒) が `(target_agent_id, hash(pty_context))` をキーに最近のエスカレーションを記録しており、同じ子が同じ画面で再送してきた場合は 2 回目以降を `approval_gate_deduped: True` として短絡します。
 - **`input_required` 時の待機セマンティクス** — `synapse send --wait` は、対象タスクが `input_required` に遷移した場合でも早期に exit せず、親エージェント (または Approval Gate) が介入してタスクが完了するまでポーリングを続けます。タイムアウトは `SYNAPSE_PARENT_INTERVENTION_TIMEOUT` 環境変数 (既定 1800 秒) で制御します。
+- **仮想ターミナルでの waiting_detection 評価 (#572)** — 子エージェントの PTY 出力はバイト列のまま regex にかけると、ratatui などの TUI が cursor motion (`\x1b[H`) で同じ座標を繰り返し書き換えるため `Working•Working•orking` のように破壊された文字列になっていました。現在は `pyte` ベースの仮想ターミナル (`synapse/pty_renderer.py`) に raw bytes をフィードし、レンダリング後の画面テキストに対して waiting_detection regex を評価しています。alt-screen buffer (`\x1b[?1049h/l`) の enter/leave もラッパー側で追跡しており、全画面オーバーレイの内容が正しく露出します。
+- **`GET /debug/pty`** — 任意のエージェントの現在のレンダリング済み画面を JSON (`{display: [...], cursor: {x, y}, alt_screen: bool, columns, rows}`) で取得できるデバッグ用エンドポイントです。waiting_detection が期待通りに動かない時、regex が何を見ているかを親から直接確認できます。例: `curl http://localhost:8126/debug/pty | jq .display`。
 
 ポリシー設定の例 (`settings.json`):
 

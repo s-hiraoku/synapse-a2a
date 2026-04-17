@@ -163,6 +163,7 @@ curl http://localhost:8100/tasks/550e8400-e29b-41d4-a716-446655440000
 | GET | `/tasks` | List all tasks (query: `context_id`) |
 | POST | `/tasks/{id}/cancel` | Cancel a task |
 | GET | `/status` | Agent status (READY/PROCESSING/WAITING/DONE) |
+| GET | `/debug/pty` | Snapshot of the pyte-backed virtual terminal (debug) |
 
 ### Priority Send
 
@@ -291,6 +292,35 @@ curl http://localhost:8100/status
 | `WAITING` | Agent is showing selection UI, waiting for user choice |
 | `DONE` | Task completed (auto-transitions to READY after 10 seconds) |
 | `SHUTTING_DOWN` | Graceful shutdown in progress |
+
+### GET /debug/pty
+
+Returns a JSON snapshot of the pyte-backed virtual terminal that Synapse uses to run `waiting_detection` regexes against a rendered screen (not ANSI-stripped raw bytes). Useful when debugging why a ratatui / TUI overlay is — or is not — detected as a WAITING prompt.
+
+```bash
+curl http://localhost:8100/debug/pty | jq .display
+```
+
+**Response:**
+
+```json
+{
+  "display": ["... row 1 ...", "... row 2 ..."],
+  "cursor": {"x": 12, "y": 4},
+  "alt_screen": false,
+  "columns": 120,
+  "rows": 40
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `display` | Current rendered screen as an array of rendered rows (`string[]`) |
+| `cursor` | Cursor position `{x, y}` in cell coordinates |
+| `alt_screen` | `true` when the application is on the xterm alternate screen buffer |
+| `columns` / `rows` | Virtual terminal dimensions |
+
+The endpoint is exposed by every per-agent A2A server and is intended for human inspection and regression debugging.
 
 
 ---

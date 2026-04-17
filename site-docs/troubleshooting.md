@@ -686,6 +686,16 @@ SYNAPSE_DEBUG_PTY=1 synapse claude
 
 This writes detailed PTY output to `~/.synapse/logs/pty_debug.log`, including raw byte sequences and detected WAITING indicators.
 
+Since v0.25.3, `waiting_detection` regexes run against a pyte-backed virtual terminal (see `synapse/pty_renderer.py`). The rendered screen reflects cursor motion and overwrites, so ratatui / TUI overlays that previously appeared as garbled strings like `Working•Working•orking` after ANSI stripping are now matched correctly.
+
+To inspect the current rendered screen live (for example, to confirm what the regex actually sees), query the per-agent debug endpoint:
+
+```bash
+curl -s http://localhost:8100/debug/pty | jq .display
+```
+
+See [API Endpoints → GET /debug/pty](reference/api.md#get-debugpty) for the full schema.
+
 ### Advanced A2A Debugging
 
 For debugging internal A2A communication at the protocol level:

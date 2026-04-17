@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from synapse.config import WAITING_EXPIRY_SECONDS
+from synapse.pty_renderer import PtyRenderer
 from synapse.status import DONE_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ class IdleDetector:
         waiting_detection: dict | None = None,
         *,
         strip_ansi_fn: Callable[[str], str] | None = None,
+        renderer: PtyRenderer | None = None,
     ) -> None:
         self.idle_config = idle_detection or {"strategy": "timeout", "timeout": 1.5}
         self.idle_strategy = self.idle_config.get("strategy", "pattern")
@@ -57,6 +59,7 @@ class IdleDetector:
             self.waiting_config.get("waiting_expiry", WAITING_EXPIRY_SECONDS)
         )
         self._strip_ansi = strip_ansi_fn or (lambda text: text)
+        self._renderer = renderer
 
     def _compile_idle_regex(self) -> re.Pattern[bytes] | None:
         if self.idle_strategy not in ("pattern", "hybrid"):
@@ -182,14 +185,25 @@ class IdleDetector:
         if not self.waiting_regex:
             return False, waiting_pattern_time
 
-        new_text = (
-            self._strip_ansi(new_data.decode("utf-8", errors="replace"))
-            if new_data
-            else ""
-        )
-        pattern_in_new = bool(new_text and self.waiting_regex.search(new_text))
+        # Quiet-tick fast path: no new bytes and nothing previously
+        # detected — skip the render/strip work entirely.
+        if not new_data and waiting_pattern_time is None:
+            return False, None
 
-        if pattern_in_new:
+        if new_data:
+            if self._renderer is not None:
+                self._renderer.feed(new_data)
+                # renderer path: match against the full rendered screen
+                pattern_visible = bool(
+                    self.waiting_regex.search(self._renderer.render_text())
+                )
+            else:
+                new_text = self._strip_ansi(new_data.decode("utf-8", errors="replace"))
+                pattern_visible = bool(self.waiting_regex.search(new_text))
+        else:
+            pattern_visible = False
+
+        if pattern_visible:
             waiting_pattern_time = time.time()
         elif waiting_pattern_time is None:
             return False, None
@@ -197,10 +211,25 @@ class IdleDetector:
         if waiting_pattern_time is not None:
             elapsed = time.time() - waiting_pattern_time
             if elapsed > self.waiting_expiry:
-                tail = self._strip_ansi(
+                # Always check the raw output buffer tail — this is the
+                # single source that compound_signal tests manipulate
+                # via direct ``ctrl.output_buffer = ...`` assignment.
+                buffer_text = self._strip_ansi(
                     output_buffer[-512:].decode("utf-8", errors="replace")
                 )
-                if self.waiting_regex.search(tail):
+                still_visible = bool(self.waiting_regex.search(buffer_text))
+                # When a renderer is available, the pattern must also
+                # be present on the rendered screen. AND semantics: if
+                # *either* source loses the pattern the WAITING state
+                # clears. This prevents the renderer's cumulative
+                # screen from keeping WAITING alive after the raw buffer
+                # has moved on (e.g. the test replaces output_buffer
+                # directly without feeding the renderer).
+                if self._renderer is not None and still_visible:
+                    still_visible = bool(
+                        self.waiting_regex.search(self._renderer.render_text())
+                    )
+                if still_visible:
                     waiting_pattern_time = time.time()
                 else:
                     return False, None

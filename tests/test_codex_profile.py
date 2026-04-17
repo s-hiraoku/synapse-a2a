@@ -57,6 +57,23 @@ class TestCodexWaitingDetection:
         )
         assert regex.search(modal)
 
+    def test_matches_usage_limit_banner(self, codex_profile: dict) -> None:
+        """Step D diagnostic (2026-04-15) captured this exact screen
+        while codex was blocked on an OpenAI usage limit. The pre-fix
+        regex missed it, so the workflow runner escalated to the parent
+        as input_required every few seconds. Until the Approval Gate
+        loop bug is fixed in its own PR, detecting this as WAITING at
+        least stops the spam and surfaces a consistent signal."""
+        regex = re.compile(codex_profile["waiting_detection"]["regex"])
+        banner = (
+            "\u25a0 You've hit your usage limit. Upgrade to Pro "
+            "(https://chatgpt.com/explore/pro), visit "
+            "https://chatgpt.com/codex/settings/usage to purchase "
+            "more credits or try again at Apr 17th, 2026 6:28 AM. "
+            "\u203a Find and fix a bug in @filename   gpt-5.4 medium"
+        )
+        assert regex.search(banner)
+
     def test_matches_bare_numbered_selector(self, codex_profile: dict) -> None:
         """Even without any of the named phrases, the `› 1.` shape should
         be enough on its own to trigger WAITING detection. This keeps us

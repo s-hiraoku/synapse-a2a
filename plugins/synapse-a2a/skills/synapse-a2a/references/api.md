@@ -89,6 +89,14 @@ When a spawned agent hits a permission prompt (e.g., tool approval), the control
 - Returns **HTTP 404** if the task is not found
 - Returns **HTTP 400** if the task is not in `input_required` status
 
+### Debug Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/debug/pty` | GET | Return the pyte-rendered virtual terminal state as JSON (`display`, `cursor`, `alt_screen`, `rows`, `columns`) |
+
+`GET /debug/pty` exposes exactly what `waiting_detection` regexes see: the raw PTY stream is replayed through a pyte-backed virtual terminal (`PtyRenderer`) so cursor-motion CSI sequences, ratatui-style redraws, and alt-screen overlays are resolved against a real screen before matching. Use it when tuning profile `waiting_detection` patterns or diagnosing why a WAITING prompt was (or was not) detected.
+
 ### Shared Memory Endpoints
 
 | Endpoint | Method | Description |

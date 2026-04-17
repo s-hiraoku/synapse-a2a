@@ -333,6 +333,8 @@ class TestWaitingFreshOutput:
 
         # Overwrite buffer with non-pattern output (pattern no longer on screen)
         ctrl.output_buffer = b"Processing new task now... done."
+        # Also update the renderer so the rendered screen matches
+        ctrl._pty_renderer.feed(b"\x1b[2J\x1b[H" + ctrl.output_buffer)
         # Expire the waiting pattern timestamp
         ctrl._waiting_pattern_time = time.time() - 1.0
         ctrl._last_output_time = time.time() - 10.0
@@ -361,6 +363,8 @@ class TestWaitingFreshOutput:
 
         # Clear buffer (pattern no longer visible) and set pattern time to past
         ctrl.output_buffer = b"New output without pattern"
+        # Also update the renderer so the rendered screen matches
+        ctrl._pty_renderer.feed(b"\x1b[2J\x1b[H" + ctrl.output_buffer)
         ctrl._waiting_pattern_time = time.time() - 1.0
         ctrl._last_output_time = time.time() - 10.0
 

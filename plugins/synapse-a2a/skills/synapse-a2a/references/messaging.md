@@ -240,6 +240,7 @@ Status transitions rely on multiple signals beyond PTY output patterns, reducing
 - **task_active flag**: Reference-counted; incremented on A2A task receipt, decremented on task finalization (completion or failure) and on send error. READY transitions are allowed only when the count reaches 0. If the count is not cleared, `task_protection_timeout` (default 30s, configurable per profile) expires the protection automatically.
 - **File locks**: Agents holding file locks remain in PROCESSING even if PTY output looks idle, because releasing file locks prematurely could cause conflicts.
 - **WAITING auto-expiry**: WAITING status auto-clears after `waiting_expiry` seconds (default 10s) to prevent stale states from blocking other transitions.
+- **Rendered-screen waiting_detection**: `waiting_detection` regexes are evaluated against a pyte-backed virtual terminal rather than raw PTY bytes, so cursor-motion overlays (ratatui-style redraws, alt-screen prompts) are resolved before matching. Inspect the rendered screen via `GET /debug/pty` when tuning profile regexes.
 
 ### Checking Status Before Sending
 

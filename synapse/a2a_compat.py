@@ -1403,6 +1403,24 @@ def create_a2a_router(
         return SendMessageResponse(task=updated_task)
 
     # --------------------------------------------------------
+    # Debug: rendered PTY snapshot (issue #572)
+    # --------------------------------------------------------
+
+    @router.get("/debug/pty")
+    async def get_debug_pty(_: Any = Depends(require_auth)) -> dict[str, Any]:
+        """Return the child's rendered virtual terminal state.
+
+        Used to diagnose waiting_detection misses: the raw PTY byte
+        stream is replayed against a ``pyte`` screen so callers see the
+        text as the TUI would have drawn it, with cursor motion and
+        erase sequences already resolved.
+        """
+        if controller is None or not hasattr(controller, "pty_snapshot"):
+            raise HTTPException(status_code=503, detail="pty renderer not available")
+        snapshot: dict[str, Any] = controller.pty_snapshot()
+        return snapshot
+
+    # --------------------------------------------------------
     # Agent Card (Discovery)
     # --------------------------------------------------------
 

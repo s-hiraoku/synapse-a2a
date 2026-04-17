@@ -420,7 +420,34 @@ idle_detection:
 
 ---
 
-### 4.2 レスポンスが返ってこない（タイムアウト）
+### 4.2 WAITING に遷移しない（ratatui / TUI で画面テキストが壊れて見える）
+
+**症状**:
+- 権限プロンプトが画面に表示されているのに `synapse list` / `synapse status` が WAITING にならない
+- codex (ratatui) や Ink ベースの TUI で、`/status` の `context` に `Working•Working•orking•rking` のように破壊された文字列が混じる
+
+**原因**:
+ratatui などの TUI は cursor motion (`\x1b[H`, `\x1b[<n>;<m>H`) で同じセルを繰り返し書き換えます。旧実装ではこれを ANSI strip した raw bytes に対して waiting_detection regex を評価していたため、画面上は正しく表示されていても regex 側には重ね書き前のペイロードが連結された状態で届き、どの regex にもマッチしませんでした（[#572](https://github.com/s-hiraoku/synapse-a2a/issues/572)）。
+
+**対処**:
+v0.x の該当修正以降、`synapse/pty_renderer.py` の `pyte` ベース仮想ターミナルが raw bytes を再生し、waiting_detection はレンダリング後の画面テキストに対して評価されます。基本的にユーザ側で何か設定する必要はありません。挙動を確認したい場合は `GET /debug/pty` で regex が実際に見ている画面を取得できます。
+
+```bash
+# エージェントのポートを確認
+synapse list --json | jq -r '.[] | "\(.agent_id) \(.port)"'
+
+# waiting_detection regex が見ている画面を取得
+curl http://localhost:8126/debug/pty | jq .display
+
+# alt-screen buffer 中か、カーソル位置も合わせて確認
+curl http://localhost:8126/debug/pty | jq '{alt_screen, cursor}'
+```
+
+画面自体は正しくレンダリングされているのに WAITING にならない場合は、プロファイルの `waiting_detection.regex` がその画面テキストにマッチしていない可能性が高いので、regex 側を調整してください。
+
+---
+
+### 4.3 レスポンスが返ってこない（タイムアウト）
 
 **症状**:
 - `@agent` でメッセージ送信後、レスポンスがタイムアウトする

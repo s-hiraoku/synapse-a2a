@@ -2262,6 +2262,48 @@ curl http://localhost:8100/status
 
 ---
 
+### 2.3.1 GET /debug/pty
+
+waiting_detection が評価している仮想ターミナル画面を取得するデバッグ用エンドポイントです（[#572](https://github.com/s-hiraoku/synapse-a2a/issues/572)）。コントローラ内の `PtyRenderer` が保持している現在の画面バッファ（pyte ベース、既定 120x40）をそのまま JSON として返します。
+
+**リクエスト**:
+
+```http
+GET /debug/pty HTTP/1.1
+Host: localhost:8100
+```
+
+**レスポンス**:
+
+```json
+{
+  "display": ["行0", "行1", "..."],
+  "cursor": {"x": 12, "y": 3},
+  "alt_screen": false,
+  "columns": 120,
+  "rows": 40
+}
+```
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `display` | string[] | レンダリング後の画面テキスト（行単位） |
+| `cursor` | object | 現在のカーソル位置 |
+| `alt_screen` | bool | alt-screen buffer (`\x1b[?1049h`) 中なら true |
+| `columns` | int | 仮想ターミナルの列数 |
+| `rows` | int | 仮想ターミナルの行数 |
+
+コントローラまたはレンダラーが存在しない場合は `503 Service Unavailable` を返します。
+
+**curl 例**:
+
+```bash
+# waiting_detection regex が何を見ているかを親エージェントから確認
+curl http://localhost:8126/debug/pty | jq .display
+```
+
+---
+
 ### 2.4 Google A2A 互換エンドポイント
 
 #### GET /.well-known/agent.json
