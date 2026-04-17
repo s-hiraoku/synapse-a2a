@@ -164,9 +164,7 @@ def test_waiting_detection_renderer_path_survives_garbled_raw_tail():
     # The raw bytes produce garbled strip_ansi output, but pyte resolves
     # the overwrites so the screen cleanly shows "Proceed?" on row 2.
     garbled_raw = (
-        b"\x1b[H" + b"Working" * 10
-        + b"\x1b[H" + b"Working" * 10
-        + b"\x1b[2;1HProceed?"
+        b"\x1b[H" + b"Working" * 10 + b"\x1b[H" + b"Working" * 10 + b"\x1b[2;1HProceed?"
     )
     renderer.feed(garbled_raw)
 
