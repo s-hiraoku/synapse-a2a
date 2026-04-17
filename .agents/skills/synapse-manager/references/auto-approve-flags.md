@@ -21,14 +21,16 @@ Use `--no-auto-approve` to disable this behavior.
 
 ### Claude Code
 
-6-level permission modes (toggle with `Shift+Tab` during session):
+6 permission modes (launch with `--permission-mode <mode>`; settings key `permissions.defaultMode`; Shift+Tab cycles default → acceptEdits → plan during a session):
 
 | Mode | Description |
 |------|-------------|
-| `default` | Ask before every tool use |
-| `acceptEdits` | Auto-approve file edits only; bash commands still require confirmation |
-| `auto` | AI classifier (Sonnet 4.6) evaluates each action before execution; blocks dangerous ops. Requires `--enable-auto-mode` |
-| `bypassPermissions` | Skip all permission prompts. **`--dangerously-skip-permissions`**. Sandbox-only |
+| `default` | Launch default; prompts before edits and commands, while reads are allowed. |
+| `acceptEdits` | Auto-approves file edits and fs commands (mkdir/mv/cp/touch/rm/rmdir/sed); bash still prompts. |
+| `plan` | Read-only planning mode; proposes changes without applying them. |
+| `auto` | Background classifier safety checks (Research Preview; Sonnet/Opus 4.6+, eligible plans only). |
+| `dontAsk` | Denies all tools except `permissions.allow` rules and read-only Bash. |
+| `bypassPermissions` | Skips all checks except protected paths; **`--dangerously-skip-permissions`** is the alias for `--permission-mode bypassPermissions`. Isolated containers only. |
 
 v2.0+ recommends **Hooks** (PreToolUse events) as a safer alternative to `--dangerously-skip-permissions`.
 

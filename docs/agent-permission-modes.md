@@ -20,7 +20,7 @@ synapse team start claude gemini --no-auto-approve
 
 | CLI | 自動承認フラグ | サンドボックス | セッション中切替 | 設定ファイル |
 |-----|--------------|-------------|----------------|------------|
-| Claude Code | `--dangerously-skip-permissions` | なし | `Shift+Tab` | Hooks (PreToolUse) |
+| Claude Code | `--dangerously-skip-permissions` (= `--permission-mode bypassPermissions`) | なし | `Shift+Tab` | Hooks (PreToolUse) |
 | Codex CLI | `--full-auto` | ワークスペース制限 | なし | `~/.codex/config.toml` |
 | Gemini CLI | `--yolo` | Docker (デフォルト) | `Ctrl+Y` | `~/.gemini/settings.json` |
 | OpenCode | env var | なし | なし | `opencode.json` |
@@ -28,12 +28,19 @@ synapse team start claude gemini --no-auto-approve
 
 ## Claude Code
 
-6段階のパーミッションモード:
+パーミッションモード:
 
-1. **default** — 全ツール使用前に確認
-2. **acceptEdits** — ファイル編集のみ自動承認、bash コマンドは確認
-3. **auto** — AI クラシファイア（Sonnet 4.6）が各アクションを評価。`--enable-auto-mode` で起動。Team/Enterprise/API プラン限定
-4. **bypassPermissions** — `--dangerously-skip-permissions` で全承認バイパス。サンドボックス環境専用
+1. **default** — 起動時のデフォルト。編集とコマンド実行前に確認、読み取りは許可。
+2. **acceptEdits** — ファイル編集と fs 系コマンド (mkdir/mv/cp/touch/rm/rmdir/sed) を自動承認、bash は確認。
+3. **plan** — 読み取り専用の計画モード。変更を適用せず提案のみ。
+4. **auto** — バックグラウンドクラシファイアによる安全性チェック (Research Preview; Sonnet/Opus 4.6+、対象プランのみ)。
+5. **dontAsk** — `permissions.allow` と読み取り専用 Bash 以外を全拒否。
+6. **bypassPermissions** — 保護パス以外の承認をすべてバイパス。隔離環境 (VM/コンテナ) 専用。
+
+起動フラグ: `--permission-mode <mode>` (例 `--permission-mode acceptEdits`)。
+`--dangerously-skip-permissions` は `--permission-mode bypassPermissions` のエイリアス。
+設定ファイル: `settings.json` の `permissions.defaultMode` に同名の文字列を指定。
+セッション中 `Shift+Tab` で default → acceptEdits → plan を循環 (起動時に bypassPermissions / auto を有効にすると末尾に追加; dontAsk は循環対象外)。
 
 **Synapse での動作:** `--dangerously-skip-permissions` が自動注入される。WAITING 検知時は `y` + Enter を送信。
 

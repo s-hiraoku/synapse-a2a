@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.1] - 2026-04-17
+
+### Documentation
+
+- **Claude Code permission-mode spec update:** Refresh docs to reflect the six current permission modes (`default`, `acceptEdits`, `plan`, `auto`, `dontAsk`, `bypassPermissions`) and document the new `--permission-mode <mode>` launch flag and `permissions.defaultMode` settings key. `--dangerously-skip-permissions` continues to work as an alias for `--permission-mode bypassPermissions`, so Synapse's auto-approve injection is unchanged. Updates `docs/agent-permission-modes.md`, `site-docs/guide/agent-permission-modes.md`, the `synapse-manager` skill reference in all three mirrors (`.agents/`, `.claude/`, `plugins/synapse-a2a/`), and a clarifying comment in `synapse/profiles/claude.yaml`.
+
 ## [0.26.0] - 2026-04-17
 
 ### Added

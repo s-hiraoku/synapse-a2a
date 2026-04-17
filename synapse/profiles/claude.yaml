@@ -33,7 +33,10 @@ waiting_detection:
   waiting_expiry: 10                           # Auto-clear WAITING after 10s
 
 # Auto-approve configuration (used by synapse spawn / team start)
-# cli_flag: Injected as tool_arg to skip permission prompts at launch
+# cli_flag: Injected as tool_arg to skip permission prompts at launch.
+#   Claude Code v2+ accepts `--permission-mode <mode>`; the legacy
+#   `--dangerously-skip-permissions` is an alias for `--permission-mode bypassPermissions`
+#   and remains supported, so we keep using it here for maximum compatibility.
 # runtime_response: Sent to PTY when WAITING status detected during execution
 auto_approve:
   cli_flag: "--dangerously-skip-permissions"
