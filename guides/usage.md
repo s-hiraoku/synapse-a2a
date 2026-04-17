@@ -1359,6 +1359,8 @@ steps:
 - **`--auto-spawn` でスポーンされる子の権限フラグ** — workflow 経由で自動スポーンされる子エージェントには、プロファイルの `auto_approve.alternative_flags` の先頭が付与されます (例: codex なら `--dangerously-bypass-approvals-and-sandbox`)。バッチ実行されるワークフロー子は runtime permission prompt で止まらず走り切る必要があるため、`--full-auto` デフォルトではなく sandbox を解除した形で起動します。対話的に `synapse spawn` / `synapse team start` で起動する場合は従来通りの `--full-auto` デフォルトです。
 - **Busy retry** — 連続するステップの遷移期は、ターゲットが前ステップの finalization 中で短時間 busy になります。これを素早くリトライするため、runner は 409 応答を受けたら `/tasks` エンドポイントを 30 秒おきにポーリングして idle を待ち、最大 10 回 (約 5 分間) リトライします。ターゲットが idle になった瞬間に次の送信を走らせるので、無駄に sleep し続けることはありません。
 - **Approval Gate による自動承認** — 子エージェントが permission prompt で停止すると、子のサーバは親エージェントに構造化された escalation メッセージ (`permission_escalation` メタデータ付き) を送ります。親エージェントの受信ハンドラは `synapse/approval_gate.py` の Decision Engine に dispatch し、ポリシーに従って `POST /tasks/<id>/permission/approve` または `deny` を自動的に送り返します。親 PTY に人間への alert が出ることはなく、ポリシー経由で挙動を制御できます。
+- **Prompt classification と action 別ポリシー** — Approval Gate は子の `pty_context` を `permission_request` (通常の承認プロンプト)、`overwrite_confirm` (上書き確認)、`dangerous_command` (破壊的操作の警告)、`clarification_request` (追加情報の要求)、`blocked` (approve では解決しない停止状態)、`unknown` のいずれかに分類します。`profile_overrides` は従来通り `"claude": "escalate"` のような文字列も使えますが、エージェントタイプごとに class 別 action を指定する dict 形式も使えます。
+- **Risk classifier safety floor** — `rm -rf` / `sudo` / `DROP TABLE` / `WHERE` のない `DELETE FROM` / `main`・`master` への force push / `--no-verify` / `--no-gpg-sign` / `.env`・`credentials.json`・`id_rsa` などの credential path は高リスクとして扱われます。ポリシー解決後の action が `approve` でも、高リスクの場合は必ず `escalate` に引き上げられます。`deny` や明示的な `escalate` を弱めることはありません。
 - **Blocked-state 検出 と エスカレーション dedupe** — 子の `pty_context` が `hit your usage limit` / `Upgrade to Pro` / `try again at ... AM|PM` のような**approve で解決しない terminal 状態**を示している場合、Approval Gate はポリシー設定に関わらず自動で `escalate` に落とします。approve を送っても modal が受け取らず、子が同じ画面で新しい task_id を生成して無限に再エスカレーションするのを防ぎます。加えて `EscalationDeduper` (TTL 60 秒) が `(target_agent_id, hash(pty_context))` をキーに最近のエスカレーションを記録しており、同じ子が同じ画面で再送してきた場合は 2 回目以降を `approval_gate_deduped: True` として短絡します。
 - **`input_required` 時の待機セマンティクス** — `synapse send --wait` は、対象タスクが `input_required` に遷移した場合でも早期に exit せず、親エージェント (または Approval Gate) が介入してタスクが完了するまでポーリングを続けます。タイムアウトは `SYNAPSE_PARENT_INTERVENTION_TIMEOUT` 環境変数 (既定 1800 秒) で制御します。
 - **仮想ターミナルでの waiting_detection 評価 (#572)** — 子エージェントの PTY 出力はバイト列のまま regex にかけると、ratatui などの TUI が cursor motion (`\x1b[H`) で同じ座標を繰り返し書き換えるため `Working•Working•orking` のように破壊された文字列になっていました。現在は `pyte` ベースの仮想ターミナル (`synapse/pty_renderer.py`) に raw bytes をフィードし、レンダリング後の画面テキストに対して waiting_detection regex を評価しています。alt-screen buffer (`\x1b[?1049h/l`) の enter/leave もラッパー側で追跡しており、全画面オーバーレイの内容が正しく露出します。
@@ -1372,6 +1374,11 @@ steps:
     "enabled": true,
     "default_action": "approve",
     "profile_overrides": {
+      "codex": {
+        "default": "approve",
+        "dangerous_command": "escalate",
+        "overwrite_confirm": "approve"
+      },
       "claude": "escalate"
     }
   }
@@ -1379,7 +1386,7 @@ steps:
 ```
 
 - `default_action`: `approve` (デフォルト) / `deny` / `escalate` (人間介入を要求)
-- `profile_overrides`: エージェントタイプ別の上書き
+- `profile_overrides`: エージェントタイプ別の上書き。値が文字列なら従来通り全 class に適用されます。値が dict の場合は `prompt_class` (`permission_request` など) を先に見て、なければその profile の `default`、それもなければ global `default_action` にフォールバックします
 - `enabled: false` にすると Approval Gate は常に `escalate` を返し、既存の「親が手動で curl で承認」フローに戻ります
 
 #### Canvas からの実行
