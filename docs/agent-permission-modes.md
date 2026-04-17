@@ -39,7 +39,7 @@ synapse team start claude gemini --no-auto-approve
 
 起動フラグ: `--permission-mode <mode>` (例 `--permission-mode acceptEdits`)。
 `--dangerously-skip-permissions` は `--permission-mode bypassPermissions` のエイリアス。
-設定ファイル: `settings.json` の `permissions.defaultMode` に同名の文字列を指定。
+設定ファイル: Claude Code の `settings.json` の `permissions.defaultMode` に同名の文字列を指定（Synapse の `~/.synapse/settings.json` とは別物）。
 セッション中 `Shift+Tab` で default → acceptEdits → plan を循環 (起動時に bypassPermissions / auto を有効にすると末尾に追加; dontAsk は循環対象外)。
 
 **Synapse での動作:** `--dangerously-skip-permissions` が自動注入される。WAITING 検知時は `y` + Enter を送信。
@@ -155,7 +155,7 @@ synapse team start claude gemini --no-auto-approve
 SYNAPSE_AUTO_APPROVE=false synapse spawn claude
 
 # 手動フラグ指定（auto-approve の CLI フラグ注入をスキップし、自分で指定）
-synapse spawn claude --no-auto-approve -- --enable-auto-mode
+synapse spawn claude --no-auto-approve -- --permission-mode auto
 
 # auto-approve は有効のまま別系統の承認フラグへ差し替え（Codex 例）
 # alternative_flags にマッチするため --full-auto は注入されない
