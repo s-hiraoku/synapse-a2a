@@ -4,6 +4,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.26.1
+
+- **Documentation**: Claude Code permission-mode docs refreshed to match the current 6-mode spec (`default`, `acceptEdits`, `plan`, `auto`, `dontAsk`, `bypassPermissions`), the new `--permission-mode <mode>` launch flag, and the `permissions.defaultMode` settings key. `--dangerously-skip-permissions` remains valid as an alias for `--permission-mode bypassPermissions`, so Synapse's auto-approve injection is unaffected.
+
 ### v0.26.0
 
 - **Added**: Approval Gate policy expansion — prompt classification (`classify_prompt`), per-action dict-style `profile_overrides`, and risk classifier safety floor for destructive commands (#571 Phase 3, #578)
