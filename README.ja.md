@@ -181,11 +181,17 @@ pip install "synapse-a2a[grpc]"
 スキルにより、Claude は Synapse A2A の機能を自動的に理解します：@agent メッセージング、File Safety など。
 
 ```bash
-# skills.sh 経由でインストール（https://skills.sh/）
-npx skills add s-hiraoku/synapse-a2a
+# GitHub CLI 2.90.0+ が必要
+# https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/
+gh skill install s-hiraoku/synapse-a2a synapse-a2a
+gh skill install s-hiraoku/synapse-a2a synapse-manager
+# リリースを固定: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.1
+# 特定のエージェントランタイムを対象にする: ... --agent claude-code
 ```
 
-詳しくは [スキル](#スキル) を参照。
+詳しくは [スキル](#スキル) を参照。従来の `npx skills add ...` /
+`skills.sh` 経路も引き続き動作しますが、現在の推奨インストール方法ではありません。
+バージョン固定と由来の追跡には `gh skill install` を使用してください。
 
 ### 3. エージェントの起動
 
@@ -366,10 +372,35 @@ synapse send Cody --message-file /tmp/instructions.md --force --silent
 
 ### インストール
 
+GitHub CLI 経由でインストールします（**`gh` 2.90.0+ が必要**）：
+
 ```bash
-# skills.sh 経由でインストール（https://skills.sh/）
-npx skills add s-hiraoku/synapse-a2a
+# このリポジトリからコアスキルをインストール
+gh skill install s-hiraoku/synapse-a2a synapse-a2a
+gh skill install s-hiraoku/synapse-a2a synapse-manager
+
+# リリースタグに固定して、更新を明示的にする
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.1
+
+# 特定のエージェントランタイム向けにインストール
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent copilot
+
+# インストール前にスキルをプレビュー
+gh skill preview s-hiraoku/synapse-a2a synapse-a2a
+
+# インストール済みスキルの上流変更を確認
+gh skill update
 ```
+
+インストールされた各スキルの `SKILL.md` frontmatter には、ソースリポジトリ、
+ref、tree SHA が記録されるため、`gh skill update` で差分を検出でき、
+`--pin` により決定的なバージョンを使用できます。
+
+**従来の経路** — `npx skills add s-hiraoku/synapse-a2a`
+(skills.sh) は古い `gh` 環境向けに引き続き動作しますが、今後の推奨ツールは
+`gh skill` です。移行マトリクスは
+[`docs/skills-management.md`](docs/skills-management.md) を参照してください。
 
 ### 含まれるスキル
 
