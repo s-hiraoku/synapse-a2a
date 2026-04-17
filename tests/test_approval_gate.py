@@ -17,7 +17,9 @@ from synapse.approval_gate import (
     ApprovalDecision,
     ApprovalRequest,
     EscalationDeduper,
+    _is_high_risk,
     apply,
+    classify_prompt,
     decide,
     decide_and_apply,
     get_default_deduper,
@@ -179,6 +181,208 @@ class TestApprovalGateBlockedStates:
         monkeypatch.setattr("synapse.approval_gate._load_policy", _policy)
         ctx = "■ You've hit your usage limit."
         assert decide(_req(pty_context=ctx)) is ApprovalDecision.ESCALATE
+
+
+class TestPromptClassification:
+    def test_permission_request_matches_yes_proceed_prompt(self) -> None:
+        assert classify_prompt("› 1. Yes, proceed (y)") == "permission_request"
+
+    def test_permission_request_matches_allow_prompt(self) -> None:
+        assert (
+            classify_prompt(
+                "Allow Bash to run pytest tests/test_approval_gate.py? [Y/n]"
+            )
+            == "permission_request"
+        )
+
+    def test_overwrite_confirm_matches_overwrite_prompt(self) -> None:
+        assert classify_prompt("File exists. overwrite?") == "overwrite_confirm"
+
+    def test_overwrite_confirm_matches_replace_prompt(self) -> None:
+        assert (
+            classify_prompt("Destination already exists, replace it?")
+            == "overwrite_confirm"
+        )
+
+    def test_dangerous_command_matches_destructive_warning(self) -> None:
+        assert classify_prompt("About to run rm -rf /tmp/build") == "dangerous_command"
+
+    def test_dangerous_command_matches_no_verify(self) -> None:
+        assert classify_prompt("Run git commit --no-verify?") == "dangerous_command"
+
+    def test_clarification_request_matches_choice_prompt(self) -> None:
+        assert classify_prompt("Which branch should I use?") == "clarification_request"
+
+    def test_clarification_request_matches_specify_prompt(self) -> None:
+        assert (
+            classify_prompt("Please specify the deployment target.")
+            == "clarification_request"
+        )
+
+    def test_blocked_state_classification_reuses_blocked_detector(self) -> None:
+        assert classify_prompt("You've hit your usage limit.") == "blocked"
+
+    def test_unknown_is_fallback_for_empty_or_unmatched_text(self) -> None:
+        assert classify_prompt("") == "unknown"
+        assert classify_prompt("pytest is running") == "unknown"
+
+
+class TestPerActionPolicy:
+    def test_dict_override_uses_prompt_class_action(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "synapse.approval_gate._load_policy",
+            lambda: {
+                "enabled": True,
+                "default_action": "approve",
+                "profile_overrides": {
+                    "codex": {
+                        "default": "approve",
+                        "dangerous_command": "escalate",
+                        "overwrite_confirm": "deny",
+                    }
+                },
+            },
+        )
+
+        assert (
+            decide(_req(pty_context="Run git commit --no-verify?"))
+            is ApprovalDecision.ESCALATE
+        )
+        assert (
+            decide(_req(pty_context="File already exists, overwrite?"))
+            is ApprovalDecision.DENY
+        )
+
+    def test_dict_override_falls_back_to_profile_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "synapse.approval_gate._load_policy",
+            lambda: {
+                "enabled": True,
+                "default_action": "approve",
+                "profile_overrides": {"codex": {"default": "escalate"}},
+            },
+        )
+
+        assert decide(_req(pty_context="1. Yes, proceed")) is ApprovalDecision.ESCALATE
+
+    def test_dict_override_falls_back_to_global_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "synapse.approval_gate._load_policy",
+            lambda: {
+                "enabled": True,
+                "default_action": "deny",
+                "profile_overrides": {"codex": {"dangerous_command": "escalate"}},
+            },
+        )
+
+        assert decide(_req(pty_context="1. Yes, proceed")) is ApprovalDecision.DENY
+
+    def test_string_override_remains_backwards_compatible(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "synapse.approval_gate._load_policy",
+            lambda: {
+                "enabled": True,
+                "default_action": "approve",
+                "profile_overrides": {"codex": "escalate"},
+            },
+        )
+
+        assert decide(_req(pty_context="1. Yes, proceed")) is ApprovalDecision.ESCALATE
+
+    def test_invalid_dict_action_falls_back_to_profile_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "synapse.approval_gate._load_policy",
+            lambda: {
+                "enabled": True,
+                "default_action": "deny",
+                "profile_overrides": {
+                    "codex": {
+                        "default": "approve",
+                        "permission_request": "maybe",
+                    }
+                },
+            },
+        )
+
+        assert decide(_req(pty_context="1. Yes, proceed")) is ApprovalDecision.APPROVE
+
+
+class TestRiskClassifier:
+    @pytest.mark.parametrize(
+        "pty_context",
+        [
+            "Run rm -rf /tmp/synapse-build?",
+            "sudo launchctl unload system service",
+            "Execute DROP TABLE users;",
+            "Execute DELETE FROM audit_log;",
+            "git push --force origin main",
+            "git push -f origin master",
+            "git commit --no-verify",
+            "git commit --no-gpg-sign",
+            "Edit .env with production credentials",
+            "Read credentials.json",
+            "chmod 600 ~/.ssh/id_rsa",
+        ],
+    )
+    def test_high_risk_patterns_are_detected(self, pty_context: str) -> None:
+        assert _is_high_risk(pty_context) is True
+
+    @pytest.mark.parametrize(
+        "pty_context",
+        [
+            "Run rm -r ./build?",
+            "DELETE FROM audit_log WHERE created_at < now() - interval '30 days'",
+            "DELETE FROM audit_log\nWHERE created_at < now() - interval '30 days'",
+            "git push origin feature/approval-gate",
+            "pytest tests/test_approval_gate.py",
+        ],
+    )
+    def test_safe_commands_are_not_high_risk(self, pty_context: str) -> None:
+        assert _is_high_risk(pty_context) is False
+
+    def test_high_risk_approve_policy_escalates(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "synapse.approval_gate._load_policy",
+            lambda: {
+                "enabled": True,
+                "default_action": "approve",
+                "profile_overrides": {"codex": {"dangerous_command": "approve"}},
+            },
+        )
+
+        assert (
+            decide(_req(pty_context="git push --force origin main"))
+            is ApprovalDecision.ESCALATE
+        )
+
+    def test_high_risk_does_not_override_deny_policy(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "synapse.approval_gate._load_policy",
+            lambda: {
+                "enabled": True,
+                "default_action": "deny",
+                "profile_overrides": {"codex": {"dangerous_command": "deny"}},
+            },
+        )
+
+        assert (
+            decide(_req(pty_context="git push --force origin main"))
+            is ApprovalDecision.DENY
+        )
 
 
 class TestEscalationDeduper:

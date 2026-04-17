@@ -54,6 +54,70 @@ _BLOCKED_STATE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"try again at .+ (AM|PM)", re.IGNORECASE),
 )
 
+_PERMISSION_REQUEST_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bYes,\s*proceed\b", re.IGNORECASE),
+    re.compile(r"\bAllow\b.+\?", re.IGNORECASE | re.DOTALL),
+    re.compile(r"\[[Yy]/n\]|\[y/N\]", re.IGNORECASE),
+    re.compile(r"\bproceed\s*\([Yy]\)", re.IGNORECASE),
+)
+
+_OVERWRITE_CONFIRM_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\boverwrite\b", re.IGNORECASE),
+    re.compile(r"\breplace\b", re.IGNORECASE),
+    re.compile(r"\balready exists\b", re.IGNORECASE),
+)
+
+_DANGEROUS_COMMAND_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\brm\s+-[^\n;]*r", re.IGNORECASE),
+    re.compile(r"\bsudo\b", re.IGNORECASE),
+    re.compile(r"\bDROP\s+TABLE\b", re.IGNORECASE),
+    re.compile(r"\bDELETE\s+FROM\b", re.IGNORECASE),
+    re.compile(r"\bforce\s+push\b", re.IGNORECASE),
+    re.compile(r"\bgit\s+push\b[^\n;]*(--force|-f)\b", re.IGNORECASE),
+    re.compile(r"--no-verify\b", re.IGNORECASE),
+    re.compile(r"--no-gpg-sign\b", re.IGNORECASE),
+)
+
+_CLARIFICATION_REQUEST_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bWhich\b", re.IGNORECASE),
+    re.compile(r"\bChoose\b", re.IGNORECASE),
+    re.compile(r"\bSelect\b", re.IGNORECASE),
+    re.compile(r"\bPlease specify\b", re.IGNORECASE),
+)
+
+_SECRET_PATH_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(^|[/\s])\.env(\b|$)", re.IGNORECASE),
+    re.compile(r"credentials\.json", re.IGNORECASE),
+    re.compile(r"id_rsa", re.IGNORECASE),
+)
+
+_RM_RECURSIVE_PATTERN = re.compile(
+    r"\brm\s+(?P<flags>-[^\s;]*r[^\s;]*)\s+(?P<path>[^\s;]+)",
+    re.IGNORECASE,
+)
+_DELETE_FROM_PATTERN = re.compile(r"\bDELETE\s+FROM\b", re.IGNORECASE)
+_GIT_FORCE_PUSH_MAIN_PATTERN = re.compile(
+    r"\bgit\s+push\b(?=[^\n;]*(?:--force|-f)\b)(?=[^\n;]*\b(?:main|master)\b)",
+    re.IGNORECASE,
+)
+
+
+def classify_prompt(pty_context: str) -> str:
+    """Classify a child PTY prompt into a policy action class."""
+    if not pty_context:
+        return "unknown"
+    if _is_blocked_state(pty_context):
+        return "blocked"
+    if any(p.search(pty_context) for p in _DANGEROUS_COMMAND_PATTERNS):
+        return "dangerous_command"
+    if any(p.search(pty_context) for p in _OVERWRITE_CONFIRM_PATTERNS):
+        return "overwrite_confirm"
+    if any(p.search(pty_context) for p in _PERMISSION_REQUEST_PATTERNS):
+        return "permission_request"
+    if any(p.search(pty_context) for p in _CLARIFICATION_REQUEST_PATTERNS):
+        return "clarification_request"
+    return "unknown"
+
 
 def _is_blocked_state(pty_context: str) -> bool:
     """True if *pty_context* looks like a non-permission terminal state.
@@ -64,6 +128,38 @@ def _is_blocked_state(pty_context: str) -> bool:
     if not pty_context:
         return False
     return any(p.search(pty_context) for p in _BLOCKED_STATE_PATTERNS)
+
+
+def _rm_recursive_targets_outside_cwd(pty_context: str) -> bool:
+    for match in _RM_RECURSIVE_PATTERN.finditer(pty_context):
+        path = match.group("path").strip("'\"")
+        if path.startswith(("/", "~", "..")):
+            return True
+    return False
+
+
+def _delete_from_without_where(pty_context: str) -> bool:
+    for match in _DELETE_FROM_PATTERN.finditer(pty_context):
+        tail = pty_context[match.end() :]
+        statement = tail.split(";", 1)[0]
+        if not re.search(r"\bWHERE\b", statement, re.IGNORECASE):
+            return True
+    return False
+
+
+def _is_high_risk(pty_context: str) -> bool:
+    """True when a prompt contains destructive intent that must escalate."""
+    if not pty_context:
+        return False
+    return (
+        _rm_recursive_targets_outside_cwd(pty_context)
+        or bool(re.search(r"\bsudo\b", pty_context, re.IGNORECASE))
+        or bool(re.search(r"\bDROP\s+TABLE\b", pty_context, re.IGNORECASE))
+        or _delete_from_without_where(pty_context)
+        or bool(_GIT_FORCE_PUSH_MAIN_PATTERN.search(pty_context))
+        or bool(re.search(r"--no-verify\b|--no-gpg-sign\b", pty_context, re.IGNORECASE))
+        or any(p.search(pty_context) for p in _SECRET_PATH_PATTERNS)
+    )
 
 
 class ApprovalDecision(str, Enum):
@@ -110,7 +206,13 @@ def _load_policy() -> dict[str, Any]:
         {
             "enabled": True,
             "default_action": "approve",
-            "profile_overrides": {"codex": "approve", "claude": "escalate"},
+            "profile_overrides": {
+                "codex": {
+                    "default": "approve",
+                    "dangerous_command": "escalate",
+                },
+                "claude": "escalate",
+            },
         }
 
     Any subset of keys may be present; missing keys fall back to built-in
@@ -143,13 +245,31 @@ def _load_policy() -> dict[str, Any]:
             merged["default_action"] = action
     overrides = policy.get("profile_overrides")
     if isinstance(overrides, dict):
-        clean_overrides = {
-            str(k): str(v).lower()
-            for k, v in overrides.items()
-            if str(v).lower() in {d.value for d in ApprovalDecision}
-        }
+        valid_actions = {d.value for d in ApprovalDecision}
+        clean_overrides: dict[str, str | dict[str, str]] = {}
+        for profile, override in overrides.items():
+            profile_key = str(profile)
+            if isinstance(override, dict):
+                clean_action_map = {
+                    str(prompt_class): str(action).lower()
+                    for prompt_class, action in override.items()
+                    if str(action).lower() in valid_actions
+                }
+                if clean_action_map:
+                    clean_overrides[profile_key] = clean_action_map
+                continue
+            action = str(override).lower()
+            if action in valid_actions:
+                clean_overrides[profile_key] = action
         merged["profile_overrides"] = clean_overrides
     return merged
+
+
+def _decision_from_value(value: Any) -> ApprovalDecision | None:
+    try:
+        return ApprovalDecision(str(value))
+    except ValueError:
+        return None
 
 
 def decide(request: ApprovalRequest) -> ApprovalDecision:
@@ -162,16 +282,19 @@ def decide(request: ApprovalRequest) -> ApprovalDecision:
        banner (e.g. OpenAI usage limit), escalate regardless of policy
        — approving would send ``y\\r`` to a modal that does not accept
        it and the child would re-escalate indefinitely.
-    3. Per-profile override (keyed by ``target_agent_type``) wins over
-       the default.
-    4. Fall back to the configured ``default_action`` (approve unless
-       settings say otherwise).
+    3. Per-profile string override (keyed by ``target_agent_type``) wins
+       over the default. Dict overrides first check the classified prompt
+       class, then a profile ``default`` key.
+    4. Fall back to the configured global ``default_action``.
+    5. If the resolved decision is approve but the prompt is high-risk,
+       escalate. Policy cannot lower this safety floor.
     """
     policy = _load_policy()
     if not policy.get("enabled", True):
         return ApprovalDecision.ESCALATE
 
-    if _is_blocked_state(request.pty_context):
+    prompt_class = classify_prompt(request.pty_context)
+    if prompt_class == "blocked":
         logger.info(
             "approval_gate: blocked-state detected on task %s (%s); escalating",
             request.task_id,
@@ -179,32 +302,48 @@ def decide(request: ApprovalRequest) -> ApprovalDecision:
         )
         return ApprovalDecision.ESCALATE
 
-    overrides: dict[str, str] = policy.get("profile_overrides") or {}
+    decision: ApprovalDecision | None = None
+    overrides: dict[str, Any] = policy.get("profile_overrides") or {}
     override = overrides.get(request.target_agent_type)
-    if override:
-        try:
-            return ApprovalDecision(override)
-        except ValueError:
+    if isinstance(override, dict):
+        for key in (prompt_class, "default"):
+            if key in override:
+                decision = _decision_from_value(override[key])
+                if decision is not None:
+                    break
+                logger.warning(
+                    "approval_gate: invalid override %r for profile %s class %s",
+                    override[key],
+                    request.target_agent_type,
+                    key,
+                )
+    elif override:
+        decision = _decision_from_value(override)
+        if decision is None:
             logger.warning(
                 "approval_gate: invalid override %r for profile %s",
                 override,
                 request.target_agent_type,
             )
 
-    default_action = str(policy.get("default_action", "approve"))
-    try:
-        return ApprovalDecision(default_action)
-    except ValueError:
-        # Malformed settings value. Prefer the safe side (escalate to a
-        # human) rather than silently auto-approving based on a typo —
-        # mirrors the ``disabled`` branch above. The ``_load_policy`` loader
-        # normally filters bad values out, so this path only fires when a
-        # caller bypasses the loader (e.g., tests or direct monkeypatch).
+    if decision is None:
+        default_action = str(policy.get("default_action", "approve"))
+        decision = _decision_from_value(default_action)
+    if decision is None:
         logger.warning(
             "approval_gate: invalid default_action %r, escalating",
-            default_action,
+            policy.get("default_action"),
+        )
+        decision = ApprovalDecision.ESCALATE
+
+    if decision is ApprovalDecision.APPROVE and _is_high_risk(request.pty_context):
+        logger.info(
+            "approval_gate: high-risk prompt detected on task %s (%s); escalating",
+            request.task_id,
+            request.target_agent_id,
         )
         return ApprovalDecision.ESCALATE
+    return decision
 
 
 def apply(
