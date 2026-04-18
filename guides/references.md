@@ -1024,7 +1024,7 @@ synapse skills import <name> [--from SCOPE]
 
 #### 1.11.7 synapse skills add
 
-リポジトリからスキルをインストールします（`npx skills add` ラッパー）。
+リポジトリからスキルをインストールします（互換ラッパー; 新規インストールでは `gh skill install <repo> <skill>` を推奨）。
 
 ```bash
 synapse skills add <repo>
@@ -1034,7 +1034,7 @@ synapse skills add <repo>
 |------|------|------|
 | `repo` | Yes | リポジトリ（例: `s-hiraoku/synapse-a2a`） |
 
-**動作**: `npx skills add <repo> -g -a claude-code -y` を実行し、新規スキルを自動的に `~/.synapse/skills/` にインポートします。
+**動作**: 内部で `npx skills add <repo> -g -a claude-code -y` を実行し、新規スキルを自動的に `~/.synapse/skills/` にインポートします。新しい入口として `gh skill install s-hiraoku/synapse-a2a <skill>` を推奨します（詳細は [`docs/skills-management.md`](../docs/skills-management.md)）。
 
 #### 1.11.8 synapse skills create
 

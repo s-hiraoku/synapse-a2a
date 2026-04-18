@@ -10,16 +10,29 @@ The `synapse-a2a` skill package is the foundation for all agent communication. I
 
 ### Quick Install
 
+Install via the GitHub CLI (**requires `gh` 2.90.0+**):
+
 ```bash
 # 1. Initialize Synapse (creates .synapse/ directory)
 synapse init
 
-# 2. Install skills via skills.sh
-npx skills add s-hiraoku/synapse-a2a
+# 2. Install core skills via gh skill
+gh skill install s-hiraoku/synapse-a2a synapse-a2a
+gh skill install s-hiraoku/synapse-a2a synapse-manager
+gh skill install s-hiraoku/synapse-a2a synapse-reinst
+
+# Pin to a release tag so updates are explicit
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.1
+
+# Target a specific agent runtime
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code
 ```
 
-!!! info "What is skills.sh?"
-    [skills.sh](https://skills.sh/) is a platform for discovering and installing agent skills. `npx skills add` downloads skill definitions into your project's `.claude/skills/` and `.agents/skills/` directories.
+!!! info "Why `gh skill`?"
+    As of 2026-04-18, `gh skill` (GitHub CLI's built-in Agent Skills command) is the canonical install path. It provides version pinning (`--pin <ref>`), provenance metadata in each `SKILL.md`, cross-agent portability (`--agent <name>`), and drift detection via `gh skill update`. See [Skills Management](skills-management.md) for the full command reference and migration matrix.
+
+!!! info "Legacy path"
+    The older `npx skills add s-hiraoku/synapse-a2a` command (via [skills.sh](https://skills.sh/)) still works but is no longer the recommended way to install — use `gh skill install` for version pinning and provenance tracking.
 
 ### What Gets Installed
 
@@ -140,7 +153,7 @@ synapse skills delete old-skill --force    # Skip confirmation
 
 ## Built-in Skills
 
-Install via [`npx skills add s-hiraoku/synapse-a2a`](#install-core-skills). Four core skills provide multi-agent capabilities:
+Install via [`gh skill install s-hiraoku/synapse-a2a <skill>`](#install-core-skills). Four core skills provide multi-agent capabilities:
 
 | Skill | Description |
 |-------|-------------|
@@ -241,4 +254,4 @@ This equips the agent with multi-agent management capabilities (from `synapse-ma
     `plugins/synapse-a2a/skills/` is the source of truth for published skills (`synapse-a2a`, `synapse-manager`, etc.). Always edit skills in `plugins/` and sync to agent directories with `sync-plugin-skills`. Never edit agent directories directly.
 
 !!! note "Dev-only skills"
-    Some skills live only in `.agents/skills/` or `.claude/skills/` and are not published via `plugins/`. These are development-only utilities not intended for end-user distribution. To keep them out of `npx skills add` install candidates, set `metadata.internal: true` in the `SKILL.md` frontmatter.
+    Some skills live only in `.agents/skills/` or `.claude/skills/` and are not published via `plugins/`. These are development-only utilities not intended for end-user distribution. To keep them out of `gh skill install` (and legacy `npx skills add`) install candidates, set `metadata.internal: true` in the `SKILL.md` frontmatter.

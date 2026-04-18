@@ -199,14 +199,15 @@ Skills help Claude automatically understand Synapse A2A features: @agent messagi
 # https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/
 gh skill install s-hiraoku/synapse-a2a synapse-a2a
 gh skill install s-hiraoku/synapse-a2a synapse-manager
-# Pin a release: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.1
+# Pin a release: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.2
 # Target a specific agent runtime: ... --agent claude-code
 ```
 
-See [Skills](#skills) for details. The legacy `npx skills add ...` /
-`skills.sh` path still works but is no longer the recommended way to
-install — use `gh skill install` for version pinning and provenance
-tracking.
+See [Skills](#skills) for details and
+[`docs/skills-management.md`](docs/skills-management.md) for the full
+migration matrix. The legacy `npx skills add ...` / `skills.sh` path
+still works but is no longer the recommended way to install — use
+`gh skill install` for version pinning and provenance tracking.
 
 ### 3. Start Agents
 
@@ -435,7 +436,7 @@ gh skill install s-hiraoku/synapse-a2a synapse-a2a
 gh skill install s-hiraoku/synapse-a2a synapse-manager
 
 # Pin to a release tag so updates are explicit
-gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.1
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.2
 
 # Install for a specific agent runtime
 gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code
@@ -502,7 +503,7 @@ synapse skills move <name> --to <scope>
 # Central store operations
 synapse skills import <name>                 # Import from agent dirs to ~/.synapse/skills/
 synapse skills deploy <name> --agent claude,codex --scope user
-synapse skills add <repo>                    # Install from repo (npx skills wrapper)
+synapse skills add <repo>                    # Install from repo (legacy wrapper; prefer `gh skill install`)
 synapse skills create                        # Show guided skill creation steps
 
 # Skill sets (named groups)
@@ -781,7 +782,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse skills move <name>` | Move skill to another scope |
 | `synapse skills deploy <name>` | Deploy skill from central store to agent dirs |
 | `synapse skills import <name>` | Import skill to central store (~/.synapse/skills/) |
-| `synapse skills add <repo>` | Install skill from repository (via npx skills) |
+| `synapse skills add <repo>` | Install skill from repository (legacy wrapper; prefer `gh skill install <repo> <skill>`) |
 | `synapse skills create [name]` | Create new skill template |
 | `synapse skills set list` | List skill sets |
 | `synapse skills set show <name>` | Show skill set details |
