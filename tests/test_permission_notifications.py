@@ -34,6 +34,22 @@ class _Controller:
     def on_status_change(self, callback) -> None:
         self.callback = callback
 
+    def clear_task_active(self) -> None:
+        return None
+
+    def record_task_completed(
+        self,
+        *,
+        task_id: str,
+        duration: float,
+        status: str,
+        output_summary: str,
+    ) -> None:
+        return None
+
+    def task_duration_seconds(self, started_iso: str) -> float:
+        return 0.0
+
 
 def _register_status_callback(controller: _Controller):
     router = create_a2a_router(
@@ -201,7 +217,10 @@ def test_permission_notification_reemits_after_window_expires():
     task = _create_working_task()
 
     first_send = _emit_waiting(callback, now=1000.0)
-    callback("WAITING", "READY")
+    # Simulate the agent re-entering WAITING without the task finishing
+    # (i.e. the controller oscillated). Put the task back into working
+    # so the second WAITING callback can still see it.
+    task_store.update_status(task.id, "working")
     controller.context = "Allow Read\n1. Yes, proceed"
     second_send = _emit_waiting(callback, now=1006.0)
 

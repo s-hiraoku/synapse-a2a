@@ -8,6 +8,7 @@ Google A2A Spec: https://a2a-protocol.org/latest/specification/
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -24,6 +25,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from synapse._pty_sanitize import (
+    printable_len as _printable_len,
+)
+from synapse._pty_sanitize import (
+    strip_control_bytes,
+    tail_printable,
+)
 from synapse.a2a_client import get_client
 from synapse.auth import require_auth
 from synapse.config import (
@@ -365,6 +373,15 @@ _REPLY_ERROR_METADATA_KEY = "reply_error"
 # Gate on the parent side to auto-approve/deny or escalate to human. See
 # synapse/approval_gate.py and issue #571.
 _PERMISSION_ESCALATION_METADATA_KEY = "permission_escalation"
+
+# Permission notification dedupe guards (see #582, #586). Notifications
+# are keyed by (task_id + sanitised pty_context tail) hash; the same
+# hash is suppressed within _PERMISSION_NOTIFICATION_MIN_INTERVAL_SECONDS.
+# The window also rate-limits distinct hashes to protect against
+# WAITING→READY→WAITING oscillation from streaming output.
+_PERMISSION_NOTIFICATION_MIN_INTERVAL_SECONDS = 5.0
+_PERMISSION_CONTEXT_FALLBACK = "[permission context unavailable]"
+_PERMISSION_CONTEXT_MIN_PRINTABLE = 10
 
 
 def _load_reply_artifacts(metadata: dict[str, Any]) -> list[Artifact] | None:
@@ -886,12 +903,73 @@ def create_a2a_router(
         else:
             asyncio.run(coro)
 
-    def _build_permission_metadata() -> dict[str, Any]:
-        context = controller.get_context() if controller else ""
+    def _resolve_pty_context(task_metadata: dict[str, Any]) -> str:
+        """Produce a sanitised, length-capped context tail for notifications.
+
+        Order of preference:
+        1. controller.get_rendered_context() if available (pyte-rendered)
+        2. controller.get_context() (already ANSI-stripped in most cases)
+        3. task metadata current_task_preview
+        4. task metadata _sent_message (first 200 chars)
+        5. a fixed placeholder
+
+        Control-byte sanitisation runs after each source so a context
+        full of CSI escapes or line-overwrite bytes cannot slip through.
+        """
+        sources: list[str] = []
+        if controller is not None:
+            get_rendered = getattr(controller, "get_rendered_context", None)
+            if callable(get_rendered):
+                try:
+                    value = get_rendered()
+                    if isinstance(value, str):
+                        sources.append(value)
+                except Exception:
+                    pass
+            try:
+                value = controller.get_context()
+                if isinstance(value, str):
+                    sources.append(value)
+            except Exception:
+                pass
+
+        for raw in sources:
+            tail = tail_printable(raw, limit=512)
+            if tail and _printable_len(tail) >= _PERMISSION_CONTEXT_MIN_PRINTABLE:
+                return tail
+
+        preview = task_metadata.get("current_task_preview")
+        if isinstance(preview, str) and preview.strip():
+            return strip_control_bytes(preview).strip()
+
+        sent = task_metadata.get(_SENT_MESSAGE_METADATA_KEY)
+        if isinstance(sent, str) and sent.strip():
+            return strip_control_bytes(sent[:200]).strip()
+
+        return _PERMISSION_CONTEXT_FALLBACK
+
+    def _build_permission_metadata(
+        task_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        metadata = task_metadata or {}
+        pty_context = _resolve_pty_context(metadata)
+        existing = metadata.get("permission") or {}
+        prior_hash = (
+            existing.get("notification_hash") if isinstance(existing, dict) else None
+        )
+        prior_sent_at = (
+            existing.get("notification_sent_at") if isinstance(existing, dict) else None
+        )
+        prior_count = (
+            existing.get("notifications_sent", 0) if isinstance(existing, dict) else 0
+        )
         return {
-            "pty_context": context[-512:],
+            "pty_context": pty_context,
             "agent_type": agent_type,
             "detected_at": time.time(),
+            "notification_hash": prior_hash,
+            "notification_sent_at": prior_sent_at,
+            "notifications_sent": prior_count,
         }
 
     def _build_permission_notification(task: Task) -> Task:
@@ -1005,7 +1083,34 @@ def create_a2a_router(
                 for task in task_store.list_tasks():
                     if task.status != "working":
                         continue
-                    permission = _build_permission_metadata()
+                    metadata = task.metadata or {}
+                    permission = _build_permission_metadata(metadata)
+                    now = time.time()
+                    digest = hashlib.sha256(
+                        f"{task.id}\0{permission['pty_context']}".encode()
+                    ).hexdigest()[:16]
+                    prior_hash = permission.get("notification_hash")
+                    prior_sent_at = permission.get("notification_sent_at") or 0.0
+                    within_window = (
+                        now - prior_sent_at
+                        < _PERMISSION_NOTIFICATION_MIN_INTERVAL_SECONDS
+                    )
+                    if prior_sent_at and within_window:
+                        # Same payload inside window → drop. Different
+                        # payload inside window → also drop to guard
+                        # against WAITING→READY→WAITING oscillation
+                        # turning into a flood.
+                        task_store.update_metadata(task.id, "permission", permission)
+                        continue
+                    if prior_hash == digest and prior_sent_at:
+                        task_store.update_metadata(task.id, "permission", permission)
+                        continue
+
+                    permission["notification_hash"] = digest
+                    permission["notification_sent_at"] = now
+                    permission["notifications_sent"] = (
+                        int(permission.get("notifications_sent") or 0) + 1
+                    )
                     task_store.update_metadata(task.id, "permission", permission)
                     updated = task_store.update_status(task.id, "input_required")
                     if not updated:
