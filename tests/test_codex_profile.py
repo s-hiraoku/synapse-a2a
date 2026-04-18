@@ -81,6 +81,26 @@ class TestCodexWaitingDetection:
         regex = re.compile(codex_profile["waiting_detection"]["regex"])
         assert regex.search("› 1. Some brand new prompt text")
 
+    def test_matches_permissions_and_host_overlays(self, codex_profile: dict) -> None:
+        """Issue #529: Codex renders several approval overlays beyond
+        the classic exec overlay (permissions, host allow/block,
+        patch-files, and "continue without running it"). Each must
+        trigger WAITING so the parent agent receives an
+        ``input_required`` notification instead of silently stalling."""
+        regex = re.compile(codex_profile["waiting_detection"]["regex"])
+        variants = [
+            "  1. Yes, grant these permissions",
+            "  2. Yes, grant these permissions for this session",
+            "  3. No, continue without permissions",
+            "  1. Yes, and allow this host in the future",
+            "  2. No, block this host in the future",
+            "  2. No, continue without running it",
+            "  2. Yes, and don't ask again for these files",
+            "  2. Yes, and don't ask again for this command in this session",
+        ]
+        for line in variants:
+            assert regex.search(line), f"regex missed overlay line: {line!r}"
+
     def test_waiting_expiry_long_enough_for_parent_intervention(
         self, codex_profile: dict
     ) -> None:
