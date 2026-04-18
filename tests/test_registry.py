@@ -1,6 +1,9 @@
 import json
 import os
 import shutil
+import subprocess
+import sys
+import textwrap
 import threading
 from contextlib import contextmanager
 from pathlib import Path
@@ -154,6 +157,54 @@ def test_register_overwrites_existing(registry):
     agents = registry.list_agents()
     assert len(agents) == 1
     assert agents[agent_id]["status"] == "IDLE"
+
+
+def test_register_raises_if_atomic_write_lost(registry):
+    """Register should fail if the written file cannot be verified."""
+    original_write = registry._write_json_atomic
+
+    def truncate_after_write(file_path: Path, data: dict) -> None:
+        original_write(file_path, data)
+        file_path.write_text("", encoding="utf-8")
+
+    registry._write_json_atomic = truncate_after_write  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError, match="Registry write verification failed"):
+        registry.register("lost-write-agent", "claude", 8100)
+
+
+def test_atexit_unregister_on_normal_exit(tmp_path):
+    """A normal Python exit should remove the registry file registered by the process."""
+    registry_dir = tmp_path / "registry"
+    uds_dir = tmp_path / "uds"
+    script = textwrap.dedent(
+        """
+        import sys
+        from pathlib import Path
+        from synapse.registry import AgentRegistry
+
+        registry = AgentRegistry()
+        path = registry.register("atexit-agent", "claude", 8100)
+        assert Path(path).exists()
+        sys.exit(0)
+        """
+    )
+    env = os.environ.copy()
+    env["SYNAPSE_REGISTRY_DIR"] = str(registry_dir)
+    env["SYNAPSE_UDS_DIR"] = str(uds_dir)
+    env["PYTHONPATH"] = os.getcwd()
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=os.getcwd(),
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert not (registry_dir / "atexit-agent.json").exists()
 
 
 def test_register_rejects_duplicate_custom_name(registry):

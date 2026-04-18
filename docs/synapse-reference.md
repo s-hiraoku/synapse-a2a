@@ -133,6 +133,12 @@ synapse config
 synapse init
 synapse reset
 
+# Health / Diagnostics
+synapse doctor                                    # Health checks + orphan listener / stale socket scan
+synapse doctor --strict                           # Exit 1 when orphans or stale sockets are present
+synapse doctor --clean                            # Terminate orphan listeners (prompts per orphan) and remove stale sockets
+synapse doctor --clean -y                         # Same as above, skip confirmation prompts
+
 # MCP Bootstrap
 synapse mcp serve                          # Start MCP server over stdio (options auto-resolved from $SYNAPSE_AGENT_ID)
 

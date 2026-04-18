@@ -1,3 +1,4 @@
+import atexit
 import contextlib
 import errno
 import json
@@ -13,6 +14,7 @@ from pathlib import Path
 from synapse.utils import is_role_file_reference, resolve_role_value
 
 logger = logging.getLogger(__name__)
+_ATEXIT_UNREGISTERED_AGENT_IDS: set[str] = set()
 
 
 class NameConflictError(ValueError):
@@ -147,6 +149,30 @@ class AgentRegistry:
                     os.unlink(temp_path)
             raise
 
+    def _verify_registered_file(self, file_path: Path, agent_id: str) -> None:
+        """Verify the registry file survived the atomic write with the right ID."""
+        try:
+            with open(file_path) as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            raise RuntimeError(
+                f"Registry write verification failed for {agent_id}: {e}"
+            ) from e
+
+        if data.get("agent_id") != agent_id:
+            actual = data.get("agent_id")
+            raise RuntimeError(
+                "Registry write verification failed for "
+                f"{agent_id}: expected agent_id {agent_id!r}, got {actual!r}"
+            )
+
+    def _register_atexit_cleanup(self, agent_id: str) -> None:
+        """Ensure normal interpreter exits remove this process' registry entry."""
+        if agent_id in _ATEXIT_UNREGISTERED_AGENT_IDS:
+            return
+        atexit.register(self.unregister, agent_id)
+        _ATEXIT_UNREGISTERED_AGENT_IDS.add(agent_id)
+
     def get_agent_id(self, agent_type: str, port: int) -> str:
         """Generates a unique agent ID in format: synapse-{agent_type}-{port}."""
         return f"synapse-{agent_type}-{port}"
@@ -232,6 +258,9 @@ class AgentRegistry:
             if name and self._is_name_taken_locked(name, exclude_agent_id=agent_id):
                 raise NameConflictError(f"name '{name}' is already taken")
             self._write_json_atomic(file_path, data)
+            self._verify_registered_file(file_path, agent_id)
+
+        self._register_atexit_cleanup(agent_id)
 
         return file_path
 

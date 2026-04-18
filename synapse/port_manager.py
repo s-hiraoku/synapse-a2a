@@ -1,5 +1,6 @@
 """Port management for Synapse A2A multi-instance support."""
 
+import logging
 import socket
 from typing import TYPE_CHECKING
 
@@ -7,6 +8,8 @@ from synapse.registry import is_process_running
 
 if TYPE_CHECKING:
     from synapse.registry import AgentRegistry
+
+logger = logging.getLogger(__name__)
 
 # Port range definitions (agent_type -> (start, end) inclusive)
 PORT_RANGES: dict[str, tuple[int, int]] = {
@@ -105,24 +108,34 @@ class PortManager:
         agents = self.registry.list_agents()
 
         for port in range(start_port, end_port + 1):
-            agent_id = f"synapse-{agent_type}-{port}"
+            registered = [
+                (agent_id, info)
+                for agent_id, info in agents.items()
+                if info.get("port") == port
+            ]
 
-            # Check if registered
-            if agent_id in agents:
-                info = agents[agent_id]
+            live_registered = False
+            for agent_id, info in registered:
                 pid = info.get("pid")
-
-                # Check if process is still alive
                 if pid and is_process_alive(pid):
-                    # Port is in use by a live process
-                    continue
-                else:
-                    # Process is dead, clean up stale entry
-                    self.registry.unregister(agent_id)
+                    live_registered = True
+                    break
+                self.registry.unregister(agent_id)
+                agents.pop(agent_id, None)
 
-            # Check actual port availability
-            if is_port_available(port):
-                return port
+            if live_registered:
+                continue
+
+            if not is_port_available(port):
+                logger.warning(
+                    "Detected orphan listener on port %s with no live registry "
+                    "entry. Run 'synapse doctor --clean' to inspect and clean "
+                    "up orphan processes.",
+                    port,
+                )
+                continue
+
+            return port
 
         return None
 
@@ -141,9 +154,9 @@ class PortManager:
         running = []
 
         for port in range(start_port, end_port + 1):
-            agent_id = f"synapse-{agent_type}-{port}"
-            if agent_id in agents:
-                info = agents[agent_id]
+            for info in agents.values():
+                if info.get("port") != port or info.get("agent_type") != agent_type:
+                    continue
                 pid = info.get("pid")
                 if pid and is_process_alive(pid):
                     running.append(info)
@@ -177,5 +190,8 @@ class PortManager:
 
         hint = f"Use 'synapse stop {agent_type}' to stop an instance"
         lines.extend(["", f"{hint}, or specify --port manually."])
+        lines.append(
+            "Run 'synapse doctor --clean' to detect and clean up orphan processes."
+        )
 
         return "\n".join(lines)
