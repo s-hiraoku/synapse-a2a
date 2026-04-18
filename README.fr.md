@@ -176,11 +176,18 @@ pip install "synapse-a2a[grpc]"
 Les skills aident Claude à comprendre automatiquement les fonctionnalités de Synapse A2A : messagerie @agent, Sécurité des Fichiers, et plus encore.
 
 ```bash
-# Installation via skills.sh (https://skills.sh/)
-npx skills add s-hiraoku/synapse-a2a
+# Nécessite GitHub CLI 2.90.0+
+# https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/
+gh skill install s-hiraoku/synapse-a2a synapse-a2a
+gh skill install s-hiraoku/synapse-a2a synapse-manager
+# Épingler une version : gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
+# Cibler un runtime d'agent spécifique : ... --agent claude-code
 ```
 
-Voir [Skills](#skills) pour plus de détails.
+Voir [Skills](#skills) pour plus de détails. L'ancien chemin
+`npx skills add ...` / `skills.sh` fonctionne toujours, mais ce n'est
+plus la méthode d'installation recommandée. Utilisez `gh skill install`
+pour l'épinglage de version et le suivi de provenance.
 
 ### 3. Démarrer les Agents
 
@@ -341,10 +348,36 @@ Avec les skills installés, Claude comprend et exécute automatiquement :
 
 ### Installation
 
+Installez via GitHub CLI (**nécessite `gh` 2.90.0+**) :
+
 ```bash
-# Installation via skills.sh (https://skills.sh/)
-npx skills add s-hiraoku/synapse-a2a
+# Installer les skills principaux depuis ce dépôt
+gh skill install s-hiraoku/synapse-a2a synapse-a2a
+gh skill install s-hiraoku/synapse-a2a synapse-manager
+
+# Épingler à un tag de version pour rendre les mises à jour explicites
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
+
+# Installer pour un runtime d'agent spécifique
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent copilot
+
+# Prévisualiser un skill avant l'installation
+gh skill preview s-hiraoku/synapse-a2a synapse-a2a
+
+# Vérifier les changements upstream des skills installés
+gh skill update
 ```
+
+Le frontmatter `SKILL.md` de chaque skill installé enregistre le dépôt source,
+le ref et le tree SHA, ce qui permet à `gh skill update` de détecter le drift,
+et `--pin` fournit une version déterministe.
+
+**Chemin hérité** — `npx skills add s-hiraoku/synapse-a2a`
+(skills.sh) fonctionne toujours pour les anciennes installations de `gh`, mais
+`gh skill` est l'outil recommandé à l'avenir. Consultez
+[`docs/skills-management.md`](docs/skills-management.md) pour la matrice
+de migration.
 
 ### Skills Inclus
 

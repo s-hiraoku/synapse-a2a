@@ -4,6 +4,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.26.3
+
+- **Skill distribution**: Migrated the canonical install path from `skills.sh` / `npx skills add` to GitHub CLI's **`gh skill install`** (requires `gh` 2.90.0+). New policy doc ([Skills Management](guide/skills-management.md)) covers pinning, provenance metadata, maintainer `gh skill publish`, and a migration matrix for existing `npx skills add` users. English + ja/ko/zh/es/fr READMEs, guides, and this site all reference the new command. `v0.26.2` was the first `gh skill`-published release.
+
 ### v0.26.1
 
 - **Documentation**: Claude Code permission-mode docs refreshed to match the current 6-mode spec (`default`, `acceptEdits`, `plan`, `auto`, `dontAsk`, `bypassPermissions`), the new `--permission-mode <mode>` launch flag, and the `permissions.defaultMode` settings key. `--dangerously-skip-permissions` remains valid as an alias for `--permission-mode bypassPermissions`, so Synapse's auto-approve injection is unaffected.

@@ -58,7 +58,7 @@
 synapse --version
 ```
 
-You should see the version number (e.g., `0.26.1`).
+You should see the version number (e.g., `0.26.3`).
 
 ## Initialize Configuration
 
@@ -80,11 +80,20 @@ This creates the configuration directory with default settings and instruction t
 
 Skills teach agents how to use Synapse features — messaging, file safety, task delegation, and more. The `synapse-a2a` skill package is **essential** for multi-agent communication.
 
+Install via the GitHub CLI (**requires `gh` 2.90.0+**):
+
 ```bash
-npx skills add s-hiraoku/synapse-a2a
+# Core communication skill — auto-understands @agent messaging, priorities, File Safety
+gh skill install s-hiraoku/synapse-a2a synapse-a2a
+
+# Multi-agent orchestration skill
+gh skill install s-hiraoku/synapse-a2a synapse-manager
+
+# Re-inject instructions after /clear
+gh skill install s-hiraoku/synapse-a2a synapse-reinst
 ```
 
-This installs all core skills into your project:
+This installs the core skills into your project:
 
 | Skill | Description |
 |-------|-------------|
@@ -94,6 +103,9 @@ This installs all core skills into your project:
 
 !!! tip "Why This Matters"
     Without `synapse-a2a`, agents won't automatically discover peers or use `synapse send`/`synapse reply`. Install it in every project where you use Synapse.
+
+!!! info "Legacy path still works"
+    The older `npx skills add s-hiraoku/synapse-a2a` command is still accepted but no longer recommended. Use `gh skill install` for version pinning (`--pin <ref>`) and provenance tracking. See [Skills Management](../guide/skills-management.md) for the full migration matrix.
 
 Verify installation:
 

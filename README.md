@@ -195,11 +195,19 @@ pip install "synapse-a2a[grpc]"
 Skills help Claude automatically understand Synapse A2A features: @agent messaging, File Safety, and more.
 
 ```bash
-# Install via skills.sh (https://skills.sh/)
-npx skills add s-hiraoku/synapse-a2a
+# Requires GitHub CLI 2.90.0+
+# https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/
+gh skill install s-hiraoku/synapse-a2a synapse-a2a
+gh skill install s-hiraoku/synapse-a2a synapse-manager
+# Pin a release: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
+# Target a specific agent runtime: ... --agent claude-code
 ```
 
-See [Skills](#skills) for details.
+See [Skills](#skills) for details and
+[`docs/skills-management.md`](docs/skills-management.md) for the full
+migration matrix. The legacy `npx skills add ...` / `skills.sh` path
+still works but is no longer the recommended way to install — use
+`gh skill install` for version pinning and provenance tracking.
 
 ### 3. Start Agents
 
@@ -420,10 +428,36 @@ With skills installed, Claude automatically understands and executes:
 
 ### Installation
 
+Install via the GitHub CLI (**requires `gh` 2.90.0+**):
+
 ```bash
-# Install via skills.sh (https://skills.sh/)
-npx skills add s-hiraoku/synapse-a2a
+# Install core skills from this repository
+gh skill install s-hiraoku/synapse-a2a synapse-a2a
+gh skill install s-hiraoku/synapse-a2a synapse-manager
+
+# Pin to a release tag so updates are explicit
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
+
+# Install for a specific agent runtime
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent copilot
+
+# Preview a skill before installing
+gh skill preview s-hiraoku/synapse-a2a synapse-a2a
+
+# Check for upstream changes on installed skills
+gh skill update
 ```
+
+Each installed skill's `SKILL.md` frontmatter records the source
+repository, ref, and tree SHA, so `gh skill update` can detect
+drift and `--pin` gives you a deterministic version.
+
+**Legacy path** — `npx skills add s-hiraoku/synapse-a2a`
+(skills.sh) still works for older `gh` installs, but `gh skill`
+is the recommended tool going forward. See
+[`docs/skills-management.md`](docs/skills-management.md) for the
+migration matrix.
 
 ### Included Skills
 
@@ -469,7 +503,7 @@ synapse skills move <name> --to <scope>
 # Central store operations
 synapse skills import <name>                 # Import from agent dirs to ~/.synapse/skills/
 synapse skills deploy <name> --agent claude,codex --scope user
-synapse skills add <repo>                    # Install from repo (npx skills wrapper)
+synapse skills add <repo>                    # Install from repo (legacy wrapper; prefer `gh skill install`)
 synapse skills create                        # Show guided skill creation steps
 
 # Skill sets (named groups)
@@ -748,7 +782,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse skills move <name>` | Move skill to another scope |
 | `synapse skills deploy <name>` | Deploy skill from central store to agent dirs |
 | `synapse skills import <name>` | Import skill to central store (~/.synapse/skills/) |
-| `synapse skills add <repo>` | Install skill from repository (via npx skills) |
+| `synapse skills add <repo>` | Install skill from repository (legacy wrapper; prefer `gh skill install <repo> <skill>`) |
 | `synapse skills create [name]` | Create new skill template |
 | `synapse skills set list` | List skill sets |
 | `synapse skills set show <name>` | Show skill set details |

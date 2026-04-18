@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.3] - 2026-04-18
+
+### Documentation
+
+- **Skill distribution migrated to `gh skill install`** (requires `gh`
+  CLI **2.90.0+**). `skills.sh` / `npx skills add` is now the legacy
+  compatibility path. Adds new canonical doc `docs/skills-management.md`
+  (mirrored at `site-docs/guide/skills-management.md`) covering
+  version pinning with `--pin`, provenance metadata, cross-agent
+  install (`--agent`), `gh skill update` drift detection, and
+  maintainer-side `gh skill publish` workflow. All user-facing
+  install snippets in `README.md`, `README.{ja,ko,zh,es,fr}.md`,
+  `guides/usage.md`, `guides/settings.md`, `guides/references.md`,
+  `site-docs/getting-started/quickstart.md`,
+  `site-docs/getting-started/installation.md`,
+  `site-docs/guide/skills.md`, and `site-docs/reference/cli.md`
+  have been updated. Release `v0.26.2` was the first
+  `gh skill`-published tag.
+
 ## [0.26.1] - 2026-04-17
 
 ### Documentation
@@ -3378,7 +3397,9 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.1...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.3...HEAD
+[0.26.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.2...v0.26.3
+[0.26.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.1...v0.26.2
 [0.26.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.0...v0.26.1
 [0.26.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.25.2...v0.26.0
 [0.25.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.25.1...v0.25.2

@@ -176,11 +176,17 @@ pip install "synapse-a2a[grpc]"
 Skills 帮助 Claude 自动理解 Synapse A2A 的功能：@agent 消息发送、文件安全等。
 
 ```bash
-# 通过 skills.sh (https://skills.sh/) 安装
-npx skills add s-hiraoku/synapse-a2a
+# 需要 GitHub CLI 2.90.0+
+# https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/
+gh skill install s-hiraoku/synapse-a2a synapse-a2a
+gh skill install s-hiraoku/synapse-a2a synapse-manager
+# 固定到某个版本: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
+# 指定特定智能体运行时: ... --agent claude-code
 ```
 
-详见 [Skills](#skills)。
+详见 [Skills](#skills)。旧的 `npx skills add ...` /
+`skills.sh` 路径仍然可用，但不再是推荐的安装方式。
+请使用 `gh skill install` 进行版本固定和来源追踪。
 
 ### 3. 启动智能体
 
@@ -341,10 +347,34 @@ synapse send claude "Use the type definitions you created to rewrite legacy_api.
 
 ### 安装
 
+通过 GitHub CLI 安装（**需要 `gh` 2.90.0+**）：
+
 ```bash
-# 通过 skills.sh (https://skills.sh/) 安装
-npx skills add s-hiraoku/synapse-a2a
+# 从此仓库安装核心 Skills
+gh skill install s-hiraoku/synapse-a2a synapse-a2a
+gh skill install s-hiraoku/synapse-a2a synapse-manager
+
+# 固定到发布标签，以便显式更新
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
+
+# 为特定智能体运行时安装
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent copilot
+
+# 安装前预览 Skill
+gh skill preview s-hiraoku/synapse-a2a synapse-a2a
+
+# 检查已安装 Skills 的上游变更
+gh skill update
 ```
+
+每个已安装 Skill 的 `SKILL.md` frontmatter 都会记录源仓库、ref 和 tree SHA，
+因此 `gh skill update` 可以检测 drift，而 `--pin` 可以提供确定性的版本。
+
+**旧路径** — `npx skills add s-hiraoku/synapse-a2a`
+(skills.sh) 仍可用于较旧的 `gh` 安装环境，但推荐后续使用
+`gh skill`。迁移矩阵见
+[`docs/skills-management.md`](docs/skills-management.md)。
 
 ### 包含的 Skills
 

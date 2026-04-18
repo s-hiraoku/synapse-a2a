@@ -1133,7 +1133,7 @@ synapse skills move <name> --to <scope>           # スコープ間移動
 # 中央ストア操作
 synapse skills import <name> [--from user|project]  # エージェントdirから中央ストアへコピー
 synapse skills deploy <name> --agent claude,codex --scope user  # 中央ストアからデプロイ
-synapse skills add <repo>                         # リポジトリからインストール（npx skills ラッパー）
+synapse skills add <repo>                         # リポジトリからインストール（互換ラッパー）
 synapse skills create                             # スキル作成ガイド表示（anthropic-skill-creator使用）
 
 # スキルセット（名前付きグループ）
@@ -1142,6 +1142,9 @@ synapse skills set show <name>                    # スキルセット詳細
 synapse skills apply <target> <set_name>          # 稼働中のエージェントにスキルセットを適用
 synapse skills apply <target> <set_name> --dry-run  # 変更をプレビュー（適用しない）
 ```
+
+新規インストールでは `gh skill install <repo> <skill>` が推奨の入口です。
+`synapse skills add <repo>` は互換性のため残っています。詳細な移行マトリクスは [`docs/skills-management.md`](../docs/skills-management.md) を参照してください。
 
 #### デフォルトスキルセット
 
@@ -1159,12 +1162,13 @@ Synapse には 6 つの組み込みスキルセットが用意されています
 #### デプロイフロー
 
 ```
-synapse skills add <repo>  ─┐
-                            ├→ npx skills add <repo> → ~/.claude/skills/
-                            └→ 自動インポート → ~/.synapse/skills/ (中央ストア)
-                                                    ↓ [deploy]
-                              ~/.claude/skills/, ~/.agents/skills/ ...  (ユーザ)
-                              ./.claude/skills/, ./.agents/skills/ ...  (プロジェクト)
+gh skill install <repo> <skill> ─→ エージェントの skills ディレクトリ
+
+synapse skills add <repo>  ─→ 互換ラッパー → ~/.claude/skills/
+                               └→ 自動インポート → ~/.synapse/skills/ (中央ストア)
+                                                       ↓ [deploy]
+                                 ~/.claude/skills/, ~/.agents/skills/ ...  (ユーザ)
+                                 ./.claude/skills/, ./.agents/skills/ ...  (プロジェクト)
 ```
 
 ---

@@ -5,7 +5,7 @@ Get two agents communicating in under 5 minutes.
 !!! warning "Prerequisites"
     1. Install Synapse A2A (`pipx install synapse-a2a`)
     2. Initialize configuration: `synapse init`
-    3. Install skills: `npx skills add s-hiraoku/synapse-a2a`
+    3. Install skills: `gh skill install s-hiraoku/synapse-a2a synapse-a2a` (requires `gh` 2.90.0+)
     4. Configure MCP server for each agent — see [MCP Bootstrap Setup](../guide/mcp-setup.md)
 
     See [Installation](installation.md) for details.
