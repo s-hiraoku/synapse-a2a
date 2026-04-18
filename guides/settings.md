@@ -224,7 +224,7 @@ gh skill install s-hiraoku/synapse-a2a synapse-manager
 gh skill install s-hiraoku/synapse-a2a synapse-reinst
 
 # バージョンをピン留め
-gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.2
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
 
 # 特定のエージェントランタイムを対象にインストール
 gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code

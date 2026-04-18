@@ -22,7 +22,7 @@ gh skill install s-hiraoku/synapse-a2a synapse-manager
 gh skill install s-hiraoku/synapse-a2a synapse-reinst
 
 # Pin to a release tag so updates are explicit
-gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.1
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
 
 # Target a specific agent runtime
 gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code

@@ -185,7 +185,7 @@ pip install "synapse-a2a[grpc]"
 # https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/
 gh skill install s-hiraoku/synapse-a2a synapse-a2a
 gh skill install s-hiraoku/synapse-a2a synapse-manager
-# リリースを固定: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.1
+# リリースを固定: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
 # 特定のエージェントランタイムを対象にする: ... --agent claude-code
 ```
 
@@ -380,7 +380,7 @@ gh skill install s-hiraoku/synapse-a2a synapse-a2a
 gh skill install s-hiraoku/synapse-a2a synapse-manager
 
 # リリースタグに固定して、更新を明示的にする
-gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.1
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
 
 # 特定のエージェントランタイム向けにインストール
 gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code

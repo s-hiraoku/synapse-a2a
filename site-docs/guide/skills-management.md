@@ -51,7 +51,7 @@ gh skill install s-hiraoku/synapse-a2a synapse-manager
 gh skill install s-hiraoku/synapse-a2a synapse-reinst
 
 # Pin to a release
-gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.1
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
 
 # Install for a specific agent
 gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code
@@ -117,7 +117,7 @@ git tag v0.26.2 && git push --tags
 `gh skill publish` is idempotent per tree SHA — re-running on an
 unchanged skill is a no-op. Publishing a new commit registers a new
 tree SHA so that `gh skill update` clients see drift and can pull the
-update. Pinned installs (`--pin v0.26.1`) continue to resolve against
+update. Pinned installs (`--pin v0.26.3`) continue to resolve against
 the tagged ref you recorded at install time.
 
 ### CI automation (recommended)
@@ -179,5 +179,3 @@ git tag v0.27.0 && git push origin main --tags
   `synapse skills` CLI for local skill management.
 - [CLI Commands](../reference/cli.md) — full command reference,
   including `synapse skills` subcommands.
-</content>
-</invoke>

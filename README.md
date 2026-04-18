@@ -199,7 +199,7 @@ Skills help Claude automatically understand Synapse A2A features: @agent messagi
 # https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/
 gh skill install s-hiraoku/synapse-a2a synapse-a2a
 gh skill install s-hiraoku/synapse-a2a synapse-manager
-# Pin a release: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.2
+# Pin a release: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
 # Target a specific agent runtime: ... --agent claude-code
 ```
 
@@ -436,7 +436,7 @@ gh skill install s-hiraoku/synapse-a2a synapse-a2a
 gh skill install s-hiraoku/synapse-a2a synapse-manager
 
 # Pin to a release tag so updates are explicit
-gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.2
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
 
 # Install for a specific agent runtime
 gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code
