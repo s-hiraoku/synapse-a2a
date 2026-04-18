@@ -939,12 +939,22 @@ def create_a2a_router(
                 return tail
 
         preview = task_metadata.get("current_task_preview")
-        if isinstance(preview, str) and preview.strip():
-            return strip_control_bytes(preview).strip()
+        if isinstance(preview, str):
+            cleaned_preview = strip_control_bytes(preview).strip()
+            if (
+                cleaned_preview
+                and _printable_len(cleaned_preview) >= _PERMISSION_CONTEXT_MIN_PRINTABLE
+            ):
+                return cleaned_preview[:512]
 
         sent = task_metadata.get(_SENT_MESSAGE_METADATA_KEY)
-        if isinstance(sent, str) and sent.strip():
-            return strip_control_bytes(sent[:200]).strip()
+        if isinstance(sent, str):
+            cleaned_sent = strip_control_bytes(sent).strip()[:200]
+            if (
+                cleaned_sent
+                and _printable_len(cleaned_sent) >= _PERMISSION_CONTEXT_MIN_PRINTABLE
+            ):
+                return cleaned_sent
 
         return _PERMISSION_CONTEXT_FALLBACK
 

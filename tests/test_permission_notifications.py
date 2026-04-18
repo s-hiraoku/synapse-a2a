@@ -236,6 +236,9 @@ def test_permission_notification_reemits_after_window_expires():
     [
         "\x1b[31mred\x1b[0m",
         "\x00\x01\x02Allow Bash\x7f",
+        "\x9b31mAllow Bash\x9b0m",
+        "\x9dnotify-title\x9cAllow Bash",
+        "\x80\x85\x9fAllow Bash",
     ],
 )
 def test_permission_context_removes_residual_control_bytes(context: str):
@@ -249,3 +252,39 @@ def test_permission_context_removes_residual_control_bytes(context: str):
     assert "\x1b[" not in sanitized
     assert "\x00" not in sanitized
     assert "\x7f" not in sanitized
+    assert "\x9b" not in sanitized
+    assert "\x9d" not in sanitized
+    assert all(not (0x80 <= ord(ch) <= 0x9F) for ch in sanitized)
+
+
+def test_permission_notification_dedup_by_hash_after_window_expires():
+    """Covers the prior_hash == digest branch when the time-window is past."""
+    controller = _Controller("Allow Bash\n1. Yes, proceed")
+    callback = _register_status_callback(controller)
+    task = _create_working_task()
+
+    first_send = _emit_waiting(callback, now=1000.0)
+    task_store.update_status(task.id, "working")
+    # Same context, but the dedupe window has already expired (5s > default).
+    # The hash branch must still suppress the re-emission.
+    second_send = _emit_waiting(callback, now=1006.0)
+
+    first_send.assert_called_once()
+    second_send.assert_not_called()
+    updated = task_store.get(task.id)
+    assert updated is not None
+    assert updated.metadata["permission"]["notifications_sent"] == 1
+
+
+def test_permission_fallback_skips_preview_that_is_only_control_bytes():
+    """A preview composed solely of control bytes must not short-circuit the chain."""
+    controller = _Controller("")
+    callback = _register_status_callback(controller)
+    task = _create_working_task(
+        current_task_preview="\x1b[31m\x1b[0m",
+        sent_message="Run pytest for permission workflow",
+    )
+
+    _emit_waiting(callback)
+
+    assert _permission_context(task.id) == "Run pytest for permission workflow"

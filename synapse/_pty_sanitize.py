@@ -19,11 +19,13 @@ import re
 # bytes except TAB (\x09) and LF (\x0a). CR (\x0d) is removed so that
 # line-overwrite remnants don't re-merge subsequent lines when rendered.
 _RESIDUAL_CONTROL_RE = re.compile(
-    r"\x1b\[[0-?]*[ -/]*[@-~]"
-    r"|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?"
+    r"\x1b\[[0-?]*[ -/]*(?:[@-~]|$)"
+    r"|\x9b[0-?]*[ -/]*(?:[@-~]|$)"
+    r"|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\|$)"
+    r"|\x9d[^\x07\x9c]*(?:\x07|\x9c|$)"
     r"|\x1b[()][AB0-2]"
     r"|\x1b[>=MD]"
-    r"|[\x00-\x08\x0b-\x1f\x7f]"
+    r"|[\x00-\x08\x0b-\x1f\x7f-\x9f]"
 )
 
 
