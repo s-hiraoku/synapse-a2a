@@ -4,6 +4,16 @@
 
 File Safety prevents multi-agent file conflicts with exclusive locking, change tracking, and modification history. When multiple agents work on the same project, File Safety ensures they don't overwrite each other's changes.
 
+## Skip Locking in a Worktree
+
+When `SYNAPSE_WORKTREE_PATH` is set, the agent is running inside an isolated git worktree created by `synapse spawn --worktree`. For edits inside that worktree tree, skip `synapse file-safety lock/unlock/record` because the worktree is exclusive to that agent.
+
+```bash
+[ -n "$SYNAPSE_WORKTREE_PATH" ] && echo "worktree: skip locks" || echo "main repo: lock as usual"
+```
+
+This exemption only applies inside the worktree. Still lock shared paths outside the worktree, such as `$HOME` config, the parent repo's registry, and cross-worktree databases like `~/.synapse/file_safety.db`.
+
 ## Enabling File Safety
 
 ```bash
@@ -39,8 +49,8 @@ synapse file-safety lock src/auth.py claude \
   --duration 300    # 5 minutes (default: 300 seconds)
 ```
 
-!!! danger "Always Lock Before Editing"
-    Two agents editing the same file simultaneously causes **data loss**. Changes are overwritten without warning. Every edit needs a lock -- no exceptions.
+!!! danger "Lock Before Editing Shared Paths"
+    Two agents editing the same shared file simultaneously causes **data loss**. Changes are overwritten without warning. Every edit outside a worktree needs a lock.
 
 ### Release a Lock
 

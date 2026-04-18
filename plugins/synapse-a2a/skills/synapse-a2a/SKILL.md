@@ -76,7 +76,7 @@ Skip this gate for small/medium tasks where the overhead exceeds the benefit.
 | Feature | Why It Matters | Commands |
 |---------|---------------|----------|
 | **Shared Memory** | Collective knowledge survives agent restarts | `synapse memory save/search/list` |
-| **File Safety** | Locking prevents data loss when two agents edit the same file | `synapse file-safety lock/unlock/locks` |
+| **File Safety** | Locking prevents data loss when two agents edit the same file -- skip inside worktrees (`SYNAPSE_WORKTREE_PATH`) | `synapse file-safety lock/unlock/locks` |
 | **Worktree** | File isolation eliminates merge conflicts in parallel editing | `synapse spawn --worktree` |
 | **Broadcast** | Team-wide announcements reach all agents instantly | `synapse broadcast "<msg>"` |
 | **History** | Audit trail tracks what happened and when | `synapse history list/show/stats` |
@@ -184,7 +184,7 @@ When you receive a task from a manager:
 ### On Task Receipt
 1. Start work immediately (`[REPLY EXPECTED]` requires a reply; otherwise no reply needed)
 2. Check shared knowledge: `synapse memory search "<task topic>"`
-3. Lock files before editing: `synapse file-safety lock <file> $SYNAPSE_AGENT_ID`
+3. Lock files before editing (**skip if SYNAPSE_WORKTREE_PATH is set**): `synapse file-safety lock <file> $SYNAPSE_AGENT_ID`
 
 ### During Work
 - Report progress if task takes >5 minutes: `synapse send <manager> "Progress: <update>" --silent`

@@ -195,7 +195,7 @@ class SynapseMCPServer:
             "file-safety.md": MCPResource(
                 uri="synapse://instructions/file-safety",
                 name="File Safety Instructions",
-                description="Multi-agent file locking and modification safety rules.",
+                description="Multi-agent file locking rules, with worktree-local edits exempt.",
             ),
             "wiki.md": MCPResource(
                 uri="synapse://instructions/wiki",

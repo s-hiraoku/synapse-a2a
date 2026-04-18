@@ -2,7 +2,22 @@
 
 File Safety prevents conflicts when multiple agents edit the same files.
 
-## MANDATORY: Checklist Before Edit/Write
+## Skip Locking in a Worktree
+
+`SYNAPSE_WORKTREE_PATH` is the signal that the current agent is running inside
+an isolated git worktree. For edits inside that worktree tree, skip
+`synapse file-safety lock/unlock/record` because the worktree is exclusive to
+that agent.
+
+```bash
+[ -n "$SYNAPSE_WORKTREE_PATH" ] && echo "worktree: skip locks" || echo "main repo: lock as usual"
+```
+
+This exemption only applies inside the worktree. Still lock shared paths outside
+the worktree, such as `$HOME` config, the parent repo's registry, and
+cross-worktree databases like `~/.synapse/file_safety.db`.
+
+## MANDATORY: Checklist Before Edit/Write (non-worktree only)
 
 Before using Edit, Write, sed, awk, or ANY file modification:
 
@@ -177,7 +192,7 @@ Error: File is locked by gemini (expires: 2026-01-09T12:00:00)
 - Without locks, two agents editing the same file = DATA LOSS
 - Your changes may be overwritten without warning
 - Other agents' work may be destroyed
-- **EVERY EDIT NEEDS A LOCK. NO EXCEPTIONS.**
+- **EVERY EDIT OUTSIDE A WORKTREE NEEDS A LOCK.** See "Skip Locking in a Worktree" above.
 
 ## Storage
 

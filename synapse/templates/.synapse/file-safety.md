@@ -3,6 +3,9 @@ FILE SAFETY (Multi-Agent File Locking):
 You are {{agent_id}}. When multiple agents are running, lock files before
 editing to prevent conflicts.
 
+Worktree note: if `SYNAPSE_WORKTREE_PATH` is set, this agent is running in an
+isolated git worktree and may skip locks for edits inside that worktree.
+
 WHEN TO LOCK:
 - Multiple agents are active AND you're modifying an existing shared file
 - Another agent might be editing the same file concurrently
@@ -11,6 +14,10 @@ WHEN LOCKING IS NOT NEEDED:
 - You're the only running agent (check: synapse list --json)
 - Creating a new file (no conflict possible)
 - Read-only operations
+- `SYNAPSE_WORKTREE_PATH` is set AND you're editing inside that worktree tree
+
+Still lock shared paths outside the worktree, such as $HOME config, parent repo
+registries, or cross-worktree databases like ~/.synapse/file_safety.db.
 
 WORKFLOW:
 

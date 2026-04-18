@@ -18,6 +18,21 @@
 
 ## 概要
 
+### Worktree ではロックを省略できる
+
+`SYNAPSE_WORKTREE_PATH` が設定されている場合、そのエージェントは
+`synapse spawn --worktree` で作成された専用の git worktree 内で実行されています。
+その worktree ツリー内の編集では、`synapse file-safety lock/unlock/record` を省略できます。
+
+```bash
+[ -n "$SYNAPSE_WORKTREE_PATH" ] && echo "worktree: skip locks" || echo "main repo: lock as usual"
+```
+
+この省略は worktree 内のパスだけに適用されます。`$HOME` 配下の設定、
+親リポジトリ側のレジストリ、`~/.synapse/file_safety.db` のような
+worktree 間で共有されるデータベースなど、worktree 外の共有パスを編集する場合は
+通常どおりロックしてください。
+
 ### 背景
 
 マルチエージェント環境では、複数のエージェント（Claude、Gemini、Codex など）が同じファイルを同時に編集しようとする場合があります。これにより以下の問題が発生する可能性があります：
