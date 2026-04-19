@@ -57,7 +57,7 @@ def test_waiting_detection_refreshes_visible_prompt_after_expiry():
     )
 
     waiting_pattern_time = time.time() - 0.2
-    is_waiting, refreshed_time = detector.check_waiting_state(
+    is_waiting, refreshed_time, _, _ = detector.check_waiting_state(
         new_data=b"",
         output_buffer=b"\x1b[31mProceed?\x1b[0m",
         last_output_time=time.time() - 1.0,
@@ -67,6 +67,142 @@ def test_waiting_detection_refreshes_visible_prompt_after_expiry():
     assert is_waiting is True
     assert refreshed_time is not None
     assert refreshed_time > waiting_pattern_time
+
+
+def test_waiting_heuristic_catches_unknown_numbered_prompt():
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": "NEVER_MATCHES_THIS",
+            "idle_timeout": 0.5,
+        }
+    )
+    prompt = b"\n\n\xe2\x80\xba 1. Yes, proceed\n\xe2\x80\xba 2. No\n"
+
+    is_waiting, refreshed, confidence, source = detector.check_waiting_state(
+        new_data=prompt,
+        output_buffer=prompt,
+        last_output_time=time.time() - 1.0,
+        waiting_pattern_time=None,
+    )
+
+    assert is_waiting is True
+    assert refreshed is not None
+    assert confidence == 0.6
+    assert source == "heuristic"
+
+
+def test_waiting_confidence_high_for_primary_regex():
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": r"Proceed\?",
+            "idle_timeout": 0.5,
+        }
+    )
+
+    is_waiting, refreshed, confidence, source = detector.check_waiting_state(
+        new_data=b"Proceed?",
+        output_buffer=b"Proceed?",
+        last_output_time=time.time() - 1.0,
+        waiting_pattern_time=None,
+    )
+
+    assert is_waiting is True
+    assert refreshed is not None
+    assert confidence == 1.0
+    assert source == "regex"
+
+
+def test_waiting_heuristic_disabled_by_profile_flag():
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": "NEVER_MATCHES_THIS",
+            "heuristic_fallback": False,
+            "idle_timeout": 0.5,
+        }
+    )
+    prompt = b"\n\n\xe2\x80\xba 1. Yes, proceed\n\xe2\x80\xba 2. No\n"
+
+    is_waiting, refreshed, confidence, source = detector.check_waiting_state(
+        new_data=prompt,
+        output_buffer=prompt,
+        last_output_time=time.time() - 1.0,
+        waiting_pattern_time=None,
+    )
+
+    assert is_waiting is False
+    assert refreshed is None
+    assert confidence == 0.0
+    assert source == "none"
+
+
+def test_waiting_heuristic_respects_idle_timeout():
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": "NEVER_MATCHES_THIS",
+            "idle_timeout": 0.5,
+        }
+    )
+    prompt = b"\n\n\xe2\x80\xba 1. Yes, proceed\n\xe2\x80\xba 2. No\n"
+
+    is_waiting, refreshed, confidence, source = detector.check_waiting_state(
+        new_data=prompt,
+        output_buffer=prompt,
+        last_output_time=time.time(),
+        waiting_pattern_time=None,
+    )
+
+    assert is_waiting is False
+    assert refreshed is not None
+    assert confidence == 0.0
+    assert source == "none"
+
+
+def test_waiting_heuristic_respects_waiting_expiry():
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": "NEVER_MATCHES_THIS",
+            "require_idle": False,
+            "waiting_expiry": 30,
+        }
+    )
+
+    is_waiting, refreshed, confidence, source = detector.check_waiting_state(
+        new_data=b"",
+        output_buffer=b"regular output",
+        last_output_time=time.time() - 1.0,
+        waiting_pattern_time=time.time() - 31.0,
+    )
+
+    assert is_waiting is False
+    assert refreshed is None
+    assert confidence == 0.0
+    assert source == "none"
+
+
+def test_idle_state_evaluation_includes_waiting_confidence_and_source():
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": "NEVER_MATCHES_THIS",
+            "idle_timeout": 0.5,
+        }
+    )
+    prompt = b"\n\n\xe2\x80\xba 1. Yes, proceed\n\xe2\x80\xba 2. No\n"
+
+    evaluation = detector.check_idle_state(
+        new_data=prompt,
+        output_buffer=prompt,
+        last_output_time=time.time() - 1.0,
+        pattern_detected=False,
+        waiting_pattern_time=None,
+        current_status="PROCESSING",
+        done_time=None,
+        task_protection_active=False,
+        has_file_locks=False,
+    )
+
+    assert evaluation.is_waiting is True
+    assert evaluation.waiting_confidence == 0.6
+    assert evaluation.waiting_source == "heuristic"
 
 
 def test_waiting_detection_with_renderer_resolves_cursor_motion():
@@ -89,7 +225,7 @@ def test_waiting_detection_with_renderer_resolves_cursor_motion():
     # prompt. strip_ansi would leave "WorkingWorkingProceed?" or worse
     # after SGR mangling; pyte resolves the overwrites.
     raw = b"\x1b[H" + b"Working" + b"\x1b[H" + b"Working" + b"\r\nProceed?"
-    is_waiting, refreshed = detector.check_waiting_state(
+    is_waiting, refreshed, _, _ = detector.check_waiting_state(
         new_data=raw,
         output_buffer=raw,
         last_output_time=time.time() - 1.0,
@@ -117,7 +253,7 @@ def test_waiting_detection_renderer_path_expiry_refresh():
     )
 
     waiting_pattern_time = time.time() - 0.2
-    is_waiting, refreshed = detector.check_waiting_state(
+    is_waiting, refreshed, _, _ = detector.check_waiting_state(
         new_data=b"",
         output_buffer=raw,
         last_output_time=time.time() - 1.0,
@@ -144,7 +280,7 @@ def test_waiting_detection_renderer_path_clears_when_screen_gone():
     )
 
     waiting_pattern_time = time.time() - 0.2
-    is_waiting, refreshed = detector.check_waiting_state(
+    is_waiting, refreshed, _, _ = detector.check_waiting_state(
         new_data=b"",
         output_buffer=b"idle prompt >",
         last_output_time=time.time() - 1.0,
@@ -181,7 +317,7 @@ def test_waiting_detection_renderer_path_survives_garbled_raw_tail():
     # last 512 bytes after strip_ansi — only the renderer can see it.
     big_raw = b"X" * 2048 + garbled_raw
     waiting_pattern_time = time.time() - 0.2
-    is_waiting, refreshed = detector.check_waiting_state(
+    is_waiting, refreshed, _, _ = detector.check_waiting_state(
         new_data=b"",
         output_buffer=big_raw,
         last_output_time=time.time() - 1.0,
@@ -210,7 +346,7 @@ def test_waiting_detection_without_renderer_uses_strip_ansi():
         strip_ansi_fn=strip_ansi,
     )
 
-    is_waiting, refreshed = detector.check_waiting_state(
+    is_waiting, refreshed, _, _ = detector.check_waiting_state(
         new_data=b"\x1b[31mProceed?\x1b[0m",
         output_buffer=b"\x1b[31mProceed?\x1b[0m",
         last_output_time=time.time() - 1.0,

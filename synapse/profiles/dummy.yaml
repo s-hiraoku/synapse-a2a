@@ -11,3 +11,6 @@ idle_detection:
   strategy: "pattern"
   pattern: "> $"
   timeout: 1.5                # Fallback if pattern fails
+
+waiting_detection:
+  heuristic_fallback: false

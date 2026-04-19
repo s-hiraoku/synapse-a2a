@@ -28,6 +28,7 @@ idle_detection:
 # Re-enabled with #140 fix: now uses new_data only + auto-expiry
 waiting_detection:
   regex: "^❯\\s+.+|^[☐☑]\\s+|\\[[Yy]/[Nn]\\]"
+  heuristic_fallback: true
   require_idle: true
   idle_timeout: 0.3
   waiting_expiry: 10                           # Auto-clear WAITING after 10s

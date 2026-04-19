@@ -353,6 +353,36 @@ class TestA2ARouterEndpoints:
         assert data["task"]["status"] in ["submitted", "working"]
         mock_controller.write.assert_called_once()
 
+    def test_permission_metadata_includes_confidence(self, mock_controller):
+        """WAITING permission metadata should expose detector confidence/source."""
+        from synapse.a2a_compat import task_store
+        from synapse.a2a_models import Message, TextPart
+
+        with task_store._lock:
+            task_store._tasks.clear()
+
+        mock_controller.status = "PROCESSING"
+        mock_controller.get_context.return_value = "Allow Bash command?"
+        mock_controller.last_waiting_confidence = 0.6
+        mock_controller.last_waiting_source = "heuristic"
+
+        create_a2a_router(mock_controller, "test-agent", 8000, "\n")
+        on_status_change = mock_controller.on_status_change.call_args.args[0]
+
+        task = task_store.create(
+            Message(parts=[TextPart(text="Run command")]),
+            metadata={"sender": {"sender_id": "synapse-claude-8100"}},
+        )
+        task_store.update_status(task.id, "working")
+
+        on_status_change("PROCESSING", "WAITING")
+
+        updated = task_store.get(task.id)
+        assert updated is not None
+        permission = updated.metadata["permission"]
+        assert permission["waiting_confidence"] == 0.6
+        assert permission["waiting_source"] == "heuristic"
+
     def test_tasks_send_outputs_plain_message(self, client, mock_controller):
         """/tasks/send should output message with A2A prefix and sender for agent identification."""
         payload = {

@@ -12,6 +12,24 @@ from synapse.status import DONE_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
+_GENERIC_PROMPT_PATTERNS: tuple[str, ...] = (
+    r"^[›❯●>]\s+\d+\.\s",
+    r"\[[Yy]/[Nn]\]",
+    r"\([Yy]/[Nn]\)",
+    r"\bPress Enter\b",
+    r"\bDo you want to\b",
+    r"\bWould you like to\b",
+    r"\bAllow .{0,40}\?",
+    r"^\s*\d+\.\s+(Yes|No|Allow|Deny|Approve|Skip)\b",
+)
+
+_HEURISTIC_REGEX = re.compile(
+    "|".join(f"(?:{pattern})" for pattern in _GENERIC_PROMPT_PATTERNS),
+    re.MULTILINE,
+)
+_HEURISTIC_CONFIDENCE = 0.6
+_PRIMARY_CONFIDENCE = 1.0
+
 
 @dataclass(frozen=True)
 class StatusDecision:
@@ -29,6 +47,8 @@ class IdleStateEvaluation:
     clear_done_time: bool
     pattern_detected: bool
     waiting_pattern_time: float | None
+    waiting_confidence: float = 0.0
+    waiting_source: str = "none"
 
 
 class IdleDetector:
@@ -53,6 +73,9 @@ class IdleDetector:
 
         self.waiting_config = waiting_detection or {}
         self.waiting_regex = self._compile_waiting_regex()
+        self.heuristic_fallback = bool(
+            self.waiting_config.get("heuristic_fallback", True)
+        )
         self.waiting_require_idle = self.waiting_config.get("require_idle", True)
         self.waiting_idle_timeout = float(self.waiting_config.get("idle_timeout", 0.5))
         self.waiting_expiry = float(
@@ -60,6 +83,8 @@ class IdleDetector:
         )
         self._strip_ansi = strip_ansi_fn or (lambda text: text)
         self._renderer = renderer
+        self._waiting_source = "none"
+        self._waiting_confidence = 0.0
 
     def _compile_idle_regex(self) -> re.Pattern[bytes] | None:
         if self.idle_strategy not in ("pattern", "hybrid"):
@@ -181,32 +206,44 @@ class IdleDetector:
         output_buffer: bytes,
         last_output_time: float | None,
         waiting_pattern_time: float | None,
-    ) -> tuple[bool, float | None]:
-        if not self.waiting_regex:
-            return False, waiting_pattern_time
+    ) -> tuple[bool, float | None, float, str]:
+        if not self.waiting_regex and not self.heuristic_fallback:
+            self._waiting_source = "none"
+            self._waiting_confidence = 0.0
+            return False, waiting_pattern_time, 0.0, "none"
 
         # Quiet-tick fast path: no new bytes and nothing previously
         # detected — skip the render/strip work entirely.
         if not new_data and waiting_pattern_time is None:
-            return False, None
+            self._waiting_source = "none"
+            self._waiting_confidence = 0.0
+            return False, None, 0.0, "none"
 
         if new_data:
             if self._renderer is not None:
                 self._renderer.feed(new_data)
                 # renderer path: match against the full rendered screen
-                pattern_visible = bool(
-                    self.waiting_regex.search(self._renderer.render_text())
+                pattern_visible, confidence, source = self._match_waiting_prompt(
+                    self._renderer.render_text()
                 )
             else:
                 new_text = self._strip_ansi(new_data.decode("utf-8", errors="replace"))
-                pattern_visible = bool(self.waiting_regex.search(new_text))
+                pattern_visible, confidence, source = self._match_waiting_prompt(
+                    new_text
+                )
         else:
             pattern_visible = False
+            confidence = self._waiting_confidence
+            source = self._waiting_source
 
         if pattern_visible:
             waiting_pattern_time = time.time()
+            self._waiting_confidence = confidence
+            self._waiting_source = source
         elif waiting_pattern_time is None:
-            return False, None
+            self._waiting_source = "none"
+            self._waiting_confidence = 0.0
+            return False, None, 0.0, "none"
 
         if waiting_pattern_time is not None:
             elapsed = time.time() - waiting_pattern_time
@@ -217,7 +254,10 @@ class IdleDetector:
                 buffer_text = self._strip_ansi(
                     output_buffer[-512:].decode("utf-8", errors="replace")
                 )
-                still_visible = bool(self.waiting_regex.search(buffer_text))
+                still_visible, confidence, source = self._match_waiting_prompt(
+                    buffer_text,
+                    preferred_source=self._waiting_source,
+                )
                 # When a renderer is available, the pattern must also
                 # be present on the rendered screen. AND semantics: if
                 # *either* source loses the pattern the WAITING state
@@ -226,22 +266,59 @@ class IdleDetector:
                 # has moved on (e.g. the test replaces output_buffer
                 # directly without feeding the renderer).
                 if self._renderer is not None and still_visible:
-                    still_visible = bool(
-                        self.waiting_regex.search(self._renderer.render_text())
+                    still_visible, confidence, source = self._match_waiting_prompt(
+                        self._renderer.render_text(),
+                        preferred_source=source,
                     )
                 if still_visible:
                     waiting_pattern_time = time.time()
+                    self._waiting_confidence = confidence
+                    self._waiting_source = source
                 else:
-                    return False, None
+                    self._waiting_source = "none"
+                    self._waiting_confidence = 0.0
+                    return False, None, 0.0, "none"
 
         if not self.waiting_require_idle:
-            return True, waiting_pattern_time
+            return (
+                True,
+                waiting_pattern_time,
+                self._waiting_confidence,
+                self._waiting_source,
+            )
 
         if not (waiting_pattern_time and last_output_time):
-            return False, waiting_pattern_time
+            return False, waiting_pattern_time, 0.0, "none"
 
         time_since_output = time.time() - last_output_time
-        return time_since_output >= self.waiting_idle_timeout, waiting_pattern_time
+        is_waiting = time_since_output >= self.waiting_idle_timeout
+        if not is_waiting:
+            return False, waiting_pattern_time, 0.0, "none"
+        return (
+            True,
+            waiting_pattern_time,
+            self._waiting_confidence,
+            self._waiting_source,
+        )
+
+    def _match_waiting_prompt(
+        self,
+        text: str,
+        *,
+        preferred_source: str = "regex",
+    ) -> tuple[bool, float, str]:
+        if preferred_source == "heuristic":
+            if self.heuristic_fallback and _HEURISTIC_REGEX.search(text):
+                return True, _HEURISTIC_CONFIDENCE, "heuristic"
+            if self.waiting_regex and self.waiting_regex.search(text):
+                return True, _PRIMARY_CONFIDENCE, "regex"
+            return False, 0.0, "none"
+
+        if self.waiting_regex and self.waiting_regex.search(text):
+            return True, _PRIMARY_CONFIDENCE, "regex"
+        if self.heuristic_fallback and _HEURISTIC_REGEX.search(text):
+            return True, _HEURISTIC_CONFIDENCE, "heuristic"
+        return False, 0.0, "none"
 
     def check_idle_state(
         self,
@@ -263,12 +340,17 @@ class IdleDetector:
             pattern_detected=pattern_detected,
         )
         is_idle = self.evaluate_idle_status(pattern_match, timeout_idle)
-        is_waiting, waiting_pattern_time = self.check_waiting_state(
-            new_data=new_data,
-            output_buffer=output_buffer,
-            last_output_time=last_output_time,
-            waiting_pattern_time=waiting_pattern_time,
+        is_waiting, waiting_pattern_time, waiting_confidence, waiting_source = (
+            self.check_waiting_state(
+                new_data=new_data,
+                output_buffer=output_buffer,
+                last_output_time=last_output_time,
+                waiting_pattern_time=waiting_pattern_time,
+            )
         )
+        if not is_waiting:
+            waiting_confidence = 0.0
+            waiting_source = "none"
         decision = self.determine_new_status(
             current_status=current_status,
             is_idle=is_idle,
@@ -286,4 +368,6 @@ class IdleDetector:
             clear_done_time=decision.clear_done_time,
             pattern_detected=pattern_detected,
             waiting_pattern_time=waiting_pattern_time,
+            waiting_confidence=waiting_confidence,
+            waiting_source=waiting_source,
         )

@@ -435,7 +435,12 @@ def _load_profile_regex(agent: str) -> str:
 
 def _check_pattern(regex: str, text: str) -> bool:
     ctrl = _make_controller(
-        waiting_detection={"regex": regex, "require_idle": False, "waiting_expiry": 60}
+        waiting_detection={
+            "regex": regex,
+            "heuristic_fallback": False,
+            "require_idle": False,
+            "waiting_expiry": 60,
+        }
     )
     return ctrl._check_waiting_state(text.encode("utf-8"))
 
