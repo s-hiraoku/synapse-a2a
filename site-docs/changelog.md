@@ -4,6 +4,15 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.27.0
+
+- **Added**: `synapse cleanup` for orphaned spawned agents — kills children whose `spawned_by` parent is gone or whose parent PID is dead. `synapse spawn` propagates `SYNAPSE_AGENT_ID` to the child as `SYNAPSE_SPAWNED_BY` so the registry records the parent-child link automatically. Supports `--dry-run`, per-agent target, opt-in `SYNAPSE_ORPHAN_IDLE_TIMEOUT` reaping, and `[ORPHAN]` annotations + JSON fields in `synapse list` (#332)
+- **Added**: Worktree-aware agent-profile save defaults — the save-prompt default flips from `project` to `user` when running in a worktree (project scope is deleted on cleanup), and worktree cleanup copies any saved `*.agent` files back to the main repo as a safety net (main wins on collision). Detection is pure-Python — no per-prompt `git` subprocess (#410)
+- **Fixed**: Nested-worktree path resolution — `synapse spawn --worktree` from inside a worktree now anchors the new worktree at the main repo root instead of accumulating nested `<wt-A>/.synapse/worktrees/<wt-B>/` paths (#546, #598)
+- **Fixed**: `idle_detector` generic-prompt heuristic safety net + tighter WAITING-confidence threshold so transient single-prompt frames no longer flip status alone (#572, #594)
+- **Documentation**: `synapse-a2a` skill now recommends Agent-tool / subprocess subagents over `synapse spawn` for same-model delegation (#595), and adds a "Worktree Discipline" section warning subagents never to `cd` into `.synapse/worktrees/` (the parent shell inherits the cwd change) (#547, #599)
+- **Tests**: Opt-in pytest e2e for the `post-impl` workflow exercises `run_workflow` + `_WorkflowHelper` against the real `post-impl.yaml` without spawning live agents — asserts the #531 acceptance criteria (5 steps complete, helper spawned/killed exactly once, no 409 `Agent busy`) (#531, #600)
+
 ### v0.26.5
 
 - **Changed**: Permission-notification dedupe path simplified — `_build_permission_metadata` is now pure and `_on_status_change` reads prior dedupe state directly from `task.metadata`. The per-suppression `task_store.update_metadata` call is also dropped, so the lock is only acquired when an actual notification is emitted. Behaviour unchanged (#588 follow-up)

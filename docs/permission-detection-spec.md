@@ -183,6 +183,17 @@ PERMISSION HANDLING - When Spawned Agents Need Approval:
 
 これにより、controller が WAITING/READY を高頻度に振動した場合でも親は同一通知の連投を受けず、PTY が壊れたバッファを長文ファイルとしてディスクに書き出すこともない。
 
+## 汎用プロンプト ヒューリスティック フォールバック (#572 / #594)
+
+profile の `waiting_detection.regex` がマッチしなくても、共通的な確認 UI（`[Y/N]`, `(y/n)`, `Press Enter`, `Do you want to ...`, `Would you like to ...`, `Allow ... ?`, 番号付き `Yes/No/Allow/Deny/Approve/Skip` 選択肢）を `synapse/idle_detector.py` の `_HEURISTIC_REGEX` がレンダリング済み画面から検出すると WAITING に遷移する。`IdleStateEvaluation` には以下が付与される:
+
+| フィールド | 値 |
+|-----------|---|
+| `waiting_source` | profile regex 一致なら `"regex"`, 汎用ヒューリスティック由来なら `"heuristic"`, 未マッチなら `"none"` |
+| `waiting_confidence` | regex 一致 = `1.0`, ヒューリスティック = `0.6`, それ以外 = `0.0` |
+
+プロファイル側で挙動を抑制するには `waiting_detection.heuristic_fallback: false` を設定する。これは未知の CLI / overlay 変更で profile regex が即時追随できない場合のセーフティネットであり、CodeRabbit / Approval Gate などの下流が必要に応じて confidence で重み付けできるよう公開している。
+
 ## 検出される approval overlay (Codex, #529, v0.26.4)
 
 `synapse/profiles/codex.yaml` の `waiting_detection.regex` は以下の Codex CLI 系 overlay 系統をカバーする:

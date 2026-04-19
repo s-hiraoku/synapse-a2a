@@ -548,7 +548,10 @@ synapse kill my-claude
 | `synapse <profile>` | 포어그라운드에서 시작 |
 | `synapse start <profile>` | 백그라운드에서 시작 |
 | `synapse stop <profile\|id>` | 에이전트 중지(ID 지정 가능) |
-| `synapse kill <target>` | 에이전트 즉시 종료 |
+| `synapse kill <target>` | 단계적 종료 (종료 요청 후 30초 뒤 SIGTERM). Worktree 브랜치는 자동 병합 |
+| `synapse kill <target> -f` | 강제 종료 (즉시 SIGKILL). Worktree 브랜치는 자동 병합 |
+| `synapse kill <target> --no-merge` | Worktree 브랜치 자동 병합 없이 종료 |
+| `synapse cleanup` | 고아 에이전트(`spawned_by` 부모가 크래시/소실된 자식) 종료. `--dry-run`으로 미리보기, `-f`로 확인 생략, 위치 인수로 단일 대상 지정 가능. `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<초>`를 설정하면 `synapse list` 실행 시 장시간 READY 상태의 고아를 기회적으로 회수 |
 | `synapse jump <target>` | 에이전트의 터미널로 점프 |
 | `synapse rename <target>` | 에이전트에 이름/역할 설정 |
 | `synapse set-summary <target> [text]` | 영구 에이전트 요약 설정(120자). `--auto`로 git 컨텍스트에서 생성, `--clear`로 삭제 |

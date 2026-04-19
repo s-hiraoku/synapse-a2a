@@ -34,6 +34,7 @@ Unlike Claude Code's built-in `--worktree` (which only works for Claude Code and
    - **No changes AND no new commits** → auto-delete worktree and branch
    - **Changes or commits exist (interactive)** → prompt to keep or remove
    - **Changes or commits exist (non-interactive/headless)** → keep worktree, print path and branch
+   - **Saved agent sync (issue #410)**: any time the worktree is about to be removed (auto-delete, post-merge, or interactive `y` confirmation), `*.agent` files under `<worktree>/.synapse/agents/` are copied back to the main repo's `.synapse/agents/` directory via `sync_worktree_agents_to_main`. Main-repo files win on collisions (identical files are skipped silently; differing files are left in place with a `worktree_agent_sync_collision` warning). Pruning truly orphaned worktrees (`synapse worktree prune`) cannot sync agents because the directory is already missing.
 5. **Auto-merge** (default on `synapse kill`):
    - Uncommitted changes are auto-committed as WIP
    - `git merge worktree-<name> --no-edit` is attempted on the parent branch
@@ -305,7 +306,7 @@ Synapse:
 
 ## Module Reference
 
-- `synapse/worktree.py` — Core worktree operations (`create_worktree`, `cleanup_worktree`, `merge_worktree`, `has_worktree_changes`, `has_new_commits`, `has_uncommitted_changes`, `get_default_remote_branch`, `prune_worktrees`, `_parse_prunable_worktrees`)
+- `synapse/worktree.py` — Core worktree operations (`create_worktree`, `cleanup_worktree`, `merge_worktree`, `has_worktree_changes`, `has_new_commits`, `has_uncommitted_changes`, `get_default_remote_branch`, `get_main_repo_root`, `sync_worktree_agents_to_main`, `prune_worktrees`, `_parse_prunable_worktrees`)
 - `synapse/spawn.py` — `spawn_agent(worktree=...)` parameter
 - `synapse/cli.py` — `--worktree` / `-w` flag, `--no-merge` flag on kill, `synapse merge` command, `synapse worktree prune` subcommand (`cmd_worktree_prune`)
 - `synapse/commands/merge.py` — `merge_single`, `merge_all` implementations

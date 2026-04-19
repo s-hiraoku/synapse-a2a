@@ -12,6 +12,7 @@ from pathlib import Path
 from threading import Event
 from typing import TYPE_CHECKING, Any, Protocol
 
+from synapse.commands.cleanup import opportunistic_cleanup_idle_orphans
 from synapse.file_safety import FileSafetyManager
 from synapse.port_manager import PORT_RANGES
 from synapse.registry import AgentRegistry
@@ -117,18 +118,17 @@ class ListCommand:
         file_safety = FileSafetyManager.from_env()
         show_file_safety = file_safety.enabled
 
-        # Pre-compute orphan set so each row can render an [ORPHAN] hint.
-        # Best-effort: never let registry.get_orphans() failures break list.
+        # Reuse the agents snapshot for orphan detection + opportunistic
+        # cleanup so `synapse list` walks the registry directory once
+        # instead of three or four times.
         orphan_ids: set[str] = set()
         with contextlib.suppress(Exception):
-            orphan_ids = set(registry.get_orphans().keys())
+            orphan_ids = set(registry.get_orphans(agents).keys())
 
-        # Best-effort opportunistic cleanup of long-idle orphans
-        # (controlled by SYNAPSE_ORPHAN_IDLE_TIMEOUT env var, off by default).
+        # Opt-in via SYNAPSE_ORPHAN_IDLE_TIMEOUT. Best-effort: must not
+        # break list output even if cleanup itself raises.
         with contextlib.suppress(Exception):
-            from synapse.commands.cleanup import opportunistic_cleanup_idle_orphans
-
-            opportunistic_cleanup_idle_orphans()
+            opportunistic_cleanup_idle_orphans(agents)
 
         agents_list: list[dict[str, Any]] = []
 

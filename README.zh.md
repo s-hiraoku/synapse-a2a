@@ -588,8 +588,10 @@ synapse kill my-claude
 | `synapse <profile>` | 前台启动 |
 | `synapse start <profile>` | 后台启动 |
 | `synapse stop <profile\|id>` | 停止智能体（可指定 ID） |
-| `synapse kill <target>` | 优雅停机（发送停机请求，30秒后发送 SIGTERM） |
-| `synapse kill <target> -f` | 强制停机（立即发送 SIGKILL） |
+| `synapse kill <target>` | 优雅停机（发送停机请求，30秒后发送 SIGTERM）。Worktree 分支会自动合并 |
+| `synapse kill <target> -f` | 强制停机（立即发送 SIGKILL）。Worktree 分支会自动合并 |
+| `synapse kill <target> --no-merge` | 停机但不自动合并 worktree 分支 |
+| `synapse cleanup` | 终止孤儿智能体（`spawned_by` 父进程已崩溃/丢失的子智能体）。`--dry-run` 预览，`-f` 跳过确认，可选位置参数指定单个目标。设置 `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<秒>` 可在 `synapse list` 执行时机会性地清理长时间 READY 的孤儿 |
 | `synapse jump <target>` | 跳转到智能体的终端 |
 | `synapse rename <target>` | 为智能体分配名称/角色 |
 | `synapse set-summary <target> [text]` | 设置持久化智能体摘要（120 个字符）。`--auto` 从 git 上下文生成，`--clear` 删除 |

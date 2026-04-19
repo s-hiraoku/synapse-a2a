@@ -641,8 +641,10 @@ Save this agent definition for reuse? [y/N]:
 | `synapse <profile>` | フォアグラウンドで起動 |
 | `synapse start <profile>` | バックグラウンドで起動 |
 | `synapse stop <profile\|id>` | エージェント停止（ID 指定可能） |
-| `synapse kill <target>` | グレースフルシャットダウン (終了リクエストを送信、30秒後に SIGTERM) |
-| `synapse kill <target> -f` | 強制終了 (即座に SIGKILL) |
+| `synapse kill <target>` | グレースフルシャットダウン (終了リクエストを送信、30秒後に SIGTERM)。Worktree ブランチは自動マージされる |
+| `synapse kill <target> -f` | 強制終了 (即座に SIGKILL)。Worktree ブランチは自動マージされる |
+| `synapse kill <target> --no-merge` | Worktree ブランチを自動マージせずに終了 |
+| `synapse cleanup` | オーファンエージェント（`spawned_by` 親がクラッシュ／消失した子）を終了。`--dry-run` でプレビュー、`-f` で確認スキップ、引数でターゲット指定可。`SYNAPSE_ORPHAN_IDLE_TIMEOUT=<秒>` を設定すると `synapse list` 実行時に長時間 READY のオーファンを自動回収 |
 | `synapse jump <target>` | エージェントのターミナルにジャンプ |
 | `synapse rename <target>` | エージェントに名前・ロールを設定 |
 | `synapse set-summary <target> [text]` | 永続的なエージェント要約を設定（120文字）。`--auto` で git コンテキストから生成、`--clear` で削除 |

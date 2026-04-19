@@ -18,6 +18,10 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse status <target>` | Detailed status for a single agent |
 | `synapse kill <target>` | Graceful shutdown (30 s timeout) |
 | `synapse kill <target> -f` | Force kill (immediate SIGKILL) |
+| `synapse cleanup` | Kill orphan child agents (parent PID dead) |
+| `synapse cleanup --dry-run` | List orphans without killing |
+| `synapse cleanup -f` | Kill all orphans without confirmation |
+| `synapse cleanup <agent>` | Kill one specific orphan |
 | `synapse merge <agent>` | Merge worktree agent branch into current branch |
 | `synapse merge --all` | Merge all worktree agent branches |
 | `synapse worktree prune` | Remove orphan worktrees (missing directories) |
@@ -203,7 +207,15 @@ synapse rename my-claude --role reviewer
 # Kill agent
 synapse kill my-claude        # Graceful (30 s)
 synapse kill my-claude -f     # Force
+
+# Clean up orphan children (parent crashed or was cleared)
+synapse cleanup --dry-run     # Preview orphans
+synapse cleanup -f            # Kill every orphan, no prompt
+synapse cleanup <agent>       # Kill a specific orphan
 ```
+
+!!! note "Orphan detection"
+    An orphan is a child agent spawned with `SYNAPSE_SPAWNED_BY` whose parent is gone (missing entry or dead PID). `synapse cleanup` never touches root agents or children with a live parent. Set `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<seconds>` to opportunistically sweep long-`READY` orphans during `synapse list`.
 
 ### Spawning in New Panes
 

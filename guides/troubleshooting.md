@@ -480,6 +480,8 @@ curl http://localhost:8126/debug/pty | jq '{alt_screen, cursor}'
 
 画面自体は正しくレンダリングされているのに WAITING にならない場合は、プロファイルの `waiting_detection.regex` がその画面テキストにマッチしていない可能性が高いので、regex 側を調整してください。
 
+**汎用ヒューリスティック フォールバック (#594)**: プロファイル regex がマッチしなくても、共通の確認プロンプト形（`[Y/N]`、`Press Enter`、`Do you want to ...`、番号付き選択肢など）に該当すれば WAITING に遷移します。フォールバック由来の場合は `IdleStateEvaluation.waiting_source = "heuristic"` / `waiting_confidence = 0.6` が立ち、profile regex の一致は `waiting_source = "regex"` / `waiting_confidence = 1.0` になります。プロファイル側で無効化するには `waiting_detection.heuristic_fallback: false` を設定してください。
+
 ---
 
 ### 4.3 レスポンスが返ってこない（タイムアウト）
@@ -667,7 +669,37 @@ pytest tests/test_server.py::TestA2AEndpoints -v
 2. ポートの競合を確認: `lsof -i :8100`
 3. ログを確認: `~/.synapse/logs/<profile>.log`
 
-### 7.2 spawn したエージェントが reply できない
+### 7.2 親が消えた後にオーファン子エージェントが残る
+
+**症状**:
+- 親エージェントがクラッシュ／`/clear`／予期せず終了し、`synapse spawn` で起動した子エージェントが孤立して残る
+- `synapse list` の STATUS 列に ` [ORPHAN]` が表示される、または `synapse list --json` で `is_orphan: true` が返る
+- ポートやワークツリーが解放されない
+
+**原因**:
+`synapse spawn` は親の `SYNAPSE_AGENT_ID` を子に `SYNAPSE_SPAWNED_BY` として伝搬し、レジストリに親子関係を保存します。親エントリがレジストリから消える、または親 PID が死亡すると、子はオーファンと判定されます（[#332](https://github.com/s-hiraoku/synapse-a2a/issues/332)）。
+
+**対処**:
+
+```bash
+# 1. プレビュー: どの子がオーファンか確認
+synapse cleanup --dry-run
+
+# 2. 全オーファンを終了（確認プロンプトあり）
+synapse cleanup
+
+# 3. 確認なしで一括終了
+synapse cleanup -f
+
+# 4. 特定のオーファンのみ終了
+synapse cleanup stale-codex
+```
+
+通常終了は `synapse kill <agent>` を使ってください。`synapse cleanup` は対象がオーファンでない場合は拒否します。
+
+`synapse list` 実行時に長時間 READY 状態のオーファンを自動的に reap したい場合は、`SYNAPSE_ORPHAN_IDLE_TIMEOUT=<秒>` を環境変数に設定してください（デフォルト無効）。
+
+### 7.3 spawn したエージェントが reply できない
 
 **症状**:
 - spawn されたエージェントが `synapse reply` で返信しようとしてもエラーになる

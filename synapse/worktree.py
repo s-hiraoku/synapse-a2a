@@ -10,9 +10,11 @@ branch named ``worktree-<name>``.
 
 from __future__ import annotations
 
+import filecmp
 import logging
 import random
 import re
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass
@@ -186,6 +188,60 @@ def get_main_repo_root() -> Path:
         # for the main checkout. Anchor it before stripping the suffix.
         common_dir = (Path.cwd() / common_dir).resolve()
     return common_dir.parent
+
+
+def is_path_in_worktree(path: Path) -> bool:
+    """Return True if ``path`` is inside a git worktree (not the main checkout).
+
+    Uses the canonical git convention: a worktree's ``.git`` is a text
+    file (``gitdir: ...``); the main repo's ``.git`` is a directory.
+    Pure-Python — no subprocess.
+    """
+    git_marker = path / ".git"
+    return git_marker.is_file()
+
+
+def sync_worktree_agents_to_main(worktree_path: Path, main_root: Path) -> list[Path]:
+    """Copy saved worktree agent definitions back to the main repo.
+
+    Main-repo files win on collisions. Identical collisions are ignored;
+    differing collisions are logged so users can reconcile manually.
+    """
+    agents_dir = worktree_path / ".synapse" / "agents"
+    if not agents_dir.is_dir():
+        return []
+
+    sources = sorted(agents_dir.glob("*.agent"))
+    if not sources:
+        return []
+
+    target_dir = main_root / ".synapse" / "agents"
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    copied: list[Path] = []
+    for source in sources:
+        destination = target_dir / source.name
+        try:
+            if destination.exists():
+                if filecmp.cmp(source, destination, shallow=False):
+                    continue
+                logger.warning(
+                    "event=worktree_agent_sync_collision source=%s destination=%s",
+                    source,
+                    destination,
+                )
+                continue
+            shutil.copy2(source, destination)
+        except OSError:
+            logger.warning(
+                "event=worktree_agent_sync_failed source=%s destination=%s",
+                source,
+                destination,
+                exc_info=True,
+            )
+            continue
+        copied.append(destination)
+    return copied
 
 
 def _ref_exists(ref: str) -> bool:
@@ -573,14 +629,24 @@ def cleanup_worktree(
     Returns:
         True if worktree was removed, False if kept.
     """
+    try:
+        main_root: Path | None = get_main_repo_root()
+    except (RuntimeError, FileNotFoundError):
+        logger.debug("Skipping worktree agent sync: main repo root unavailable")
+        main_root = None
+
     uncommitted = has_uncommitted_changes(info.path)
     commits = has_new_commits(info.path, info.base_branch)
 
     if not uncommitted and not commits:
+        if main_root is not None:
+            sync_worktree_agents_to_main(info.path, main_root)
         return remove_worktree(info.path, info.branch, force=False)
 
     if merge:
         if merge_worktree(info, _has_uncommitted=uncommitted, _has_commits=commits):
+            if main_root is not None:
+                sync_worktree_agents_to_main(info.path, main_root)
             return remove_worktree(info.path, info.branch, force=False)
         return False
 
@@ -611,6 +677,8 @@ def cleanup_worktree(
             .lower()
         )
         if answer == "y":
+            if main_root is not None:
+                sync_worktree_agents_to_main(info.path, main_root)
             return remove_worktree(info.path, info.branch, force=True)
     except (EOFError, KeyboardInterrupt):
         pass
@@ -678,7 +746,8 @@ def prune_worktrees() -> list[str]:
     if not prunable:
         return []
 
-    # Remove stale git worktree references
+    # Prunable worktrees are already gone from disk, so saved-agent sync
+    # is impossible here.
     prune_result = subprocess.run(
         ["git", "worktree", "prune"],
         capture_output=True,
