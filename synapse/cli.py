@@ -907,6 +907,14 @@ def _maybe_prompt_save_agent_profile(
 
     # Skip if an identical profile already exists in the store.
     resolved_store = store or AgentProfileStore()
+    try:
+        from synapse.worktree import is_path_in_worktree
+
+        is_worktree = is_path_in_worktree(resolved_store.project_root)
+    except (OSError, AttributeError):
+        is_worktree = False
+    default_scope: Literal["project", "user"] = "user" if is_worktree else "project"
+
     for existing in resolved_store.list_all():
         if (
             existing.profile == profile
@@ -939,9 +947,16 @@ def _maybe_prompt_save_agent_profile(
             continue
         break
 
-    raw_scope = input_func("Scope [project/user] (default: project): ").strip().lower()
+    if is_worktree:
+        scope_prompt = (
+            "Scope [project/user] "
+            "(default: user - project scope in a worktree is deleted on cleanup): "
+        )
+    else:
+        scope_prompt = "Scope [project/user] (default: project): "
+    raw_scope = input_func(scope_prompt).strip().lower()
     if not raw_scope:
-        scope: Literal["project", "user"] = "project"
+        scope = default_scope
     elif raw_scope in {"project", "user"}:
         scope = cast(Literal["project", "user"], raw_scope)
     else:

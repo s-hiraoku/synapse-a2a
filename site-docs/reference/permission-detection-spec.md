@@ -126,7 +126,7 @@ Response: {"status": "denied", "task_id": "task-123"}
     "sender": { "sender_id": "synapse-claude-8101" },
     "response_mode": "silent",
     "in_reply_to": "sender-task-id",
-    "reply_status": "input_required",
+    "_reply_status": "input_required",
     "permission_escalation": {
       "task_id": "task-123",
       "child_endpoint": "http://localhost:8101",
@@ -172,6 +172,28 @@ PERMISSION HANDLING - When Spawned Agents Need Approval:
 
 - `auto-approve` 有効時: controller が直接 PTY に承認を送信。`_on_status_change` は発火するが、WAITING 状態が短時間で解消されるため `input_required` 通知は実質的に送られない（WAITING → PROCESSING が高速に遷移）
 - `auto-approve` 無効時（`--no-auto-approve`）: WAITING が持続し、`_on_status_change` が `input_required` 通知を呼び出し元に送信する。親は Approval Gate で自動応答するか、人手で approve/deny API を叩く。`synapse send --wait` はこの介入を待ってから完了/失敗を返す
+
+## 通知の sanitisation と dedupe (#582 / #586, v0.26.4)
+
+`_build_permission_metadata` は `pty_context` を以下の手順で組み立てる:
+
+1. **sanitisation** — `synapse/_pty_sanitize.py` の `strip_control_bytes` で ANSI / CSI / OSC / C0 / C1 制御バイト（8-bit CSI `\x9b...` / OSC `\x9d...` および末尾の途中切れ含む）を除去。TAB/LF は保持、CR は除去。
+2. **fallback chain** — レンダリング後の virtual terminal → 生 `controller.get_context()` → `current_task_preview` → `_sent_message[:200]` → `[permission context unavailable]` プレースホルダ。各候補も sanitise した上で `_PERMISSION_CONTEXT_MIN_PRINTABLE` 閾値で「実質的に空」を判定する。
+3. **dedupe** — `_on_status_change` の WAITING 分岐は `(task_id + pty_context)` を sha256 16桁 でハッシュし、`task.metadata.permission` に `hash + send timestamp + count` を保持する。`_PERMISSION_NOTIFICATION_MIN_INTERVAL_SECONDS` (5 秒) 以内の再送信は抑止し、ハッシュが変化していてもこの最小間隔は維持される。ウィンドウ満了後に同じハッシュが再観測されれば 1 度だけ再送信する。
+
+これにより、controller が WAITING/READY を高頻度に振動した場合でも親は同一通知の連投を受けず、PTY が壊れたバッファを長文ファイルとしてディスクに書き出すこともない。
+
+## 検出される approval overlay (Codex, #529, v0.26.4)
+
+`synapse/profiles/codex.yaml` の `waiting_detection.regex` は以下の Codex CLI 系 overlay 系統をカバーする:
+
+- 旧来の inline approval プロンプト
+- permissions overlay
+- host allow/block overlay
+- patch-files overlay
+- `No, continue without running it` exec オプション
+
+これらが `openai/codex` の `approval_overlay.rs` でラベル変更された場合、READY のまま PTY だけがブロックされる症状が発生していた。検出ラベルは `tests/test_codex_profile.py` で固定し、Codex CLI のリリースに追随する。
 
 ## 変更ファイル
 
