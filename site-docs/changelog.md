@@ -11,6 +11,8 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 - **Changed**: `PortManager.get_running_instances()` collapses the previous `O(ports × agents)` nested scan into a single `agents.values()` pass with a port-keyed sort (#584 follow-up)
 - **Removed**: Unused `looks_like_garbage()` and `printable_ratio()` helpers in `synapse/_pty_sanitize.py` — never wired into production code after #588 landed
 - **Documentation**: `docs/permission-detection-spec.md` now describes the #582/#586 sanitisation pipeline and the #529 codex approval-overlay markers; site-docs install path uses `gh skill install` consistently; `mkdocs.yml` exposes the previously orphaned Skills Management page in the User Guide nav
+- **Added**: `license: MIT` frontmatter on every plugin `SKILL.md` (23 skills × canonical + 2 deployment mirrors). Skill consumers using `gh skill install` now see the license alongside the existing name/description metadata
+- **Verified**: Full `gh skill` publish/install flow on `gh` 2.90.0 — `publish --dry-run` clean across 23 skills, `install`/`update`/`preview`/`search` all working with provenance metadata correctly injected into installed copies
 
 ### v0.26.4
 
