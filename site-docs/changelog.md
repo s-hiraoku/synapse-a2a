@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.27.0
+
+- **Added**: `synapse cleanup [--dry-run] [--force] [<agent>]` command + `[ORPHAN]` annotation in `synapse list`. Children record `spawned_by` at registration so the framework can detect agents whose parent crashed / was context-cleared / was killed. Opt-in `SYNAPSE_ORPHAN_IDLE_TIMEOUT` env var lets `synapse list` opportunistically reap long-idle orphans (#332, #601)
+- **Added**: Generic-prompt heuristic safety net for WAITING detection. When a profile's `waiting_detection.regex` misses an unknown prompt, `IdleDetector` falls back to a conservative cross-profile pattern set; new `waiting_confidence` (1.0 primary, 0.6 heuristic) and `waiting_source` are propagated through to permission notifications. Per-profile `heuristic_fallback: true|false` controls opt-out (#572, #594)
+- **Fixed**: `synapse spawn --worktree` from inside an existing worktree no longer creates nested `.synapse/worktrees/<parent>/.synapse/worktrees/<child>/` paths. New `get_main_repo_root()` resolves back to the original repo root via `git --git-common-dir` (#546, #598)
+- **Documentation**: Skill and MCP bootstrap instructions now steer Claude → claude (and Codex → codex) work to the in-process subagent before reaching for `synapse spawn` — same-model spawn shares the rate-limit window (#595). Subagents are also explicitly warned not to `cd` into `.synapse/worktrees/` (#547, #599)
+- **Tests**: `tests/test_post_impl_workflow_e2e.py` (opt-in via `pytest -m e2e`) exercises the full `_WorkflowHelper` lifecycle for the `post-impl` workflow (#531, #600)
+
 ### v0.26.5
 
 - **Changed**: Permission-notification dedupe path simplified — `_build_permission_metadata` is now pure and `_on_status_change` reads prior dedupe state directly from `task.metadata`. The per-suppression `task_store.update_metadata` call is also dropped, so the lock is only acquired when an actual notification is emitted. Behaviour unchanged (#588 follow-up)

@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.0] - 2026-04-19
+
+### Added
+
+- **Orphan agent tracking + `synapse cleanup` command (#332, #601):** Every spawn now records `spawned_by: <parent_agent_id>` in the child's registry entry (via the new `SYNAPSE_SPAWNED_BY` env propagated by `synapse spawn`). `AgentRegistry.get_orphans()` returns children whose parent's registry entry is gone or whose parent PID is no longer alive. The new `synapse cleanup [--dry-run] [--force] [<agent>]` command lists or kills those orphans; `synapse list` also annotates orphan rows with `[ORPHAN]` and exposes `is_orphan` / `spawned_by` in `--json` output. An opt-in `SYNAPSE_ORPHAN_IDLE_TIMEOUT` env var lets `synapse list` opportunistically reap long-idle orphans.
+- **Generic-prompt heuristic safety net for WAITING detection (#572, #594):** When a profile's `waiting_detection.regex` misses an unknown prompt, `IdleDetector` now falls back to a conservative cross-profile pattern set (numbered selectors `› 1.` / `❯ 1.` / `● 1.`, `[Y/N]` and `(Y/N)` brackets, `Press Enter`, `Do you want to`, `Would you like to`, `Allow ... ?`, numbered Yes/No/Allow/Deny/Approve/Skip). New `waiting_confidence` (1.0 for primary regex, 0.6 for heuristic) and `waiting_source` (`"regex"` / `"heuristic"` / `"none"`) fields are propagated through `IdleStateEvaluation` → `TerminalController` → permission notification metadata, so parent agents (e.g. Approval Gate) can weight detections. Per-profile `heuristic_fallback: true|false` controls opt-out (default true; `dummy` profile defaults false).
+
+### Changed
+
+- **`get_orphans()` and opportunistic cleanup accept a pre-loaded snapshot:** `AgentRegistry.get_orphans(agents=None)` and `opportunistic_cleanup_idle_orphans(agents=None)` now accept a pre-loaded `list_agents()` result so `synapse list` walks the registry directory once instead of three or four times. Backward compatible — existing callers keep working with the default.
+- **`_GENERIC_PROMPT_PATTERNS` and confidence constants documented:** Each fallback pattern is now annotated with the profile / phrasing it targets, and `_HEURISTIC_CONFIDENCE` carries a comment explaining why heuristic detections sit at 0.6 (so consumers gating on `>= 0.8` default to trusting the profile-specific regex only).
+- **`a2a_compat` waiting-source validation centralised:** Permission metadata now validates `waiting_source` against a single `_WAITING_SOURCE_VALUES` frozen set, removing the duplicated `{"regex","heuristic","none"}` literal that previously lived in two places.
+- **`synapse list` import discipline:** the deferred import of `opportunistic_cleanup_idle_orphans` was hoisted to module scope, so a real ImportError surfaces instead of being silently swallowed by the surrounding `contextlib.suppress`.
+
+### Fixed
+
+- **Nested worktree path resolution (#546, #598):** `synapse spawn --worktree` from inside an existing worktree no longer creates `.synapse/worktrees/<parent>/.synapse/worktrees/<child>/`. New `synapse.worktree.get_main_repo_root()` uses `git rev-parse --git-common-dir` to resolve back to the original repo root, and `create_worktree` calls it instead of `get_git_root` (which is documented to return the *current* worktree, not the main checkout).
+- **`Closes` auto-link on PR bodies:** PRs in this release follow the `Closes #N` literal-line convention (no markdown bold), so GitHub's auto-link reliably closes referenced issues — the workaround for the regression first observed on PR #588.
+
+### Documentation
+
+- **Subagent-over-spawn for same-model delegation (#595):** `plugins/synapse-a2a/skills/synapse-a2a/SKILL.md` (and the two deployment mirrors) plus the MCP bootstrap instructions (`synapse/templates/.synapse/default.md`) now explicitly steer Claude → claude (and Codex → codex) work to the in-process subagent (Agent / Task tool / subprocess) before reaching for `synapse spawn`. Spawning the same model on the same account doesn't distribute the rate-limit window — it doubles consumption against the same quota. `synapse spawn` remains the right tool for cross-model delegation, agents that lack subagent support, or persistent multi-task helpers.
+- **Subagent worktree cd discipline (#547, #599):** added a "Worktree Discipline" section to the `synapse-a2a` skill telling subagents to NEVER `cd` into `.synapse/worktrees/<name>/` (use absolute paths instead) so the parent session's working directory survives subagent exploration. New `tests/test_skill_docs.py` locks the warning text down.
+- READMEs (en/ja/zh/ko/es/fr), `guides/troubleshooting.md`, `docs/permission-detection-spec.md`, and `site-docs/{guide/agent-management.md, reference/cli.md, reference/cli-cheatsheet.md}` updated to surface the new `synapse cleanup` command, the `[ORPHAN]` annotation, and the heuristic fallback / confidence semantics.
+
+### Tests
+
+- **End-to-end verification of `post-impl` workflow (#531, #600):** added `tests/test_post_impl_workflow_e2e.py` (marked `@pytest.mark.e2e`, opt-in via `pytest -m e2e`) which exercises the full `_WorkflowHelper` lifecycle: 5-step progression, helper spawned-once / killed-once, no 409 on step 5, helper-vs-caller-endpoint dispatch. The test loads the real `.synapse/workflows/post-impl.yaml`, so any future change to its step shape will be caught at the assertion level.
+
 ## [Unreleased]
 
 ### Added
@@ -3443,7 +3472,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.5...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.5...v0.27.0
 [0.26.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.4...v0.26.5
 [0.26.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.3...v0.26.4
 [0.26.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.2...v0.26.3
