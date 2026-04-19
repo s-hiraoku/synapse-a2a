@@ -254,7 +254,6 @@ class AgentRegistry:
         if worktree_base_branch:
             data["worktree_base_branch"] = worktree_base_branch
 
-        # Record parent for orphan detection (#332)
         if spawned_by:
             data["spawned_by"] = spawned_by
 
@@ -444,7 +443,7 @@ class AgentRegistry:
         self.cleanup_stale_entries()
         return self.list_agents()
 
-    def get_orphans(self) -> dict[str, dict]:
+    def get_orphans(self, agents: dict[str, dict] | None = None) -> dict[str, dict]:
         """Return agents whose spawning parent is gone or dead.
 
         An agent is considered orphaned when it recorded a ``spawned_by``
@@ -455,21 +454,24 @@ class AgentRegistry:
         Agents without ``spawned_by`` (root agents launched directly by
         the user) are never orphans.
 
+        Args:
+            agents: Optional pre-loaded snapshot from ``list_agents()``;
+                callers like ``synapse list`` reuse their own load to
+                avoid an extra registry-directory walk.
+
         Returns:
             Mapping of agent_id -> full registry dict for each orphan.
         """
-        agents = self.list_agents()
+        if agents is None:
+            agents = self.list_agents()
         orphans: dict[str, dict] = {}
         for agent_id, info in agents.items():
             parent_id = info.get("spawned_by")
             if not parent_id:
                 continue
-            # Orphan predicate: parent registry entry missing OR parent
-            # PID no longer maps to a live process. We do not apply a
-            # grace period here — `synapse cleanup` is opt-in and a
-            # fresh spawn always re-registers atomically before the
-            # child can register itself, so a missing parent at this
-            # point is genuinely gone (crash / kill / context-clear).
+            # No grace period: `synapse cleanup` is opt-in and a fresh
+            # spawn re-registers atomically before its child registers,
+            # so a missing parent here means crash / kill / context-clear.
             parent = agents.get(parent_id)
             parent_pid = parent.get("pid") if parent else None
             is_orphan = parent is None or (

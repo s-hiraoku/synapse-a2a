@@ -174,10 +174,9 @@ def prepare_spawn(
     cwd = os.getcwd()
     resolved_extra_env = dict(extra_env or {})
 
-    # Record parent-child relationship for orphan detection (#332). The
-    # spawning agent exports SYNAPSE_AGENT_ID; propagate it to the child so
-    # its server-side registration can persist `spawned_by`. Callers may
-    # override by pre-setting SYNAPSE_SPAWNED_BY in extra_env.
+    # Propagate SYNAPSE_AGENT_ID → child env so the child's server can
+    # persist `spawned_by` for orphan detection. Callers may override
+    # by pre-setting SYNAPSE_SPAWNED_BY in extra_env.
     if "SYNAPSE_SPAWNED_BY" not in resolved_extra_env:
         parent_agent_id = os.environ.get("SYNAPSE_AGENT_ID")
         if parent_agent_id:

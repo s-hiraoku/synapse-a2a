@@ -383,6 +383,11 @@ _PERMISSION_NOTIFICATION_MIN_INTERVAL_SECONDS = 5.0
 _PERMISSION_CONTEXT_FALLBACK = "[permission context unavailable]"
 _PERMISSION_CONTEXT_MIN_PRINTABLE = 10
 
+# Allowed values for `waiting_source` in permission metadata. Mirrors
+# the literals emitted by IdleDetector; centralised so a single typo
+# can't silently downgrade a "regex" detection to "none".
+_WAITING_SOURCE_VALUES = frozenset({"regex", "heuristic", "none"})
+
 
 def _load_reply_artifacts(metadata: dict[str, Any]) -> list[Artifact] | None:
     """Deserialize structured reply artifacts from metadata."""
@@ -979,11 +984,9 @@ def create_a2a_router(
             if controller is not None
             else None
         )
-        if raw_source not in {"regex", "heuristic", "none"}:
+        if raw_source not in _WAITING_SOURCE_VALUES:
             raw_source = metadata.get("waiting_source", "none")
-        waiting_source = (
-            raw_source if raw_source in {"regex", "heuristic", "none"} else "none"
-        )
+        waiting_source = raw_source if raw_source in _WAITING_SOURCE_VALUES else "none"
 
         return {
             "pty_context": _resolve_pty_context(metadata),

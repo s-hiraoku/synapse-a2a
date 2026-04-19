@@ -12,6 +12,18 @@ from synapse.status import DONE_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
+# Cross-profile WAITING-prompt fallback patterns. Each element narrows
+# false positives by anchoring the pattern at line start or framing it
+# with characters that rarely appear in regular agent output:
+#   - numbered selectors used by codex (›), claude (❯), gemini (●)
+#   - bracketed yes/no prompts common to claude / copilot
+#   - parenthesised yes/no prompts common in shell tooling
+#   - explicit "Press Enter" / "Do you want to" / "Would you like to" /
+#     "Allow ... ?" phrasings used by codex, gemini, opencode
+#   - numbered y/n choices ("1. Yes", "2. No", ...)
+# Profile-specific regex still wins on confidence (see _PRIMARY_CONFIDENCE);
+# this list exists so unknown prompts still trigger WAITING at lower
+# confidence rather than silently stalling.
 _GENERIC_PROMPT_PATTERNS: tuple[str, ...] = (
     r"^[›❯●>]\s+\d+\.\s",
     r"\[[Yy]/[Nn]\]",
@@ -27,6 +39,11 @@ _HEURISTIC_REGEX = re.compile(
     "|".join(f"(?:{pattern})" for pattern in _GENERIC_PROMPT_PATTERNS),
     re.MULTILINE,
 )
+# Leave headroom above the heuristic so future high-confidence sources
+# (e.g. structured agent metadata) can sit between heuristic and primary
+# without collisions. Profile-regex matches are the gold standard and
+# get 1.0; heuristic gets 0.6 so consumers gating on >= 0.8 default to
+# trusting the profile only.
 _HEURISTIC_CONFIDENCE = 0.6
 _PRIMARY_CONFIDENCE = 1.0
 
