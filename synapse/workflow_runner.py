@@ -195,7 +195,7 @@ class _WorkflowHelper:
                 ),
                 timeout=_HELPER_SPAWN_TIMEOUT,
             )
-        except TimeoutError:
+        except (TimeoutError, asyncio.TimeoutError):
             return (
                 False,
                 f"Workflow helper spawn timed out after "
