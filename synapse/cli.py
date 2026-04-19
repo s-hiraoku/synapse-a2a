@@ -30,6 +30,7 @@ from synapse.auth import generate_api_key
 from synapse.commands import history as history_commands
 from synapse.commands import memory as memory_commands
 from synapse.commands import messaging as messaging_commands
+from synapse.commands.cleanup import cmd_cleanup
 from synapse.commands.doctor import cmd_doctor
 from synapse.commands.external import (
     cmd_external_add,
@@ -2508,6 +2509,7 @@ def cmd_run_interactive(
         worktree_path = os.environ.get("SYNAPSE_WORKTREE_PATH")
         worktree_branch = os.environ.get("SYNAPSE_WORKTREE_BRANCH")
         worktree_base_branch = os.environ.get("SYNAPSE_WORKTREE_BASE_BRANCH")
+        spawned_by = os.environ.get("SYNAPSE_SPAWNED_BY") or None
         try:
             registry.register(
                 agent_id,
@@ -2520,6 +2522,7 @@ def cmd_run_interactive(
                 worktree_path=worktree_path,
                 worktree_branch=worktree_branch,
                 worktree_base_branch=worktree_base_branch,
+                spawned_by=spawned_by,
             )
         except NameConflictError as e:
             print(f"Error: {e}")
@@ -2925,6 +2928,51 @@ Tip: Use 'synapse list' to see running agents with their names and IDs.""",
         help="Skip auto-merge of worktree branch (default: merge automatically)",
     )
     p_kill.set_defaults(func=cmd_kill)
+
+    # cleanup (orphaned spawned agents — issue #332)
+    p_cleanup = subparsers.add_parser(
+        "cleanup",
+        help="Kill orphaned spawned agents (parent crashed/cleared)",
+        description="""Kill orphaned child agents whose spawning parent is no longer alive.
+
+An orphan is an agent registered with `spawned_by` whose parent's registry
+entry has been removed OR whose parent PID is no longer running. This is a
+manual recovery tool for the case where a parent agent crashed, had its
+context cleared, or was killed before it could clean up its children.
+
+Existing `synapse kill` semantics are unchanged; this command never touches
+root agents (no `spawned_by`) and never touches children with a live parent.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""Examples:
+  synapse cleanup --dry-run           List orphans without killing
+  synapse cleanup                     Kill every orphan (with confirmation)
+  synapse cleanup -f                  Kill every orphan, no prompt
+  synapse cleanup synapse-claude-8200 Kill one specific orphan
+
+Set SYNAPSE_ORPHAN_IDLE_TIMEOUT=<seconds> to enable opportunistic cleanup
+of orphans that have been READY longer than the timeout (off by default).""",
+    )
+    p_cleanup.add_argument(
+        "target",
+        nargs="?",
+        default=None,
+        metavar="AGENT",
+        help="Optional specific orphan agent to kill (default: all orphans)",
+    )
+    p_cleanup.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="List orphans without killing them",
+    )
+    p_cleanup.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        default=False,
+        help="Skip confirmation prompt",
+    )
+    p_cleanup.set_defaults(func=cmd_cleanup)
 
     # merge
     p_merge = subparsers.add_parser(

@@ -63,6 +63,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Check locks | `synapse file-safety locks` |
 | Task history | `synapse history list --agent <name>` |
 | Kill agent | `synapse kill <name> -f` |
+| Cleanup orphans | `synapse cleanup --dry-run` (list); `synapse cleanup -f` (kill all orphans whose parent crashed/cleared) |
 | Attach files | `synapse send <target> "<msg>" --attach <file> --wait` |
 | Saved agents | `synapse agents list` / `synapse spawn <agent_id>` |
 | Post to Canvas | `synapse canvas post <format> "<body>" --title "<title>"` |

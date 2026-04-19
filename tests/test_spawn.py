@@ -149,6 +149,53 @@ class TestSpawnAgent:
         assert prepared.tool_args == ["--allow-all", "--resume"]
         assert prepared.extra_env == {"SYNAPSE_AUTO_APPROVE": "true"}
 
+    def test_prepare_spawn_propagates_spawned_by_from_parent_env(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When SYNAPSE_AGENT_ID is set, prepare_spawn must propagate it as
+        SYNAPSE_SPAWNED_BY to the child so it can record parentage in the
+        registry (issue #332)."""
+        from synapse.spawn import prepare_spawn
+
+        monkeypatch.setenv("SYNAPSE_AGENT_ID", "synapse-codex-8100")
+        with patch("synapse.spawn.is_port_available", return_value=True):
+            prepared = prepare_spawn("claude", port=8200)
+
+        assert prepared.extra_env is not None
+        assert prepared.extra_env["SYNAPSE_SPAWNED_BY"] == "synapse-codex-8100"
+
+    def test_prepare_spawn_does_not_set_spawned_by_when_no_parent(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Root spawns (no SYNAPSE_AGENT_ID) must not get a spurious
+        SYNAPSE_SPAWNED_BY env var."""
+        from synapse.spawn import prepare_spawn
+
+        monkeypatch.delenv("SYNAPSE_AGENT_ID", raising=False)
+        with patch("synapse.spawn.is_port_available", return_value=True):
+            prepared = prepare_spawn("claude", port=8200)
+
+        assert prepared.extra_env is not None
+        assert "SYNAPSE_SPAWNED_BY" not in prepared.extra_env
+
+    def test_prepare_spawn_caller_extra_env_overrides_spawned_by(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Caller-supplied SYNAPSE_SPAWNED_BY in extra_env must win over
+        the auto-detected parent env (used by workflow helpers / tests)."""
+        from synapse.spawn import prepare_spawn
+
+        monkeypatch.setenv("SYNAPSE_AGENT_ID", "synapse-codex-8100")
+        with patch("synapse.spawn.is_port_available", return_value=True):
+            prepared = prepare_spawn(
+                "claude",
+                port=8200,
+                extra_env={"SYNAPSE_SPAWNED_BY": "synapse-claude-9000"},
+            )
+
+        assert prepared.extra_env is not None
+        assert prepared.extra_env["SYNAPSE_SPAWNED_BY"] == "synapse-claude-9000"
+
     def test_spawn_returns_result(self) -> None:
         """spawn_agent() should return a SpawnResult with agent_id and port."""
         from synapse.spawn import SpawnResult, spawn_agent

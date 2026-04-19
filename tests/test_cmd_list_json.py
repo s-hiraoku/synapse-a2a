@@ -126,6 +126,8 @@ class TestListJson:
                 "current_task_preview": "Review issue #380",
                 "task_received_at": 1710000000.0,
                 "summary": None,
+                "is_orphan": None,
+                "spawned_by": None,
             }
         ]
 
@@ -222,6 +224,8 @@ class TestListJson:
                 "current_task_preview": None,
                 "task_received_at": None,
                 "summary": None,
+                "is_orphan": None,
+                "spawned_by": None,
                 "editing_file": "tests/test_cmd_list_json.py",
             }
         ]

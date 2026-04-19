@@ -743,6 +743,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse kill <target>` | Graceful shutdown (sends shutdown request, then SIGTERM after 30s). Auto-merges worktree branch |
 | `synapse kill <target> -f` | Force kill (immediate SIGKILL). Auto-merges worktree branch |
 | `synapse kill <target> --no-merge` | Kill without auto-merging worktree branch |
+| `synapse cleanup` | Kill orphan agents (children whose `spawned_by` parent crashed/cleared). `--dry-run` to preview, `-f` to skip prompt, optional positional agent id to target one. Set `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<sec>` to opt into opportunistic cleanup of long-READY orphans on `synapse list` |
 | `synapse merge <agent>` | Merge worktree branch without killing the agent. `--all` for all agents, `--dry-run` to preview |
 | `synapse jump <target>` | Jump to agent's terminal |
 | `synapse rename <target>` | Assign name/role to agent |

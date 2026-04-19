@@ -117,6 +117,19 @@ class ListCommand:
         file_safety = FileSafetyManager.from_env()
         show_file_safety = file_safety.enabled
 
+        # Pre-compute orphan set so each row can render an [ORPHAN] hint.
+        # Best-effort: never let registry.get_orphans() failures break list.
+        orphan_ids: set[str] = set()
+        with contextlib.suppress(Exception):
+            orphan_ids = set(registry.get_orphans().keys())
+
+        # Best-effort opportunistic cleanup of long-idle orphans
+        # (controlled by SYNAPSE_ORPHAN_IDLE_TIMEOUT env var, off by default).
+        with contextlib.suppress(Exception):
+            from synapse.commands.cleanup import opportunistic_cleanup_idle_orphans
+
+            opportunistic_cleanup_idle_orphans()
+
         agents_list: list[dict[str, Any]] = []
 
         for agent_id, info in agents.items():
@@ -131,6 +144,13 @@ class ListCommand:
             )
             if worktree_branch:
                 working_dir_short = f"[WT] {working_dir_short}"
+            is_orphan = agent_id in orphan_ids
+            status_display = info.get("status", "-")
+            if is_orphan:
+                # Annotate status column with [ORPHAN] so it surfaces in
+                # the default `synapse list` output without changing the
+                # column shape. `synapse cleanup` is the explicit recovery.
+                status_display = f"{status_display} [ORPHAN]"
             agent_data: dict[str, Any] = {
                 "agent_id": agent_id,
                 "agent_type": info.get("agent_type", "unknown"),
@@ -138,7 +158,9 @@ class ListCommand:
                 "role": info.get("role"),
                 "skill_set": info.get("skill_set"),
                 "port": info.get("port", "-"),
-                "status": info.get("status", "-"),
+                "status": status_display,
+                "is_orphan": is_orphan,
+                "spawned_by": info.get("spawned_by"),
                 "pid": pid or "-",
                 "working_dir": working_dir_short,
                 "working_dir_full": working_dir_full,
@@ -636,6 +658,8 @@ class ListCommand:
         "current_task_preview",
         "task_received_at",
         "summary",
+        "is_orphan",
+        "spawned_by",
     )
 
     def run_json(self, args: argparse.Namespace) -> None:
