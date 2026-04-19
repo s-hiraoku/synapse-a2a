@@ -664,17 +664,31 @@ class TerminalController(StatusObserverMixin):
     def _check_idle_state(self, new_data: bytes) -> None:
         """Check idle state using configured strategy (pattern, timeout, or hybrid)."""
         with self.lock:
-            evaluation = self._idle_detector.check_idle_state(
-                new_data=new_data,
-                output_buffer=self.output_buffer[-IDLE_CHECK_WINDOW:],
-                last_output_time=self._last_output_time,
-                pattern_detected=self._pattern_detected,
-                waiting_pattern_time=self._waiting_pattern_time,
-                current_status=self.status,
-                done_time=self._done_time,
-                task_protection_active=self._is_task_protection_active(),
-                has_file_locks=self._has_file_locks(),
-            )
+            try:
+                evaluation = self._idle_detector.check_idle_state(
+                    new_data=new_data,
+                    output_buffer=self.output_buffer[-IDLE_CHECK_WINDOW:],
+                    last_output_time=self._last_output_time,
+                    pattern_detected=self._pattern_detected,
+                    waiting_pattern_time=self._waiting_pattern_time,
+                    current_status=self.status,
+                    done_time=self._done_time,
+                    task_protection_active=self._is_task_protection_active(),
+                    has_file_locks=self._has_file_locks(),
+                )
+            except Exception:
+                logger.warning(
+                    "[%s] Idle-state detection failed; keeping current status",
+                    self.agent_id,
+                    exc_info=True,
+                )
+                if new_data and self.status not in {"PROCESSING", "SHUTTING_DOWN"}:
+                    old_status = self.status
+                    self.status = "PROCESSING"
+                    if self.agent_id:
+                        self.registry.update_status(self.agent_id, self.status)
+                    self._dispatch_status_callbacks(old_status, self.status)
+                return
             self._pattern_detected = evaluation.pattern_detected
             self._waiting_pattern_time = evaluation.waiting_pattern_time
             if evaluation.clear_done_time:

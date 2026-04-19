@@ -18,12 +18,16 @@ full-screen overlays are exposed cleanly.
 from __future__ import annotations
 
 import codecs
+import logging
 from typing import Any
 
 import pyte
+from wcwidth import wcwidth
 
 _ALT_SCREEN_ENTER = "\x1b[?1049h"
 _ALT_SCREEN_LEAVE = "\x1b[?1049l"
+
+logger = logging.getLogger(__name__)
 
 
 def _split_trailing_incomplete_csi(text: str) -> tuple[str, str]:
@@ -133,7 +137,35 @@ class PtyRenderer:
 
     def render(self) -> list[str]:
         """Return the current display as a list of right-stripped lines."""
-        return [line.rstrip() for line in self._screen.display]
+        broken_cells = 0
+        lines: list[str] = []
+        for y in range(self._rows):
+            line = self._screen.buffer[y]
+            chars: list[str] = []
+            skip_wide_stub = False
+            for x in range(self._columns):
+                if skip_wide_stub:
+                    skip_wide_stub = False
+                    continue
+                cell_data = line[x].data
+                try:
+                    if not cell_data:
+                        raise IndexError("empty pyte cell data")
+                    if sum(map(wcwidth, cell_data[1:])) != 0:
+                        raise AssertionError("unexpected wide continuation data")
+                    skip_wide_stub = wcwidth(cell_data[0]) == 2
+                except (AssertionError, IndexError):
+                    broken_cells += 1
+                    cell_data = " "
+                    skip_wide_stub = False
+                chars.append(cell_data)
+            lines.append("".join(chars).rstrip())
+        if broken_cells:
+            logger.debug(
+                "Substituted blanks for %d broken pyte screen cells during render",
+                broken_cells,
+            )
+        return lines
 
     def render_text(self) -> str:
         """Return the rendered display as a newline-joined string.
