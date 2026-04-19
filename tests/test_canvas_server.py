@@ -1643,6 +1643,138 @@ class TestLinkPreview:
         assert resp.status_code == 201
 
 
+class TestResolveAgentEndpoint:
+    """Tests for resolving registry targets to live agent endpoints."""
+
+    def _write_agent(self, registry_dir, filename: str, payload: dict) -> None:
+        (registry_dir / filename).write_text(json.dumps(payload), encoding="utf-8")
+
+    def test_resolve_endpoint_skips_stale_pid(self, tmp_path, monkeypatch):
+        """Dead registry entries should not resolve by type fallback."""
+        from synapse.canvas import server as canvas_server
+
+        registry_dir = tmp_path / "registry"
+        registry_dir.mkdir()
+        self._write_agent(
+            registry_dir,
+            "stale.json",
+            {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "name": "stale-claude",
+                "endpoint": "http://localhost:8100",
+                "pid": 999999,
+            },
+        )
+
+        monkeypatch.setattr(
+            canvas_server,
+            "_get_registry_dir",
+            lambda: str(registry_dir),
+        )
+        monkeypatch.setattr(
+            canvas_server,
+            "is_process_running",
+            lambda pid: False,
+            raising=False,
+        )
+
+        assert canvas_server._resolve_agent_endpoint("claude") is None
+
+    def test_resolve_endpoint_prefers_same_working_dir(self, tmp_path, monkeypatch):
+        """When resolving by type, same working directory should win."""
+        from synapse.canvas import server as canvas_server
+
+        registry_dir = tmp_path / "registry"
+        registry_dir.mkdir()
+        self._write_agent(
+            registry_dir,
+            "other.json",
+            {
+                "agent_id": "synapse-claude-8100",
+                "agent_type": "claude",
+                "name": "other-claude",
+                "endpoint": "http://localhost:8100",
+                "pid": 100,
+                "working_dir": "/repo/other",
+            },
+        )
+        self._write_agent(
+            registry_dir,
+            "same.json",
+            {
+                "agent_id": "synapse-claude-8101",
+                "agent_type": "claude",
+                "name": "same-claude",
+                "endpoint": "http://localhost:8101",
+                "pid": 101,
+                "working_dir": "/repo/current",
+            },
+        )
+
+        monkeypatch.setattr(
+            canvas_server,
+            "_get_registry_dir",
+            lambda: str(registry_dir),
+        )
+        monkeypatch.setattr(
+            canvas_server,
+            "is_process_running",
+            lambda pid: True,
+            raising=False,
+        )
+
+        assert (
+            canvas_server._resolve_agent_endpoint(
+                "claude",
+                caller_working_dir="/repo/current",
+            )
+            == "http://localhost:8101"
+        )
+
+    def test_resolve_endpoint_unique_type_fallback_warns(
+        self,
+        tmp_path,
+        monkeypatch,
+        caplog,
+    ):
+        """Unique type fallback should be visible in logs."""
+        from synapse.canvas import server as canvas_server
+
+        registry_dir = tmp_path / "registry"
+        registry_dir.mkdir()
+        self._write_agent(
+            registry_dir,
+            "agent.json",
+            {
+                "agent_id": "synapse-gemini-8110",
+                "agent_type": "gemini",
+                "name": "researcher",
+                "endpoint": "http://localhost:8110",
+                "pid": 110,
+                "working_dir": "/repo/current",
+            },
+        )
+
+        monkeypatch.setattr(
+            canvas_server,
+            "_get_registry_dir",
+            lambda: str(registry_dir),
+        )
+        monkeypatch.setattr(
+            canvas_server,
+            "is_process_running",
+            lambda pid: True,
+            raising=False,
+        )
+
+        with caplog.at_level("WARNING", logger="synapse.canvas.server"):
+            endpoint = canvas_server._resolve_agent_endpoint("gemini")
+
+        assert endpoint == "http://localhost:8110"
+        assert "type fallback" in caplog.text.lower()
+
+
 class TestSSE:
     """Tests for GET /api/stream (SSE)."""
 

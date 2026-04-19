@@ -41,6 +41,8 @@ from synapse.paths import (
     get_history_db_path,
     get_shared_memory_db_path,
 )
+from synapse.registry import is_process_running
+from synapse.tools.a2a_helpers import _normalize_working_dir
 
 logger = logging.getLogger(__name__)
 
@@ -133,13 +135,38 @@ def _get_registry_dir() -> str:
     return os.path.expanduser("~/.a2a/registry")
 
 
-def _resolve_agent_endpoint(target: str) -> str | None:
+def _is_live_registry_entry(candidate: dict[str, Any]) -> bool:
+    """Return False for stale registry entries with dead PIDs."""
+    pid = candidate.get("pid")
+    if not pid:
+        return True
+    try:
+        return is_process_running(int(pid))
+    except (TypeError, ValueError):
+        return False
+
+
+def _log_type_fallback(target: str, candidate: dict[str, Any]) -> None:
+    logger.warning(
+        "Agent target '%s' resolved by type fallback to %s",
+        target,
+        candidate.get("agent_id") or candidate.get("name") or candidate.get("endpoint"),
+    )
+
+
+def _resolve_agent_endpoint(
+    target: str,
+    *,
+    caller_working_dir: str | None = None,
+) -> str | None:
     """Resolve an agent target to its HTTP endpoint.
 
     Searches registry files by agent_id, name, or agent_type.
 
     Args:
         target: Agent ID, name, or type to resolve.
+        caller_working_dir: Optional caller directory used to prefer same-dir
+            type fallback matches.
 
     Returns:
         HTTP endpoint URL, or None if not found.
@@ -154,7 +181,8 @@ def _resolve_agent_endpoint(target: str) -> str | None:
             data = json.loads(Path(file_path).read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError, UnicodeDecodeError):
             continue
-        candidates.append(data)
+        if _is_live_registry_entry(data):
+            candidates.append(data)
 
     # Exact agent_id match
     for c in candidates:
@@ -168,7 +196,19 @@ def _resolve_agent_endpoint(target: str) -> str | None:
 
     # Agent type match (only if unique)
     type_matches = [c for c in candidates if c.get("agent_type") == target]
+    if caller_working_dir:
+        caller_dir = _normalize_working_dir(caller_working_dir)
+        same_dir_matches = [
+            c
+            for c in type_matches
+            if _normalize_working_dir(c.get("working_dir")) == caller_dir
+        ]
+        if len(same_dir_matches) == 1:
+            _log_type_fallback(target, same_dir_matches[0])
+            return same_dir_matches[0].get("endpoint")
+
     if len(type_matches) == 1:
+        _log_type_fallback(target, type_matches[0])
         return type_matches[0].get("endpoint")
 
     return None

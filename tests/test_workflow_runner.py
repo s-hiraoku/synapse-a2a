@@ -517,8 +517,8 @@ def test_is_self_target_matches_sender_agent_id():
     assert _is_self_target("synapse-claude-8103", sender_info)
 
 
-def test_is_self_target_type_match_sole_agent_of_type(monkeypatch):
-    """Legacy type target should map to self when it is the only local match."""
+def test_target_type_does_not_map_to_self_via_dir_fallback(monkeypatch):
+    """Type targets should not self-map through same-dir registry fallback."""
     sender_info = {
         "agent_id": "synapse-claude-8103",
         "agent_type": "claude",
@@ -542,7 +542,18 @@ def test_is_self_target_type_match_sole_agent_of_type(monkeypatch):
         lambda: type("Registry", (), {"list_agents": lambda self: agents})(),
     )
 
-    assert _is_self_target("claude", sender_info)
+    assert not _is_self_target("claude", sender_info)
+
+
+def test_self_target_still_self_without_auto_spawn():
+    """Literal self remains the only type-independent self target."""
+    sender_info = {
+        "agent_id": "synapse-claude-8103",
+        "agent_type": "claude",
+        "working_dir": "/repo",
+    }
+
+    assert _is_self_target("self", sender_info)
 
 
 def test_is_self_target_type_match_multiple_agents_returns_false(monkeypatch):
@@ -822,6 +833,68 @@ async def test_workflow_no_self_steps_does_not_spawn_helper(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_auto_spawn_forces_new_agent_even_when_caller_matches_type_and_dir(
+    monkeypatch,
+):
+    """auto_spawn target:type should spawn a fresh agent instead of mapping to self."""
+    helpers: list[_FakeHelper] = []
+    _patch_helper_factory(monkeypatch, helpers)
+
+    spawned_targets: list[str] = []
+    send_endpoints: list[str] = []
+
+    def _resolve(target: str) -> str | None:
+        if spawned_targets and target == "claude":
+            return "http://localhost:8104"
+        return None
+
+    async def _mock_send(endpoint, *args, **kwargs):
+        send_endpoints.append(endpoint)
+        return 0, "spawned ok", "", "task-abc123"
+
+    def _spawn(target: str) -> bool:
+        spawned_targets.append(target)
+        return True
+
+    sender_info = {
+        "agent_id": "synapse-claude-8103",
+        "agent_type": "claude",
+        "working_dir": "/repo",
+    }
+    agents = {
+        "synapse-claude-8103": {
+            "agent_id": "synapse-claude-8103",
+            "agent_type": "claude",
+            "working_dir": "/repo",
+        }
+    }
+
+    monkeypatch.setattr(
+        "synapse.workflow_runner.AgentRegistry",
+        lambda: type("Registry", (), {"list_agents": lambda self: agents})(),
+    )
+    monkeypatch.setattr("synapse.workflow_runner._resolve_target_endpoint", _resolve)
+    monkeypatch.setattr("synapse.workflow_runner._send_workflow_request", _mock_send)
+    monkeypatch.setattr("synapse.workflow_runner._try_spawn_and_wait", _spawn)
+
+    wf = Workflow(
+        name="auto-spawn-type",
+        steps=[WorkflowStep(target="claude", message="do work")],
+        scope="project",
+        auto_spawn=True,
+    )
+    run_id = await run_workflow(wf, sender_info=sender_info)
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "completed"
+    assert helpers == []
+    assert spawned_targets == ["claude"]
+    assert send_endpoints == ["http://localhost:8104"]
+
+
+@pytest.mark.asyncio
 async def test_run_workflow_in_helper_env_raises_error(monkeypatch):
     """Nested workflow execution must be blocked inside helper agents."""
     monkeypatch.setenv("SYNAPSE_WORKFLOW_HELPER", "1")
@@ -835,6 +908,198 @@ async def test_run_workflow_in_helper_env_raises_error(monkeypatch):
 
     with pytest.raises(Exception, match="Nested workflow execution is forbidden"):
         await run_workflow(wf, sender_info=_make_sender_info())
+
+
+@pytest.mark.asyncio
+async def test_run_workflow_emits_banner_before_helper_spawn(monkeypatch, capsys):
+    """Workflow startup should be visible before any helper spawn can block."""
+    helper_started = False
+
+    def _factory(*args, **kwargs):
+        nonlocal helper_started
+        helper_started = True
+        return _FakeHelper()
+
+    monkeypatch.setattr(
+        "synapse.workflow_runner._WorkflowHelper",
+        _factory,
+        raising=False,
+    )
+
+    wf = Workflow(
+        name="visible-start",
+        steps=[WorkflowStep(target="self", message="/release")],
+        scope="project",
+    )
+    await run_workflow(wf, sender_info=_make_sender_info())
+
+    captured = capsys.readouterr()
+    assert "Starting workflow visible-start (1 steps)..." in captured.out
+    assert helper_started is False
+
+
+@pytest.mark.asyncio
+async def test_run_workflow_inserts_db_row_immediately(monkeypatch):
+    """A run row should exist before self-target helper startup completes."""
+    import synapse.workflow_runner as wr
+
+    class BlockingHelper:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def execute_step(self, wf_step, step: StepResult) -> None:
+            await asyncio.sleep(0.2)
+
+        def kill(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        "synapse.workflow_runner._WorkflowHelper",
+        BlockingHelper,
+        raising=False,
+    )
+
+    wf = Workflow(
+        name="visible-in-db",
+        steps=[WorkflowStep(target="self", message="/release")],
+        scope="project",
+    )
+    run_id = await run_workflow(wf, sender_info=_make_sender_info())
+
+    row = wr._get_db().get_run(run_id)
+    assert row is not None
+    assert row["status"] == "running"
+    assert row["completed_at"] is None
+
+
+@pytest.mark.asyncio
+async def test_helper_spawn_times_out_cleanly(monkeypatch):
+    """A helper spawn timeout should fail the step with a clear timeout error."""
+
+    async def _timeout_to_thread(*args, **kwargs):
+        raise asyncio.TimeoutError
+
+    monkeypatch.setattr("synapse.workflow_runner.asyncio.to_thread", _timeout_to_thread)
+
+    wf = Workflow(
+        name="spawn-timeout",
+        steps=[WorkflowStep(target="self", message="/release")],
+        scope="project",
+    )
+    run_id = await run_workflow(wf, sender_info=_make_sender_info())
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "failed"
+    assert run.steps[0].status == "failed"
+    assert "timed out" in (run.steps[0].error or "").lower()
+
+
+@pytest.mark.asyncio
+async def test_self_target_uses_caller_endpoint_when_healthy(monkeypatch):
+    """Healthy self targets should use the caller endpoint instead of a helper."""
+    send_endpoints: list[str] = []
+
+    def _helper_factory(*args, **kwargs):
+        raise AssertionError("self target should not spawn a workflow helper")
+
+    async def _mock_send(endpoint, *args, **kwargs):
+        send_endpoints.append(endpoint)
+        return 0, "sent to self", "", "task-self-001"
+
+    monkeypatch.setattr(
+        "synapse.workflow_runner._WorkflowHelper",
+        _helper_factory,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "synapse.workflow_runner._wait_for_helper_idle",
+        lambda endpoint: asyncio.sleep(0, result=True),
+    )
+    monkeypatch.setattr(
+        "synapse.workflow_runner._is_endpoint_reachable",
+        lambda endpoint: asyncio.sleep(0, result=True),
+    )
+    monkeypatch.setattr("synapse.workflow_runner._send_workflow_request", _mock_send)
+
+    sender_info = _make_sender_info(
+        "synapse-codex-8120",
+        agent_type="codex",
+        working_dir="/repo",
+    )
+    sender_info["endpoint"] = "http://Mac-mini.local:8120"
+
+    wf = Workflow(
+        name="self-endpoint",
+        steps=[WorkflowStep(target="self", message="/release")],
+        scope="project",
+    )
+    run_id = await run_workflow(wf, sender_info=sender_info)
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "completed"
+    assert send_endpoints == ["http://127.0.0.1:8120"]
+
+
+@pytest.mark.asyncio
+async def test_endpoint_reachability_probe_uses_agent_card(monkeypatch):
+    """Self endpoint health checks should use the stable A2A discovery route."""
+    import httpx
+
+    seen: dict[str, object] = {}
+
+    class FakeAsyncClient:
+        def __init__(self, *, timeout):
+            seen["timeout"] = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def get(self, url):
+            seen["url"] = url
+            return httpx.Response(
+                200,
+                json={"name": "test-agent"},
+                request=httpx.Request("GET", url),
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    from synapse.workflow_runner import _is_endpoint_reachable
+
+    assert await _is_endpoint_reachable("http://127.0.0.1:8120")
+    assert seen == {
+        "timeout": 5.0,
+        "url": "http://127.0.0.1:8120/.well-known/agent.json",
+    }
+
+
+def test_endpoint_reachability_probe_route_exists_on_a2a_router():
+    """The self endpoint probe route should exist on Synapse A2A servers."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from synapse.a2a_compat import create_a2a_router
+
+    app = FastAPI()
+    app.include_router(
+        create_a2a_router(
+            controller=None,
+            agent_type="codex",
+            port=8120,
+            agent_id="synapse-codex-8120",
+        )
+    )
+
+    response = TestClient(app).get("/.well-known/agent.json")
+
+    assert response.status_code < 500
 
 
 @pytest.mark.asyncio
