@@ -142,6 +142,12 @@ def generate_worktree_name() -> str:
 def get_git_root() -> Path:
     """Return the root directory of the current git repository.
 
+    Note:
+        Inside a git worktree this returns the *worktree's* toplevel,
+        not the original repo root. For worktree creation use
+        :func:`get_main_repo_root` instead so that nested worktrees do
+        not accumulate (issue #546).
+
     Raises:
         RuntimeError: If not inside a git repository.
     """
@@ -153,6 +159,33 @@ def get_git_root() -> Path:
     if result.returncode != 0:
         raise RuntimeError("Not a git repository")
     return Path(result.stdout.strip())
+
+
+def get_main_repo_root() -> Path:
+    """Return the original repo root, even when called from a worktree.
+
+    Uses ``git rev-parse --git-common-dir`` to locate the *main*
+    ``.git`` directory (which is shared across all worktrees) and
+    returns its parent. This guarantees that worktree creation always
+    targets ``<main-repo>/.synapse/worktrees/<name>`` rather than a
+    nested path under another worktree (issue #546).
+
+    Raises:
+        RuntimeError: If not inside a git repository.
+    """
+    result = subprocess.run(
+        ["git", "rev-parse", "--git-common-dir"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("Not a git repository")
+    common_dir = Path(result.stdout.strip())
+    if not common_dir.is_absolute():
+        # Git returns ``.git`` relative to the current working directory
+        # for the main checkout. Anchor it before stripping the suffix.
+        common_dir = (Path.cwd() / common_dir).resolve()
+    return common_dir.parent
 
 
 def _ref_exists(ref: str) -> bool:
@@ -239,7 +272,11 @@ def create_worktree(
         RuntimeError: If not in a git repo, directory exists, or git fails.
         ValueError: If the provided name contains unsafe characters.
     """
-    git_root = get_git_root()
+    # Always anchor new worktrees to the *main* repo root. When the
+    # caller is itself running inside a worktree, ``get_git_root``
+    # would return the worktree's toplevel and cause nested
+    # ``.synapse/worktrees/...`` paths to accumulate (issue #546).
+    git_root = get_main_repo_root()
     if base_branch is not None:
         base_branch = base_branch.strip()
         if not base_branch:
