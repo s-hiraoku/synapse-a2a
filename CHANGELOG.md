@@ -3409,6 +3409,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.3...HEAD
+[0.26.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.3...v0.26.4
 [0.26.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.2...v0.26.3
 [0.26.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.1...v0.26.2
 [0.26.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.0...v0.26.1
