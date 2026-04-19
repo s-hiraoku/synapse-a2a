@@ -4,6 +4,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.27.1
+
+- **Fixed**: Profile command strings with multiple tokens, such as `python3 -u dummy_agent.py`, are now split with `shlex` before launch so profile-defined arguments are executed correctly
+
 ### v0.27.0
 
 - **Added**: `synapse cleanup` for orphaned spawned agents — kills children whose `spawned_by` parent is gone or whose parent PID is dead. `synapse spawn` propagates `SYNAPSE_AGENT_ID` to the child as `SYNAPSE_SPAWNED_BY` so the registry records the parent-child link automatically. Supports `--dry-run`, per-agent target, opt-in `SYNAPSE_ORPHAN_IDLE_TIMEOUT` reaping, and `[ORPHAN]` annotations + JSON fields in `synapse list` (#332)

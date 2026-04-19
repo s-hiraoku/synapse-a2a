@@ -38,7 +38,7 @@ env:                               # Additional environment variables
 
 ### command
 
-The CLI command to execute.
+The CLI command to execute. Shell-style command strings are split with `shlex`, so a multi-token command like `python3 -u dummy_agent.py` is supported. Values in `args` are appended after the command tokens.
 
 ```yaml
 command: claude          # Claude Code
