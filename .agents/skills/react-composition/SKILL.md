@@ -1,5 +1,6 @@
 ---
 name: react-composition
+license: MIT
 description: >-
   React component composition patterns for building flexible, maintainable
   UIs. Covers compound components, context-based state, explicit variants,

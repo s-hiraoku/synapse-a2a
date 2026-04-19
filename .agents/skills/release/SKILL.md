@@ -1,5 +1,6 @@
 ---
 name: release
+license: MIT
 description: Update version in pyproject.toml, plugin.json, and add changelog entry. This skill should be used when the user wants to bump the version number and update CHANGELOG.md. Triggered by /release or /version commands.
 ---
 

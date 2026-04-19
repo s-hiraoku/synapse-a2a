@@ -1,5 +1,6 @@
 ---
 name: react-performance
+license: MIT
 description: >-
   Comprehensive React and Next.js performance optimization guide. Covers
   waterfall elimination, bundle size reduction, server-side optimization,

@@ -180,7 +180,7 @@ Los skills ayudan a Claude a entender automáticamente las funcionalidades de Sy
 # https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/
 gh skill install s-hiraoku/synapse-a2a synapse-a2a
 gh skill install s-hiraoku/synapse-a2a synapse-manager
-# Fijar una versión: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
+# Fijar una versión: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.4
 # Apuntar a un runtime de agente específico: ... --agent claude-code
 ```
 
@@ -356,7 +356,7 @@ gh skill install s-hiraoku/synapse-a2a synapse-a2a
 gh skill install s-hiraoku/synapse-a2a synapse-manager
 
 # Fijar a una etiqueta de lanzamiento para que las actualizaciones sean explícitas
-gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.4
 
 # Instalar para un runtime de agente específico
 gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code

@@ -1,5 +1,6 @@
 ---
 name: task-planner
+license: MIT
 description: >-
   Guide for decomposing large tasks into a structured plan with dependency
   chains, managing priorities, and distributing work across agents. Outputs

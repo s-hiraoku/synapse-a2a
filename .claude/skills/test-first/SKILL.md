@@ -1,5 +1,6 @@
 ---
 name: test-first
+license: MIT
 description: >-
   Guide for Test-First (Test-Driven) Development. Focuses on writing tests before 
   implementation, ensuring comprehensive coverage and clear requirements. 

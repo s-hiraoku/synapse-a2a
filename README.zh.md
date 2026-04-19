@@ -180,7 +180,7 @@ Skills 帮助 Claude 自动理解 Synapse A2A 的功能：@agent 消息发送、
 # https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/
 gh skill install s-hiraoku/synapse-a2a synapse-a2a
 gh skill install s-hiraoku/synapse-a2a synapse-manager
-# 固定到某个版本: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
+# 固定到某个版本: gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.4
 # 指定特定智能体运行时: ... --agent claude-code
 ```
 
@@ -355,7 +355,7 @@ gh skill install s-hiraoku/synapse-a2a synapse-a2a
 gh skill install s-hiraoku/synapse-a2a synapse-manager
 
 # 固定到发布标签，以便显式更新
-gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.4
 
 # 为特定智能体运行时安装
 gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code

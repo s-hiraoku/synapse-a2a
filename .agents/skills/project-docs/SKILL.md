@@ -1,5 +1,6 @@
 ---
 name: project-docs
+license: MIT
 description: >-
   Guide for creating and maintaining project documentation (README, guides,
   API specs). Emphasizes doc/code synchronization, consistency checks, and

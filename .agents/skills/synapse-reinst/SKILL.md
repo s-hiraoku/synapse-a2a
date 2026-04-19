@@ -1,5 +1,6 @@
 ---
 name: synapse-reinst
+license: MIT
 description: >-
   Re-inject Synapse A2A initial instructions after context has been cleared.
   Use this skill when the agent has lost its identity, A2A communication

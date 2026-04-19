@@ -1,5 +1,6 @@
 ---
 name: code-review
+license: MIT
 description: >-
   Perform structured code reviews focusing on correctness, readability,
   security, and maintainability. Use this skill when reviewing pull requests,

@@ -1,5 +1,6 @@
 ---
 name: pr-guardian
+license: MIT
 description: >-
   Continuously monitor a GitHub PR for merge conflicts, CI failures, and
   CodeRabbit review comments, then automatically fix any issues found.
