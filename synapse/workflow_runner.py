@@ -15,18 +15,19 @@ import logging
 import os
 import sqlite3
 import subprocess
+import sys
 import time
 import uuid
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
 from synapse.config import BLOCKING_TASK_STATES
 from synapse.registry import AgentRegistry
-from synapse.tools.a2a_helpers import _normalize_working_dir
 from synapse.workflow import Workflow, WorkflowError
 from synapse.workflow_db import WorkflowRunDB
 
@@ -41,6 +42,7 @@ _HELPER_ENV_MARKER = "SYNAPSE_WORKFLOW_HELPER"
 _HELPER_PARENT_ENV = "SYNAPSE_WORKFLOW_HELPER_PARENT"
 _HELPER_DEPTH_ENV = "SYNAPSE_WORKFLOW_HELPER_DEPTH"
 _MAX_HELPER_DEPTH = 1
+_HELPER_SPAWN_TIMEOUT = 60.0
 
 # Lazily initialised DB singleton — set to None for tests that don't need it.
 _db: WorkflowRunDB | None = None
@@ -184,11 +186,20 @@ class _WorkflowHelper:
         }
 
         try:
-            result = await asyncio.to_thread(
-                self._spawn_helper_agent,
-                agent_type,
-                working_dir,
-                extra_env,
+            result = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self._spawn_helper_agent,
+                    agent_type,
+                    working_dir,
+                    extra_env,
+                ),
+                timeout=_HELPER_SPAWN_TIMEOUT,
+            )
+        except TimeoutError:
+            return (
+                False,
+                f"Workflow helper spawn timed out after "
+                f"{int(_HELPER_SPAWN_TIMEOUT)} seconds",
             )
         except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
             logger.warning(
@@ -362,6 +373,17 @@ def _evict_old_runs(keep_id: str | None = None) -> None:
         del _workflow_runs[victim]
 
 
+def _configure_stdout_line_buffering() -> None:
+    """Make workflow startup output visible under non-TTY parents."""
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is None:
+        return
+    try:
+        reconfigure(line_buffering=True)
+    except (OSError, ValueError):
+        logger.debug("Failed to enable stdout line buffering", exc_info=True)
+
+
 async def run_workflow(
     workflow: Workflow,
     on_update: Callable[[], None] | None = None,
@@ -373,6 +395,11 @@ async def run_workflow(
     Returns the run_id immediately. The workflow runs asynchronously.
     """
     _raise_if_helper_execution_forbidden()
+    _configure_stdout_line_buffering()
+    print(
+        f"Starting workflow {workflow.name} ({len(workflow.steps)} steps)...",
+        flush=True,
+    )
 
     run_id = str(uuid.uuid4())
     steps = [
@@ -409,6 +436,57 @@ def _resolve_target_endpoint(target: str) -> str | None:
     return _resolve_agent_endpoint(target)
 
 
+def _force_loopback_endpoint(endpoint: str) -> str:
+    """Use 127.0.0.1 for self-targeted URLs to avoid hostname/mDNS stalls."""
+    parsed = urlsplit(endpoint)
+    if not parsed.scheme or not parsed.netloc:
+        return endpoint
+    port = f":{parsed.port}" if parsed.port is not None else ""
+    return urlunsplit(
+        (
+            parsed.scheme,
+            f"127.0.0.1{port}",
+            parsed.path,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
+
+
+def _candidate_self_endpoint(sender_info: dict[str, str] | None) -> str | None:
+    """Return a loopback URL for the caller endpoint when metadata has one."""
+    if not sender_info:
+        return None
+    endpoint = sender_info.get("endpoint") or sender_info.get("sender_endpoint")
+    if endpoint:
+        return _force_loopback_endpoint(endpoint)
+    port = sender_info.get("port") or sender_info.get("sender_port")
+    if port:
+        return f"http://127.0.0.1:{port}"
+    return None
+
+
+async def _is_endpoint_reachable(endpoint: str) -> bool:
+    """Check that a direct self endpoint can receive workflow requests."""
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get(f"{endpoint.rstrip('/')}/tasks")
+    except httpx.HTTPError:
+        return False
+    return bool(response.status_code < 500)
+
+
+async def _resolve_self_target_endpoint(
+    sender_info: dict[str, str] | None,
+) -> str | None:
+    endpoint = _candidate_self_endpoint(sender_info)
+    if not endpoint:
+        return None
+    if await _is_endpoint_reachable(endpoint):
+        return endpoint
+    return None
+
+
 def _is_self_target(
     target: str,
     sender_info: dict[str, str] | None,
@@ -417,33 +495,10 @@ def _is_self_target(
     if not sender_info or not target:
         return False
 
-    sender_id = sender_info.get("agent_id") or sender_info.get("sender_id")
-    sender_type = sender_info.get("agent_type") or sender_info.get("sender_type")
     if target == "self":
         return True
-    if sender_id and target == sender_id:
-        return True
-    if not sender_type or target != sender_type:
-        return False
-
-    sender_dir = _normalize_working_dir(
-        sender_info.get("working_dir") or sender_info.get("sender_working_dir")
-    )
-    agents = AgentRegistry().list_agents().values()
-    same_type = [
-        agent
-        for agent in agents
-        if agent.get("agent_type") == sender_type
-        and _normalize_working_dir(agent.get("working_dir")) == sender_dir
-    ]
-    if len(same_type) == 1 and same_type[0].get("agent_id") == sender_id:
-        logger.warning(
-            "Workflow target '%s' auto-detected as self for agent %s",
-            target,
-            sender_id,
-        )
-        return True
-    return False
+    sender_id = sender_info.get("agent_id") or sender_info.get("sender_id")
+    return bool(sender_id and target == sender_id)
 
 
 def _build_canvas_workflow_request(
@@ -517,6 +572,10 @@ async def _poll_task_completion(
                 if status in COMPLETED_TASK_STATES:
                     return status, _extract_task_output(task_data)
                 if status == "input_required" and not target_is_self:
+                    # Self-target sends can be transiently input_required while
+                    # local PTY injection settles. External targets cannot
+                    # progress from workflow context without approval, so fail
+                    # fast with a clear permission error.
                     return "failed", (
                         "Agent requires permission approval"
                         " — check auto-approve configuration"
@@ -721,6 +780,23 @@ async def _execute_step(
     """Execute a single workflow step via direct A2A HTTP send."""
     target_is_self = _is_self_target(wf_step.target, sender_info)
     if target_is_self:
+        endpoint = await _resolve_self_target_endpoint(sender_info)
+        if endpoint:
+            returncode, stdout, stderr, task_id = await _send_workflow_request(
+                endpoint, wf_step, sender_info
+            )
+            await _apply_task_result(
+                step,
+                returncode,
+                stdout,
+                stderr,
+                task_id,
+                wf_step,
+                endpoint,
+                target_is_self=True,
+            )
+            return
+
         if helper is None:
             step.status = "failed"
             step.error = "Workflow helper is unavailable"
@@ -806,7 +882,11 @@ async def _execute_workflow(
             step.started_at = time.time()
             _notify(on_update)
 
-            if _is_self_target(wf_step.target, sender_info) and helper is None:
+            if (
+                _is_self_target(wf_step.target, sender_info)
+                and helper is None
+                and await _resolve_self_target_endpoint(sender_info) is None
+            ):
                 try:
                     helper = _WorkflowHelper(workflow.name, sender_info)
                 except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
