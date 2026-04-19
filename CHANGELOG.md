@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.1] - 2026-04-19
+
+### Documentation
+
+- **Golden Path Quick Start in README (#604, #615):** new top-of-README four-command flow that spins up Claude + Codex agents and verifies cross-agent messaging via a `SYNAPSE_GOLDEN_PATH_OK` sentinel. Renames the former install-focused `## Quick Start` to `## Installation` so the new section owns the name that matches reader intent. Adds `examples/golden-path.md` as a copy-paste-ready recipe.
+- **A2A concept overview page (#605, #616):** new `docs/a2a-overview.md` — a one-page explainer (What is A2A? / 3-step mental model / Mermaid diagram / minimum use case / where to go next) so newcomers can grasp the project in under five minutes without wading through the deeper rationale docs.
+- **Terminology glossary (#612, #617):** new `docs/terminology.md` — a shared vocabulary reference covering the 16 core terms (Agent, Task, Message, Skill, Policy, Profile, Agent Card, Registry, Worktree, Workflow, Transport, File Safety, LLM Wiki, Shared Memory, Canvas, Readiness Gate) plus 9 supporting terms. Each entry is anchored to the code path / doc / CLI help where it actually lives, and the "Known Inconsistencies" section calls out the `Skill` dual-use and the `Shared Memory` (CLI-active but README-deprecated) trap.
+
+### Tests
+
+- **`test_lifespan` expectation realigned with `spawned_by` kwarg (#618, #620):** `Registry.register()` gained a `spawned_by` keyword in #601 so `server.py:189` now passes `spawned_by=os.environ.get("SYNAPSE_SPAWNED_BY") or None` at startup. The existing `test_lifespan` used `assert_called_with` (exact-match) and was not updated, which left `main` CI red and cascaded red CI onto every downstream PR. Adding `spawned_by=None` to the expectation restores the invariant and unblocks the whole PR queue.
+
 ## [0.27.0] - 2026-04-19
 
 ### Added
