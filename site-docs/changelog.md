@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.26.5
+
+- **Changed**: Permission-notification dedupe path simplified — `_build_permission_metadata` is now pure and `_on_status_change` reads prior dedupe state directly from `task.metadata`. The per-suppression `task_store.update_metadata` call is also dropped, so the lock is only acquired when an actual notification is emitted. Behaviour unchanged (#588 follow-up)
+- **Changed**: `PtyRenderer.render()` 80×24 cell loop no longer raises and catches `IndexError`/`AssertionError` for every empty/wide-stub cell — replaced with an early-return length check, removing per-cell `try`/`except` cost without changing the broken-cell substitution semantics (#590 follow-up)
+- **Changed**: `PortManager.get_running_instances()` collapses the previous `O(ports × agents)` nested scan into a single `agents.values()` pass with a port-keyed sort (#584 follow-up)
+- **Removed**: Unused `looks_like_garbage()` and `printable_ratio()` helpers in `synapse/_pty_sanitize.py` — never wired into production code after #588 landed
+- **Documentation**: `docs/permission-detection-spec.md` now describes the #582/#586 sanitisation pipeline and the #529 codex approval-overlay markers; site-docs install path uses `gh skill install` consistently; `mkdocs.yml` exposes the previously orphaned Skills Management page in the User Guide nav
+
 ### v0.26.4
 
 - **Fixed**: PTY observation thread no longer crashes with `IndexError` when `pyte.Screen.display` hits an empty stub cell left over from a wide-char overwrite. `PtyRenderer.render()` iterates the buffer defensively and substitutes blanks for broken cells, keeping every agent's capture loop alive (#590, #591)

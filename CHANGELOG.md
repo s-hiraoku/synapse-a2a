@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.5] - 2026-04-19
+
+### Changed
+
+- **Permission-notification dedupe path (#588 follow-up):** `_build_permission_metadata` is now pure and `_on_status_change` reads prior dedupe state directly from `task.metadata`, instead of round-tripping `notification_hash`/`notification_sent_at`/`notifications_sent` through the freshly built dict. The per-suppression `task_store.update_metadata` call is also dropped, so the lock is only acquired when an actual notification is emitted. Behaviour is unchanged — both within-window and same-payload-after-window dedupe still fire — and the `update_metadata` round-trip removal cuts contention under WAITING/READY oscillation.
+- **PTY render hot loop (#590 follow-up):** `PtyRenderer.render()` no longer raises and catches `IndexError`/`AssertionError` for every empty or unexpectedly wide cell. The 80×24 = 1920-iteration loop now uses an early-return length check (`if not cell_data or any(wcwidth(c) != 0 for c in cell_data[1:])`), giving the same broken-cell substitution semantics without per-cell `try`/`except` cost.
+- **Port manager scan (#584 follow-up):** `PortManager.get_running_instances()` collapses the previous `O(ports × agents)` nested scan into a single `agents.values()` pass with a `port`-keyed sort, preserving display order in the exhaustion error while skipping stale (`is_process_alive == False`) entries the same way.
+
+### Removed
+
+- **Unused permission helpers:** `synapse/_pty_sanitize.py` no longer exports `looks_like_garbage()` or `printable_ratio()` — they were never wired into `_resolve_pty_context` or any other production caller after #588 landed. The `strip_control_bytes` / `tail_printable` / `printable_len` trio remains the public surface.
+
+### Documentation
+
+- **Pinning examples bumped to v0.26.4:** Six READMEs (en/ja/zh/ko/es/fr), `guides/settings.md`, and `docs/skills-management.md` now show `gh skill install ... --pin v0.26.4` so users land on the latest released tag. Bumped again to v0.26.5 in this release.
+- **Permission-detection spec extended:** `docs/permission-detection-spec.md` now describes the #582/#586 sanitisation pipeline (pyte fallback → `_pty_sanitize.tail_printable` → 5s dedupe window) and the #529 codex approval-overlay markers (`permissions`, `host`, `patch`, `exec`).
+- **Skill install path on the documentation site:** `site-docs/getting-started/installation.md` replaces the residual `npx skills add` snippet with the canonical `gh skill install ...` per-skill commands and links to `guide/skills-management.md` for the legacy migration matrix.
+- **Site nav fix:** `mkdocs.yml` adds the previously orphaned `Skills Management: guide/skills-management.md` entry to the User Guide section so the page committed in 655c55b is reachable from the rendered site.
+
 ## [0.26.4] - 2026-04-19
 
 ### Fixed
@@ -3408,7 +3427,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.3...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.5...HEAD
+[0.26.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.4...v0.26.5
 [0.26.4]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.3...v0.26.4
 [0.26.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.2...v0.26.3
 [0.26.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.1...v0.26.2
