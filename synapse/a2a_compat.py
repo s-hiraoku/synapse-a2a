@@ -961,10 +961,36 @@ def create_a2a_router(
     def _build_permission_metadata(
         task_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        metadata = task_metadata or {}
+        raw_confidence = (
+            getattr(controller, "last_waiting_confidence", None)
+            if controller is not None
+            else None
+        )
+        if not isinstance(raw_confidence, (int, float)):
+            raw_confidence = metadata.get("waiting_confidence", 0.0)
+        try:
+            waiting_confidence = max(0.0, min(1.0, float(raw_confidence)))
+        except (TypeError, ValueError):
+            waiting_confidence = 0.0
+
+        raw_source = (
+            getattr(controller, "last_waiting_source", None)
+            if controller is not None
+            else None
+        )
+        if raw_source not in {"regex", "heuristic", "none"}:
+            raw_source = metadata.get("waiting_source", "none")
+        waiting_source = (
+            raw_source if raw_source in {"regex", "heuristic", "none"} else "none"
+        )
+
         return {
-            "pty_context": _resolve_pty_context(task_metadata or {}),
+            "pty_context": _resolve_pty_context(metadata),
             "agent_type": agent_type,
             "detected_at": time.time(),
+            "waiting_confidence": waiting_confidence,
+            "waiting_source": waiting_source,
         }
 
     def _build_permission_notification(task: Task) -> Task:
