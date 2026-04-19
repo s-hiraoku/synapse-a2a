@@ -73,7 +73,7 @@ class TestServerExtended:
                 # Check Registry usage
                 mock_registry_inst.get_agent_id.assert_called()
                 mock_registry_inst.register.assert_called_with(
-                    "agent-123", "claude", 9000, status="PROCESSING"
+                    "agent-123", "claude", 9000, status="PROCESSING", spawned_by=None
                 )
 
                 # Check Controller usage
