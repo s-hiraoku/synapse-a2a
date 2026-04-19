@@ -190,6 +190,7 @@ class AgentRegistry:
         worktree_path: str | None = None,
         worktree_branch: str | None = None,
         worktree_base_branch: str | None = None,
+        spawned_by: str | None = None,
     ) -> Path:
         """Writes connection info to registry file.
 
@@ -252,6 +253,10 @@ class AgentRegistry:
             data["worktree_branch"] = worktree_branch
         if worktree_base_branch:
             data["worktree_base_branch"] = worktree_base_branch
+
+        # Record parent for orphan detection (#332)
+        if spawned_by:
+            data["spawned_by"] = spawned_by
 
         file_path = self.registry_dir / f"{agent_id}.json"
         with self._registry_write_lock():
@@ -438,6 +443,40 @@ class AgentRegistry:
         """
         self.cleanup_stale_entries()
         return self.list_agents()
+
+    def get_orphans(self) -> dict[str, dict]:
+        """Return agents whose spawning parent is gone or dead.
+
+        An agent is considered orphaned when it recorded a ``spawned_by``
+        parent on registration and that parent is no longer reachable —
+        either its registry entry has been removed, or its PID no longer
+        maps to a live process.
+
+        Agents without ``spawned_by`` (root agents launched directly by
+        the user) are never orphans.
+
+        Returns:
+            Mapping of agent_id -> full registry dict for each orphan.
+        """
+        agents = self.list_agents()
+        orphans: dict[str, dict] = {}
+        for agent_id, info in agents.items():
+            parent_id = info.get("spawned_by")
+            if not parent_id:
+                continue
+            # TODO(human): decide the exact orphan predicate. See
+            # docstring above — is it (parent missing OR parent PID
+            # dead), or should "parent dying is expected; only promote
+            # to orphan after an additional grace check" apply? Set
+            # ``is_orphan`` accordingly.
+            parent = agents.get(parent_id)
+            parent_pid = parent.get("pid") if parent else None
+            is_orphan = parent is None or (
+                isinstance(parent_pid, int) and not is_process_running(parent_pid)
+            )
+            if is_orphan:
+                orphans[agent_id] = info
+        return orphans
 
     def update_transport(self, agent_id: str, transport: str | None) -> bool:
         """

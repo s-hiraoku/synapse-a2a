@@ -186,7 +186,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     controller.start()
 
-    registry.register(current_agent_id, profile_name, agent_port, status="PROCESSING")
+    registry.register(
+        current_agent_id,
+        profile_name,
+        agent_port,
+        status="PROCESSING",
+        spawned_by=os.environ.get("SYNAPSE_SPAWNED_BY") or None,
+    )
 
     # Add Google A2A compatible routes
     a2a_router = create_a2a_router(

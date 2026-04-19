@@ -2508,6 +2508,7 @@ def cmd_run_interactive(
         worktree_path = os.environ.get("SYNAPSE_WORKTREE_PATH")
         worktree_branch = os.environ.get("SYNAPSE_WORKTREE_BRANCH")
         worktree_base_branch = os.environ.get("SYNAPSE_WORKTREE_BASE_BRANCH")
+        spawned_by = os.environ.get("SYNAPSE_SPAWNED_BY") or None
         try:
             registry.register(
                 agent_id,
@@ -2520,6 +2521,7 @@ def cmd_run_interactive(
                 worktree_path=worktree_path,
                 worktree_branch=worktree_branch,
                 worktree_base_branch=worktree_base_branch,
+                spawned_by=spawned_by,
             )
         except NameConflictError as e:
             print(f"Error: {e}")
