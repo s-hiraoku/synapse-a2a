@@ -8,6 +8,35 @@ description: "Synapse A2A agent communication -- sending messages, spawning agen
 
 Inter-agent communication framework via Google A2A Protocol.
 
+## Worktree Discipline (subagents, read this first)
+
+> **NEVER `cd` into `.synapse/worktrees/<name>/` directories.**
+>
+> Subagents (Claude Code Agent tool, Codex subprocess, and any other
+> sub-process driven by the parent session) inherit a persistent shell
+> from the parent. A stray `cd` into a worktree leaks out of the subagent
+> turn and silently corrupts the parent's working directory — `git status`,
+> `git diff`, and even `git commit` then land on the wrong worktree, which
+> wastes debugging time and can put commits on the wrong branch.
+>
+> Rules for working with `.synapse/worktrees/`:
+>
+> - Do **not** `cd` into a worktree, ever. Stay in the original working
+>   directory for the entire session.
+> - Read and write files inside a worktree using **absolute paths only**
+>   (for example `Read /Volumes/.../.synapse/worktrees/foo/src/bar.py`,
+>   not `cd .synapse/worktrees/foo && cat src/bar.py`).
+> - Run `git` against a worktree with `git -C /abs/path/to/worktree ...`
+>   instead of changing directory.
+> - Worktrees are managed by Synapse (`synapse spawn --worktree`,
+>   `synapse team start --worktree`). Treat them as read/write data
+>   surfaces, not as places to live.
+>
+> If you need to operate from inside a worktree (e.g. running `pytest`
+> there), spawn a dedicated agent for it with `synapse spawn --worktree`
+> rather than changing the parent shell's directory.
+
+
 ## Quick Reference
 
 | Task | Command |
