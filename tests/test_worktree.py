@@ -16,6 +16,7 @@ from synapse.worktree import (
     generate_worktree_name,
     get_default_remote_branch,
     get_git_root,
+    get_main_repo_root,
     has_new_commits,
     has_uncommitted_changes,
     has_worktree_changes,
@@ -47,6 +48,66 @@ class TestGetGitRoot:
             )
             with pytest.raises(RuntimeError, match="Not a git repository"):
                 get_git_root()
+
+
+# ============================================================
+# get_main_repo_root  (issue #546)
+# ============================================================
+
+
+class TestGetMainRepoRoot:
+    """`get_main_repo_root` must always return the original repo root.
+
+    Even when called from inside a git worktree, the function should
+    resolve to the directory that owns ``.git/`` (the main checkout),
+    not the current worktree's toplevel. This prevents nested worktrees
+    being created at ``<wt>/.synapse/worktrees/<wt2>``.
+    """
+
+    def test_main_repo_detection_uses_git_common_dir(self) -> None:
+        """Function must invoke ``git rev-parse --git-common-dir``."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout="/repo/.git\n", stderr=""
+            )
+            result = get_main_repo_root()
+            assert result == Path("/repo")
+            mock_run.assert_called_once()
+            cmd = mock_run.call_args[0][0]
+            assert cmd == ["git", "rev-parse", "--git-common-dir"]
+
+    def test_resolves_relative_common_dir(self, tmp_path: Path) -> None:
+        """When git returns ``.git`` (relative), resolve it via ``cwd``."""
+        repo = tmp_path / "repo"
+        (repo / ".git").mkdir(parents=True)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=".git\n", stderr="")
+            with patch("pathlib.Path.cwd", return_value=repo):
+                result = get_main_repo_root()
+            assert result == repo
+
+    def test_strips_worktrees_subpath(self) -> None:
+        """When invoked inside a worktree, ``--git-common-dir`` returns
+        the main ``.git`` directory regardless. Its parent is the main
+        repo root."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="/repo/.git\n",
+                stderr="",
+            )
+            result = get_main_repo_root()
+            # Parent of /repo/.git is /repo (the main checkout), NOT
+            # /repo/.synapse/worktrees/rich-elk (the current worktree).
+            assert result == Path("/repo")
+
+    def test_raises_when_not_git_repo(self) -> None:
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=128, stdout="", stderr="fatal: not a git repository"
+            )
+            with pytest.raises(RuntimeError, match="Not a git repository"):
+                get_main_repo_root()
 
 
 # ============================================================
@@ -293,6 +354,69 @@ class TestCreateWorktree:
         with patch("pathlib.Path.exists", return_value=False):
             with pytest.raises(RuntimeError, match="Failed to create worktree"):
                 create_worktree(name="bad-wt")
+
+    # --- Issue #546: nested worktree path resolution -------------------
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_main_repo_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    @patch("pathlib.Path.mkdir")
+    def test_nested_worktree_resolves_to_main_repo_root(
+        self,
+        mock_mkdir: MagicMock,
+        mock_run: MagicMock,
+        mock_main_root: MagicMock,
+        mock_remote: MagicMock,
+    ) -> None:
+        """When invoked from inside a worktree, the new worktree must
+        be created under the main repo root, not under the parent
+        worktree (issue #546).
+
+        The test mocks ``get_main_repo_root`` to return ``/repo`` (i.e.
+        what would be returned even if cwd is
+        ``/repo/.synapse/worktrees/rich-elk``). The created worktree
+        path must be ``/repo/.synapse/worktrees/<name>`` — *not* nested.
+        """
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("synapse.worktree.generate_worktree_name", return_value="live-swan"):
+            with patch("pathlib.Path.exists", return_value=False):
+                info = create_worktree()
+
+        assert info.path == Path("/repo/.synapse/worktrees/live-swan")
+        # Must NOT be nested under a parent worktree
+        assert ".synapse/worktrees/rich-elk" not in str(info.path)
+        # Verify git worktree add was called with the un-nested path
+        cmd = mock_run.call_args[0][0]
+        assert str(Path("/repo/.synapse/worktrees/live-swan")) in cmd
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_main_repo_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    @patch("pathlib.Path.mkdir")
+    def test_worktree_creation_from_repo_root_is_unchanged(
+        self,
+        mock_mkdir: MagicMock,
+        mock_run: MagicMock,
+        mock_main_root: MagicMock,
+        mock_remote: MagicMock,
+    ) -> None:
+        """Creating a worktree from the main repo root must continue to
+        place it under ``<repo>/.synapse/worktrees/<name>`` exactly as
+        before. This guards against regressions from the issue #546
+        fix (no double-resolution, no path drift)."""
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch(
+            "synapse.worktree.generate_worktree_name", return_value="bright-falcon"
+        ):
+            with patch("pathlib.Path.exists", return_value=False):
+                info = create_worktree()
+
+        assert info.name == "bright-falcon"
+        assert info.branch == "worktree-bright-falcon"
+        assert info.path == Path("/repo/.synapse/worktrees/bright-falcon")
+        assert info.base_branch == "origin/main"
 
 
 # ============================================================
