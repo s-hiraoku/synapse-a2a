@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`synapse cleanup` for orphaned spawned agents (#332):** New top-level command that kills children whose `spawned_by` parent is gone or whose parent PID is dead. `synapse spawn` now propagates the calling agent's `SYNAPSE_AGENT_ID` to the child as `SYNAPSE_SPAWNED_BY` so the registry records the parent-child link automatically. `synapse cleanup --dry-run` lists orphans without killing; bare `synapse cleanup` kills all orphans (with confirmation, `-f` to skip); `synapse cleanup <agent>` targets one orphan and refuses non-orphans so existing `synapse kill` semantics remain intact. `synapse list` annotates orphans inline (`STATUS [ORPHAN]`) and exposes `is_orphan` / `spawned_by` in `--json` output. The opt-in env var `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<seconds>` enables opportunistic reaping of orphans that have been READY longer than the timeout.
+
 ## [0.26.5] - 2026-04-19
 
 ### Changed
