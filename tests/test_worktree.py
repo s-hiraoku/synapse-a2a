@@ -711,6 +711,9 @@ class TestCleanupWorktree:
         )
         monkeypatch.setattr("synapse.worktree.get_main_repo_root", lambda: main_root)
         monkeypatch.setattr(logging.getLogger("synapse"), "propagate", True)
+        # Clear any logging.disable() state left by earlier tests in the suite
+        # so `synapse.worktree`'s WARNING actually reaches caplog's handler.
+        logging.disable(logging.NOTSET)
         caplog.set_level(logging.WARNING, logger="synapse.worktree")
         info = WorktreeInfo(
             name="test-wt",

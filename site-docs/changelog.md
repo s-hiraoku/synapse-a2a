@@ -4,9 +4,16 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
-### v0.27.1
+### v0.27.2
 
 - **Fixed**: Profile command strings with multiple tokens, such as `python3 -u dummy_agent.py`, are now split with `shlex` before launch so profile-defined arguments are executed correctly
+
+### v0.27.1
+
+- **Documentation**: Golden Path "Quick Start" section at the top of README — four-command flow (`synapse start claude` / `start codex` / `list --plain` / `send ... --wait`) that verifies cross-agent messaging via a `SYNAPSE_GOLDEN_PATH_OK` sentinel; the former install-focused Quick Start is renamed to `Installation`. Adds `examples/golden-path.md` (#604, #615)
+- **Documentation**: `docs/a2a-overview.md` — a one-page A2A concept explainer (What is A2A / 3-step mental model / Mermaid diagram / minimum use case / links to deeper docs) so newcomers can grasp the project in under five minutes (#605, #616)
+- **Documentation**: `docs/terminology.md` — shared vocabulary reference for 16 core terms + 9 supporting terms, each anchored to the code path / doc / CLI help where it actually lives, plus a "Known Inconsistencies" section on the `Skill` and `Shared Memory` dual-use traps (#612, #617)
+- **Tests**: `test_lifespan` expectation realigned with the `spawned_by` kwarg added in #601. `Registry.register()` now receives `spawned_by=os.environ.get("SYNAPSE_SPAWNED_BY") or None` at startup; the pre-existing exact-match `assert_called_with` was left behind and had turned `main` CI red. One-line fix unblocks the whole PR queue (#618, #620)
 
 ### v0.27.0
 

@@ -154,10 +154,10 @@ $EDITOR plugins/synapse-a2a/skills/my-new-skill/SKILL.md
 # 4. Commit + tag
 git add plugins/synapse-a2a/skills/my-new-skill
 git commit -m "feat(skills): add my-new-skill"
-git tag v0.27.1 && git push origin main --tags
+git tag v0.27.2 && git push origin main --tags
 
 # 5. Users can now install
-#   gh skill install s-hiraoku/synapse-a2a my-new-skill --pin v0.27.1
+#   gh skill install s-hiraoku/synapse-a2a my-new-skill --pin v0.27.2
 ```
 
 ## Troubleshooting
