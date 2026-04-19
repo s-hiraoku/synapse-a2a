@@ -731,6 +731,7 @@ Save this agent definition for reuse? [y/N]:
 - Triggered only for interactive `synapse <profile>` sessions with a configured name.
 - Not shown in `--headless` mode or non-TTY environments.
 - Not shown for `synapse stop ...` or `synapse kill ...` (those commands only stop running processes).
+- Default scope is `project`, but switches to `user` when the session is running inside a worktree (issue #410). The prompt makes this explicit (`default: user - project scope in a worktree is deleted on cleanup`). When a worktree is cleaned up, any `*.agent` files saved under `<worktree>/.synapse/agents/` are also copied back to the main repo's `.synapse/agents/` as a safety net (main repo files win on collision).
 - Disable with `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED=false`.
 
 ### Command List

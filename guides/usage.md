@@ -531,6 +531,8 @@ Save this agent definition for reuse? [y/N]:
 - `synapse <profile>` の対話起動終了時のみ表示されます（名前が設定されている場合）。
 - `--headless` または非TTY環境では表示されません。
 - `synapse stop ...` / `synapse kill ...` で停止した場合は表示されません。
+- スコープのデフォルトは通常 `project` ですが、**worktree 内で起動された場合は `user` に切り替わります**（issue #410）。worktree 内の `project` スコープ（`<worktree>/.synapse/agents/`）はクリーンアップ時に worktree ごと削除されるため、データ損失を避けるためのデフォルト変更です。プロンプトには `(default: user - project scope in a worktree is deleted on cleanup)` と明示されます。
+- worktree のクリーンアップ時には、`<worktree>/.synapse/agents/*.agent` がメインリポジトリの `.synapse/agents/` に自動コピーされます（メインリポジトリ側のファイルが優先、衝突は警告ログ）。プロンプトで `project` を選んだ場合のセーフティネットです。
 - 無効化: `SYNAPSE_AGENT_SAVE_PROMPT_ENABLED=false`
 
 ---
@@ -771,6 +773,13 @@ synapse team start sharp-checker steady-builder  # team start で使用
 
 IDが重複する場合、Project スコープが User スコープより優先されます。
 
+**worktree 内での挙動（issue #410）**:
+
+worktree 内で `project` スコープを選ぶと、保存先は `<worktree>/.synapse/agents/` となり、worktree 削除時に消えます。これを防ぐため、
+
+- 終了時の保存プロンプトは worktree 内では `user` をデフォルトとして提示します（プロンプト末尾に `default: user - project scope in a worktree is deleted on cleanup` と表示）。
+- `synapse kill` 等で worktree がクリーンアップされる直前に、`<worktree>/.synapse/agents/*.agent` を main リポジトリの `.synapse/agents/` にコピーバックします（メインリポジトリ側のファイルが優先）。
+
 #### Worktree の注意事項
 
 **Synapse ネイティブ worktree（推奨）**:
@@ -801,6 +810,7 @@ synapse gemini --worktree review --name Reviewer --role "code reviewer"
 
 - `.gitignore` に記載されたファイル（`.env`、`.venv/`、`node_modules/`）は worktree にコピーされません。必要に応じて `uv sync`、`npm install`、`.env` のコピーを実行してください。
 - 終了時: 未コミットの変更 **およびベースブランチ以降の新規コミット** がない worktree は自動削除されます。変更またはコミットがある場合、対話モードでは保持/削除の確認プロンプトが表示され、非対話モード（headless）では worktree を保持してパスとブランチを出力します。
+- 削除直前に `<worktree>/.synapse/agents/*.agent` はメインリポジトリの `.synapse/agents/` に自動コピーされます（issue #410）。worktree 内で保存した project スコープのエージェント定義が消えないようにするためのセーフティネットです（メインリポジトリ側のファイルが優先、衝突は警告ログのみ）。
 - ブランチの自動マージ: `synapse kill` 実行時、worktree ブランチはデフォルトで親ブランチに自動マージされます（未コミットの変更は WIP コミットされます）。コンフリクト発生時はブランチが保持され警告が表示されます。`--no-merge` で自動マージをスキップできます:
   ```bash
   synapse kill my-claude               # 自動マージ（デフォルト）

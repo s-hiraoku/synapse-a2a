@@ -73,3 +73,89 @@ def test_maybe_prompt_save_without_store_uses_cwd(
     )
 
     assert (tmp_path / ".synapse" / "agents" / "wise-strategist.agent").exists()
+
+
+def test_prompt_default_scope_is_user_in_worktree(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Accepting the scope default in a worktree saves to user scope."""
+    from synapse.agent_profiles import AgentProfileStore
+
+    main_root = tmp_path / "repo"
+    worktree_root = main_root / ".synapse" / "worktrees" / "test-wt"
+    home = tmp_path / "home"
+    worktree_root.mkdir(parents=True)
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr("synapse.worktree.is_path_in_worktree", lambda _path: True)
+
+    store = AgentProfileStore(project_root=worktree_root, home_dir=home)
+
+    from synapse.cli import _maybe_prompt_save_agent_profile
+
+    prompts: list[str] = []
+    responses = iter(["y", "wise-strategist", ""])
+
+    def input_func(prompt: str) -> str:
+        prompts.append(prompt)
+        return next(responses)
+
+    _maybe_prompt_save_agent_profile(
+        profile="claude",
+        name="Frank",
+        role="task manager",
+        skill_set="manager",
+        headless=False,
+        is_tty=True,
+        input_func=input_func,
+        print_func=lambda _msg: None,
+        store=store,
+    )
+
+    assert "default: user" in prompts[-1]
+    assert "worktree is deleted on cleanup" in prompts[-1]
+    assert (home / ".synapse" / "agents" / "wise-strategist.agent").exists()
+    assert not (
+        worktree_root / ".synapse" / "agents" / "wise-strategist.agent"
+    ).exists()
+
+
+def test_prompt_default_scope_is_project_outside_worktree(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Outside a worktree, accepting the scope default still saves to project scope."""
+    from synapse.agent_profiles import AgentProfileStore
+
+    project_root = tmp_path / "repo"
+    home = tmp_path / "home"
+    project_root.mkdir()
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr("synapse.worktree.is_path_in_worktree", lambda _path: False)
+
+    store = AgentProfileStore(project_root=project_root, home_dir=home)
+
+    from synapse.cli import _maybe_prompt_save_agent_profile
+
+    prompts: list[str] = []
+    responses = iter(["y", "wise-strategist", ""])
+
+    def input_func(prompt: str) -> str:
+        prompts.append(prompt)
+        return next(responses)
+
+    _maybe_prompt_save_agent_profile(
+        profile="claude",
+        name="Frank",
+        role="task manager",
+        skill_set="manager",
+        headless=False,
+        is_tty=True,
+        input_func=input_func,
+        print_func=lambda _msg: None,
+        store=store,
+    )
+
+    assert "default: project" in prompts[-1]
+    assert (project_root / ".synapse" / "agents" / "wise-strategist.agent").exists()
+    assert not (home / ".synapse" / "agents" / "wise-strategist.agent").exists()

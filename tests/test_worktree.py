@@ -645,6 +645,116 @@ class TestCleanupWorktree:
         assert result is True
         mock_remove.assert_called_once_with(info.path, info.branch, force=False)
 
+    @patch("synapse.worktree.remove_worktree", return_value=True)
+    @patch("synapse.worktree.has_new_commits", return_value=False)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
+    def test_cleanup_worktree_syncs_agents_to_main_repo(
+        self,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
+        mock_remove: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        main_root = tmp_path / "repo"
+        worktree_path = main_root / ".synapse" / "worktrees" / "test-wt"
+        agents_dir = worktree_path / ".synapse" / "agents"
+        agents_dir.mkdir(parents=True)
+        agent_content = "id=wise-strategist\nname=Frank\nprofile=claude\n"
+        (agents_dir / "wise-strategist.agent").write_text(
+            agent_content, encoding="utf-8"
+        )
+        monkeypatch.setattr("synapse.worktree.get_main_repo_root", lambda: main_root)
+
+        info = WorktreeInfo(
+            name="test-wt",
+            path=worktree_path,
+            branch="worktree-test-wt",
+            base_branch="origin/main",
+            created_at=1000.0,
+        )
+
+        result = cleanup_worktree(info, interactive=False)
+
+        assert result is True
+        assert (main_root / ".synapse" / "agents" / "wise-strategist.agent").read_text(
+            encoding="utf-8"
+        ) == agent_content
+        mock_remove.assert_called_once_with(info.path, info.branch, force=False)
+
+    @patch("synapse.worktree.remove_worktree", return_value=True)
+    @patch("synapse.worktree.has_new_commits", return_value=False)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
+    def test_cleanup_worktree_sync_skips_on_main_collision(
+        self,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
+        mock_remove: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        main_root = tmp_path / "repo"
+        worktree_path = main_root / ".synapse" / "worktrees" / "test-wt"
+        worktree_agents = worktree_path / ".synapse" / "agents"
+        main_agents = main_root / ".synapse" / "agents"
+        worktree_agents.mkdir(parents=True)
+        main_agents.mkdir(parents=True)
+        main_content = "id=wise-strategist\nname=Main Frank\nprofile=claude\n"
+        worktree_content = "id=wise-strategist\nname=Worktree Frank\nprofile=claude\n"
+        (main_agents / "wise-strategist.agent").write_text(
+            main_content, encoding="utf-8"
+        )
+        (worktree_agents / "wise-strategist.agent").write_text(
+            worktree_content, encoding="utf-8"
+        )
+        monkeypatch.setattr("synapse.worktree.get_main_repo_root", lambda: main_root)
+        info = WorktreeInfo(
+            name="test-wt",
+            path=worktree_path,
+            branch="worktree-test-wt",
+            base_branch="origin/main",
+            created_at=1000.0,
+        )
+
+        result = cleanup_worktree(info, interactive=False)
+
+        assert result is True
+        assert (main_agents / "wise-strategist.agent").read_text(
+            encoding="utf-8"
+        ) == main_content
+        assert "wise-strategist.agent" in caplog.text
+        mock_remove.assert_called_once_with(info.path, info.branch, force=False)
+
+    @patch("synapse.worktree.remove_worktree", return_value=True)
+    @patch("synapse.worktree.has_new_commits", return_value=False)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
+    def test_cleanup_worktree_sync_handles_empty_agents_dir(
+        self,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
+        mock_remove: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        main_root = tmp_path / "repo"
+        worktree_path = main_root / ".synapse" / "worktrees" / "test-wt"
+        (worktree_path / ".synapse" / "agents").mkdir(parents=True)
+        monkeypatch.setattr("synapse.worktree.get_main_repo_root", lambda: main_root)
+        info = WorktreeInfo(
+            name="test-wt",
+            path=worktree_path,
+            branch="worktree-test-wt",
+            base_branch="origin/main",
+            created_at=1000.0,
+        )
+
+        result = cleanup_worktree(info, interactive=False)
+
+        assert result is True
+        assert not (main_root / ".synapse" / "agents").exists()
+        mock_remove.assert_called_once_with(info.path, info.branch, force=False)
+
     @patch("synapse.worktree.remove_worktree")
     @patch("synapse.worktree.has_new_commits", return_value=True)
     @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
@@ -711,6 +821,47 @@ class TestCleanupWorktree:
         )
         mock_remove.assert_called_once_with(info.path, info.branch, force=False)
 
+    @patch("synapse.worktree.remove_worktree", return_value=True)
+    @patch("synapse.worktree.merge_worktree", return_value=True)
+    @patch("synapse.worktree.has_new_commits", return_value=True)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
+    def test_cleanup_worktree_with_merge_also_syncs(
+        self,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
+        mock_merge: MagicMock,
+        mock_remove: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        main_root = tmp_path / "repo"
+        worktree_path = main_root / ".synapse" / "worktrees" / "test-wt"
+        agents_dir = worktree_path / ".synapse" / "agents"
+        agents_dir.mkdir(parents=True)
+        agent_content = "id=wise-strategist\nname=Frank\nprofile=claude\n"
+        (agents_dir / "wise-strategist.agent").write_text(
+            agent_content, encoding="utf-8"
+        )
+        monkeypatch.setattr("synapse.worktree.get_main_repo_root", lambda: main_root)
+        info = WorktreeInfo(
+            name="test-wt",
+            path=worktree_path,
+            branch="worktree-test-wt",
+            base_branch="origin/main",
+            created_at=1000.0,
+        )
+
+        result = cleanup_worktree(info, merge=True)
+
+        assert result is True
+        assert (main_root / ".synapse" / "agents" / "wise-strategist.agent").read_text(
+            encoding="utf-8"
+        ) == agent_content
+        mock_merge.assert_called_once_with(
+            info, _has_uncommitted=False, _has_commits=True
+        )
+        mock_remove.assert_called_once_with(info.path, info.branch, force=False)
+
     @patch("synapse.worktree.remove_worktree")
     @patch("synapse.worktree.merge_worktree")
     @patch("synapse.worktree.has_new_commits", return_value=True)
@@ -746,6 +897,78 @@ class TestCleanupWorktree:
         result = cleanup_worktree(info, merge=False)
         assert result is False
         mock_merge.assert_not_called()
+
+    @patch("synapse.worktree.remove_worktree", return_value=True)
+    @patch("synapse.worktree.has_new_commits", return_value=True)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
+    @patch("builtins.input", return_value="y")
+    def test_cleanup_worktree_interactive_force_also_syncs(
+        self,
+        mock_input: MagicMock,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
+        mock_remove: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        main_root = tmp_path / "repo"
+        worktree_path = main_root / ".synapse" / "worktrees" / "test-wt"
+        agents_dir = worktree_path / ".synapse" / "agents"
+        agents_dir.mkdir(parents=True)
+        agent_content = "id=wise-strategist\nname=Frank\nprofile=claude\n"
+        (agents_dir / "wise-strategist.agent").write_text(
+            agent_content, encoding="utf-8"
+        )
+        monkeypatch.setattr("synapse.worktree.get_main_repo_root", lambda: main_root)
+        info = WorktreeInfo(
+            name="test-wt",
+            path=worktree_path,
+            branch="worktree-test-wt",
+            base_branch="origin/main",
+            created_at=1000.0,
+        )
+
+        result = cleanup_worktree(info, interactive=True)
+
+        assert result is True
+        assert (main_root / ".synapse" / "agents" / "wise-strategist.agent").read_text(
+            encoding="utf-8"
+        ) == agent_content
+        mock_remove.assert_called_once_with(info.path, info.branch, force=True)
+
+    @patch("synapse.worktree.remove_worktree", return_value=True)
+    @patch("synapse.worktree.has_new_commits", return_value=False)
+    @patch("synapse.worktree.has_uncommitted_changes", return_value=False)
+    def test_sync_when_main_root_unresolvable_skips_cleanly(
+        self,
+        mock_uncommitted: MagicMock,
+        mock_commits: MagicMock,
+        mock_remove: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        main_root = tmp_path / "repo"
+        worktree_path = main_root / ".synapse" / "worktrees" / "test-wt"
+        (worktree_path / ".synapse" / "agents").mkdir(parents=True)
+        monkeypatch.setattr(
+            "synapse.worktree.get_main_repo_root",
+            MagicMock(side_effect=RuntimeError("Not a git repository")),
+        )
+        info = WorktreeInfo(
+            name="test-wt",
+            path=worktree_path,
+            branch="worktree-test-wt",
+            base_branch="origin/main",
+            created_at=1000.0,
+        )
+
+        result = cleanup_worktree(info, interactive=False)
+
+        assert result is True
+        assert not (
+            main_root / ".synapse" / "agents" / "wise-strategist.agent"
+        ).exists()
+        mock_remove.assert_called_once_with(info.path, info.branch, force=False)
 
 
 # ============================================================
