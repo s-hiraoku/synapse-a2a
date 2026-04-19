@@ -1,5 +1,6 @@
 ---
 name: security-audit
+license: MIT
 description: >-
   General-purpose security auditing guide. Covers OWASP Top 10, dependency 
   vulnerabilities, authentication, authorization, input validation, and secret 

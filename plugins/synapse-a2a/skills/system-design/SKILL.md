@@ -1,5 +1,6 @@
 ---
 name: system-design
+license: MIT
 description: >-
   Guide architectural design decisions for software systems. Use this skill
   when designing new systems, evaluating architecture trade-offs, or creating

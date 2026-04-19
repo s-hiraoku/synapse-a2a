@@ -1,5 +1,6 @@
 ---
 name: parallel-docs-simplify-sync
+license: MIT
 description: >-
   Runs synapse-docs, /simplify, sync-plugin-skills, and github-pages-sync
   in parallel for synapse-a2a development workflows. Use when you need doc

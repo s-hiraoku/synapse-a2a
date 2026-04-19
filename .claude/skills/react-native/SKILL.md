@@ -1,5 +1,6 @@
 ---
 name: react-native
+license: MIT
 description: >-
   Best practices for React Native and Expo applications. Covers list
   performance, animations with Reanimated, navigation, UI patterns, and

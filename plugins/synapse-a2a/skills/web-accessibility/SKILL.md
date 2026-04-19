@@ -1,5 +1,6 @@
 ---
 name: web-accessibility
+license: MIT
 description: >-
   Web accessibility and interface standards guide. Covers WCAG compliance,
   semantic HTML, keyboard navigation, screen readers, forms, touch targets,

@@ -1,5 +1,6 @@
 ---
 name: doc-organizer
+license: MIT
 description: >-
   Audit, restructure, and consolidate project documentation for clarity and
   maintainability. Use this skill when docs have grown organically and need

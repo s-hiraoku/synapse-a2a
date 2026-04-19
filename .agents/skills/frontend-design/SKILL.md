@@ -1,5 +1,6 @@
 ---
 name: frontend-design
+license: MIT
 description: >-
   Guide for creating distinctive, production-grade frontend interfaces. Covers
   visual design systems, typography, color, motion, spatial composition, and

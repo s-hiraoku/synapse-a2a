@@ -1,5 +1,6 @@
 ---
 name: refactoring
+license: MIT
 description: >-
   Guide for safe and effective code refactoring. Focuses on improving code 
   structure without changing external behavior. Covers patterns like 

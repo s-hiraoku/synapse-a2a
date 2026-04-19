@@ -1,5 +1,6 @@
 ---
 name: api-design
+license: MIT
 description: >-
   Guide API design for REST, GraphQL, gRPC, and CLI interfaces. Use this skill
   when designing new APIs, reviewing existing API contracts, or establishing

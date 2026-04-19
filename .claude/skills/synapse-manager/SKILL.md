@@ -1,5 +1,6 @@
 ---
 name: synapse-manager
+license: MIT
 description: >-
   Multi-agent management workflow — task delegation, progress monitoring,
   quality verification with regression testing, feedback delivery, and
