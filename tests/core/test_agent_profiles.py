@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.core
+
 
 def test_add_and_resolve_by_name(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path

@@ -3,6 +3,10 @@
 import subprocess
 import sys
 
+import pytest
+
+pytestmark = pytest.mark.adapters
+
 
 class TestTopLevelHelp:
     """Verify discoverability of key help sections."""
