@@ -464,11 +464,12 @@ class AgentRegistry:
             parent_id = info.get("spawned_by")
             if not parent_id:
                 continue
-            # TODO(human): decide the exact orphan predicate. See
-            # docstring above — is it (parent missing OR parent PID
-            # dead), or should "parent dying is expected; only promote
-            # to orphan after an additional grace check" apply? Set
-            # ``is_orphan`` accordingly.
+            # Orphan predicate: parent registry entry missing OR parent
+            # PID no longer maps to a live process. We do not apply a
+            # grace period here — `synapse cleanup` is opt-in and a
+            # fresh spawn always re-registers atomically before the
+            # child can register itself, so a missing parent at this
+            # point is genuinely gone (crash / kill / context-clear).
             parent = agents.get(parent_id)
             parent_pid = parent.get("pid") if parent else None
             is_orphan = parent is None or (
