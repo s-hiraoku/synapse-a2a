@@ -22,7 +22,7 @@ jobs:
           ref: ${{ inputs.tag || github.event.release.tag_name || github.ref }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8
 
       - name: Build package
         run: uv build
