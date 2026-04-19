@@ -1045,6 +1045,64 @@ async def test_self_target_uses_caller_endpoint_when_healthy(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_endpoint_reachability_probe_uses_agent_card(monkeypatch):
+    """Self endpoint health checks should use the stable A2A discovery route."""
+    import httpx
+
+    seen: dict[str, object] = {}
+
+    class FakeAsyncClient:
+        def __init__(self, *, timeout):
+            seen["timeout"] = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def get(self, url):
+            seen["url"] = url
+            return httpx.Response(
+                200,
+                json={"name": "test-agent"},
+                request=httpx.Request("GET", url),
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+
+    from synapse.workflow_runner import _is_endpoint_reachable
+
+    assert await _is_endpoint_reachable("http://127.0.0.1:8120")
+    assert seen == {
+        "timeout": 5.0,
+        "url": "http://127.0.0.1:8120/.well-known/agent.json",
+    }
+
+
+def test_endpoint_reachability_probe_route_exists_on_a2a_router():
+    """The self endpoint probe route should exist on Synapse A2A servers."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from synapse.a2a_compat import create_a2a_router
+
+    app = FastAPI()
+    app.include_router(
+        create_a2a_router(
+            controller=None,
+            agent_type="codex",
+            port=8120,
+            agent_id="synapse-codex-8120",
+        )
+    )
+
+    response = TestClient(app).get("/.well-known/agent.json")
+
+    assert response.status_code < 500
+
+
+@pytest.mark.asyncio
 async def test_workflow_helper_spawn_failure_marks_step_failed_no_crash(monkeypatch):
     """Helper spawn failures should fail only the self-target step."""
     monkeypatch.setattr(

@@ -468,9 +468,13 @@ def _candidate_self_endpoint(sender_info: dict[str, str] | None) -> str | None:
 
 async def _is_endpoint_reachable(endpoint: str) -> bool:
     """Check that a direct self endpoint can receive workflow requests."""
+    # Probe the actual HTTP server because sender metadata can be stale, and
+    # non-loopback hostnames in that metadata may stall in local DNS/mDNS.
     try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            response = await client.get(f"{endpoint.rstrip('/')}/tasks")
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{endpoint.rstrip('/')}/.well-known/agent.json"
+            )
     except httpx.HTTPError:
         return False
     return bool(response.status_code < 500)
