@@ -110,6 +110,19 @@ Use raw `synapse canvas post <format>` for single blocks; templates for multi-se
 
 ## Spawning Decision Table
 
+> **⚠️ Same-model rule — try subagents first.** When a Claude Code agent needs
+> another claude (or a codex agent needs another codex), use the in-process
+> subagent (`Agent` / `Task` tool for Claude, subprocess for Codex) **before**
+> reaching for `synapse spawn`. Spawning the same model on the same account
+> shares the rate-limit window — it doubles consumption against the same quota
+> instead of distributing it. Reserve same-model `synapse spawn` for cases
+> where the helper must outlive the parent session, needs file isolation that
+> subagents can't provide, or holds a distinct long-running role.
+>
+> `synapse spawn` is the right tool for **cross-model** delegation
+> (Claude → codex / gemini), agents that lack subagent support
+> (Gemini / OpenCode / Copilot), or persistent multi-task helpers.
+
 **Default spawn policy:** When using `synapse spawn`, pass the underlying CLI's
 tool-specific automation args after `--` so spawned agents can run unattended.
 For most CLIs this is an approval-skip / auto-approve flag; for OpenCode use
@@ -135,11 +148,12 @@ Common defaults:
 | Condition | Action |
 |-----------|--------|
 | Existing READY agent can handle it | `synapse send` — reuse is faster (avoids startup overhead) |
-| Need parallel execution | `synapse spawn` with `--worktree -- <tool-specific-automation-args>` for file isolation |
-| Task needs a different model's strengths | Spawn a different type (Claude spawns Gemini, etc.) |
+| **Same-model helper needed (Claude → claude, Codex → codex)** | **Use the in-process subagent first** (`Agent`/`Task` tool for Claude, subprocess for Codex). `synapse spawn` same-model shares the rate-limit window. |
+| Need parallel execution | `synapse spawn` with `--worktree -- <tool-specific-automation-args>` for file isolation (cross-model preferred) |
+| Task needs a different model's strengths | `synapse spawn` a different type (Claude spawns Gemini / Codex, etc.) |
 | User specified agent count | Follow exactly |
-| Single focused subtask | Spawn 1 agent |
-| N independent subtasks | Spawn N agents |
+| Single focused subtask | Subagent (same model) or `synapse spawn` (cross model) |
+| N independent subtasks | Subagents for same-model fan-out, `synapse spawn` for cross-model |
 
 **Spawn lifecycle (preferred, one-command)**: `synapse spawn --task-file ... --task-timeout 600 --notify` → wait for A2A completion notification → evaluate result → `synapse kill <name> -f` → confirm in `synapse list --json`
 

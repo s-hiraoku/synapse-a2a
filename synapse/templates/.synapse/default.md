@@ -43,6 +43,14 @@ STEP 2: Collaboration Decision Framework
   - Immediate result needed (no startup cost)
   - Only available for: Claude Code, Codex (not Gemini, OpenCode, Copilot)
   - `analyze_task` returned delegation_strategy == "subagent"
+  - **SAME-MODEL PREFERENCE — Claude → claude / Codex → codex**: When a Claude
+    Code agent needs another claude (or a codex agent needs another codex),
+    ALWAYS try the in-process subagent (Agent / Task tool for Claude;
+    subprocess for Codex) BEFORE `synapse spawn`. Spawning the same model on
+    the same account does not distribute rate limits — it just doubles the
+    consumption against the same quota. Reserve `synapse spawn` for
+    cross-model work (Claude → codex/gemini), file isolation that subagents
+    cannot provide, or roles that require a long-running independent agent.
 
   [DELEGATE TO EXISTING AGENT] synapse send <target> "..." --notify or --silent
   - Outside your role (check ROLE column in synapse list)
@@ -52,13 +60,20 @@ STEP 2: Collaboration Decision Framework
   [USE SYNAPSE SPAWN] synapse spawn / synapse team start
   - 9+ files OR 3+ directories
   - Different model's perspective needed (review, verification, second opinion)
-  - Rate-limit distribution needed (use a different model type)
+  - Rate-limit distribution needed (use a different model type — NOT same model)
   - File isolation needed (--worktree for concurrent edits)
   - Agent types without subagent capability (Gemini, OpenCode, Copilot)
   - `analyze_task` returned delegation_strategy == "spawn"
   - CROSS-MODEL PREFERENCE: When spawning, prefer a DIFFERENT model type.
     Reasons: (1) diverse models bring diverse strengths, (2) distributes token usage across
     providers to avoid rate limits. If one model is rate-limited, delegate to another type.
+  - **SAME-MODEL ANTI-PATTERN**: Spawning claude from claude (or codex from
+    codex) shares the same provider rate limit window. If you need a same-model
+    helper, prefer the in-process subagent (`Agent`/`Task` tool for Claude,
+    subprocess for Codex) — see `[USE SUBAGENT]` above. Use `synapse spawn`
+    same-model only when the helper must outlive the parent session, needs
+    file isolation that subagents cannot provide, or holds a distinct
+    long-running role.
   - Auto-approve: `spawn` and `team start` automatically inject CLI permission bypass
     flags. Use `--no-auto-approve` to disable.
 
