@@ -153,15 +153,17 @@ class PortManager:
         agents = self.registry.list_agents()
         running = []
 
-        for port in range(start_port, end_port + 1):
-            for info in agents.values():
-                if info.get("port") != port or info.get("agent_type") != agent_type:
-                    continue
-                pid = info.get("pid")
-                if pid and is_process_alive(pid):
-                    running.append(info)
+        for info in agents.values():
+            if info.get("agent_type") != agent_type:
+                continue
+            port = info.get("port")
+            if port is None or not (start_port <= port <= end_port):
+                continue
+            pid = info.get("pid")
+            if pid and is_process_alive(pid):
+                running.append(info)
 
-        return running
+        return sorted(running, key=lambda info: info.get("port", 0))
 
     def format_exhaustion_error(self, agent_type: str) -> str:
         """

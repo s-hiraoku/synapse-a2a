@@ -924,14 +924,14 @@ def create_a2a_router(
                     value = get_rendered()
                     if isinstance(value, str):
                         sources.append(value)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("get_rendered_context failed: %s", exc)
             try:
                 value = controller.get_context()
                 if isinstance(value, str):
                     sources.append(value)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("controller.get_context failed: %s", exc)
 
         for raw in sources:
             tail = tail_printable(raw, limit=512)
@@ -961,25 +961,10 @@ def create_a2a_router(
     def _build_permission_metadata(
         task_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        metadata = task_metadata or {}
-        pty_context = _resolve_pty_context(metadata)
-        existing = metadata.get("permission") or {}
-        prior_hash = (
-            existing.get("notification_hash") if isinstance(existing, dict) else None
-        )
-        prior_sent_at = (
-            existing.get("notification_sent_at") if isinstance(existing, dict) else None
-        )
-        prior_count = (
-            existing.get("notifications_sent", 0) if isinstance(existing, dict) else 0
-        )
         return {
-            "pty_context": pty_context,
+            "pty_context": _resolve_pty_context(task_metadata or {}),
             "agent_type": agent_type,
             "detected_at": time.time(),
-            "notification_hash": prior_hash,
-            "notification_sent_at": prior_sent_at,
-            "notifications_sent": prior_count,
         }
 
     def _build_permission_notification(task: Task) -> Task:
@@ -1099,27 +1084,28 @@ def create_a2a_router(
                     digest = hashlib.sha256(
                         f"{task.id}\0{permission['pty_context']}".encode()
                     ).hexdigest()[:16]
-                    prior_hash = permission.get("notification_hash")
-                    prior_sent_at = permission.get("notification_sent_at") or 0.0
+                    raw_prior = metadata.get("permission")
+                    prior: dict[str, Any] = (
+                        raw_prior if isinstance(raw_prior, dict) else {}
+                    )
+                    prior_sent_at = prior.get("notification_sent_at") or 0.0
+                    prior_hash = prior.get("notification_hash")
                     within_window = (
-                        now - prior_sent_at
+                        prior_sent_at
+                        and now - prior_sent_at
                         < _PERMISSION_NOTIFICATION_MIN_INTERVAL_SECONDS
                     )
-                    if prior_sent_at and within_window:
-                        # Same payload inside window → drop. Different
-                        # payload inside window → also drop to guard
-                        # against WAITING→READY→WAITING oscillation
-                        # turning into a flood.
-                        task_store.update_metadata(task.id, "permission", permission)
-                        continue
-                    if prior_hash == digest and prior_sent_at:
-                        task_store.update_metadata(task.id, "permission", permission)
+                    # Two-stage dedupe:
+                    #   1. Within window → drop unconditionally (oscillation).
+                    #   2. Same payload outside window → drop too, so a stuck
+                    #      WAITING task showing the same prompt does not re-send.
+                    if within_window or (prior_sent_at and prior_hash == digest):
                         continue
 
                     permission["notification_hash"] = digest
                     permission["notification_sent_at"] = now
                     permission["notifications_sent"] = (
-                        int(permission.get("notifications_sent") or 0) + 1
+                        int(prior.get("notifications_sent") or 0) + 1
                     )
                     task_store.update_metadata(task.id, "permission", permission)
                     updated = task_store.update_status(task.id, "input_required")

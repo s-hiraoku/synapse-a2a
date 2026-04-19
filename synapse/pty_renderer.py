@@ -148,16 +148,12 @@ class PtyRenderer:
                     skip_wide_stub = False
                     continue
                 cell_data = line[x].data
-                try:
-                    if not cell_data:
-                        raise IndexError("empty pyte cell data")
-                    if sum(map(wcwidth, cell_data[1:])) != 0:
-                        raise AssertionError("unexpected wide continuation data")
-                    skip_wide_stub = wcwidth(cell_data[0]) == 2
-                except (AssertionError, IndexError):
+                if not cell_data or any(wcwidth(c) != 0 for c in cell_data[1:]):
                     broken_cells += 1
-                    cell_data = " "
+                    chars.append(" ")
                     skip_wide_stub = False
+                    continue
+                skip_wide_stub = wcwidth(cell_data[0]) == 2
                 chars.append(cell_data)
             lines.append("".join(chars).rstrip())
         if broken_cells:

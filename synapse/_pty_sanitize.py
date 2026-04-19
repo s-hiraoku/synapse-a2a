@@ -12,9 +12,6 @@ from __future__ import annotations
 
 import re
 
-# CSI / OSC / two-char escape sequences that may survive strip_ansi
-# (e.g. because of mid-sequence truncation) plus standalone C0/C1
-# control bytes. TAB / LF / CR are preserved.
 # Strip CSI / OSC / two-char escape sequences, plus all C0/C1 control
 # bytes except TAB (\x09) and LF (\x0a). CR (\x0d) is removed so that
 # line-overwrite remnants don't re-merge subsequent lines when rendered.
@@ -55,32 +52,3 @@ def printable_len(text: str) -> int:
     if not text:
         return 0
     return sum(1 for ch in text if ch.isprintable() or ch in ("\t", "\n", "\r"))
-
-
-def printable_ratio(text: str) -> float:
-    """Fraction of bytes in ``text`` that are printable (plus TAB/LF/CR).
-
-    Empty input returns 1.0 (treat as trivially printable).
-    """
-    if not text:
-        return 1.0
-    printable = sum(1 for ch in text if ch.isprintable() or ch in ("\t", "\n", "\r"))
-    return printable / len(text)
-
-
-def looks_like_garbage(text: str) -> bool:
-    """Heuristic guard for permission-notification long-messages.
-
-    Returns True when the content is most likely a corrupted PTY
-    snapshot that should not be persisted:
-
-    - More than 50% non-printable bytes, OR
-    - More than five ``\\x1b[`` CSI fragments per 1 KB.
-    """
-    if not text:
-        return False
-    if printable_ratio(text) < 0.5:
-        return True
-    kb = max(1, len(text) // 1024)
-    csi_fragments = text.count("\x1b[")
-    return (csi_fragments / kb) > 5.0
