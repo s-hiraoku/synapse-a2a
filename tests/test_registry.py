@@ -137,6 +137,100 @@ def test_list_agents_empty_registry(registry):
     assert agents == {}
 
 
+# --- Issue #332: parent-child tracking + orphan detection -----------------
+
+# A PID that is virtually guaranteed not to map to a live process on any
+# POSIX system in test (max PID is typically 32768 or 4194304; anything above
+# INT32_MAX is invalid). Used to simulate a dead parent PID without risking
+# an accidental hit on a real process.
+_DEAD_PID = 2**31 - 1
+
+
+def test_spawned_by_recorded_in_registry(registry):
+    """register() should persist spawned_by when the child is spawned by a parent."""
+    registry.register(
+        "child_agent",
+        "claude",
+        8200,
+        spawned_by="synapse-codex-8100",
+    )
+
+    agents = registry.list_agents()
+    assert agents["child_agent"]["spawned_by"] == "synapse-codex-8100"
+
+
+def test_get_orphans_finds_dead_parent_pid(registry):
+    """A child whose parent registry exists but whose parent PID is dead is an orphan."""
+    parent_file = registry.registry_dir / "synapse-codex-8100.json"
+    with open(parent_file, "w") as f:
+        json.dump(
+            {
+                "agent_id": "synapse-codex-8100",
+                "agent_type": "codex",
+                "port": 8100,
+                "pid": _DEAD_PID,
+                "status": "READY",
+            },
+            f,
+        )
+    registry.register(
+        "synapse-claude-8200",
+        "claude",
+        8200,
+        spawned_by="synapse-codex-8100",
+    )
+
+    orphans = registry.get_orphans()
+    assert "synapse-claude-8200" in orphans
+    assert orphans["synapse-claude-8200"]["spawned_by"] == "synapse-codex-8100"
+
+
+def test_get_orphans_finds_missing_parent_entry(registry):
+    """A child whose parent registry entry is gone is an orphan."""
+    registry.register(
+        "synapse-claude-8200",
+        "claude",
+        8200,
+        spawned_by="synapse-codex-9999",
+    )
+
+    orphans = registry.get_orphans()
+    assert "synapse-claude-8200" in orphans
+
+
+def test_get_orphans_excludes_live_parent(registry):
+    """A child whose parent process is live (same as test process) is not an orphan."""
+    parent_file = registry.registry_dir / "synapse-codex-8100.json"
+    with open(parent_file, "w") as f:
+        json.dump(
+            {
+                "agent_id": "synapse-codex-8100",
+                "agent_type": "codex",
+                "port": 8100,
+                "pid": os.getpid(),
+                "status": "READY",
+            },
+            f,
+        )
+    registry.register(
+        "synapse-claude-8200",
+        "claude",
+        8200,
+        spawned_by="synapse-codex-8100",
+    )
+
+    orphans = registry.get_orphans()
+    assert "synapse-claude-8200" not in orphans
+
+
+def test_get_orphans_excludes_agents_with_no_spawned_by(registry):
+    """Root agents (no spawned_by) are never orphans."""
+    registry.register("synapse-claude-8100", "claude", 8100)
+
+    orphans = registry.get_orphans()
+    assert "synapse-claude-8100" not in orphans
+
+
 def test_get_agent_id_format(registry):
     """Agent ID should follow synapse-{type}-{port} format."""
     agent_id = registry.get_agent_id("codex", 8101)
