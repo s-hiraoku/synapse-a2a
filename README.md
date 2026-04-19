@@ -11,6 +11,45 @@
 
 > A framework that enables inter-agent collaboration via the Google A2A Protocol while keeping CLI agents (Claude Code, Codex, Gemini, OpenCode, GitHub Copilot CLI) **exactly as they are**
 
+## Quick Start
+
+This golden path starts two background agents and sends one visible cross-agent message in four commands.
+
+Prerequisites (not counted): run `uv sync`, and make sure authenticated `claude` and `codex` CLIs are installed on your `PATH`.
+
+```bash
+uv run synapse start claude --port 8108
+```
+
+What to expect: Synapse starts a Claude A2A server in the background and prints a PID plus the log path.
+
+```bash
+uv run synapse start codex --port 8122
+```
+
+What to expect: Synapse starts a Codex A2A server in the background and prints a PID plus the log path.
+
+```bash
+uv run synapse list --plain
+```
+
+What to expect: the one-shot agent list includes `synapse-claude-8108` and `synapse-codex-8122`; wait or answer any agent prompt until both show `READY`.
+
+```bash
+uv run synapse send synapse-codex-8122 "Reply with exactly: SYNAPSE_GOLDEN_PATH_OK" --from synapse-claude-8108 --wait
+```
+
+What to expect: Codex receives an A2A message from Claude and the command prints a reply containing `SYNAPSE_GOLDEN_PATH_OK`. If the `send` call fails with a UDS or HTTP timeout, run `uv run synapse list --plain` again and wait until **both** agents show `READY` before rerunning. If the receiver pauses for approval, answer the prompt in the agent terminal.
+
+Cleanup (not counted):
+
+```bash
+uv run synapse kill claude-8108 -f
+uv run synapse kill codex-8122 -f
+```
+
+See [issue #604](https://github.com/s-hiraoku/synapse-a2a/issues/604) for context.
+
 ## Project Goals
 
 ```text
@@ -58,7 +97,7 @@ flowchart LR
 
 - [Features](#features)
 - [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
+- [Installation](#installation)
 - [Use Cases](#use-cases)
 - [Skills](#skills)
 - [Documentation](#documentation)
@@ -136,7 +175,7 @@ flowchart LR
 
 ---
 
-## Quick Start
+## Installation
 
 ### 1. Install Synapse A2A
 
