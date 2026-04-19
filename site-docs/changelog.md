@@ -6,11 +6,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.27.0
 
-- **Added**: `synapse cleanup [--dry-run] [--force] [<agent>]` command + `[ORPHAN]` annotation in `synapse list`. Children record `spawned_by` at registration so the framework can detect agents whose parent crashed / was context-cleared / was killed. Opt-in `SYNAPSE_ORPHAN_IDLE_TIMEOUT` env var lets `synapse list` opportunistically reap long-idle orphans (#332, #601)
-- **Added**: Generic-prompt heuristic safety net for WAITING detection. When a profile's `waiting_detection.regex` misses an unknown prompt, `IdleDetector` falls back to a conservative cross-profile pattern set; new `waiting_confidence` (1.0 primary, 0.6 heuristic) and `waiting_source` are propagated through to permission notifications. Per-profile `heuristic_fallback: true|false` controls opt-out (#572, #594)
-- **Fixed**: `synapse spawn --worktree` from inside an existing worktree no longer creates nested `.synapse/worktrees/<parent>/.synapse/worktrees/<child>/` paths. New `get_main_repo_root()` resolves back to the original repo root via `git --git-common-dir` (#546, #598)
-- **Documentation**: Skill and MCP bootstrap instructions now steer Claude → claude (and Codex → codex) work to the in-process subagent before reaching for `synapse spawn` — same-model spawn shares the rate-limit window (#595). Subagents are also explicitly warned not to `cd` into `.synapse/worktrees/` (#547, #599)
-- **Tests**: `tests/test_post_impl_workflow_e2e.py` (opt-in via `pytest -m e2e`) exercises the full `_WorkflowHelper` lifecycle for the `post-impl` workflow (#531, #600)
+- **Added**: `synapse cleanup` for orphaned spawned agents — kills children whose `spawned_by` parent is gone or whose parent PID is dead. `synapse spawn` propagates `SYNAPSE_AGENT_ID` to the child as `SYNAPSE_SPAWNED_BY` so the registry records the parent-child link automatically. Supports `--dry-run`, per-agent target, opt-in `SYNAPSE_ORPHAN_IDLE_TIMEOUT` reaping, and `[ORPHAN]` annotations + JSON fields in `synapse list` (#332)
+- **Added**: Worktree-aware agent-profile save defaults — the save-prompt default flips from `project` to `user` when running in a worktree (project scope is deleted on cleanup), and worktree cleanup copies any saved `*.agent` files back to the main repo as a safety net (main wins on collision). Detection is pure-Python — no per-prompt `git` subprocess (#410)
+- **Fixed**: Nested-worktree path resolution — `synapse spawn --worktree` from inside a worktree now anchors the new worktree at the main repo root instead of accumulating nested `<wt-A>/.synapse/worktrees/<wt-B>/` paths (#546, #598)
+- **Fixed**: `idle_detector` generic-prompt heuristic safety net + tighter WAITING-confidence threshold so transient single-prompt frames no longer flip status alone (#572, #594)
+- **Documentation**: `synapse-a2a` skill now recommends Agent-tool / subprocess subagents over `synapse spawn` for same-model delegation (#595), and adds a "Worktree Discipline" section warning subagents never to `cd` into `.synapse/worktrees/` (the parent shell inherits the cwd change) (#547, #599)
+- **Tests**: Opt-in pytest e2e for the `post-impl` workflow exercises `run_workflow` + `_WorkflowHelper` against the real `post-impl.yaml` without spawning live agents — asserts the #531 acceptance criteria (5 steps complete, helper spawned/killed exactly once, no 409 `Agent busy`) (#531, #600)
 
 ### v0.26.5
 
