@@ -6,6 +6,7 @@ This module provides common utility functions used across the codebase.
 
 import os
 import re
+import shlex
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -263,7 +264,7 @@ def resolve_command_path(command: str) -> str | None:
     if not cmd:
         return None
 
-    cmd_name = cmd.split()[0]
+    cmd_name = shlex.split(cmd)[0]
     if os.path.sep in cmd_name or (os.altsep and os.altsep in cmd_name):
         cmd_path = os.path.expanduser(cmd_name)
         if os.path.isfile(cmd_path) and os.access(cmd_path, os.X_OK):

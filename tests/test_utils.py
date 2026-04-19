@@ -2,9 +2,14 @@
 
 import re
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from synapse.utils import extract_text_from_parts, format_a2a_message, get_iso_timestamp
+from synapse.utils import (
+    extract_text_from_parts,
+    format_a2a_message,
+    get_iso_timestamp,
+    resolve_command_path,
+)
 
 
 class TestExtractTextFromParts:
@@ -95,6 +100,28 @@ class TestExtractTextFromParts:
         ]
         result = extract_text_from_parts(parts)
         assert result == "日本語テスト\nÉmoji: 🎉"
+
+
+class TestResolveCommandPath:
+    """Tests for command path resolution."""
+
+    def test_resolves_first_shlex_token(self):
+        """Profile command strings should use shlex tokenization."""
+        with patch(
+            "synapse.utils.shutil.which", return_value="/usr/bin/python3"
+        ) as which:
+            result = resolve_command_path("python3 -u dummy_agent.py")
+
+        assert result == "/usr/bin/python3"
+        which.assert_called_once_with("python3")
+
+    def test_preserves_quoted_executable_token(self):
+        """Quoted command tokens should not be split on embedded spaces."""
+        with patch("synapse.utils.shutil.which", return_value=None) as which:
+            result = resolve_command_path('"python 3" -u dummy_agent.py')
+
+        assert result is None
+        which.assert_called_once_with("python 3")
 
 
 class TestFormatA2AMessage:

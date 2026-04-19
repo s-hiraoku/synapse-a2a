@@ -2557,7 +2557,7 @@ class TestCommandTokenization:
             idle_regex=r"\$",
         )
 
-        assert list(ctrl._command_tokens) + ctrl.args == [
+        assert ctrl._build_command_list() == [
             "python3",
             "-u",
             "dummy_agent.py",
