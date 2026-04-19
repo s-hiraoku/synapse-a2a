@@ -26,6 +26,7 @@ input_ready_pattern: ">"                       # Gemini shows > in input box whe
 # Header: "Action Required"
 waiting_detection:
   regex: "●\\s+\\d+\\.|Action Required|Allow (?:once|for this session|for this file)|No, suggest changes|Apply this change|Do you want to proceed"
+  heuristic_fallback: true
   require_idle: true
   idle_timeout: 0.5
   waiting_expiry: 10                           # Auto-clear WAITING after 10s

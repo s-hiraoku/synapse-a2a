@@ -42,6 +42,7 @@ input_ready_pattern: "❯"                       # Copilot shows ❯ when ready 
 #      3. No, and tell Copilot what to do differently (Esc)
 waiting_detection:
   regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)|approve .+ for the rest of the running session|No, and tell Copilot"
+  heuristic_fallback: true
   require_idle: true
   idle_timeout: 0.5            # 500ms no output after pattern
   waiting_expiry: 10           # Auto-clear WAITING after 10s
