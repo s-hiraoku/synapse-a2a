@@ -83,6 +83,44 @@ class TestIdentityInstruction:
 
         assert controller.status == "READY"
 
+    def test_check_idle_state_exception_falls_back_to_processing(
+        self, controller, mock_registry
+    ):
+        """Regression for PR #591 CodeRabbit feedback.
+
+        When the idle detector raises, the safety net must demote a
+        READY/WAITING agent to PROCESSING whenever non-empty PTY output
+        is still arriving, so other agents don't see a stale status.
+        """
+        controller.running = True
+        controller.master_fd = 1
+        controller.status = "READY"
+        controller._idle_detector.check_idle_state = Mock(
+            side_effect=RuntimeError("renderer boom")
+        )
+
+        controller._check_idle_state(b"some output")
+
+        assert controller.status == "PROCESSING"
+        mock_registry.update_status.assert_called_with(
+            "synapse-claude-8100", "PROCESSING"
+        )
+
+    def test_check_idle_state_exception_keeps_processing(self, controller):
+        """Safety net must not redundantly demote an already-PROCESSING agent."""
+        controller.running = True
+        controller.master_fd = 1
+        controller.status = "PROCESSING"
+        controller._idle_detector.check_idle_state = Mock(
+            side_effect=RuntimeError("renderer boom")
+        )
+        controller._dispatch_status_callbacks = Mock()
+
+        controller._check_idle_state(b"chunk")
+
+        assert controller.status == "PROCESSING"
+        controller._dispatch_status_callbacks.assert_not_called()
+
     def test_identity_sent_on_first_idle(self, controller):
         """Identity instruction should be sent on first IDLE detection."""
         controller.running = True

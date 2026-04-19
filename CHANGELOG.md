@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.4] - 2026-04-19
+
+### Fixed
+
+- **PTY observation thread crash on empty cells (#590, #591):** `PtyRenderer.render()` no longer propagates `IndexError` when `pyte.Screen.display` encounters an empty stub cell left behind by a wide-character overwrite (common with codex's ratatui TUI). The renderer now iterates `self._screen.buffer` directly and substitutes blanks for cells whose `.data[0]` lookup would fail, so every agent's PTY capture loop survives the condition that previously terminated it.
+- **Idle-state detection safety net (#591):** `TerminalController._check_idle_state` is now wrapped in a broad `try/except` that logs at WARNING with `exc_info=True` and — when non-empty PTY output is still arriving — conservatively demotes a `READY`/`WAITING` agent to `PROCESSING` (syncing the registry and dispatching status callbacks). A future renderer regression therefore degrades gracefully instead of leaving the agent advertised as available while its output stream is effectively broken.
+
+### Dependencies
+
+- Declared `wcwidth>=0.2.0` as a direct dependency — it was previously only transitive via `pyte`, but `PtyRenderer` now imports it directly.
+
 ## [0.26.3] - 2026-04-18
 
 ### Documentation

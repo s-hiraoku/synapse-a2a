@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.26.4
+
+- **Fixed**: PTY observation thread no longer crashes with `IndexError` when `pyte.Screen.display` hits an empty stub cell left over from a wide-char overwrite. `PtyRenderer.render()` iterates the buffer defensively and substitutes blanks for broken cells, keeping every agent's capture loop alive (#590, #591)
+- **Fixed**: `TerminalController._check_idle_state` has a broad safety net — on detector failure it logs at WARNING and conservatively demotes `READY`/`WAITING` to `PROCESSING` whenever new PTY output is still arriving, so a stale status never misrepresents a busy agent as idle (#591)
+- **Dependencies**: `wcwidth>=0.2.0` is now a direct dependency (previously transitive via `pyte`)
+
 ### v0.26.3
 
 - **Skill distribution**: Migrated the canonical install path from `skills.sh` / `npx skills add` to GitHub CLI's **`gh skill install`** (requires `gh` 2.90.0+). New policy doc ([Skills Management](guide/skills-management.md)) covers pinning, provenance metadata, maintainer `gh skill publish`, and a migration matrix for existing `npx skills add` users. English + ja/ko/zh/es/fr READMEs, guides, and this site all reference the new command. `v0.26.2` was the first `gh skill`-published release.
