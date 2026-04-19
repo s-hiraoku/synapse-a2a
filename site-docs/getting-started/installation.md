@@ -80,11 +80,21 @@ This creates the configuration directory with default settings and instruction t
 
 Skills teach agents how to use Synapse features — messaging, file safety, task delegation, and more. The `synapse-a2a` skill package is **essential** for multi-agent communication.
 
+Install via GitHub CLI's built-in `gh skill` command (**requires `gh` 2.90.0+**):
+
 ```bash
-npx skills add s-hiraoku/synapse-a2a
+gh skill install s-hiraoku/synapse-a2a synapse-a2a
+gh skill install s-hiraoku/synapse-a2a synapse-manager
+gh skill install s-hiraoku/synapse-a2a synapse-reinst
+
+# Optional: pin to a release tag so updates are explicit
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.3
+
+# Optional: target a specific agent runtime
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code
 ```
 
-This installs all core skills into your project:
+This installs the core skills into your project:
 
 | Skill | Description |
 |-------|-------------|
@@ -94,6 +104,9 @@ This installs all core skills into your project:
 
 !!! tip "Why This Matters"
     Without `synapse-a2a`, agents won't automatically discover peers or use `synapse send`/`synapse reply`. Install it in every project where you use Synapse.
+
+!!! info "Legacy path"
+    The older `npx skills add s-hiraoku/synapse-a2a` command (via [skills.sh](https://skills.sh/)) still works but is no longer recommended. See [Skills Management](../guide/skills-management.md) for version pinning, provenance metadata, and the full migration matrix.
 
 Verify installation:
 
