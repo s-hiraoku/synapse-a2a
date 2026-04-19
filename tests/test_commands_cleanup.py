@@ -17,6 +17,27 @@ import pytest
 _DEAD_PID = 2**31 - 1
 
 
+def _install_kill_recorder(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Replace os.kill with a recorder that ignores signal-0 liveness probes.
+
+    `is_process_running` uses `os.kill(pid, 0)` to test whether a PID is
+    alive; we must not interfere with those probes (otherwise our DEAD
+    parent PID would appear to be killable). Only record real signals.
+    """
+    real_kill = os.kill
+    kills: list[int] = []
+
+    def recorder(pid: int, sig: int) -> None:
+        if sig == 0:
+            # Pass through probes to the real OS so liveness checks work.
+            real_kill(pid, sig)
+            return
+        kills.append(pid)
+
+    monkeypatch.setattr(os, "kill", recorder)
+    return kills
+
+
 def _registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
     """Build an isolated AgentRegistry in tmp_path."""
     monkeypatch.setenv("SYNAPSE_REGISTRY_DIR", str(tmp_path / "registry"))
@@ -82,8 +103,7 @@ def test_cleanup_dry_run_lists_orphans_without_killing(
         spawned_by="synapse-codex-8100",
     )
 
-    kills: list[int] = []
-    monkeypatch.setattr(os, "kill", lambda pid, sig: kills.append(pid))
+    kills = _install_kill_recorder(monkeypatch)
 
     from synapse.commands import cleanup
 
@@ -119,12 +139,7 @@ def test_cleanup_kills_orphans(
         spawned_by="synapse-codex-8100",
     )
 
-    kills: list[int] = []
-
-    def fake_kill(pid: int, _sig: int) -> None:
-        kills.append(pid)
-
-    monkeypatch.setattr(os, "kill", fake_kill)
+    kills = _install_kill_recorder(monkeypatch)
 
     from synapse.commands import cleanup
 
@@ -161,8 +176,7 @@ def test_cleanup_specific_agent(
         spawned_by="synapse-codex-8100",
     )
 
-    kills: list[int] = []
-    monkeypatch.setattr(os, "kill", lambda pid, _sig: kills.append(pid))
+    kills = _install_kill_recorder(monkeypatch)
 
     from synapse.commands import cleanup
 
@@ -193,8 +207,7 @@ def test_cleanup_skips_non_orphans(
         spawned_by="synapse-codex-8101",
     )
 
-    kills: list[int] = []
-    monkeypatch.setattr(os, "kill", lambda pid, _sig: kills.append(pid))
+    kills = _install_kill_recorder(monkeypatch)
 
     from synapse.commands import cleanup
 
@@ -224,8 +237,7 @@ def test_cleanup_specific_target_must_be_orphan(
         spawned_by="synapse-codex-8100",
     )
 
-    kills: list[int] = []
-    monkeypatch.setattr(os, "kill", lambda pid, _sig: kills.append(pid))
+    kills = _install_kill_recorder(monkeypatch)
 
     from synapse.commands import cleanup
 
@@ -265,8 +277,7 @@ def test_idle_timeout_kills_long_ready_orphans(
         status_changed_at=time.time(),
     )
 
-    kills: list[int] = []
-    monkeypatch.setattr(os, "kill", lambda pid, _sig: kills.append(pid))
+    kills = _install_kill_recorder(monkeypatch)
 
     from synapse.commands import cleanup
 
@@ -296,8 +307,7 @@ def test_idle_timeout_disabled_by_default(
         status_changed_at=time.time() - 999_999,
     )
 
-    kills: list[int] = []
-    monkeypatch.setattr(os, "kill", lambda pid, _sig: kills.append(pid))
+    kills = _install_kill_recorder(monkeypatch)
 
     from synapse.commands import cleanup
 
