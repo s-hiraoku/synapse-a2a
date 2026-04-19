@@ -117,13 +117,19 @@ def cmd_cleanup(args: argparse.Namespace) -> None:
     print(f"Cleaned up {killed} orphan agent(s).")
 
 
-def opportunistic_cleanup_idle_orphans() -> None:
+def opportunistic_cleanup_idle_orphans(
+    agents: dict[str, dict] | None = None,
+) -> None:
     """Kill orphans that have been READY longer than the configured idle timeout.
 
     Controlled by ``SYNAPSE_ORPHAN_IDLE_TIMEOUT`` (seconds). Disabled
     when the env var is unset or non-positive. Intended for callers
     like ``synapse list`` to invoke as a best-effort background sweep —
     it must never raise into its caller's flow.
+
+    Args:
+        agents: Optional pre-loaded snapshot from ``registry.list_agents()``;
+            callers can pass their own load to avoid an extra registry walk.
     """
     raw = os.environ.get(IDLE_TIMEOUT_ENV)
     try:
@@ -134,8 +140,10 @@ def opportunistic_cleanup_idle_orphans() -> None:
         return
 
     registry = AgentRegistry()
+    if agents is None:
+        agents = registry.list_agents()
     try:
-        orphans = registry.get_orphans()
+        orphans = registry.get_orphans(agents)
     except Exception:  # broad catch: opportunistic must not crash callers
         logger.exception("event=cleanup_get_orphans_failed")
         return
@@ -149,11 +157,10 @@ def opportunistic_cleanup_idle_orphans() -> None:
             continue
         if (now - changed_at) < timeout:
             continue
-        # Skip if parent PID became live again between get_orphans()
-        # and now (extremely unlikely but cheap to defend).
+        # Defend against a race where the parent came back between the
+        # snapshot and now (cheap re-check using the same dict).
         parent_id = info.get("spawned_by")
         if parent_id:
-            agents = registry.list_agents()
             parent = agents.get(parent_id)
             parent_pid = parent.get("pid") if parent else None
             if isinstance(parent_pid, int) and is_process_running(parent_pid):

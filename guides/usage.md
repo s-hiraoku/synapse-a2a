@@ -1833,6 +1833,8 @@ synapse kill <spawn したエージェント名> -f
 synapse list  # クリーンアップを確認
 ```
 
+> **親が異常終了した場合**: 親エージェント側が kill を呼ばずに終了した（クラッシュ・セッションクリアなど）結果残ったオーファン子エージェントは、`synapse cleanup --dry-run` で検出し `synapse cleanup` で一括回収できます。詳細は [references.md §1.14.2](references.md) を参照してください。
+
 ---
 
 ## 7. 注意事項
