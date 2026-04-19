@@ -591,8 +591,10 @@ synapse kill my-claude
 | `synapse <profile>` | Démarrer en premier plan |
 | `synapse start <profile>` | Démarrer en arrière-plan |
 | `synapse stop <profile\|id>` | Arrêter l'agent (peut spécifier l'ID) |
-| `synapse kill <target>` | Arrêt gracieux (envoie une requête d'arrêt, attend 30s, puis SIGTERM) |
-| `synapse kill <target> -f` | Arrêt forcé (SIGKILL immédiat) |
+| `synapse kill <target>` | Arrêt gracieux (envoie une requête d'arrêt, attend 30s, puis SIGTERM). Les branches worktree sont auto-fusionnées |
+| `synapse kill <target> -f` | Arrêt forcé (SIGKILL immédiat). Les branches worktree sont auto-fusionnées |
+| `synapse kill <target> --no-merge` | Arrêt sans auto-fusion de la branche worktree |
+| `synapse cleanup` | Terminer les agents orphelins (enfants dont le parent `spawned_by` a planté/disparu). `--dry-run` pour prévisualiser, `-f` pour ignorer la confirmation, argument positionnel optionnel pour cibler un seul agent. Définir `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<sec>` pour un nettoyage opportuniste des orphelins long-READY pendant `synapse list` |
 | `synapse jump <target>` | Aller au terminal de l'agent |
 | `synapse rename <target>` | Assigner un nom/rôle à l'agent |
 | `synapse set-summary <target> [text]` | Définir un résumé persistant (120 car.). `--auto` génère depuis le contexte git, `--clear` supprime |

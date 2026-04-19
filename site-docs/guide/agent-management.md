@@ -86,7 +86,7 @@ For machine-readable output (JSON array of all running agents):
 synapse list --json
 ```
 
-The `--json` flag skips the TUI and prints a JSON array with fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at` (plus `editing_file` when File Safety is enabled).
+The `--json` flag skips the TUI and prints a JSON array with fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `spawned_by`, `is_orphan` (plus `editing_file` when File Safety is enabled).
 
 Displays a live table with:
 
@@ -95,7 +95,7 @@ Displays a live table with:
 | `#` | Row number (for keyboard selection) |
 | `ID` | Agent identifier |
 | `NAME` | Custom name (if set) |
-| `STATUS` | Current state with color coding |
+| `STATUS` | Current state with color coding (annotated with `[ORPHAN]` when the agent's spawn parent is gone — see [Orphan Cleanup](#orphan-cleanup)) |
 | `CURRENT` | Current task preview with elapsed time (e.g., `Review code (2m 15s)`) |
 | `TRANSPORT` | Active communication direction and protocol (see below) |
 | `WORKING_DIR` | Agent's working directory |
@@ -182,6 +182,28 @@ synapse kill my-claude -f         # Immediate SIGKILL
 synapse stop my-claude
 synapse stop claude -a            # Stop all Claude instances
 ```
+
+### Orphan Cleanup
+
+When a parent agent crashes or is cleared while its spawned children are still running, those children become **orphans**. An orphan is a child agent (registered with a `spawned_by` link) whose parent has either been removed from the registry or whose parent PID is no longer alive.
+
+```bash
+synapse cleanup --dry-run         # Preview orphans without killing
+synapse cleanup                   # Kill all orphans (with confirmation)
+synapse cleanup -f                # Kill all orphans, no prompt
+synapse cleanup <agent>           # Kill one specific orphan
+```
+
+Parent-child tracking is recorded at spawn time: `synapse spawn` propagates the current agent's ID to the child via the `SYNAPSE_SPAWNED_BY` environment variable, and the registry persists it under `spawned_by`.
+
+`synapse cleanup` is deliberately conservative and complements `synapse kill`:
+
+- Root agents (no `spawned_by`) are never touched.
+- Children whose parent is still live are never touched.
+- A per-agent target that is **not** an orphan is rejected with exit code 1, so `synapse kill` semantics are preserved.
+
+!!! tip "Opportunistic cleanup on `synapse list`"
+    Set `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<seconds>` to enable best-effort sweeping of orphans that have been `READY` longer than the timeout. When enabled, `synapse list` quietly cleans up idle orphans in the background. Off by default.
 
 ## Terminal Jump
 

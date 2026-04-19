@@ -124,6 +124,28 @@ Merges worktree agent branches into the current branch. The agent must have a wo
 !!! tip "Conflict resolution"
     When `--resolve-with` is specified and the merge encounters conflicts, Synapse sends the conflict details to the resolver agent via A2A, waits for the resolution, and completes the merge automatically.
 
+### Cleanup
+
+```bash
+synapse cleanup                      # Kill all orphan agents (with confirmation)
+synapse cleanup --dry-run            # List orphans without killing
+synapse cleanup -f                   # Kill every orphan, no prompt
+synapse cleanup <agent>              # Kill one specific orphan
+```
+
+An **orphan** is a child agent (registered with `spawned_by`) whose parent has either been removed from the registry or whose parent PID is no longer alive. Root agents (no `spawned_by`) and children whose parent is still live are never touched, so `synapse cleanup` is safe to run alongside `synapse kill`.
+
+| Flag | Description |
+|------|-------------|
+| `<agent>` | Optional orphan agent to kill (default: all orphans). Rejects non-orphans with exit code 1 |
+| `--dry-run` | List orphans without killing them |
+| `--force`, `-f` | Skip the confirmation prompt |
+
+!!! tip "Opportunistic cleanup"
+    Set `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<seconds>` to enable best-effort cleanup of orphans that have been `READY` longer than the timeout. When enabled, `synapse list` sweeps idle orphans in the background. Off by default.
+
+Parent-child tracking is recorded at spawn time via the `SYNAPSE_SPAWNED_BY` environment variable. Ordinary `synapse spawn` calls propagate the current agent's ID to the child automatically.
+
 ### Worktree
 
 ```bash

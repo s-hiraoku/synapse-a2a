@@ -591,8 +591,10 @@ synapse kill mi-claude
 | `synapse <profile>` | Iniciar en primer plano |
 | `synapse start <profile>` | Iniciar en segundo plano |
 | `synapse stop <profile\|id>` | Detener agente (puede especificar ID) |
-| `synapse kill <destino>` | Cierre ordenado (envía solicitud de cierre, luego SIGTERM tras 30s) |
-| `synapse kill <destino> -f` | Cierre forzado (SIGKILL inmediato) |
+| `synapse kill <destino>` | Cierre ordenado (envía solicitud de cierre, luego SIGTERM tras 30s). Las ramas worktree se auto-fusionan |
+| `synapse kill <destino> -f` | Cierre forzado (SIGKILL inmediato). Las ramas worktree se auto-fusionan |
+| `synapse kill <destino> --no-merge` | Cierre sin auto-fusionar la rama worktree |
+| `synapse cleanup` | Terminar agentes huérfanos (hijos cuyo padre `spawned_by` se bloqueó o desapareció). `--dry-run` para previsualizar, `-f` para omitir la confirmación, argumento posicional opcional para apuntar a uno solo. Defina `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<seg>` para limpieza oportunista de huérfanos READY de larga duración durante `synapse list` |
 | `synapse jump <destino>` | Saltar a la terminal del agente |
 | `synapse rename <destino>` | Asignar nombre/rol al agente |
 | `synapse set-summary <destino> [texto]` | Establecer resumen persistente del agente (120 car.). `--auto` genera desde el contexto de Git, `--clear` elimina |

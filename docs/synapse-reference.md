@@ -25,6 +25,10 @@ synapse status my-claude                       # Detailed single-agent status
 synapse kill my-claude                         # Graceful shutdown (auto-merges worktree branch)
 synapse kill my-claude -f                      # Force kill (auto-merges worktree branch)
 synapse kill my-claude --no-merge              # Skip worktree auto-merge
+synapse cleanup --dry-run                      # List orphan agents (parent crashed/cleared)
+synapse cleanup                                # Kill all orphans (prompts for confirmation)
+synapse cleanup -f                             # Kill all orphans without prompting
+synapse cleanup <agent>                        # Target one orphan (refuses non-orphans)
 synapse jump my-claude                         # Jump to terminal
 synapse rename claude --name my-claude         # Assign name
 
