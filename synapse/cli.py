@@ -907,9 +907,12 @@ def _maybe_prompt_save_agent_profile(
 
     # Skip if an identical profile already exists in the store.
     resolved_store = store or AgentProfileStore()
-    from synapse.worktree import is_path_in_worktree
+    try:
+        from synapse.worktree import is_path_in_worktree
 
-    is_worktree = is_path_in_worktree(resolved_store.project_root)
+        is_worktree = is_path_in_worktree(resolved_store.project_root)
+    except (OSError, AttributeError):
+        is_worktree = False
     default_scope: Literal["project", "user"] = "user" if is_worktree else "project"
 
     for existing in resolved_store.list_all():
