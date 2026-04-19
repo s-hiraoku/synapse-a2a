@@ -66,6 +66,8 @@ synapse = ["templates/*", "templates/.synapse/*", "profiles/*.yaml", "profiles/*
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = [
+    "core: pure logic tests with no subprocess, PTY, network, or filesystem outside tmp_path",
+    "adapters: tests for external CLI or protocol boundaries",
     "no_server_mock: opt out of the autouse _isolate_from_live_server fixture",
     "live_e2e: opt-in live E2E tests against real agent CLIs",
     "e2e: opt-in end-to-end tests that stand up real HTTP servers in-process",

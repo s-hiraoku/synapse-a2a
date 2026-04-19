@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -709,6 +710,8 @@ class TestCleanupWorktree:
             worktree_content, encoding="utf-8"
         )
         monkeypatch.setattr("synapse.worktree.get_main_repo_root", lambda: main_root)
+        monkeypatch.setattr(logging.getLogger("synapse"), "propagate", True)
+        caplog.set_level(logging.WARNING, logger="synapse.worktree")
         info = WorktreeInfo(
             name="test-wt",
             path=worktree_path,
