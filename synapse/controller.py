@@ -170,6 +170,8 @@ class TerminalController(StatusObserverMixin):
         self._waiting_idle_timeout = self._idle_detector.waiting_idle_timeout
         self._waiting_pattern_time: float | None = None  # When pattern was last seen
         self._waiting_expiry = self._idle_detector.waiting_expiry
+        self.last_waiting_confidence = 0.0
+        self.last_waiting_source = "none"
 
         # Compound signal: task_active flag (#314)
         self._task_active_count: int = 0
@@ -651,14 +653,23 @@ class TerminalController(StatusObserverMixin):
         Returns:
             True if in WAITING state, False otherwise.
         """
-        is_waiting, self._waiting_pattern_time = (
-            self._idle_detector.check_waiting_state(
-                new_data=new_data,
-                output_buffer=self.output_buffer,
-                last_output_time=self._last_output_time,
-                waiting_pattern_time=self._waiting_pattern_time,
-            )
+        (
+            is_waiting,
+            self._waiting_pattern_time,
+            waiting_confidence,
+            waiting_source,
+        ) = self._idle_detector.check_waiting_state(
+            new_data=new_data,
+            output_buffer=self.output_buffer,
+            last_output_time=self._last_output_time,
+            waiting_pattern_time=self._waiting_pattern_time,
         )
+        if is_waiting:
+            self.last_waiting_confidence = waiting_confidence
+            self.last_waiting_source = waiting_source
+        else:
+            self.last_waiting_confidence = 0.0
+            self.last_waiting_source = "none"
         return is_waiting
 
     def _check_idle_state(self, new_data: bytes) -> None:
@@ -691,6 +702,12 @@ class TerminalController(StatusObserverMixin):
                 return
             self._pattern_detected = evaluation.pattern_detected
             self._waiting_pattern_time = evaluation.waiting_pattern_time
+            if evaluation.is_waiting:
+                self.last_waiting_confidence = evaluation.waiting_confidence
+                self.last_waiting_source = evaluation.waiting_source
+            else:
+                self.last_waiting_confidence = 0.0
+                self.last_waiting_source = "none"
             if evaluation.clear_done_time:
                 self._done_time = None
             is_idle = evaluation.is_idle
