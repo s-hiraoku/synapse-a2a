@@ -50,6 +50,19 @@ class TestFeedAndRender:
         assert "hi" in lines[0]
         assert "world" in lines[0]
 
+    def test_wide_char_stub_cell_overwrite_does_not_crash(self) -> None:
+        """Regression test for #590.
+
+        Writing a wide CJK character creates an empty continuation cell.
+        Overwriting the first cell with a narrow character can leave that
+        empty stub in pyte's buffer, and pyte.Screen.display raises
+        IndexError when it indexes char[0] for that cell.
+        """
+        r = PtyRenderer(columns=10, rows=3)
+        r.feed("漢\x1b[1Gx".encode())
+
+        assert r.render_text().splitlines()[0] == "x"
+
 
 class TestDisplayShape:
     def test_default_dimensions_match_constructor(self) -> None:

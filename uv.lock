@@ -1453,6 +1453,7 @@ dependencies = [
     { name = "simple-term-menu" },
     { name = "uvicorn" },
     { name = "watchdog" },
+    { name = "wcwidth" },
 ]
 
 [package.dev-dependencies]
@@ -1492,6 +1493,7 @@ requires-dist = [
     { name = "simple-term-menu", specifier = ">=1.6.6" },
     { name = "uvicorn", specifier = ">=0.23.0" },
     { name = "watchdog", specifier = ">=3.0.0" },
+    { name = "wcwidth", specifier = ">=0.2.0" },
 ]
 
 [package.metadata.requires-dev]
