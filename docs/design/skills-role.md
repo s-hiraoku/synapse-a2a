@@ -179,9 +179,12 @@ Skill そのものは 3 種類に分解して整理する。いずれも「behav
   skill として正規化**する。該当ファイルの README かコミットログで
   「これは local dev skill である」と明示するのが望ましい。
 
-2026-04-21 時点の実例: `my-review` と `user-wf` は autogen マーカーが
-入っているが YAML 正本がない。上のルールで言う orphan autogen に該当
-する（後続 PR で整理予定）。
+過去の実例: 本 RFC の初版時点 (2026-04-21) で `my-review` と `user-wf`
+が autogen マーカー付きながら YAML 正本がない orphan 状態にあった。
+いずれも `description` と本文がひな形テンプレートのまま（"Workflow:
+Describe what this workflow does"）で、どこからも参照されていなかった
+ため、本 PR で 4 ファイル (`.claude/skills/{my-review,user-wf}` と
+`.agents/skills/{my-review,user-wf}`) を削除した。
 
 ### ディレクトリ規約
 
@@ -189,14 +192,14 @@ Skill そのものは 3 種類に分解して整理する。いずれも「behav
 |---|---|---|
 | `plugins/synapse-a2a/skills/` | Published authored skill の正本 | **正本** |
 | `.synapse/workflows/` | Workflow YAML の正本 | **正本** |
-| `.claude/skills/` | Claude Code ランタイム用コピー。Published + autogen + Local dev が同居 | 派生 (Local dev のみ正本) |
-| `.agents/skills/` | 他エージェントランタイム用コピー。`.claude/skills/` と同構成 | 派生 (Local dev のみ正本) |
-| `.claude/skills/` | Claude Code ランタイムから読まれるコピー (authored + autogen) | 派生 |
-| `.agents/skills/` | 他エージェントランタイムから読まれるコピー | 派生 |
+| `.claude/skills/` | Claude Code ランタイム用コピー。Published のミラー + Workflow-autogen の派生 + Local dev (このディレクトリが正本) が同居 | 派生 (Local dev のみ正本) |
+| `.agents/skills/` | 他エージェントランタイム用コピー。`.claude/skills/` と同構成・同内容 | 派生 (Local dev のみ正本) |
 
-`.claude/skills/` と `.agents/skills/` は **「ビルド成果物」**として
-扱い、人間は編集しない。editor lint や CI でこれを強制する余地がある
-（将来タスク）。
+`.claude/skills/` と `.agents/skills/` のうち、Published authored のミラー
+と Workflow-autogen の派生は **「ビルド成果物」** として扱い、人間は
+編集しない。Local dev skill は同じディレクトリ内にあるが、そこが正本
+なので人間が直接編集してよい。サブカテゴリを SKILL.md frontmatter や
+マーカーで識別できるようにするのは後続タスク。
 
 ---
 
@@ -226,7 +229,10 @@ Skill そのものは 3 種類に分解して整理する。いずれも「behav
 Issue #610 の DoD は 2 項目:
 
 1. **skills の責務がドキュメント化される** → **本ドキュメントが該当**
-2. **実装がその責務に沿って整理される** → 後続タスク (下記)
+2. **実装がその責務に沿って整理される** → 本 PR で **orphan autogen
+   skill (`my-review`, `user-wf`) の削除**までを実施。残りの整理
+   (GENERATED.md 配置、workflow sync の orphan 検出強化、README 追記
+   など) は後続タスク (下記)
 
 ### 後続タスクの候補
 
@@ -250,9 +256,8 @@ Issue #610 の DoD は 2 項目:
       は機械可読だが人間向けの説明ではない）。加えて、生成元 YAML が
       存在しない orphan autogen skill を検出する軽量チェックを
       `synapse workflow sync` に追加する。
-- [ ] 現存する orphan autogen skill (`.claude/skills/my-review`,
-      `.claude/skills/user-wf`) を整理する: YAML を復元するか、autogen
-      マーカーを外して Local dev skill として正規化するかを決める。
+- [x] 現存する orphan autogen skill (`my-review`, `user-wf`) を整理する
+      → 本 PR で削除済み (`.claude/skills/` と `.agents/skills/` の両方)。
 - [ ] MCP resource と skill の混同を避けるため、MCP resource 側の
       description を「instruction resource (not a skill)」のように
       明示する。
