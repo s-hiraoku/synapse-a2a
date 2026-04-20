@@ -51,7 +51,7 @@ gh skill install s-hiraoku/synapse-a2a synapse-manager
 gh skill install s-hiraoku/synapse-a2a synapse-reinst
 
 # Pin to a release
-gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.26.4
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.27.2
 
 # Install for a specific agent
 gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code
@@ -111,13 +111,13 @@ gh skill search synapse-a2a
 gh skill preview s-hiraoku/synapse-a2a synapse-a2a
 
 # 4. Tag the release so `--pin` targets are meaningful
-git tag v0.26.2 && git push --tags
+git tag v0.27.2 && git push --tags
 ```
 
 `gh skill publish` is idempotent per tree SHA — re-running on an
 unchanged skill is a no-op. Publishing a new commit registers a new
 tree SHA so that `gh skill update` clients see drift and can pull the
-update. Pinned installs (`--pin v0.26.4`) continue to resolve against
+update. Pinned installs (`--pin v0.27.2`) continue to resolve against
 the tagged ref you recorded at install time.
 
 ### CI automation (recommended)
@@ -154,10 +154,10 @@ $EDITOR plugins/synapse-a2a/skills/my-new-skill/SKILL.md
 # 4. Commit + tag
 git add plugins/synapse-a2a/skills/my-new-skill
 git commit -m "feat(skills): add my-new-skill"
-git tag v0.27.0 && git push origin main --tags
+git tag v0.27.2 && git push origin main --tags
 
 # 5. Users can now install
-#   gh skill install s-hiraoku/synapse-a2a my-new-skill --pin v0.27.0
+#   gh skill install s-hiraoku/synapse-a2a my-new-skill --pin v0.27.2
 ```
 
 ## Troubleshooting

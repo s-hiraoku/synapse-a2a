@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.27.2] - 2026-04-20
+
+### Fixed
+
+- Profile command strings with multiple tokens, such as `python3 -u dummy_agent.py`, are now split with `shlex` before launch so profile-defined arguments are executed correctly.
+
 ## [0.27.1] - 2026-04-19
 
 ### Documentation
@@ -3501,7 +3509,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.1...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.2...HEAD
+[0.27.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.5...v0.27.0
 [0.26.5]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.4...v0.26.5

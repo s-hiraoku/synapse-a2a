@@ -4,6 +4,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.27.2
+
+- **Fixed**: Profile command strings with multiple tokens, such as `python3 -u dummy_agent.py`, are now split with `shlex` before launch so profile-defined arguments are executed correctly
+
 ### v0.27.1
 
 - **Documentation**: Golden Path "Quick Start" section at the top of README — four-command flow (`synapse start claude` / `start codex` / `list --plain` / `send ... --wait`) that verifies cross-agent messaging via a `SYNAPSE_GOLDEN_PATH_OK` sentinel; the former install-focused Quick Start is renamed to `Installation`. Adds `examples/golden-path.md` (#604, #615)

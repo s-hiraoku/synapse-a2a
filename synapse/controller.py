@@ -9,6 +9,7 @@ import os
 import pty
 import re
 import select
+import shlex
 import shutil
 import signal
 import struct
@@ -137,7 +138,13 @@ class TerminalController(StatusObserverMixin):
         long_submit_confirm_retries: int | None = None,
         auto_approve: dict | None = None,
     ):
-        self.command = command
+        # Support multi-token command strings (e.g. "python3 -u dummy_agent.py").
+        # shlex.split is byte-identical for single-token input: shlex.split("codex") == ["codex"].
+        tokens = shlex.split(command) if isinstance(command, str) else list(command)
+        if not tokens:
+            raise ValueError("command must be a non-empty string or sequence")
+        self._command_tokens = tokens
+        self.command = tokens[0]
         self.args = args or []
         self.delegate_mode = delegate_mode
 
@@ -431,6 +438,10 @@ class TerminalController(StatusObserverMixin):
         if self._auto_approve_enabled:
             self.on_status_change(self._handle_auto_approve)
 
+    def _build_command_list(self) -> list[str]:
+        """Return command tokens followed by controller args."""
+        return list(self._command_tokens) + self.args
+
     def _handle_auto_approve(self, old_status: str, new_status: str) -> None:
         """Auto-approve callback: send approval response on WAITING transitions.
 
@@ -517,8 +528,7 @@ class TerminalController(StatusObserverMixin):
         with contextlib.suppress(termios.error):
             tty.setraw(self.slave_fd)
 
-        # Build command list: command + args
-        cmd_list = [self.command] + self.args
+        cmd_list = self._build_command_list()
 
         self.process = subprocess.Popen(
             cmd_list,
@@ -1477,7 +1487,7 @@ class TerminalController(StatusObserverMixin):
             # Use pty.spawn for robust handling
             signal.signal(signal.SIGWINCH, handle_winch)
 
-            cmd_list = [self.command] + self.args
+            cmd_list = self._build_command_list()
             os.environ.update(self.env)
             os.environ.pop("CLAUDECODE", None)
 

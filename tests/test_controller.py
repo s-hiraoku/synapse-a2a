@@ -2527,3 +2527,51 @@ class TestKittyKeyboardProtocolDisable:
 
         assert ctrl._kkp_disabled is True
         assert b"\x1b[<u" in writes
+
+
+class TestCommandTokenization:
+    """Tests for TerminalController command tokenization."""
+
+    def test_single_token_command_unchanged(self):
+        """Single-token commands should keep existing public command behavior."""
+        ctrl = TerminalController(command="codex", args=["--foo"], idle_regex=r"\$")
+
+        assert ctrl.command == "codex"
+        assert ctrl._command_tokens == ["codex"]
+
+    def test_multi_token_command_splits_via_shlex(self):
+        """Multi-token command strings should be split into executable tokens."""
+        ctrl = TerminalController(
+            command="python3 -u dummy_agent.py",
+            idle_regex=r"\$",
+        )
+
+        assert ctrl._command_tokens == ["python3", "-u", "dummy_agent.py"]
+        assert ctrl.command == "python3"
+
+    def test_multi_token_command_plus_args_appends(self):
+        """Profile command tokens should precede explicit controller args."""
+        ctrl = TerminalController(
+            command="python3 -u dummy_agent.py",
+            args=["--port", "8198"],
+            idle_regex=r"\$",
+        )
+
+        assert ctrl._build_command_list() == [
+            "python3",
+            "-u",
+            "dummy_agent.py",
+            "--port",
+            "8198",
+        ]
+
+    def test_quoted_argument_preserved(self):
+        """Quoted command segments should stay grouped after tokenization."""
+        ctrl = TerminalController(command='sh -c "echo hi"', idle_regex=r"\$")
+
+        assert ctrl._command_tokens == ["sh", "-c", "echo hi"]
+
+    def test_empty_command_raises(self):
+        """Empty commands should be rejected during initialization."""
+        with pytest.raises(ValueError):
+            TerminalController(command="")
