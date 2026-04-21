@@ -248,6 +248,15 @@
   overflow: visible;
 }
 
+.mermaid-error {
+  padding: var(--sp-3);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  background: var(--color-danger-subtle);
+  text-align: left;
+}
+
 /* Shared meta-row styles for mermaid, json, code renderers */
 .mermaid-view-meta,
 .log-view-meta,
@@ -827,4 +836,3 @@
 }
 
 .trace-children { padding-left: var(--sp-5); }
-

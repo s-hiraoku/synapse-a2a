@@ -687,20 +687,57 @@
   function runMermaid(selector) {
     if (typeof mermaid === "undefined") return;
     const target = selector || ".mermaid-pending";
-    mermaid.run({ querySelector: target }).then(function () {
-      // After mermaid replaces <pre> with <svg>, remove fixed height attributes
-      // so the SVG flows naturally within its container.
-      document.querySelectorAll(".format-mermaid svg, .dep-graph svg, .workflow-step-flow svg").forEach(function (svg) {
-        // Mermaid sets inline style="max-width: XXXpx" based on diagram complexity.
-        // Preserve it but cap at container width. Only override height.
-        svg.removeAttribute("height");
-        svg.removeAttribute("width");
-        svg.style.height = "auto";
-        svg.style.display = "block";
-        svg.style.maxWidth = "100%";
-        svg.style.margin = "0 auto";
+    const nodes = Array.prototype.slice.call(document.querySelectorAll(target));
+
+    function renderError(el, source) {
+      const escaped = (ns.escapeHtml || escapeHtml)(source || "");
+      el.classList.remove("mermaid-pending");
+      el.innerHTML = [
+        '<div class="mermaid-error" role="note">',
+        "<strong>Diagram could not be rendered</strong>",
+        "<details><summary>Show source</summary><pre>",
+        escaped,
+        "</pre></details>",
+        "</div>",
+      ].join("");
+    }
+
+    function normalizeSvg(svg) {
+      // Mermaid sets inline style="max-width: XXXpx" based on diagram complexity.
+      // Preserve it but cap at container width. Only override height.
+      svg.removeAttribute("height");
+      svg.removeAttribute("width");
+      svg.style.height = "auto";
+      svg.style.display = "block";
+      svg.style.maxWidth = "100%";
+      svg.style.margin = "0 auto";
+    }
+
+    nodes.forEach(function (el) {
+      Promise.resolve().then(function () {
+        const source = el.dataset.mermaidSource || el.textContent || "";
+        return Promise.resolve(mermaid.parse(source, { suppressErrors: true })).then(function (valid) {
+          if (valid === false) {
+            throw new Error("Mermaid parse returned false");
+          }
+          runMermaid._counter = (runMermaid._counter || 0) + 1;
+          return mermaid.render("mermaid-diagram-" + runMermaid._counter, source);
+        }).then(function (result) {
+          el.classList.remove("mermaid-pending");
+          el.innerHTML = result && result.svg ? result.svg : "";
+          if (typeof el.querySelectorAll === "function") {
+            el.querySelectorAll("svg").forEach(normalizeSvg);
+          }
+        }).catch(function (err) {
+          console.warn("Mermaid diagram could not be rendered", { source: source, error: err });
+          renderError(el, source);
+        });
+      }).catch(function (err) {
+        const source = el.dataset.mermaidSource || el.textContent || "";
+        console.warn("Mermaid diagram could not be rendered", { source: source, error: err });
+        renderError(el, source);
       });
-    }).catch(function () { /* mermaid parse errors are non-fatal */ });
+    });
   }
 
   function renderMarkdown(el, body) {
