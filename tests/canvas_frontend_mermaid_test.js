@@ -16,8 +16,14 @@ function buildHarness() {
   invalid.textContent = "flowchart TD\nA --> [[[unclosed";
   invalid.dataset.mermaidSource = invalid.textContent;
 
+  const renderFailure = document.createElement("pre");
+  renderFailure.className = "mermaid-pending mermaid";
+  renderFailure.textContent = "flowchart TD\nA --> RENDER_FAIL";
+  renderFailure.dataset.mermaidSource = renderFailure.textContent;
+
   root.appendChild(valid);
   root.appendChild(invalid);
+  root.appendChild(renderFailure);
 
   document.querySelectorAll = function (selector) {
     if (selector === ".mermaid-pending") {
@@ -46,7 +52,7 @@ function buildHarness() {
       return !source.includes("[[[");
     },
     async render(id, source) {
-      if (source.includes("[[[")) {
+      if (source.includes("RENDER_FAIL")) {
         throw new Error("translate(undefined, NaN)");
       }
       return { svg: "<svg data-id=\"" + id + "\"></svg>" };
@@ -90,6 +96,7 @@ function buildHarness() {
   return {
     valid,
     invalid,
+    renderFailure,
     consoleErrors,
     consoleWarnings,
     runMermaid: sandbox.__runMermaid,
@@ -97,7 +104,7 @@ function buildHarness() {
 }
 
 (async () => {
-  const { valid, invalid, consoleErrors, runMermaid } = buildHarness();
+  const { valid, invalid, renderFailure, consoleErrors, runMermaid } = buildHarness();
 
   await runMermaid(".mermaid-pending");
 
@@ -107,6 +114,14 @@ function buildHarness() {
   assert(
     invalid.innerHTML.includes("flowchart TD\nA --&gt; [[[unclosed"),
     "invalid fallback should include escaped source"
+  );
+  assert(
+    renderFailure.innerHTML.includes("mermaid-error"),
+    "render-layer failure should show fallback UI"
+  );
+  assert(
+    renderFailure.innerHTML.includes("flowchart TD\nA --&gt; RENDER_FAIL"),
+    "render-layer fallback should include escaped source"
   );
   assert(
     !consoleErrors.some((line) => line.includes("translate(undefined, NaN)")),
