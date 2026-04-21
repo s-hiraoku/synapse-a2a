@@ -99,8 +99,7 @@ function buildHarness() {
 (async () => {
   const { valid, invalid, consoleErrors, runMermaid } = buildHarness();
 
-  runMermaid(".mermaid-pending");
-  await new Promise((resolve) => setImmediate(resolve));
+  await runMermaid(".mermaid-pending");
 
   assert(!valid.classList.contains("mermaid-pending"), "valid diagram should no longer be pending");
   assert(valid.innerHTML.includes("<svg"), "valid diagram should render as SVG");

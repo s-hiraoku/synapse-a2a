@@ -685,7 +685,7 @@
 
   /** Run mermaid on pending diagrams and fix SVG heights afterward. */
   function runMermaid(selector) {
-    if (typeof mermaid === "undefined") return;
+    if (typeof mermaid === "undefined") return Promise.resolve();
     const target = selector || ".mermaid-pending";
     const nodes = Array.prototype.slice.call(document.querySelectorAll(target));
 
@@ -713,31 +713,33 @@
       svg.style.margin = "0 auto";
     }
 
-    nodes.forEach(function (el) {
-      Promise.resolve().then(function () {
-        const source = el.dataset.mermaidSource || el.textContent || "";
-        return Promise.resolve(mermaid.parse(source, { suppressErrors: true })).then(function (valid) {
+    const jobs = nodes.map(function (el) {
+      const source = el.dataset.mermaidSource || el.textContent || "";
+      return Promise.resolve()
+        .then(function () {
+          return Promise.resolve(mermaid.parse(source, { suppressErrors: true }));
+        })
+        .then(function (valid) {
           if (valid === false) {
             throw new Error("Mermaid parse returned false");
           }
           runMermaid._counter = (runMermaid._counter || 0) + 1;
           return mermaid.render("mermaid-diagram-" + runMermaid._counter, source);
-        }).then(function (result) {
+        })
+        .then(function (result) {
           el.classList.remove("mermaid-pending");
           el.innerHTML = result && result.svg ? result.svg : "";
           if (typeof el.querySelectorAll === "function") {
             el.querySelectorAll("svg").forEach(normalizeSvg);
           }
-        }).catch(function (err) {
+        })
+        .catch(function (err) {
           console.warn("Mermaid diagram could not be rendered", { source: source, error: err });
           renderError(el, source);
         });
-      }).catch(function (err) {
-        const source = el.dataset.mermaidSource || el.textContent || "";
-        console.warn("Mermaid diagram could not be rendered", { source: source, error: err });
-        renderError(el, source);
-      });
     });
+
+    return Promise.all(jobs);
   }
 
   function renderMarkdown(el, body) {
