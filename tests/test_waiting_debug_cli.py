@@ -10,12 +10,11 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+from synapse.cli import main
 from synapse.commands.waiting_debug import (
     WaitingDebugCollector,
     WaitingDebugReporter,
 )
-
-from synapse.cli import main
 
 
 class FakeRegistry:

@@ -41,6 +41,8 @@ venv/
 .synapse/*.db
 .synapse/*.db-shm
 .synapse/*.db-wal
+.synapse/waiting_debug.jsonl
+.synapse/waiting_debug.*
 
 # OS
 .DS_Store

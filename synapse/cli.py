@@ -98,6 +98,7 @@ from synapse.commands.spawn_cmd import (
     cmd_team_start,
 )
 from synapse.commands.start import StartCommand
+from synapse.commands.waiting_debug import cmd_waiting_debug
 from synapse.commands.workflow import (
     cmd_workflow_create,
     cmd_workflow_delete,
@@ -3199,6 +3200,63 @@ Status meanings:
         help="Show recent WAITING detection attempts and aggregate diagnostics",
     )
     p_status.set_defaults(func=cmd_status)
+
+    # waiting-debug
+    p_waiting_debug = subparsers.add_parser(
+        "waiting-debug",
+        help="Collect and report WAITING detection debug snapshots",
+        description="Collect and report WAITING detection debug snapshots.",
+    )
+    waiting_debug_subparsers = p_waiting_debug.add_subparsers(
+        dest="waiting_debug_command", metavar="SUBCOMMAND"
+    )
+    p_waiting_collect = waiting_debug_subparsers.add_parser(
+        "collect",
+        help="Collect /debug/waiting snapshots from registered agents",
+    )
+    p_waiting_collect.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="JSONL output path (default: ~/.synapse/waiting_debug.jsonl)",
+    )
+    p_waiting_collect.add_argument(
+        "--agent",
+        help="Collect only the specified agent ID",
+    )
+    p_waiting_collect.add_argument(
+        "--include-empty",
+        action="store_true",
+        help="Record agents whose debug endpoint has no attempts",
+    )
+    p_waiting_collect.set_defaults(func=cmd_waiting_debug)
+
+    p_waiting_report = waiting_debug_subparsers.add_parser(
+        "report",
+        help="Aggregate collected WAITING debug JSONL data",
+    )
+    p_waiting_report.add_argument(
+        "--in",
+        dest="input",
+        type=Path,
+        default=None,
+        help="JSONL input path (default: ~/.synapse/waiting_debug.jsonl)",
+    )
+    p_waiting_report.add_argument(
+        "--since",
+        help="Only include records collected at or after this ISO timestamp",
+    )
+    p_waiting_report.add_argument(
+        "--agent",
+        help="Only include records for the specified agent ID",
+    )
+    p_waiting_report.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Output aggregate data as JSON",
+    )
+    p_waiting_report.set_defaults(func=cmd_waiting_debug)
 
     # logs
     p_logs = subparsers.add_parser(
