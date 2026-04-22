@@ -96,7 +96,7 @@ class RichRenderer:
         "TYPE": ("cyan", 8, 12, None, "agent_type"),
         "ROLE": (None, 10, 20, None, "role"),
         "SKILL_SET": ("blue", 10, 16, None, "skill_set"),
-        "STATUS": (None, 12, None, 24, "status"),
+        "STATUS": (None, 12, None, 30, "status"),
         "CURRENT": (None, 20, 20, 20, "current_task_preview"),
         "TRANSPORT": (None, 10, None, 10, "transport"),
         "WORKING_DIR": (None, 20, 30, None, "working_dir"),

@@ -2542,6 +2542,7 @@ def cmd_run_interactive(
                 worktree_branch=worktree_branch,
                 worktree_base_branch=worktree_base_branch,
                 spawned_by=spawned_by,
+                renderer_available=controller.renderer_available,
             )
         except NameConflictError as e:
             print(f"Error: {e}")

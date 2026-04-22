@@ -107,6 +107,16 @@ class TestRichRendererColumns:
         column_names = [col.header for col in table.columns]
         assert column_names == ["ID", "STATUS"]
 
+    def test_status_column_width_fits_renderer_suffix(
+        self, renderer: RichRenderer
+    ) -> None:
+        """STATUS column should fit the longest renderer state suffix."""
+        _style, _min_width, _max_width, fixed_width, _key = renderer.COLUMN_DEFS[
+            "STATUS"
+        ]
+        assert fixed_width is not None
+        assert fixed_width >= len("SHUTTING_DOWN (renderer: off)")
+
     def test_build_table_with_all_available_columns(
         self, renderer: RichRenderer, sample_agents: list[dict]
     ) -> None:

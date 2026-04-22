@@ -383,6 +383,28 @@ def test_waiting_debug_ring_buffer_discards_oldest_entries():
     assert all(entry["profile"] == "codex" for entry in attempts)
 
 
+def test_waiting_debug_skips_quiet_tick_fast_path():
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": r"Proceed\?",
+            "debug_ring_size": 50,
+        }
+    )
+
+    is_waiting, refreshed, confidence, source = detector.check_waiting_state(
+        new_data=b"",
+        output_buffer=b"",
+        last_output_time=None,
+        waiting_pattern_time=None,
+    )
+
+    assert is_waiting is False
+    assert refreshed is None
+    assert confidence == 0.0
+    assert source == "none"
+    assert detector.waiting_debug_attempts == []
+
+
 def test_waiting_debug_records_strip_ansi_path_and_miss():
     detector = IdleDetector(
         waiting_detection={

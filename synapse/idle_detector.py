@@ -261,7 +261,8 @@ class IdleDetector:
         if not self.waiting_regex and not self.heuristic_fallback:
             self._waiting_source = "none"
             self._waiting_confidence = 0.0
-            record_attempt()
+            if new_data:
+                record_attempt()
             return False, waiting_pattern_time, 0.0, "none"
 
         # Quiet-tick fast path: no new bytes and nothing previously
@@ -269,7 +270,6 @@ class IdleDetector:
         if not new_data and waiting_pattern_time is None:
             self._waiting_source = "none"
             self._waiting_confidence = 0.0
-            record_attempt()
             return False, None, 0.0, "none"
 
         if new_data:
