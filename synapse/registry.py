@@ -191,6 +191,7 @@ class AgentRegistry:
         worktree_branch: str | None = None,
         worktree_base_branch: str | None = None,
         spawned_by: str | None = None,
+        renderer_available: bool | None = None,
     ) -> Path:
         """Writes connection info to registry file.
 
@@ -256,6 +257,8 @@ class AgentRegistry:
 
         if spawned_by:
             data["spawned_by"] = spawned_by
+        if renderer_available is not None:
+            data["renderer_available"] = renderer_available
 
         file_path = self.registry_dir / f"{agent_id}.json"
         with self._registry_write_lock():

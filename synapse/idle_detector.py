@@ -3,8 +3,10 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from synapse.config import WAITING_EXPIRY_SECONDS
 from synapse.pty_renderer import PtyRenderer
@@ -76,6 +78,7 @@ class IdleDetector:
         *,
         strip_ansi_fn: Callable[[str], str] | None = None,
         renderer: PtyRenderer | None = None,
+        profile: str | None = None,
     ) -> None:
         self.idle_config = idle_detection or {"strategy": "timeout", "timeout": 1.5}
         self.idle_strategy = self.idle_config.get("strategy", "pattern")
@@ -100,8 +103,17 @@ class IdleDetector:
         )
         self._strip_ansi = strip_ansi_fn or (lambda text: text)
         self._renderer = renderer
+        self._profile = profile or "unknown"
+        self._waiting_debug_attempts: deque[dict[str, Any]] = deque(
+            maxlen=int(self.waiting_config.get("debug_ring_size", 50))
+        )
         self._waiting_source = "none"
         self._waiting_confidence = 0.0
+
+    @property
+    def waiting_debug_attempts(self) -> list[dict[str, Any]]:
+        """Return recent WAITING-detection attempts."""
+        return list(self._waiting_debug_attempts)
 
     def _compile_idle_regex(self) -> re.Pattern[bytes] | None:
         if self.idle_strategy not in ("pattern", "hybrid"):
@@ -224,9 +236,32 @@ class IdleDetector:
         last_output_time: float | None,
         waiting_pattern_time: float | None,
     ) -> tuple[bool, float | None, float, str]:
+        path_used = "renderer" if self._renderer is not None else "strip_ansi"
+        rendered_text_tail = ""
+        pattern_visible = False
+        confidence = 0.0
+        source = "none"
+        idle_gate_passed = False
+
+        def record_attempt() -> None:
+            try:
+                self._record_waiting_debug_attempt(
+                    new_data=new_data,
+                    path_used=path_used,
+                    renderer_on=self._renderer is not None,
+                    pattern_matched=pattern_visible,
+                    pattern_source=source,
+                    confidence=confidence if pattern_visible else 0.0,
+                    idle_gate_passed=idle_gate_passed,
+                    rendered_text_tail=rendered_text_tail,
+                )
+            except Exception:
+                logger.debug("WAITING debug attempt recording failed", exc_info=True)
+
         if not self.waiting_regex and not self.heuristic_fallback:
             self._waiting_source = "none"
             self._waiting_confidence = 0.0
+            record_attempt()
             return False, waiting_pattern_time, 0.0, "none"
 
         # Quiet-tick fast path: no new bytes and nothing previously
@@ -234,17 +269,21 @@ class IdleDetector:
         if not new_data and waiting_pattern_time is None:
             self._waiting_source = "none"
             self._waiting_confidence = 0.0
+            record_attempt()
             return False, None, 0.0, "none"
 
         if new_data:
             if self._renderer is not None:
                 self._renderer.feed(new_data)
                 # renderer path: match against the full rendered screen
+                rendered_text = self._renderer.render_text()
+                rendered_text_tail = rendered_text.rstrip()[-256:]
                 pattern_visible, confidence, source = self._match_waiting_prompt(
-                    self._renderer.render_text()
+                    rendered_text
                 )
             else:
                 new_text = self._strip_ansi(new_data.decode("utf-8", errors="replace"))
+                rendered_text_tail = new_text[-256:]
                 pattern_visible, confidence, source = self._match_waiting_prompt(
                     new_text
                 )
@@ -252,6 +291,12 @@ class IdleDetector:
             pattern_visible = False
             confidence = self._waiting_confidence
             source = self._waiting_source
+            if self._renderer is not None:
+                rendered_text_tail = self._renderer.render_text().rstrip()[-256:]
+            else:
+                rendered_text_tail = self._strip_ansi(
+                    output_buffer[-512:].decode("utf-8", errors="replace")
+                )[-256:]
 
         if pattern_visible:
             waiting_pattern_time = time.time()
@@ -260,6 +305,7 @@ class IdleDetector:
         elif waiting_pattern_time is None:
             self._waiting_source = "none"
             self._waiting_confidence = 0.0
+            record_attempt()
             return False, None, 0.0, "none"
 
         if waiting_pattern_time is not None:
@@ -291,12 +337,16 @@ class IdleDetector:
                     waiting_pattern_time = time.time()
                     self._waiting_confidence = confidence
                     self._waiting_source = source
+                    pattern_visible = True
                 else:
                     self._waiting_source = "none"
                     self._waiting_confidence = 0.0
+                    record_attempt()
                     return False, None, 0.0, "none"
 
         if not self.waiting_require_idle:
+            idle_gate_passed = True
+            record_attempt()
             return (
                 True,
                 waiting_pattern_time,
@@ -305,17 +355,49 @@ class IdleDetector:
             )
 
         if not (waiting_pattern_time and last_output_time):
+            record_attempt()
             return False, waiting_pattern_time, 0.0, "none"
 
         time_since_output = time.time() - last_output_time
         is_waiting = time_since_output >= self.waiting_idle_timeout
         if not is_waiting:
+            record_attempt()
             return False, waiting_pattern_time, 0.0, "none"
+        idle_gate_passed = True
+        record_attempt()
         return (
             True,
             waiting_pattern_time,
             self._waiting_confidence,
             self._waiting_source,
+        )
+
+    def _record_waiting_debug_attempt(
+        self,
+        *,
+        new_data: bytes,
+        path_used: str,
+        renderer_on: bool,
+        pattern_matched: bool,
+        pattern_source: str,
+        confidence: float,
+        idle_gate_passed: bool,
+        rendered_text_tail: str,
+    ) -> None:
+        source_map = {"regex": "primary", "heuristic": "heuristic"}
+        self._waiting_debug_attempts.append(
+            {
+                "timestamp": time.time(),
+                "profile": self._profile,
+                "path_used": path_used,
+                "renderer_on": renderer_on,
+                "pattern_matched": pattern_matched,
+                "pattern_source": source_map.get(pattern_source),
+                "confidence": confidence,
+                "idle_gate_passed": idle_gate_passed,
+                "new_data_hex_prefix": new_data[:64].hex(),
+                "rendered_text_tail": rendered_text_tail[-256:],
+            }
         )
 
     def _match_waiting_prompt(

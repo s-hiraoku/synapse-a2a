@@ -161,12 +161,17 @@ class TerminalController(StatusObserverMixin):
 
         self.idle_config = idle_detection or {"strategy": "timeout", "timeout": 1.5}
         self._pattern_detected = False
-        self._pty_renderer = PtyRenderer(columns=120, rows=40)
+        try:
+            self._pty_renderer: PtyRenderer | None = PtyRenderer(columns=120, rows=40)
+        except Exception as exc:
+            logger.warning("PtyRenderer init failed: %s", exc)
+            self._pty_renderer = None
         self._idle_detector = IdleDetector(
             idle_detection=self.idle_config,
             waiting_detection=waiting_detection,
             strip_ansi_fn=strip_ansi,
             renderer=self._pty_renderer,
+            profile=agent_type,
         )
         self.idle_strategy = self._idle_detector.idle_strategy
         self.idle_regex = self._idle_detector.idle_regex
@@ -1226,6 +1231,11 @@ class TerminalController(StatusObserverMixin):
             raw = "".join(self._render_buffer)
         return strip_ansi(raw)
 
+    @property
+    def renderer_available(self) -> bool:
+        """Return whether the pyte PTY renderer initialized successfully."""
+        return self._pty_renderer is not None
+
     def pty_snapshot(self) -> dict[str, Any]:
         """Return the rendered virtual terminal state.
 
@@ -1234,7 +1244,17 @@ class TerminalController(StatusObserverMixin):
         evaluates against without reaching into private attributes.
         """
         with self.lock:
+            if self._pty_renderer is None:
+                raise RuntimeError("pty renderer not available")
             return self._pty_renderer.snapshot()
+
+    def waiting_debug_snapshot(self) -> dict[str, Any]:
+        """Return recent WAITING-detection attempts for diagnostics."""
+        with self.lock:
+            return {
+                "renderer_available": self.renderer_available,
+                "attempts": self._idle_detector.waiting_debug_attempts,
+            }
 
     def set_done(self) -> None:
         """Set status to DONE (task completed).
