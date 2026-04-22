@@ -83,9 +83,25 @@ jobs:
         with:
           ref: ${{ steps.meta.outputs.head }}
           fetch-depth: 0
-          # Don't leave the GITHUB_TOKEN in .git/config; we push explicitly
-          # later with a scoped URL so subsequent steps can't leak the token.
-          persist-credentials: false
+          # We leave persist-credentials at the default (true) because
+          # `persist-credentials: false` makes checkout run
+          # `git submodule foreach --recursive` during its auth-cleanup
+          # phase, which fails on this repo: the main tree contains a
+          # stale gitlink at `.claude/worktrees/elastic-black` (a worktree
+          # accidentally committed as a submodule) with no matching
+          # `.gitmodules` entry — see #633 CI runs 24806172525 / 24807760781.
+          # To still avoid leaving a usable token in `.git/config` we
+          # wipe the http.*.extraheader below and push through an
+          # explicit one-shot URL.
+          persist-credentials: true
+
+      - name: Drop persisted auth from .git/config
+        if: steps.meta.outputs.fork == 'false'
+        run: |
+          # `actions/checkout` writes the token as http.<origin>.extraheader.
+          # Remove it so later steps can't reuse the token implicitly; the
+          # final push uses a scoped one-shot URL instead.
+          git config --local --unset-all "http.https://github.com/.extraheader" 2>/dev/null || true
 
       - name: Poll mergeable status
         id: mergeable
