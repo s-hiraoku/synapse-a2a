@@ -29,13 +29,15 @@ jobs:
   enumerate:
     name: Enumerate PRs to evaluate
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}  # let `gh` find the repo without checkout
     outputs:
       prs: ${{ steps.list.outputs.prs }}
     steps:
       - name: List target PRs
         id: list
         env:
-          GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
@@ -53,6 +55,9 @@ jobs:
     needs: enumerate
     if: needs.enumerate.outputs.prs != '[]'
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}  # let `gh` find the repo without checkout
     strategy:
       fail-fast: false
       matrix:
@@ -60,8 +65,6 @@ jobs:
     steps:
       - name: Fetch PR metadata
         id: meta
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           data=$(gh pr view ${{ matrix.pr }} --json headRefName,headRefOid,baseRefName,isCrossRepository,mergeable,mergeStateStatus)
@@ -84,8 +87,6 @@ jobs:
       - name: Poll mergeable status
         id: mergeable
         if: steps.meta.outputs.fork == 'false'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # GitHub computes `mergeable` async; it returns UNKNOWN right after a
@@ -102,8 +103,6 @@ jobs:
 
       - name: Early exit if not conflicting
         if: steps.meta.outputs.fork == 'false' && steps.mergeable.outputs.state != 'CONFLICTING'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           echo "PR #${{ matrix.pr }} is not in CONFLICTING state (state=${{ steps.mergeable.outputs.state }}); nothing to do."
           # If a stale needs-manual-rebase label exists, remove it
@@ -202,8 +201,6 @@ jobs:
 
       - name: Commit and push if resolved
         if: steps.resolve.outputs.resolved == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git commit -m "chore: auto-resolve mechanical merge conflicts with ${{ steps.meta.outputs.base }}"
@@ -216,8 +213,6 @@ jobs:
             steps.scope.outputs.mechanical != 'true' ||
             steps.resolve.outputs.resolved != 'true'
           )
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git merge --abort 2>/dev/null || true
