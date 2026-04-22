@@ -83,6 +83,9 @@ jobs:
         with:
           ref: ${{ steps.meta.outputs.head }}
           fetch-depth: 0
+          # Don't leave the GITHUB_TOKEN in .git/config; we push explicitly
+          # later with a scoped URL so subsequent steps can't leak the token.
+          persist-credentials: false
 
       - name: Poll mergeable status
         id: mergeable
@@ -199,19 +202,54 @@ jobs:
             echo "resolved=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit and push if resolved
+      - name: Validate staged files against allowlist
+        id: validate
         if: steps.resolve.outputs.resolved == 'true'
         run: |
           set -euo pipefail
+          # Defense-in-depth: a malicious PR could in theory alter the
+          # merge_* scripts to `git add` arbitrary files before the commit.
+          # Ensure the staged set is exactly the four paths we expect to
+          # touch; bail out otherwise.
+          staged=$(git diff --cached --name-only | sort -u)
+          echo "--- staged files ---"
+          echo "$staged"
+          echo "--------------------"
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              CHANGELOG.md|uv.lock|pyproject.toml) ;;
+              plugins/*/.claude-plugin/plugin.json) ;;
+              *)
+                echo "ERROR: unexpected staged file '$f' — refusing to commit."
+                exit 1
+                ;;
+            esac
+          done <<< "$staged"
+
+      - name: Commit and push if resolved
+        if: steps.resolve.outputs.resolved == 'true' && steps.validate.outcome == 'success'
+        env:
+          PUSH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
           git commit -m "chore: auto-resolve mechanical merge conflicts with ${{ steps.meta.outputs.base }}"
-          git push origin HEAD:${{ steps.meta.outputs.head }}
+          # Push using an explicit one-shot URL rather than the persisted
+          # credential (disabled via persist-credentials: false).
+          git push "https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "HEAD:${{ steps.meta.outputs.head }}"
           gh pr edit ${{ matrix.pr }} --remove-label needs-manual-rebase 2>/dev/null || true
 
       - name: Bail out — label for manual rebase
+        # Without `!cancelled()`, the default `success()` check would skip
+        # this step whenever "Mechanical resolve" or "Validate staged files"
+        # errors out — which is exactly when the label is most needed.
         if: |
+          !cancelled() &&
           steps.merge.outputs.conflict == 'true' && (
             steps.scope.outputs.mechanical != 'true' ||
-            steps.resolve.outputs.resolved != 'true'
+            steps.resolve.outputs.resolved != 'true' ||
+            steps.validate.outcome == 'failure'
           )
         run: |
           set -euo pipefail

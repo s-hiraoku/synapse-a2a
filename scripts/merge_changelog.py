@@ -63,9 +63,13 @@ def union_merge(ours: str, theirs: str) -> str:
         sys.exit(2)
 
     preamble = ours_preamble or theirs_preamble
+    # Use setdefault on BOTH sides so the first occurrence of a version
+    # wins — never overwrite later in the loop. Protects CHANGELOGs that
+    # legitimately contain duplicate headings (e.g. two "## [Unreleased]"
+    # regions waiting to be folded together at release time).
     seen: dict[str, str] = {}
     for version, body in ours_sections:
-        seen[version] = body
+        seen.setdefault(version, body)
     for version, body in theirs_sections:
         seen.setdefault(version, body)
 

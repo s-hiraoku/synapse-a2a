@@ -58,6 +58,20 @@ class TestUnionMerge:
         assert "ours-only" in merged
         assert "theirs-only" in merged
 
+    def test_ours_side_duplicate_heading_keeps_first_occurrence(self):
+        # Real CHANGELOGs can legitimately carry two "## [Unreleased]" blocks
+        # while a release is in flight. The first (topmost) must win.
+        ours = (
+            "# CL\n\n"
+            "## [Unreleased]\n- first-unreleased\n\n"
+            "## [Unreleased]\n- second-unreleased\n"
+        )
+        theirs = "# CL\n\n## [Unreleased]\n- theirs-unreleased\n"
+        merged = union_merge(ours, theirs)
+        assert "first-unreleased" in merged
+        assert "second-unreleased" not in merged
+        assert "theirs-unreleased" not in merged
+
     def test_overlapping_version_prefers_ours(self):
         ours = "# CL\n\n## [0.6.0] - 2026-04-01\n- ours-body\n"
         theirs = "# CL\n\n## [0.6.0] - 2026-04-01\n- theirs-body\n"

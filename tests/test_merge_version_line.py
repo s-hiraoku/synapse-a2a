@@ -64,6 +64,17 @@ class TestMerge:
         result = merge(ours, theirs)
         assert '"0.27.2"' in result
 
+    def test_only_changed_version_line_is_replaced(self):
+        # Two version-bearing lines; only one actually differs. The unchanged
+        # one must stay untouched even though a naive cross-product loop
+        # would match it against the higher semver on the other side.
+        ours = 'version = "0.27.1"\nother = "x"\n# ref: version = "1.0.0"\n'
+        theirs = 'version = "0.28.0"\nother = "x"\n# ref: version = "1.0.0"\n'
+        result = merge(ours, theirs)
+        assert 'version = "0.28.0"\n' in result
+        assert '# ref: version = "1.0.0"\n' in result
+        assert 'version = "0.27.1"' not in result.split("\n", 1)[0]
+
 
 class TestMergeVersionLineCLI:
     SCRIPT = str(SCRIPTS_DIR / "merge_version_line.py")

@@ -69,15 +69,23 @@ def merge(ours: str, theirs: str) -> str:
             )
             sys.exit(3)
 
-    # All differing lines are version lines; pick the higher semver per line.
+    # All differing lines are version-lines; build per-removed-line replacement
+    # queues from the paired (removed, added) diff — NOT a full cross product.
+    # Without this pairing, a file with multiple version lines (e.g. one at
+    # line 2 and another at line 6, only line 2 actually differing) would see
+    # the unchanged line 6 overwritten by line 2's higher semver match.
+    replacements: dict[str, list[str]] = {}
+    for r, a in zip(removed, added, strict=True):
+        rv = extract_version(r.rstrip("\n"))
+        av = extract_version(a.rstrip("\n"))
+        if rv is not None and av is not None and semver_key(av) > semver_key(rv):
+            replacements.setdefault(r, []).append(a)
+
     merged = list(ours_lines)
     for idx, line in enumerate(merged):
-        for theirs_line in theirs_lines:
-            ours_v = extract_version(line.rstrip("\n"))
-            theirs_v = extract_version(theirs_line.rstrip("\n"))
-            if ours_v and theirs_v and semver_key(theirs_v) > semver_key(ours_v):
-                merged[idx] = theirs_line
-                break
+        queue = replacements.get(line)
+        if queue:
+            merged[idx] = queue.pop(0)
     return "".join(merged)
 
 
