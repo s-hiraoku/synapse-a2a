@@ -356,6 +356,121 @@ def test_waiting_detection_without_renderer_uses_strip_ansi():
     assert is_waiting is True
 
 
+def test_waiting_debug_ring_buffer_discards_oldest_entries():
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": r"Proceed\?",
+            "require_idle": False,
+            "debug_ring_size": 2,
+        },
+        profile="codex",
+    )
+
+    for raw in (b"first", b"Proceed?", b"third"):
+        detector.check_waiting_state(
+            new_data=raw,
+            output_buffer=raw,
+            last_output_time=time.time() - 1.0,
+            waiting_pattern_time=None,
+        )
+
+    attempts = detector.waiting_debug_attempts
+    assert len(attempts) == 2
+    assert [entry["new_data_hex_prefix"] for entry in attempts] == [
+        b"Proceed?".hex(),
+        b"third".hex(),
+    ]
+    assert all(entry["profile"] == "codex" for entry in attempts)
+
+
+def test_waiting_debug_records_strip_ansi_path_and_miss():
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": r"Proceed\?",
+            "require_idle": False,
+            "debug_ring_size": 50,
+        },
+        strip_ansi_fn=lambda text: text.replace("\x1b[31m", "").replace("\x1b[0m", ""),
+    )
+
+    is_waiting, _, confidence, source = detector.check_waiting_state(
+        new_data=b"\x1b[31mordinary output\x1b[0m",
+        output_buffer=b"\x1b[31mordinary output\x1b[0m",
+        last_output_time=time.time() - 1.0,
+        waiting_pattern_time=None,
+    )
+
+    attempt = detector.waiting_debug_attempts[-1]
+    assert is_waiting is False
+    assert confidence == 0.0
+    assert source == "none"
+    assert attempt["path_used"] == "strip_ansi"
+    assert attempt["renderer_on"] is False
+    assert attempt["pattern_matched"] is False
+    assert attempt["pattern_source"] is None
+    assert attempt["confidence"] == 0.0
+    assert attempt["idle_gate_passed"] is False
+    assert attempt["rendered_text_tail"].endswith("ordinary output")
+
+
+def test_waiting_debug_records_renderer_path_primary_match_and_idle_gate_drop():
+    renderer = PtyRenderer(columns=80, rows=24)
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": r"Proceed\?",
+            "idle_timeout": 0.5,
+            "debug_ring_size": 50,
+        },
+        renderer=renderer,
+        profile="claude",
+    )
+
+    is_waiting, refreshed, confidence, source = detector.check_waiting_state(
+        new_data=b"Proceed?",
+        output_buffer=b"Proceed?",
+        last_output_time=time.time(),
+        waiting_pattern_time=None,
+    )
+
+    attempt = detector.waiting_debug_attempts[-1]
+    assert is_waiting is False
+    assert refreshed is not None
+    assert confidence == 0.0
+    assert source == "none"
+    assert attempt["profile"] == "claude"
+    assert attempt["path_used"] == "renderer"
+    assert attempt["renderer_on"] is True
+    assert attempt["pattern_matched"] is True
+    assert attempt["pattern_source"] == "primary"
+    assert attempt["confidence"] == 1.0
+    assert attempt["idle_gate_passed"] is False
+    assert attempt["new_data_hex_prefix"] == b"Proceed?".hex()
+    assert attempt["rendered_text_tail"].endswith("Proceed?")
+
+
+def test_waiting_debug_records_heuristic_source():
+    detector = IdleDetector(
+        waiting_detection={
+            "regex": "NEVER_MATCHES_THIS",
+            "require_idle": False,
+            "debug_ring_size": 50,
+        }
+    )
+
+    detector.check_waiting_state(
+        new_data=b"\n> 1. Yes\n> 2. No\n",
+        output_buffer=b"\n> 1. Yes\n> 2. No\n",
+        last_output_time=time.time() - 1.0,
+        waiting_pattern_time=None,
+    )
+
+    attempt = detector.waiting_debug_attempts[-1]
+    assert attempt["pattern_matched"] is True
+    assert attempt["pattern_source"] == "heuristic"
+    assert attempt["confidence"] == 0.6
+    assert attempt["idle_gate_passed"] is True
+
+
 def test_done_state_remains_done_until_timeout_expires():
     detector = IdleDetector()
 

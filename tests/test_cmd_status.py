@@ -106,6 +106,15 @@ class TestStatusMetadata:
         text = output.getvalue()
         assert "2h" in text
 
+    def test_displays_renderer_state_when_registered(self):
+        """Should show renderer availability without changing the status value."""
+        info = _make_agent_info(status="WAITING", renderer_available=False)
+        cmd, output = _make_command(agent_info=info)
+        cmd.run("my-claude")
+
+        text = output.getvalue()
+        assert "Status:      WAITING (renderer: off)" in text
+
 
 class TestStatusCurrentTask:
     """Tests for current task with elapsed time."""
@@ -178,7 +187,7 @@ class TestStatusJsonOutput:
 
     def test_json_output(self):
         """Should output valid JSON when json=True."""
-        info = _make_agent_info()
+        info = _make_agent_info(renderer_available=True)
         cmd, output = _make_command(agent_info=info)
         cmd.run("my-claude", json_output=True)
 
@@ -186,6 +195,7 @@ class TestStatusJsonOutput:
         data = json.loads(text)
         assert data["agent_id"] == "synapse-claude-8100"
         assert data["status"] == "READY"
+        assert data["renderer_available"] is True
 
     def test_json_not_found(self):
         """Should output error JSON when agent not found."""
@@ -210,3 +220,64 @@ class TestStatusErrorHandling:
         cmd.run("my-claude")
         text = output.getvalue()
         assert "synapse-claude-8100" in text
+
+
+class TestStatusDebugWaiting:
+    """Tests for WAITING detection diagnostics."""
+
+    def test_debug_waiting_formats_recent_attempts_and_aggregates(self):
+        info = _make_agent_info(endpoint="http://localhost:8100")
+
+        def fake_http_get(url: str) -> dict[str, Any]:
+            assert url == "http://localhost:8100/debug/waiting"
+            return {
+                "renderer_available": True,
+                "attempts": [
+                    {
+                        "timestamp": 1776814438.0,
+                        "profile": "codex",
+                        "path_used": "renderer",
+                        "renderer_on": True,
+                        "pattern_matched": True,
+                        "pattern_source": "primary",
+                        "confidence": 1.0,
+                        "idle_gate_passed": False,
+                        "new_data_hex_prefix": "50726f636565643f",
+                        "rendered_text_tail": "Proceed?",
+                    },
+                    {
+                        "timestamp": 1776814439.0,
+                        "profile": "codex",
+                        "path_used": "strip_ansi",
+                        "renderer_on": False,
+                        "pattern_matched": False,
+                        "pattern_source": None,
+                        "confidence": 0.0,
+                        "idle_gate_passed": False,
+                        "new_data_hex_prefix": "6f7264696e617279",
+                        "rendered_text_tail": "ordinary",
+                    },
+                ],
+            }
+
+        output = StringIO()
+        mock_registry = MagicMock()
+        mock_registry.resolve_agent.return_value = info
+        cmd = StatusCommand(
+            registry=mock_registry,
+            output=output,
+            debug_waiting_fetcher=fake_http_get,
+        )
+
+        cmd.run("my-claude", debug_waiting=True)
+
+        text = output.getvalue()
+        assert "--- WAITING Detection Debug ---" in text
+        assert "Total attempts: 2" in text
+        assert "Pattern matched: 1/2 (50.0%)" in text
+        assert "Path usage: renderer=1, strip_ansi=1" in text
+        assert "Confidence: 0.0=1, 1.0=1" in text
+        assert "Idle gate drops: 1" in text
+        assert "renderer primary 1.0 idle=no matched=yes" in text
+        assert "50726f636565643f" in text
+        assert "Proceed?" in text
