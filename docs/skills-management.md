@@ -160,6 +160,67 @@ git tag v0.27.2 && git push origin main --tags
 #   gh skill install s-hiraoku/synapse-a2a my-new-skill --pin v0.27.2
 ```
 
+## Browsing installed skills in Canvas
+
+Once the Canvas server is running (`synapse canvas serve`), open the
+**Harnesses → Skills** entry in the sidebar, or navigate directly to
+`http://localhost:3000/#/harnesses/skills`.
+
+The viewer is a tree-table of every skill discovered across all four
+scopes — User Global, Project, Synapse Central Store, and Plugin —
+arranged as a **two-level hierarchy** (大分類 → 中分類 → スキル):
+
+1. **Top-level sections** (rendered as separate tables): **User
+   Global** (first), **Projects**, **Synapse Central Store**.
+2. **Sub-groups inside each section**:
+   - **User Global** splits by agent harness — **Claude Code**
+     (`.claude/skills/**`) and **Codex / OpenCode / Gemini / Copilot**
+     (shared `.agents/skills/**`), derived from each skill's
+     `agent_dirs`.
+   - **Projects** splits by project directory (basename + absolute
+     path). Every active project root from the agent registry is
+     shown, worktree-aware. Within a project, skills further sub-group
+     by agent bucket (`.claude` / `.agents`) when both apply.
+
+Columns are:
+
+- **NAME** — skill name from the `SKILL.md` frontmatter.
+- **DESCRIPTION** — parsed from the `SKILL.md` frontmatter. The
+  parser is now backed by PyYAML (`yaml.safe_load`), so full YAML
+  frontmatter is supported — including block scalars (`>`, `>-`,
+  `>+`, `|`, `|-`, `|+`) and their continuation lines. Long
+  descriptions no longer truncate to the literal `>-` token.
+- **LOCATION** — a two-row cell: target agent directories
+  (`.claude`, `.agents`, `plugins/<name>`) as small badges on top, and
+  the absolute skill directory path below. Hover the path to see
+  the backing `SKILL.md` source file.
+
+Use the name filter to narrow the tree; empty groups collapse
+automatically. Parent rows are keyboard-accessible — click, `Enter`,
+or `Space` to collapse or expand.
+
+If the viewer ever looks stale after an upgrade, Canvas caches its
+HTML/JS at startup. `synapse canvas status` will flag this as
+`STALE`; `synapse canvas restart` reloads the assets in place on the
+same port (use `--no-open` to suppress the browser open step).
+
+A sibling viewer, **Harnesses → MCP Servers** (`#/harnesses/mcp`),
+uses the same two-level hierarchy to list MCP servers from every
+supported agent harness:
+
+- **User Global** sub-groups per agent config file — `~/.claude.json`
+  (Claude Code), `~/.codex/config.toml` (Codex, TOML), `~/.gemini/settings.json`
+  (Gemini), `~/.config/opencode/opencode.json` (OpenCode),
+  `~/Library/Application Support/Claude/claude_desktop_config.json`
+  (Claude Desktop).
+- **Projects** sub-groups per project. Projects without a `.mcp.json`
+  still render as a single dashed-folder row with a `no .mcp.json`
+  badge, so "not configured" is distinguished from "not seen".
+
+It surfaces each server's command line and environment-variable
+keys; values are deliberately withheld so secrets never leave the
+server process.
+
 ## Troubleshooting
 
 - **`unknown command "skill" for "gh"`** — `gh` CLI is below 2.90.0.

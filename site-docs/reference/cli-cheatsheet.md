@@ -124,6 +124,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse canvas open` | Open Canvas in browser |
 | `synapse canvas status` | Show server status (PID, version, cards, asset staleness) |
 | `synapse canvas stop` | Stop Canvas server |
+| `synapse canvas restart` | Stop + start on the same port (refresh stale asset cache) |
 
 ### Self-Learning
 
@@ -512,6 +513,8 @@ synapse canvas clear --agent claude
 # Server management
 synapse canvas status                     # Show server status (PID, version, cards, asset staleness)
 synapse canvas stop                       # Stop the Canvas server (SIGTERM with SIGKILL fallback)
+synapse canvas restart                    # Stop + start on the same port (refreshes stale asset cache)
+synapse canvas restart --port 3001 --no-open
 ```
 
 !!! tip "Templates"

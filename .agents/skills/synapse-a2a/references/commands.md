@@ -1561,12 +1561,16 @@ Workflow: fetch PR reviews from `coderabbitai[bot]` -> classify comments (Bug/Se
 
 ## Canvas Board
 
-Canvas is a shared visual dashboard where agents post rich content cards rendered in the browser. The UI is a single-page application (SPA) with five views navigated via hash routing:
+Canvas is a shared visual dashboard where agents post rich content cards rendered in the browser. The UI is a single-page application (SPA) with the following views navigated via hash routing:
 
 - **`#/`** (Canvas view) — Spotlight layout showing the latest card prominently
   - **`#/history`** (History sub-view) — Grid layout with filters, live feed, and agent messages (sub-item under Canvas in sidebar navigation)
 - **`#/dashboard`** (Dashboard view) — Operational overview with expandable summary+detail widgets (Agents, Tasks, File Locks, Worktrees, Memory, Errors)
 - **`#/admin`** (Agent Control) — Browser-based agent management: clickable agent table rows for selection (with role, skill set, working directory), textarea input with Cmd+Enter, reply-based response via `synapse reply` (agent replies are received at Canvas's `/tasks/send` endpoint), section titles (Select Agent, Response), sticky table headers, IME composition handling
+- **`#/workflow`** (Workflow view) — List saved workflows, inspect steps, trigger runs, and monitor run progress with live SSE updates
+- **`#/harnesses`** (Harnesses landing) — Links to agent-harness resource sub-views
+  - **`#/harnesses/skills`** (Skills inventory) — SKILL.md definitions discovered across scopes: User Global (`~/.claude/skills/`, `~/.agents/skills/`), Project (per active project root, including every worktree with a live agent), Synapse Central Store (`~/.synapse/skills/`), and Plugin (`plugins/*/skills/`). Grouped by scope with a per-group table (name, description, agent dirs, source file) and a name-filter search
+  - **`#/harnesses/mcp`** (MCP Servers) — MCP server configs read from Project `.mcp.json` (scanned per active project root), User-scope `~/.claude.json`, and Claude Desktop `~/Library/Application Support/Claude/claude_desktop_config.json`. Each row shows name, scope, type, command, args, cwd, env key names, URL, and source file
 - **`#/system`** (System panel) — Configuration view (tips, saved agents, skills, skill sets, sessions, workflows, environment)
 
 ### Post Cards
@@ -1710,6 +1714,7 @@ synapse canvas open                      # Open in browser (auto-starts server)
 synapse canvas status                    # Show server status (version, PID, mismatch detection)
 synapse canvas logs [-n 50] [-f]         # View server logs
 synapse canvas stop [--port/-p 3000]     # Stop server (verifies process identity before kill)
+synapse canvas restart [--port/-p 3000] [--no-open]  # Stop + start (use after upgrades when status reports ⚠ STALE); reopens browser unless --no-open
 ```
 
 **Auto-start:** The server starts automatically when you post the first card or run `canvas open`. Stale Canvas processes (e.g., leftover from a previous session) are detected and auto-replaced. Cards are auto-cleaned after 1 hour (pinned cards are exempt).
