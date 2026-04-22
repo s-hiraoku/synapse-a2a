@@ -618,7 +618,7 @@ The Canvas UI features a **glassmorphism design** with glass panels and `backdro
 
 For a static preview of every card format and template, open the standalone [Card Gallery](../assets/card-gallery.html). It renders all supported card types and built-in templates with hardcoded sample data under `site-docs/assets/`.
 
-The UI uses **SPA hash routing** with seven views:
+The UI uses **SPA hash routing** with nine views:
 
 | Route | View | Purpose |
 |---|---|---|
@@ -628,6 +628,8 @@ The UI uses **SPA hash routing** with seven views:
 | `#/admin` | **Agent Control** | Command center for sending messages to agents and managing agent lifecycle |
 | `#/workflow` | **Workflow** | Split-panel workflow browser with execution support |
 | `#/database` | **Database** | Browse Synapse SQLite databases (read-only) |
+| `#/harnesses/skills` | **Harnesses → Skills** | Tree-table browser for all discovered skills across user / project / synapse / plugin scopes |
+| `#/harnesses/mcp` | **Harnesses → MCP Servers** | Tree-table browser for MCP servers across projects and every supported agent harness (Claude Code, Codex, Gemini, OpenCode, Claude Desktop) |
 | `#/system` | **System** | Configuration and setup information (tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, environment) |
 
 ### Canvas View (`#/`)
@@ -739,3 +741,53 @@ When `auto_spawn` is enabled (workflow-level or step-level), Canvas automaticall
 **Error messages**: Canvas translates raw errors into actionable messages. If the target agent exists in a different directory, it reports the name conflict and suggests changing the target or stopping the remote agent. If the agent is simply not found, it suggests starting the agent or enabling `auto_spawn`.
 
 See [Workflows](workflow.md) for the full workflow configuration guide, and [Workflow API](../reference/api.md#workflow-api) for endpoint details.
+
+### Harnesses → Skills View (`#/harnesses/skills`)
+
+The **Harnesses → Skills** view is a read-only browser for every skill discovered on the machine. It is reached from the sidebar under **Harnesses → Skills**.
+
+**What it shows**: all skills across the four standard scopes — `user`, `project`, `synapse` (central store), and `plugin` (bundled inside installed plugins).
+
+**Two-level hierarchy**: each entry is placed in a top-level section and then an agent or directory sub-group:
+
+| Top-level section (大分類) | Sub-group (中分類) | Example |
+|---|---|---|
+| **User Global** | Agent harness — Claude Code (`.claude/skills/**`) or Codex / OpenCode / Gemini / Copilot (shared `.agents/skills/**`) | `Claude Code → pdf` |
+| **Projects** | Project directory (basename + absolute path), further split by `.claude` / `.agents` buckets when both apply | `synapse-a2a → .claude → release` |
+| **Synapse Central Store** | Flat — no sub-group needed | `release` |
+
+Project roots are inferred from the `working_dir` of every live agent in the registry (worktree-aware, so worktrees collapse back to the base repo), plus the Canvas process's own `cwd`.
+
+**Columns**: NAME / DESCRIPTION / LOCATION. The LOCATION cell is two rows — target badges (`agent_dirs`) on top, absolute skill directory path below. DESCRIPTION supports YAML block scalars (`>-`, `|`, etc.) so long `SKILL.md` descriptions render fully.
+
+A **name filter** at the top narrows the tree by substring match against skill names. Groups with no visible children are hidden automatically so the tree stays compact while you search. Parent rows are collapsible (click or Enter/Space).
+
+The Canvas server enumerates skill directories inside `/api/system`, but the result is cached per-process (a TTL cache on slow-changing system data), so adding or editing a `SKILL.md` while the server is running is not picked up until the cache expires. To force an immediate refresh — along with reloading any frontend assets the running process has cached in memory — use [`synapse canvas restart`](../reference/cli.md#restart). Agents themselves do not need to register skills explicitly.
+
+### Harnesses → MCP Servers View (`#/harnesses/mcp`)
+
+The **Harnesses → MCP Servers** view is a read-only browser for every MCP server configured across the machine, grouped by the agent harness (or project) that declared it. It is reached from the sidebar under **Harnesses → MCP Servers**.
+
+**What it shows**: MCP servers discovered from every supported agent harness config:
+
+| Source | File | Format |
+|---|---|---|
+| Project-level (any agent) | `<project>/.mcp.json` | JSON, `mcpServers` key |
+| Claude Code | `~/.claude.json` | JSON, `mcpServers` key |
+| Codex | `~/.codex/config.toml` | **TOML**, `[mcp_servers.<name>]` tables |
+| Gemini | `~/.gemini/settings.json` | JSON, `mcpServers` key |
+| OpenCode | `~/.config/opencode/opencode.json` | JSON, `mcp` key (entries' `command` may be an argv array; the server flattens it to `command` + `args`) |
+| Claude Desktop (macOS) | `~/Library/Application Support/Claude/claude_desktop_config.json` | JSON, `mcpServers` key |
+
+**Two-level hierarchy**: each entry is placed in a top-level section and then an agent or directory sub-group:
+
+| Top-level section (大分類) | Sub-group (中分類) | Example |
+|---|---|---|
+| **User Global** (top) | Agent harness — Claude Code / Codex / Gemini / OpenCode / Claude Desktop | `Codex → serena` |
+| **Projects** (bottom) | Project directory (basename + absolute path). Projects without a `.mcp.json` still render as a single dashed-folder row with a `no .mcp.json` badge, so "not configured" is distinguished from "not seen" | `canvas-skills-viewer → synapse-channel` |
+
+**Columns**: NAME / COMMAND / DETAILS. COMMAND is the resolved `command args…` rendered in monospace. DETAILS is a two-row cell — the top row starts with the transport `type` (default `stdio`) followed by `env:KEY` chips for every declared environment variable (**keys only, values are never rendered**), and the bottom row shows the backing `source_file` path.
+
+A **search box** at the top narrows the tree by substring match against server names, keeping matching rows and their parent groups visible. Parent rows are collapsible (click or Enter/Space), matching the Skills viewer.
+
+The view is pull-based: the Canvas server re-reads every config file on each `/api/system` refresh. To apply config changes, save the file and let the next poll pick them up, or run [`synapse canvas restart`](../reference/cli.md#restart) to force an immediate re-scan along with a frontend asset reload.

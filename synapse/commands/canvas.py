@@ -419,6 +419,16 @@ def canvas_stop(port: int = DEFAULT_PORT) -> None:
         os.remove(PID_FILE)
 
 
+def canvas_restart(port: int = DEFAULT_PORT) -> bool:
+    """Stop the running Canvas server (if any) and start a fresh one.
+
+    Use when ``canvas status`` reports ``⚠ STALE`` — e.g. after an upgrade
+    where the running process is still serving cached HTML/JS/CSS.
+    """
+    canvas_stop(port=port)
+    return ensure_server_running(port=port)
+
+
 # ============================================================
 # Card posting
 # ============================================================

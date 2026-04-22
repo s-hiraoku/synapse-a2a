@@ -1439,7 +1439,7 @@ wheels = [
 
 [[package]]
 name = "synapse-a2a"
-version = "0.27.2"
+version = "0.28.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -1451,6 +1451,7 @@ dependencies = [
     { name = "requests" },
     { name = "rich" },
     { name = "simple-term-menu" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "uvicorn" },
     { name = "watchdog" },
     { name = "wcwidth" },
@@ -1491,6 +1492,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "simple-term-menu", specifier = ">=1.6.6" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0" },
     { name = "uvicorn", specifier = ">=0.23.0" },
     { name = "watchdog", specifier = ">=3.0.0" },
     { name = "wcwidth", specifier = ">=0.2.0" },

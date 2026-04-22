@@ -58,7 +58,7 @@
 synapse --version
 ```
 
-You should see the version number (e.g., `0.27.2`).
+You should see the version number (e.g., `0.28.0`).
 
 ## Initialize Configuration
 
@@ -88,7 +88,7 @@ gh skill install s-hiraoku/synapse-a2a synapse-manager
 gh skill install s-hiraoku/synapse-a2a synapse-reinst
 
 # Optional: pin to a release tag so updates are explicit
-gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.27.2
+gh skill install s-hiraoku/synapse-a2a synapse-a2a --pin v0.28.0
 
 # Optional: target a specific agent runtime
 gh skill install s-hiraoku/synapse-a2a synapse-a2a --agent claude-code

@@ -304,6 +304,13 @@ The `/api/system` endpoint aggregates state from across the project:
 - `agents`: List of active agents. Added fields: `pid`, `role`, `skill_set`, `working_dir`, `endpoint`, `current_task_preview`, `task_received_at`.
 - `user_agent_profiles`: User-scope saved agent definitions from `~/.synapse/agents/`. Fields: `id`, `name`, `profile`, `role`, `skill_set`, `scope`.
 - `active_project_agent_profiles`: Saved agent definitions from active projects only, derived from running agents' `working_dir` values and normalized so worktrees resolve to the base repo. Fields: `id`, `name`, `profile`, `role`, `skill_set`, `scope`.
+- `skills`: Discovered skills from project, user, synapse central store, and plugin scopes. Each entry includes `name`, `description`, `scope` (`user` / `project` / `synapse` / `plugin`), `agent_dirs` (target agent directory slugs), `path` (absolute skill directory), `source_file` (backing `SKILL.md`), and `project_root` (anchor used for grouping). Consumed by the Skills viewer (`#/harnesses/skills`).
+- `mcp_servers`: MCP server entries scanned from every supported agent harness.
+  - **Project scope** — `<project>/.mcp.json` (Claude Code, shared).
+  - **User scope (per agent)** — `~/.claude.json` (Claude Code), `~/.codex/config.toml` (Codex, TOML), `~/.gemini/settings.json` (Gemini), `~/.config/opencode/opencode.json` (OpenCode; `command` may be an argv array which the server flattens into `command` + `args`), and `~/Library/Application Support/Claude/claude_desktop_config.json` (Claude Desktop).
+  - Each entry includes `name`, `scope` (`project` / `claude` / `codex` / `gemini` / `opencode` / `claude_desktop`), `type` (default `stdio`), `command`, `args`, `cwd`, `env_keys` (keys only — values are never exposed), `url`, `source_file`, and `project_root` (for `project` scope: the active project root; for user-scope: the agent label).
+  - Consumed by the MCP Servers viewer (`#/harnesses/mcp`).
+- `project_roots`: Every active project root Canvas scanned (cwd + unique `working_dir` values from live agent registry entries, worktree-aware). The MCP viewer uses this to render an empty "no `.mcp.json`" row for projects that exist but have no MCP config — so the user can tell "not configured" from "not seen".
 - `file_locks`: Active file locks.
 - `memories`: Latest 20 shared memory entries.
 - `worktrees`: Active worktrees from the registry.
@@ -468,7 +475,7 @@ When a mermaid block carries `x_title` or `x_filename` metadata, the renderer wr
 
 ### SPA Routing
 
-The browser UI uses hash-based SPA routing with five views:
+The browser UI uses hash-based SPA routing with the following views:
 
 | Route | View | Icon | Description |
 |---|---|---|---|
@@ -476,6 +483,9 @@ The browser UI uses hash-based SPA routing with five views:
 | `#/dashboard` | **Dashboard view** | `ph-squares-four` | Operational status overview: agents, tasks, file locks, worktrees, shared memory, and registry errors. Each widget uses a summary+detail expand/collapse pattern. |
 | `#/history` | **History view** | `ph-clock-counter-clockwise` | Live Feed + Agent Messages. The traditional card overview. |
 | `#/admin` | **Agent Control** | `ph-crown` | Interactive agent management: send messages, inspect responses, and control the fleet. |
+| `#/harnesses` | **Harnesses landing** | `ph-toolbox` | Parent page for agent harness resources. Links into sub-views (currently: Skills, MCP Servers). |
+| `#/harnesses/skills` | **Skills viewer** | `ph-puzzle-piece` | Tree-table of discovered skills grouped by scope (User Global, Project, Synapse Central Store, Plugin) with project-root inference. Columns: NAME / DESCRIPTION / LOCATION. The LOCATION cell is two rows — targets (`agent_dirs`) as small badges on top, absolute skill directory path below. Incremental name filter hides empty groups; parent rows are collapsible (click or Enter/Space). Nested under the **Harnesses** sidebar parent. |
+| `#/harnesses/mcp` | **MCP Servers viewer** | `ph-plugs-connected` | Tree-table of MCP servers configured in project `.mcp.json` plus every supported user-scope agent config — Claude Code (`~/.claude.json`), Codex (`~/.codex/config.toml`, TOML), Gemini (`~/.gemini/settings.json`), OpenCode (`~/.config/opencode/opencode.json`), and Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json`). Grouped into **User Global** (per-agent sub-groups) and **Projects** (per-project sub-groups; projects with no `.mcp.json` render as a dashed-folder "no `.mcp.json`" row). Shows the resolved command line (`command` + `args`), `cwd`, `type`, and the sorted list of `env` keys (values are never sent to the browser). Same incremental filter + collapsible parent rows as the Skills viewer. Nested under the **Harnesses** sidebar parent. |
 | `#/system` | **System view** | `ph-gear` | Configuration panel: tips, user-scope saved agents, active-project saved agents, skills, skill sets, sessions, workflows, and environment. |
 
 Navigation uses a sidebar (fixed on desktop, hamburger drawer on mobile) with Phosphor Icons. History is a sub-item under Canvas in the sidebar (indented with `nav-sub` class); when the History route is active, the Canvas parent link also shows as active and the topbar displays "Canvas / History". The URL hash updates accordingly and the browser back/forward buttons work as expected.
@@ -571,6 +581,41 @@ The System view shows configuration and environment information (no operational 
 6. **Sessions**: Saved session configurations.
 7. **Workflows**: Saved workflow definitions.
 8. **Environment**: Environment variables and runtime configuration.
+
+### Harnesses / Skills Viewer (`#/harnesses/skills`)
+
+The Skills view is a dedicated browsing surface for the skills that back agent harnesses. It complements the flat "Skills" block in the System view with a richer tree-table that makes location and ownership obvious.
+
+- **Sidebar placement**: top-level `Harnesses` entry (`ph-toolbox`) with `Skills` (`ph-puzzle-piece`) as a `nav-sub` child. `#/harnesses` is the landing page; `#/harnesses/skills` renders the viewer. Activating the child also lights the parent link and sets the topbar breadcrumb to `Harnesses / Skills`.
+- **Data source**: `/api/system` response. Each skill entry carries `name`, `description`, `scope`, `agent_dirs` (target agent directory slugs), `path` (absolute skill directory), `source_file` (absolute path to the backing `SKILL.md`), and `project_root` (inferred anchor used for grouping). The server-side payload was extended to include `path`, `source_file`, and `project_root` specifically for this viewer.
+- **Two-level hierarchy** (大分類 → 中分類 → スキル):
+  1. **Top-level sections** render as separate tables: **User Global** (上), **Projects**, **Synapse Central Store**.
+  2. **User Global** subdivides by agent harness via `agent_dirs`: **Claude Code** (`.claude/skills/**`) and **Codex / OpenCode / Gemini / Copilot** (shared `.agents/skills/**`). Each agent bucket is a collapsible group.
+  3. **Projects** subdivides by inferred project root (directory basename + absolute path as sub-title). Within each project, skills further sub-group by agent bucket (`.claude` / `.agents`) when both apply; single-bucket projects skip the inner header for density.
+  4. Project roots come from active agents' `working_dir` values (worktree-aware) plus Canvas's own cwd.
+- **Columns**: `NAME`, `DESCRIPTION`, `LOCATION`. `LOCATION` is a two-row cell — the top row shows `agent_dirs` targets as small badges (`.claude`, `.agents`, `plugins/<name>`), and the bottom row shows the absolute directory path rendered as monospace text.
+- **Collapsible parent rows**: every group header is a keyboard-accessible toggle (`click`, `Enter`, or `Space`) that hides/shows its children. Initial state is expanded.
+- **Incremental filter**: a name-filter textbox performs substring matching on skill names. Groups with no visible children are hidden entirely so the tree stays compact while you search.
+- **YAML parsing**: skill descriptions come from `parse_skill_frontmatter()` in `synapse/skills.py`. The parser now delegates to PyYAML (`yaml.safe_load`), so full YAML frontmatter is supported — including block scalars (`>`, `>-`, `>+`, `|`, `|-`, `|+`) and their continuation lines. Long descriptions no longer truncate to the literal `>-` token.
+- **Asset caching**: Canvas caches HTML/JS at startup, so after upgrading or hot-editing viewer assets, run `synapse canvas restart` to reload. `synapse canvas status` reports `STALE` when the running server's asset hash no longer matches the on-disk hash.
+
+### Harnesses / MCP Servers Viewer (`#/harnesses/mcp`)
+
+Sibling to the Skills viewer, the MCP Servers view lists every Model Context Protocol server configured for the current project or for any supported agent harness.
+
+- **Sidebar placement**: sibling `nav-sub` under `Harnesses` (`ph-plugs-connected`). Activating it also lights the `Harnesses` parent link and sets the breadcrumb to `Harnesses / MCP Servers`.
+- **Data source**: `mcp_servers` + `project_roots` fields on `/api/system`. The server collects entries from every supported agent harness via `_collect_mcp_servers()` in `synapse/canvas/server.py`:
+  - **Project scope** — `<project>/.mcp.json` (JSON, `mcpServers` key). Scanned for every active project root.
+  - **Claude Code** — `~/.claude.json` (JSON, `mcpServers` key).
+  - **Codex** — `~/.codex/config.toml` (**TOML**, `[mcp_servers.<name>]` tables).
+  - **Gemini** — `~/.gemini/settings.json` (JSON, `mcpServers` key).
+  - **OpenCode** — `~/.config/opencode/opencode.json` (JSON, `mcp` key; entries' `command` may be an argv list which the server flattens to `command` + `args`).
+  - **Claude Desktop** — `~/Library/Application Support/Claude/claude_desktop_config.json` (JSON, `mcpServers` key; macOS path).
+- **Payload shape**: `name`, `scope` (`project` / `claude` / `codex` / `gemini` / `opencode` / `claude_desktop`), `type` (default `stdio`), `command`, `args`, `cwd`, `url`, `env_keys` (sorted list of keys — values are intentionally withheld so secrets never leave the process), `source_file`, `project_root`.
+- **Two-level hierarchy** (大分類 → 中分類 → サーバ):
+  1. **User Global** (大分類, 上) groups servers by agent harness as a subsection each — Claude Code, Codex, Gemini, OpenCode, Claude Desktop — so "どのエージェントに登録された MCP か" が一目で分かります。
+  2. **Projects** (大分類, 下) groups by project root. Every active project root from `/api/system.project_roots` is rendered, even when it has no `.mcp.json` — those projects appear as a single dashed-folder row with a `no .mcp.json` badge so "not configured" is distinguished from "not seen".
+- **Columns**: NAME / COMMAND / DETAILS. `COMMAND` renders the resolved `command args…` in monospace. `DETAILS` is a two-row cell — the top row is a chip list starting with the transport `type` (default `stdio`) followed by `env:KEY` chips for each declared environment variable (**keys only, values are never rendered**), and the bottom row shows the backing `source_file` path. Same collapsible parent rows and incremental name filter as the Skills viewer.
 
 ### CSS Design System
 The UI adheres to a strict design system for consistency and accessibility:
@@ -876,7 +921,7 @@ CANVAS_CARD_TTL: int = 3600                 # Card expiry: 1 hour (seconds)
 - [x] All 23 card formats verified on Canvas view
 
 ### Phase 3: UX Polish
-- [x] SPA routing: `#/` (Canvas view), `#/dashboard` (Dashboard view), `#/history` (History view), `#/admin` (Agent Control), and `#/system` (System view)
+- [x] SPA routing: `#/` (Canvas view), `#/dashboard` (Dashboard view), `#/history` (History view), `#/admin` (Agent Control), `#/harnesses` (Harnesses landing), `#/harnesses/skills` (Skills viewer), `#/harnesses/mcp` (MCP Servers viewer), and `#/system` (System view)
 - [ ] Card pinning + tag filtering
 - [x] Toast notifications (`notify` type) with batching (300ms window)
 - [x] Dark/light theme toggle (includes theme-synced Mermaid diagrams)
@@ -912,7 +957,7 @@ Documented 12 new formats added to FORMAT_REGISTRY including `log`, `status`, `m
 3. **HTML sandboxing**: `html` format renders in sandboxed `<iframe>`. In Canvas view, the iframe fills the content area via CSS flex; in History view, it auto-resizes to content height.
 4. **CDN vs vendored**: CDN for Phase 1. `--offline` flag for vendored assets in the future.
 5. **Card ownership**: Agents can only update/delete their own cards.
-6. **SPA routing**: Hash-based (`#/`, `#/history`, `#/dashboard`, `#/admin`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience; History is a sub-route under Canvas in the sidebar. Dashboard shows operational status; Agent Control (`#/admin`) provides interactive agent management; System shows configuration.
+6. **SPA routing**: Hash-based (`#/`, `#/history`, `#/dashboard`, `#/admin`, `#/harnesses`, `#/harnesses/skills`, `#/harnesses/mcp`, `#/system`) for zero-server-config client-side routing. Canvas view is the default route for an immersive card display experience; History is a sub-route under Canvas in the sidebar. Dashboard shows operational status; Agent Control (`#/admin`) provides interactive agent management; Harnesses is a landing page whose Skills (`#/harnesses/skills`) and MCP Servers (`#/harnesses/mcp`) sub-routes browse discovered skills and configured MCP servers respectively; System shows configuration.
 7. **Diff rendering**: Built-in side-by-side diff renderer instead of unified diff. Parses unified diff format and renders old/new lines in a two-column layout.
 8. **Code highlighting**: highlight.js integrated for `code` format cards. Configured with `ignoreUnescapedHTML: true`.
 

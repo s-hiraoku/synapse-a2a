@@ -4,6 +4,17 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.28.0
+
+- **Added**: Canvas Skills Viewer (`#/harnesses/skills`) — new SPA sub-view that lists every discovered skill grouped by scope (User Global, Synapse Global, Plugin, per-active-project). SKILL.md frontmatter is parsed with PyYAML so quoted colons and multi-line values now parse correctly
+- **Added**: Canvas MCP Servers Viewer (`#/harnesses/mcp`) — inventories MCP servers from every active project's `.mcp.json` plus five user-scope agent configs (Claude Code, Codex, Gemini, OpenCode, Claude Desktop). `env` values are stripped to keys-only before reaching the UI
+- **Added**: `synapse canvas restart` — stop-then-start helper for the `⚠ STALE` case after upgrades. Accepts `--port/-p` and `--no-open`
+- **Added**: Worktree-aware default scope on agent-profile save — the prompt now defaults to `user` inside a worktree (project scope vanishes on cleanup) and to `project` otherwise, with the rationale inlined in the prompt text
+- **Changed**: Canvas registry scans consolidated into a single iterator pair (`_iter_registry_entries{,_with_errors}`) — three duplicated glob+parse loops collapsed; `system_panel` no longer re-scans the registry from `_collect_static_sections` on every cache refresh
+- **Changed**: Skill SKILL.md frontmatter parser switched from a hand-rolled regex to `yaml.safe_load`. Behavior unchanged for shipped scalar-only frontmatter
+- **Removed**: Orphan workflow-autogen skills `my-review` and `user-wf` per the responsibility-matrix RFC (#610) — both lacked backing `.synapse/workflows/*.yaml` and were unreferenced
+- **Fixed**: Profile command strings with multiple tokens, such as `python3 -u dummy_agent.py`, are now split with `shlex` before launch so profile-defined arguments are executed correctly (subsumes the un-tagged 0.27.2 fix)
+
 ### v0.27.2
 
 - **Fixed**: Profile command strings with multiple tokens, such as `python3 -u dummy_agent.py`, are now split with `shlex` before launch so profile-defined arguments are executed correctly

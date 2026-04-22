@@ -82,7 +82,12 @@ Interactive TUI with real-time updates. See [Agent Management](../guide/agent-ma
 | `--json` | Output agent list as a JSON array for AI/programmatic consumption (no TUI) |
 | `--plain` | Force one-shot plain-text output without entering the Rich TUI |
 
+The `--json` output includes `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `summary`, `is_orphan`, `spawned_by`, and optionally `editing_file`.
+
 For AI-controlled terminals, do not use bare `synapse list`. Use `synapse list --json`, `synapse list --plain`, `synapse status <target> --json`, or the MCP `list_agents` tool.
+
+!!! note "Orphan annotations"
+    Child agents (spawned with `SYNAPSE_SPAWNED_BY`) whose parent has been removed from the registry, or whose parent PID is no longer alive, are flagged as orphans. The Rich TUI appends ` [ORPHAN]` to the STATUS column for these rows, and the `--json` output reports `is_orphan: true` with the original `spawned_by` value. Set `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<seconds>` to let `synapse list` sweep long-`READY` orphans opportunistically. Explicit reaping uses [`synapse cleanup`](#cleanup).
 
 ### Status
 
@@ -783,6 +788,19 @@ Stops the Canvas server. Detection uses the `/api/health` endpoint first (verify
 | Flag | Description |
 |------|-------------|
 | `--port PORT`, `-p PORT` | Canvas server port to stop (default: 3000) |
+
+### Restart
+
+```bash
+synapse canvas restart [--port PORT] [--no-open]
+```
+
+Stops the Canvas server and starts a fresh one on the same port. Useful after a code change or a skill install when the server's cached `asset_hash` no longer matches the local frontend assets (detected as **STALE** by `synapse canvas status`). Internally this runs `stop` followed by `serve`, preserving the port so that open browser tabs can reconnect.
+
+| Flag | Description |
+|------|-------------|
+| `--port PORT` | Canvas server port (default: 3000) |
+| `--no-open` | Don't reopen the browser after restart |
 
 ## Logs
 

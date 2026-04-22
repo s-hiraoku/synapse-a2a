@@ -15,11 +15,19 @@ import os
 import re
 import signal
 import sqlite3
+import sys
 import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable, Iterable, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+# tomllib was added to stdlib in Python 3.11 (PEP 680); fall back to the
+# `tomli` backport on 3.10 so Canvas can still parse Codex MCP configs.
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover - 3.10 compat branch
+    import tomli as tomllib
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -171,18 +179,9 @@ def _resolve_agent_endpoint(
     Returns:
         HTTP endpoint URL, or None if not found.
     """
-    registry_dir = _get_registry_dir()
-    if not os.path.isdir(registry_dir):
+    candidates: list[dict[str, Any]] = list(_iter_registry_entries(live_only=True))
+    if not candidates:
         return None
-
-    candidates: list[dict[str, Any]] = []
-    for file_path in glob.glob(os.path.join(registry_dir, "*.json")):
-        try:
-            data = json.loads(Path(file_path).read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError, UnicodeDecodeError):
-            continue
-        if _is_live_registry_entry(data):
-            candidates.append(data)
 
     # Exact agent_id match
     for c in candidates:
@@ -427,37 +426,271 @@ def _active_project_root(agent_data: dict[str, Any]) -> Path | None:
     return None
 
 
-def _collect_static_sections() -> dict[str, Any]:
-    """Collect slow-changing system data (skills, sessions, etc.)."""
-    result: dict[str, Any] = {}
+def _iter_registry_entries_with_errors(
+    live_only: bool = False,
+) -> Iterator[tuple[str, dict[str, Any] | Exception]]:
+    """Yield ``(file_path, data_or_exception)`` for every registry JSON file.
 
-    # Skills
+    Shared to avoid reimplementing the glob+parse+skip pattern across callers.
+    Use :func:`_iter_registry_entries` when parse errors can be silently dropped.
+    """
+    registry_dir = _get_registry_dir()
+    if not os.path.isdir(registry_dir):
+        return
+    for file_path in sorted(glob.glob(os.path.join(registry_dir, "*.json"))):
+        try:
+            data = json.loads(Path(file_path).read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError, UnicodeDecodeError) as exc:
+            if not live_only:
+                yield file_path, exc
+            continue
+        if live_only and not _is_live_registry_entry(data):
+            continue
+        yield file_path, data
+
+
+def _iter_registry_entries(live_only: bool = False) -> Iterator[dict[str, Any]]:
+    """Yield live registry dicts, silently dropping parse errors."""
+    for _, data in _iter_registry_entries_with_errors(live_only=live_only):
+        if isinstance(data, dict):
+            yield data
+
+
+def _active_project_roots(
+    entries: Iterable[dict[str, Any]] | None = None,
+) -> list[Path]:
+    """Return unique project roots of live agents (worktree-aware).
+
+    Pass ``entries`` to reuse an already-loaded list of registry dicts and
+    avoid a second disk scan. Falls back to reading the registry directly.
+    """
+    if entries is None:
+        entries = _iter_registry_entries(live_only=True)
+    seen: set[Path] = set()
+    roots: list[Path] = []
+    for data in entries:
+        root = _active_project_root(data)
+        if root is None or root in seen:
+            continue
+        seen.add(root)
+        roots.append(root)
+    return roots
+
+
+def _collect_skills(
+    project_roots: list[Path],
+    user_dir: Path | None,
+    synapse_dir: Path | None,
+) -> list[dict[str, Any]]:
+    """Scan global (user/synapse) scopes once; project/plugin per active root.
+
+    Project/plugin scopes are scanned per root so each project renders as its
+    own UI group.
+    """
     skills: list[dict[str, Any]] = []
     try:
-        from synapse.skills import discover_skills
+        from synapse.skills import SkillScope, discover_skills
+    except (ImportError, OSError, RuntimeError):
+        logger.debug("Failed to import skills module", exc_info=True)
+        return skills
 
-        project_dir = Path.cwd()
-        user_dir = Path.home()
-        synapse_dir = user_dir / ".synapse"
+    project_anchor_by_scope: dict[Any, Path | None] = {
+        SkillScope.USER: user_dir,
+        SkillScope.SYNAPSE: synapse_dir,
+    }
 
-        for sk in discover_skills(
-            project_dir=project_dir,
-            user_dir=user_dir,
-            synapse_dir=synapse_dir,
-        ):
+    def _record(scanned: Any, project_root: Path | None) -> None:
+        for sk in scanned:
+            anchor_path = (
+                project_root
+                if sk.scope in (SkillScope.PROJECT, SkillScope.PLUGIN)
+                else project_anchor_by_scope.get(sk.scope)
+            )
             skills.append(
                 {
                     "name": sk.name,
                     "description": sk.description,
-                    "scope": sk.scope.value
-                    if hasattr(sk.scope, "value")
-                    else str(sk.scope),
+                    "scope": sk.scope.value,
                     "agent_dirs": sk.agent_dirs,
+                    "path": str(sk.path),
+                    "source_file": str(sk.source_file),
+                    "project_root": str(anchor_path) if anchor_path else "",
                 }
             )
+
+    try:
+        _record(
+            discover_skills(
+                project_dir=None, user_dir=user_dir, synapse_dir=synapse_dir
+            ),
+            None,
+        )
     except (OSError, RuntimeError):
-        logger.debug("Failed to collect skills", exc_info=True)
-    result["skills"] = skills
+        logger.debug("Failed to discover global skills", exc_info=True)
+
+    for project_root in project_roots:
+        try:
+            scanned = discover_skills(
+                project_dir=project_root, user_dir=None, synapse_dir=None
+            )
+        except (OSError, RuntimeError):
+            logger.debug("Failed to discover skills in %s", project_root, exc_info=True)
+            continue
+        _record(scanned, project_root)
+
+    return skills
+
+
+def _mcp_entry(
+    name: str,
+    entry: dict[str, Any],
+    scope: str,
+    src_path: Path,
+    project_root: str,
+) -> dict[str, Any] | None:
+    """Normalize one MCP server entry into the Canvas payload schema.
+
+    ``env_keys`` is returned instead of values to avoid leaking secrets to the UI.
+    """
+    cmd = entry.get("command", "")
+    args = entry.get("args", []) or []
+    if isinstance(cmd, list):
+        if not cmd:
+            return None
+        args = list(cmd[1:]) + list(args)
+        cmd = cmd[0]
+    env = entry.get("env") or {}
+    return {
+        "name": name,
+        "scope": scope,
+        "type": entry.get("type", "stdio"),
+        "command": str(cmd) if cmd else "",
+        "args": [str(a) for a in args],
+        "cwd": str(entry.get("cwd", "")),
+        "env_keys": sorted(env.keys()) if isinstance(env, dict) else [],
+        "url": str(entry.get("url", "")),
+        "source_file": str(src_path),
+        "project_root": project_root,
+    }
+
+
+def _load_json_mcp_section(path: Path, key: str) -> dict[str, Any]:
+    """Return the MCP dict under *key* in a JSON config, or empty dict."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        logger.debug("Failed to read MCP config %s", path, exc_info=True)
+        return {}
+    section = data.get(key) if isinstance(data, dict) else None
+    return section if isinstance(section, dict) else {}
+
+
+def _load_toml_mcp_section(path: Path) -> dict[str, Any]:
+    """Return ``mcp_servers`` from a Codex TOML config, or empty dict."""
+    try:
+        with path.open("rb") as f:
+            data = tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
+        logger.debug("Failed to read TOML MCP config %s", path, exc_info=True)
+        return {}
+    section = data.get("mcp_servers")
+    return section if isinstance(section, dict) else {}
+
+
+def _collect_mcp_servers(
+    project_roots: list[Path],
+    user_dir: Path | None,
+) -> list[dict[str, Any]]:
+    """Scan MCP configs across every active project + every supported agent.
+
+    Each user-scope source uses a distinct scope label (``claude``, ``codex``,
+    etc.) so the UI can render them as separate groups under "User Global".
+    """
+    servers: list[dict[str, Any]] = []
+
+    def _append(entries: dict[str, Any], scope: str, src: Path, root: str) -> None:
+        for name, entry in entries.items():
+            if not isinstance(entry, dict):
+                continue
+            row = _mcp_entry(name, entry, scope, src, root)
+            if row is not None:
+                servers.append(row)
+
+    for root in project_roots:
+        src = root / ".mcp.json"
+        _append(_load_json_mcp_section(src, "mcpServers"), "project", src, str(root))
+
+    if user_dir is None:
+        return servers
+
+    _load_json_mcp = _load_json_mcp_section  # local alias keeps the table readable
+    user_sources: list[tuple[str, Path, Callable[[Path], dict[str, Any]]]] = [
+        (
+            "claude",
+            user_dir / ".claude.json",
+            lambda p: _load_json_mcp(p, "mcpServers"),
+        ),
+        ("codex", user_dir / ".codex" / "config.toml", _load_toml_mcp_section),
+        (
+            "gemini",
+            user_dir / ".gemini" / "settings.json",
+            lambda p: _load_json_mcp(p, "mcpServers"),
+        ),
+        (
+            "opencode",
+            user_dir / ".config" / "opencode" / "opencode.json",
+            lambda p: _load_json_mcp(p, "mcp"),
+        ),
+        (
+            "claude_desktop",
+            user_dir
+            / "Library"
+            / "Application Support"
+            / "Claude"
+            / "claude_desktop_config.json",
+            lambda p: _load_json_mcp(p, "mcpServers"),
+        ),
+    ]
+    for scope, src, loader in user_sources:
+        _append(loader(src), scope, src, scope)
+
+    return servers
+
+
+def _collect_static_sections(
+    active_roots: Iterable[Path] | None = None,
+) -> dict[str, Any]:
+    """Collect slow-changing system data (skills, sessions, etc.).
+
+    ``active_roots`` may be passed by callers that already scanned the
+    registry to avoid a duplicate scan; falls back to ``_active_project_roots()``.
+    """
+    result: dict[str, Any] = {}
+
+    # Always include the Canvas process's own cwd so the current project is
+    # represented even when no agents are running.
+    try:
+        cwd_root: Path | None = Path.cwd()
+    except (OSError, RuntimeError):
+        cwd_root = None
+    try:
+        user_dir: Path | None = Path.home()
+    except RuntimeError:
+        user_dir = None
+    synapse_dir = (user_dir / ".synapse") if user_dir else None
+
+    scanned_roots = (
+        list(active_roots) if active_roots is not None else _active_project_roots()
+    )
+    project_roots = list(
+        dict.fromkeys(r for r in (cwd_root, *scanned_roots) if r is not None)
+    )
+
+    result["skills"] = _collect_skills(project_roots, user_dir, synapse_dir)
+    result["mcp_servers"] = _collect_mcp_servers(project_roots, user_dir)
+    # Export the scanned project roots so the UI can render empty rows for
+    # projects that have no .mcp.json / skills but were still discovered.
+    result["project_roots"] = [str(p) for p in project_roots]
 
     # Skill Sets
     skill_sets: list[dict[str, Any]] = []
@@ -665,53 +898,53 @@ def create_app(db_path: str | None = None) -> FastAPI:
         agents: list[dict[str, Any]] = []
         registry_errors: list[dict[str, str]] = []
         worktrees: list[dict[str, str]] = []
-        registry_dir = os.path.expanduser("~/.a2a/registry")
-        if os.path.isdir(registry_dir):
-            for file_path in sorted(glob.glob(os.path.join(registry_dir, "*.json"))):
-                try:
-                    data = json.loads(Path(file_path).read_text(encoding="utf-8"))
-                except (json.JSONDecodeError, OSError, UnicodeDecodeError) as e:
-                    registry_errors.append(
-                        {"source": os.path.basename(file_path), "message": str(e)}
-                    )
-                    continue
+        # Capture parsed entries once; reused below for profile discovery.
+        registry_entries: list[dict[str, Any]] = []
+        for file_path, data in _iter_registry_entries_with_errors():
+            if isinstance(data, Exception):
+                registry_errors.append(
+                    {"source": os.path.basename(file_path), "message": str(data)}
+                )
+                continue
 
-                working_dir = data.get("working_dir", "")
-                worktree_branch = data.get("worktree_branch")
-                working_dir_short = os.path.basename(working_dir) if working_dir else ""
-                if worktree_branch:
-                    working_dir_short = f"[WT] {working_dir_short}"
+            registry_entries.append(data)
 
-                agents.append(
+            working_dir = data.get("working_dir", "")
+            worktree_branch = data.get("worktree_branch")
+            working_dir_short = os.path.basename(working_dir) if working_dir else ""
+            if worktree_branch:
+                working_dir_short = f"[WT] {working_dir_short}"
+
+            agents.append(
+                {
+                    "agent_id": data.get("agent_id", ""),
+                    "name": data.get("name", ""),
+                    "agent_type": data.get("agent_type", ""),
+                    "status": data.get("status", ""),
+                    "port": data.get("port"),
+                    "pid": data.get("pid"),
+                    "role": data.get("role", ""),
+                    "skill_set": data.get("skill_set", ""),
+                    "working_dir": working_dir_short,
+                    "endpoint": data.get("endpoint", ""),
+                    "current_task_preview": data.get("current_task_preview", ""),
+                    "task_received_at": data.get("task_received_at"),
+                    "summary": data.get("summary", ""),
+                }
+            )
+
+            # Extract worktree info in the same pass
+            wt_path = data.get("worktree_path")
+            if wt_path:
+                worktrees.append(
                     {
                         "agent_id": data.get("agent_id", ""),
-                        "name": data.get("name", ""),
-                        "agent_type": data.get("agent_type", ""),
-                        "status": data.get("status", ""),
-                        "port": data.get("port"),
-                        "pid": data.get("pid"),
-                        "role": data.get("role", ""),
-                        "skill_set": data.get("skill_set", ""),
-                        "working_dir": working_dir_short,
-                        "endpoint": data.get("endpoint", ""),
-                        "current_task_preview": data.get("current_task_preview", ""),
-                        "task_received_at": data.get("task_received_at"),
-                        "summary": data.get("summary", ""),
+                        "agent_name": data.get("name", ""),
+                        "path": os.path.basename(wt_path),
+                        "branch": data.get("worktree_branch", ""),
+                        "base_branch": data.get("worktree_base_branch", ""),
                     }
                 )
-
-                # Extract worktree info in the same pass
-                wt_path = data.get("worktree_path")
-                if wt_path:
-                    worktrees.append(
-                        {
-                            "agent_id": data.get("agent_id", ""),
-                            "agent_name": data.get("name", ""),
-                            "path": os.path.basename(wt_path),
-                            "branch": data.get("worktree_branch", ""),
-                            "base_branch": data.get("worktree_base_branch", ""),
-                        }
-                    )
 
         file_locks: list[dict[str, str]] = []
         try:
@@ -807,11 +1040,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         active_project_agent_profiles: list[dict[str, str]] = []
         active_project_roots: set[Path] = set()
         seen_active_project_profile_ids: set[str] = set()
-        for file_path in sorted(glob.glob(os.path.join(registry_dir, "*.json"))):
-            try:
-                data = json.loads(Path(file_path).read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError, UnicodeDecodeError):
-                continue
+        for data in registry_entries:
             project_root = _active_project_root(data)
             if project_root is None or project_root in active_project_roots:
                 continue
@@ -837,11 +1066,15 @@ def create_app(db_path: str | None = None) -> FastAPI:
             or not app.state._static_cache
             or app.state._static_cache_key != cache_key
         ):
-            app.state._static_cache = _collect_static_sections()
+            app.state._static_cache = _collect_static_sections(
+                active_roots=active_project_roots
+            )
             app.state._static_cache_key = cache_key
             app.state._static_cache_ts = now_mono
 
         skills = app.state._static_cache.get("skills", [])
+        mcp_servers = app.state._static_cache.get("mcp_servers", [])
+        project_roots_payload = app.state._static_cache.get("project_roots", [])
         skill_sets = app.state._static_cache.get("skill_sets", [])
         sessions = app.state._static_cache.get("sessions", [])
         workflows = app.state._static_cache.get("workflows", [])
@@ -868,6 +1101,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
             "active_project_agent_profiles": active_project_agent_profiles,
             "registry_errors": registry_errors,
             "skills": skills,
+            "mcp_servers": mcp_servers,
+            "project_roots": project_roots_payload,
             "skill_sets": skill_sets,
             "sessions": sessions,
             "workflows": workflows,

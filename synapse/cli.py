@@ -911,14 +911,6 @@ def _maybe_prompt_save_agent_profile(
 
     # Skip if an identical profile already exists in the store.
     resolved_store = store or AgentProfileStore()
-    try:
-        from synapse.worktree import is_path_in_worktree
-
-        is_worktree = is_path_in_worktree(resolved_store.project_root)
-    except (OSError, AttributeError):
-        is_worktree = False
-    default_scope: Literal["project", "user"] = "user" if is_worktree else "project"
-
     for existing in resolved_store.list_all():
         if (
             existing.profile == profile
@@ -951,13 +943,18 @@ def _maybe_prompt_save_agent_profile(
             continue
         break
 
-    if is_worktree:
-        scope_prompt = (
-            "Scope [project/user] "
-            "(default: user - project scope in a worktree is deleted on cleanup): "
-        )
-    else:
-        scope_prompt = "Scope [project/user] (default: project): "
+    from synapse.worktree import is_path_in_worktree
+
+    try:
+        is_worktree = is_path_in_worktree(resolved_store.project_root)
+    except (OSError, AttributeError):
+        # AttributeError covers test mocks / alternative stores without project_root.
+        is_worktree = False
+    default_scope: Literal["project", "user"] = "user" if is_worktree else "project"
+    worktree_note = (
+        " - project scope in a worktree is deleted on cleanup" if is_worktree else ""
+    )
+    scope_prompt = f"Scope [project/user] (default: {default_scope}{worktree_note}): "
     raw_scope = input_func(scope_prompt).strip().lower()
     if not raw_scope:
         scope = default_scope
@@ -1873,6 +1870,19 @@ def cmd_canvas_stop(args: argparse.Namespace) -> None:
 
     port = getattr(args, "port", None) or CANVAS_DEFAULT_PORT
     canvas_stop(port=port)
+
+
+def cmd_canvas_restart(args: argparse.Namespace) -> None:
+    """Restart Canvas server — stop then re-start on the same port."""
+    from synapse.commands.canvas import canvas_restart
+    from synapse.config import CANVAS_DEFAULT_PORT
+
+    port = getattr(args, "port", None) or CANVAS_DEFAULT_PORT
+    ok = canvas_restart(port=port)
+    if not ok:
+        sys.exit(1)
+    if not getattr(args, "no_open", False):
+        _open_canvas_browser(f"http://localhost:{port}")
 
 
 def cmd_canvas_link(args: argparse.Namespace) -> None:
@@ -4970,6 +4980,21 @@ Scopes:
         "--port", "-p", type=int, default=None, help="Canvas server port"
     )
     p_canvas_stop.set_defaults(func=cmd_canvas_stop)
+
+    # canvas restart
+    p_canvas_restart = canvas_subparsers.add_parser(
+        "restart",
+        help="Restart Canvas server (stop then start again)",
+    )
+    p_canvas_restart.add_argument(
+        "--port", "-p", type=int, default=None, help="Canvas server port"
+    )
+    p_canvas_restart.add_argument(
+        "--no-open",
+        action="store_true",
+        help="Do not open Canvas in the browser after restarting",
+    )
+    p_canvas_restart.set_defaults(func=cmd_canvas_restart)
 
     # canvas link <url> — Post a link-preview card
     p_canvas_link = canvas_subparsers.add_parser(

@@ -71,6 +71,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Post template | `synapse canvas briefing '<json>' --title "<title>"` |
 | Post plan card | `synapse canvas plan '<json>' --title "<title>"` (Mermaid DAG + step list with status tracking) |
 | Open Canvas | `synapse canvas open` (auto-starts server, opens browser) |
+| Restart Canvas | `synapse canvas restart` (stop + start; use when `canvas status` reports `⚠ STALE` after upgrade) |
 | Sync workflow skills | `synapse workflow sync` (regenerate skills from workflow YAMLs, remove orphans) |
 | Run workflow (auto-spawn) | `synapse workflow run <name> --auto-spawn` (spawn missing agents on the fly) |
 | Multi-agent patterns | `synapse map init/list/show/run/status/stop` (built-in: `generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state`) |
@@ -112,9 +113,10 @@ Skip this gate for small/medium tasks where the overhead exceeds the benefit.
 | **Broadcast** | Team-wide announcements reach all agents instantly | `synapse broadcast "<msg>"` |
 | **History** | Audit trail tracks what happened and when | `synapse history list/show/stats` |
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
-| **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides, plan); cards downloadable as Markdown, JSON, CSV, or native format via browser button or `GET /api/cards/{card_id}/download` | `synapse canvas post/link/briefing/plan/open/list` |
+| **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides, plan); cards downloadable as Markdown, JSON, CSV, or native format via browser button or `GET /api/cards/{card_id}/download` | `synapse canvas post/link/briefing/plan/open/list/restart` |
 | **Agent Control** | Browser-based agent management via Canvas `#/admin` view (select agents, send messages, view responses, double-click agent row to jump to terminal) | `synapse canvas open` → navigate to `#/admin` |
 | **Workflow View** | Browser-based workflow management via Canvas `#/workflow` view (list workflows, inspect steps, trigger runs, monitor progress with live SSE updates; run history persisted to SQLite across restarts) | `synapse canvas open` → navigate to `#/workflow` |
+| **Harnesses View** | Browser-based browser for agent harness resources at Canvas `#/harnesses` — sub-views `#/harnesses/skills` (SKILL.md inventory across user/project/synapse/plugin scopes, scanned per active project root) and `#/harnesses/mcp` (MCP server configs from project `.mcp.json` per active root, plus user-scope: Claude Code `~/.claude.json`, Codex `~/.codex/config.toml`, Gemini `~/.gemini/settings.json`, OpenCode `~/.config/opencode/opencode.json`, and Claude Desktop config) | `synapse canvas open` → navigate to `#/harnesses` |
 | **Plan Cards** | Mermaid DAG + step list with dependency visualization | `synapse canvas plan` |
 | **LLM Wiki** | Structured knowledge base for ingesting, querying, and validating project/global docs | `synapse wiki ingest/query/lint/status` |
 | **Smart Suggest** | MCP tool that analyzes prompts and suggests team/task splits for large work | MCP tool: `analyze_task` |

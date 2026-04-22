@@ -173,6 +173,25 @@ git tag v0.27.2 && git push origin main --tags
   overwrites the pin. There is no "unpin" flag; re-install without
   `--pin` to move back to the moving target.
 
+## Browsing installed skills
+
+Once the Canvas server is running (`synapse canvas serve`), the
+**Harnesses → Skills** sidebar entry opens a tree-table of every skill
+discovered across the User Global, Project, Synapse Central Store, and
+Plugin scopes. Use the name filter to narrow the list; each row shows
+the skill name, description, target agent directories, and absolute
+path on disk.
+
+If the viewer looks stale after a skill install, two caches are in
+play on the running Canvas process: a TTL cache on `/api/system` that
+memoizes the discovered skill list, and frontend assets the browser
+loaded at startup. Both are refreshed by
+[`synapse canvas restart`](../reference/cli.md#restart), which
+restarts the server in place on the same port. See
+[Canvas → Harnesses → Skills
+View](canvas.md#harnesses-skills-view-harnessesskills) for the full
+viewer reference.
+
 ## Related
 
 - [Skills](skills.md) — catalog of core skills, skill sets, and the

@@ -7,9 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-04-22
+
+### Added
+
+- **Canvas Skills Viewer (`#/harnesses/skills`):** new SPA sub-view that lists every discovered skill grouped by scope (User Global, Synapse Global, Plugin, and per-active-project), powered by per-project skill scans against `discover_skills()`. Frontmatter is parsed with PyYAML (replacing the prior hand-rolled regex), so quoted colons, multi-line values, and other YAML edge cases now parse correctly.
+- **Canvas MCP Servers Viewer (`#/harnesses/mcp`):** new SPA sub-view that inventories MCP servers from every active project's `.mcp.json` plus the five user-scope agent configs (Claude Code `~/.claude.json`, Codex `~/.codex/config.toml`, Gemini `~/.gemini/settings.json`, OpenCode `~/.config/opencode/opencode.json`, and Claude Desktop `~/Library/Application Support/Claude/claude_desktop_config.json`). Env values are stripped to keys-only before reaching the UI.
+- **`synapse canvas restart` command:** stop-then-start helper for the Canvas server, intended for the `⚠ STALE` case where an older process is still serving cached HTML/JS/CSS after an upgrade. Accepts `--port/-p` and `--no-open`.
+- **Worktree-aware default scope on agent-profile save:** the "Save this agent definition?" prompt in `synapse spawn` now defaults to `user` scope inside a worktree (since project-scope profiles vanish on worktree cleanup) and to `project` otherwise. The prompt text inlines the rationale.
+
+### Changed
+
+- **Canvas registry scans consolidated into `_iter_registry_entries{,_with_errors}`:** three previously-duplicated "glob + json.loads + skip-on-error" loops in `canvas/server.py` are now a single iterator pair (one yields dicts, one yields parse errors too). `system_panel` also reuses one loaded entry list instead of re-scanning the registry on every `_collect_static_sections()` call.
+- **Skills SKILL.md frontmatter parser switched to PyYAML.** `synapse/skills.py:parse_skill_frontmatter` now delegates to `yaml.safe_load` (with `yaml.YAMLError` as the failure path) and coerces all values to strings. Behavior is unchanged for the existing scalar-only frontmatter in shipped SKILL.md files.
+
+### Documentation
+
+- **Skills role responsibility-matrix RFC (#610):** new `docs/design/skills-role.md` defines skills as A2A presets layered on top of MCP and the CLI, draws explicit boundaries against MCP resources/tools, the CLI, and `gh skill` as the distribution layer, and establishes a drift-detection rule for orphan workflow-autogen skills.
+- **Updated Canvas / Skills documentation across `docs/`, `guides/`, `README.md`, and `site-docs/`** to cover the new Harnesses sub-views, `synapse canvas restart`, and the per-project + per-user-agent MCP grouping.
+
+### Removed
+
+- **Orphan autogen skills `my-review` and `user-wf` (#610):** both shipped without backing `.synapse/workflows/*.yaml` and were never referenced from code or docs; deleted from the canonical plugin source and from `.claude/skills/` / `.agents/skills/` to satisfy the new drift rule.
+
 ### Fixed
 
-- fix: isolate Mermaid rendering failures per diagram so one malformed canvas card does not break valid diagrams in the same batch (#398).
+- **Profile command tokenization (#614, #624):** profile command strings with multiple tokens (e.g. `python3 -u dummy_agent.py`) are now split with `shlex` before launch, so profile-defined arguments are executed correctly. (Subsumes the un-tagged `0.27.2` entry below.)
+- **Canvas Mermaid render isolation (#398, #626):** a single malformed mermaid card no longer breaks valid diagrams rendered in the same batch — each render failure is isolated per-diagram.
 
 ## [0.27.2] - 2026-04-20
 
@@ -3491,6 +3515,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.2...HEAD
+[0.28.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.2...v0.28.0
 [0.27.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.0...v0.27.1
 [0.27.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.26.5...v0.27.0

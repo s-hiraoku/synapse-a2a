@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="/static/canvas-templates.css">
 <link rel="stylesheet" href="/static/canvas-views.css">
 <link rel="stylesheet" href="/static/canvas-knowledge.css">
+<link rel="stylesheet" href="/static/canvas-skills.css">
 </head>
 <body>
 <!-- Sidebar Navigation -->
@@ -38,6 +39,9 @@
     <a href="#/multiagent" class="nav-link" data-route="multiagent"><i class="ph ph-graph"></i><span>Patterns</span></a>
     <a href="#/knowledge" class="nav-link" data-route="knowledge"><i class="ph ph-book-open"></i><span>Knowledge</span></a>
     <a href="#/database" class="nav-link" data-route="database"><i class="ph ph-database"></i><span>Database</span></a>
+    <a href="#/harnesses" class="nav-link" data-route="harnesses"><i class="ph ph-toolbox"></i><span>Harnesses</span></a>
+    <a href="#/harnesses/skills" class="nav-link nav-sub" data-route="skills"><i class="ph ph-puzzle-piece"></i><span>Skills</span></a>
+    <a href="#/harnesses/mcp" class="nav-link nav-sub" data-route="mcp"><i class="ph ph-plugs-connected"></i><span>MCP Servers</span></a>
     <a href="#/system" class="nav-link" data-route="system"><i class="ph ph-gear-six"></i><span>System</span></a>
   </nav>
   <div class="sidebar-footer">
@@ -182,6 +186,56 @@
     </div>
   </section>
 
+  <!-- Harnesses landing View -->
+  <section id="harnesses-view" class="view-hidden">
+    <div id="harnesses-landing">
+      <h2 class="admin-section-title"><i class="ph ph-toolbox"></i> Harnesses</h2>
+      <p class="harnesses-intro">Browse agent harness resources discovered across this project and your user scope.</p>
+      <div class="harnesses-cards">
+        <a href="#/harnesses/skills" class="harnesses-card" data-route="skills">
+          <i class="ph ph-puzzle-piece"></i>
+          <div>
+            <h3>Skills</h3>
+            <p>SKILL.md definitions available in project and user scopes.</p>
+          </div>
+        </a>
+        <a href="#/harnesses/mcp" class="harnesses-card" data-route="mcp">
+          <i class="ph ph-plugs-connected"></i>
+          <div>
+            <h3>MCP Servers</h3>
+            <p>Model Context Protocol servers configured for this project and user.</p>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Skills View -->
+  <section id="skills-view" class="view-hidden">
+    <div id="skills-container">
+      <div id="skills-toolbar">
+        <h3 class="admin-section-title"><i class="ph ph-puzzle-piece"></i> Skills <span id="skills-count" class="skills-count"></span></h3>
+        <div class="skills-controls">
+          <input id="skills-search" type="search" placeholder="Filter by skill name…" aria-label="Filter skills by name" autocomplete="off">
+        </div>
+      </div>
+      <div id="skills-table-wrap"></div>
+    </div>
+  </section>
+
+  <!-- MCP Servers View -->
+  <section id="mcp-view" class="view-hidden">
+    <div id="mcp-container">
+      <div id="mcp-toolbar">
+        <h3 class="admin-section-title"><i class="ph ph-plugs-connected"></i> MCP Servers <span id="mcp-count" class="skills-count"></span></h3>
+        <div class="skills-controls">
+          <input id="mcp-search" type="search" placeholder="Filter by server name…" aria-label="Filter MCP servers by name" autocomplete="off">
+        </div>
+      </div>
+      <div id="mcp-table-wrap"></div>
+    </div>
+  </section>
+
   <!-- Admin View -->
   <section id="admin-view" class="view-hidden">
     <div id="admin-container">
@@ -210,6 +264,8 @@
 <script src="/static/canvas-multiagent.js"></script>
 <script src="/static/canvas-database.js"></script>
 <script src="/static/canvas-knowledge.js"></script>
+<script src="/static/canvas-skills.js"></script>
+<script src="/static/canvas-mcp.js"></script>
 <script src="/static/canvas-init.js"></script>
 </body>
 </html>

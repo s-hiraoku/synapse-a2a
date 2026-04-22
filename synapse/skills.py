@@ -20,6 +20,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 logger = logging.getLogger(__name__)
 
 # Agent type → skill directory relative path
@@ -143,10 +145,8 @@ _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---", re.DOTALL)
 def parse_skill_frontmatter(path: Path) -> dict[str, str] | None:
     """Parse YAML frontmatter from a SKILL.md file.
 
-    Uses simple regex parsing (no PyYAML dependency for frontmatter).
-
-    Returns:
-        Dict with at least 'name' key, or None if invalid/missing.
+    Returns a dict of string values (all fields coerced to str), or None
+    if the file is missing, unparsable, or lacks a ``name`` field.
     """
     try:
         text = path.read_text(encoding="utf-8")
@@ -157,20 +157,25 @@ def parse_skill_frontmatter(path: Path) -> dict[str, str] | None:
     if not match:
         return None
 
-    result: dict[str, str] = {}
-    for line in match.group(1).splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or ":" not in line:
-            continue
-
-        key, _, value = line.partition(":")
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        result[key] = value
-
-    if "name" not in result:
+    try:
+        data = yaml.safe_load(match.group(1)) or {}
+    except yaml.YAMLError:
         return None
 
+    if not isinstance(data, dict) or not isinstance(data.get("name"), str):
+        return None
+
+    # Skip container values (list/dict) — their str() form is unhelpful.
+    # Keep scalars (str/int/float/bool) which have meaningful string forms.
+    result: dict[str, str] = {}
+    for k, v in data.items():
+        key = str(k)
+        if v is None:
+            result[key] = ""
+        elif isinstance(v, (str, int, float, bool)):
+            result[key] = str(v).strip()
+        else:
+            result[key] = ""
     return result
 
 

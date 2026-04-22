@@ -1835,12 +1835,29 @@ synapse canvas serve [--port PORT] [--no-open]
 | `--port` | No | サーバーポート（デフォルト: 3000） |
 | `--no-open` | No | ブラウザの自動オープンを抑制 |
 
-#### 1.24.2 synapse canvas status / stop
+#### 1.24.2 synapse canvas status / stop / restart
 
 ```bash
-synapse canvas status [--port PORT]   # Canvas サーバーのステータス表示
-synapse canvas stop [--port PORT]     # Canvas サーバーを停止
+synapse canvas status [--port PORT]              # Canvas サーバーのステータス表示
+synapse canvas stop [--port PORT]                # Canvas サーバーを停止
+synapse canvas restart [--port PORT] [--no-open] # 同じポートで停止 → 再起動
 ```
+
+`restart` は Canvas が起動時に HTML/JS アセットをキャッシュするため、アセット更新後にワンショットでリフレッシュする用途に使います。`--no-open` でブラウザ自動オープンを抑制できます。
+
+> **Tip**: サイドバー `Harnesses → Skills` (`#/harnesses/skills`) から、全スコープで検出されたスキルを **2 段階の階層**（大分類 → 中分類 → スキル）で閲覧できます。大分類は **User Global / Projects / Synapse Central Store** の 3 セクション（上から順）、中分類は:
+>
+> - **User Global** の中は `agent_dirs` 由来のエージェントバケット — **Claude Code** (`.claude/skills/**`) と **Codex / OpenCode / Gemini / Copilot**（共有 `.agents/skills/**`）。
+> - **Projects** の中はアクティブなエージェントの `working_dir` から検出したプロジェクトルート（worktree は base リポに正規化）。各プロジェクト内でさらに `.claude` / `.agents` のサブグループに分かれます（ひとつのバケットしかないプロジェクトは内側ヘッダ省略）。
+>
+> 列は NAME / DESCRIPTION / LOCATION、LOCATION はターゲット（`agent_dirs`）のバッジと絶対パスの 2 段表示です。グループ行は折りたたみ可能で、名前フィルタに応じて空グループは自動的に隠れます。アセットキャッシュ更新後に表示が古い場合は `synapse canvas restart` を実行してください（`synapse canvas status` で `⚠ STALE` が出ている場合のリフレッシュ手段）。
+>
+> **Tip**: 同じ `Harnesses` 配下に `MCP Servers` (`#/harnesses/mcp`) もあり、複数のエージェント設定ファイルから検出された MCP サーバーを同じ **2 段階の階層**で表示します:
+>
+> - **User Global**（上）は **エージェント別** に分かれた中分類: Claude Code (`~/.claude.json`) / Codex (`~/.codex/config.toml`、TOML) / Gemini (`~/.gemini/settings.json`) / OpenCode (`~/.config/opencode/opencode.json`) / Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json`)。
+> - **Projects**（下）は **プロジェクトディレクトリ別** の中分類。`.mcp.json` がないプロジェクトは点線フォルダアイコンと `no .mcp.json` バッジ付きの行として表示され、「MCP 未設定」と「スキャン対象外」を区別できます。
+>
+> 列は NAME / COMMAND / DETAILS、DETAILS には transport `type` と `env:KEY` バッジ（キーのみ、値はブラウザに送られません）および `source_file` のパスが並びます。
 
 #### 1.24.3 コンテンツ投稿コマンド
 

@@ -153,7 +153,7 @@ class TestSystemPanelRegistryErrors:
         monkeypatch.setattr(
             canvas_server,
             "_collect_static_sections",
-            lambda: next(static_responses),
+            lambda *args, **kwargs: next(static_responses),
         )
 
         app_one = canvas_server.create_app(db_path=str(tmp_path / "one.db"))
