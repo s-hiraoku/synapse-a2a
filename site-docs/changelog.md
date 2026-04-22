@@ -4,6 +4,12 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.28.1
+
+- **Added**: `synapse waiting-debug` CLI — Phase 1.5 collection pipeline (#630, #632). `collect` appends `/debug/waiting` snapshots to `~/.synapse/waiting_debug.jsonl`; `report` prints aggregate counts (profile, `pattern_source`, `path_used`, `confidence`, `idle_gate_drops`, `renderer_unavailable_agents`) in text or JSON. `.synapse/waiting_debug.*` ignored; `docs/phase15-collection.md` documents cron and launchd scheduling at 5-minute cadence
+- **Documentation**: WAITING observability reference coverage (#608, #631) — `synapse-a2a` skill `api.md` / `commands.md` document `GET /debug/waiting`, `--debug-waiting`, `renderer_available`, and `(renderer: off)`; `site-docs/guide/agent-management.md` gains "Renderer Availability" and "WAITING Detection Diagnostics" subsections
+- **Fixed**: `TestSyncedSkillParity` for externally-registered skills (#629) — `opensrc` (from `vercel-labs/opensrc`) now carries `metadata.internal: true` in its frontmatter so the orphan-skill check correctly exempts it
+
 ### v0.28.0
 
 - **Added**: WAITING detection observability layer — Phase 1 (#608, #627). `IdleDetector` ring buffer records each detection attempt with `path_used`, `renderer_on`, `pattern_matched`, `pattern_source`, `confidence`, `idle_gate_passed`, `new_data_hex_prefix`, `rendered_text_tail`. `TerminalController` wraps `PtyRenderer` initialisation in try/except and exposes `renderer_available`. New `/debug/waiting` endpoint and `synapse status <agent> --debug-waiting` surface recent attempts + aggregates (total / match ratio / path usage / confidence / idle-gate drops). `synapse list` / `synapse status` annotate status with `(renderer: off)` and emit `renderer_available` in JSON. Phase 1 is observation only — detection logic is unchanged
