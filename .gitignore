@@ -51,3 +51,11 @@ ci_log.txt
 
 # Gemini skills (unified into .agents/skills/)
 .gemini/skills/
+
+# Playwright MCP dev artifacts (local testing only)
+.playwright-mcp/
+skills-*.png
+mcp-*.png
+
+# Synapse runtime artifacts
+.claude/scheduled_tasks.lock
