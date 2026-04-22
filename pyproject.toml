@@ -25,6 +25,8 @@ dependencies = [
     "pyperclip>=1.8.0",
     "pyte>=0.8.2",
     "wcwidth>=0.2.0",
+    # Codex MCP config is TOML; tomllib is stdlib on 3.11+, use tomli on 3.10.
+    "tomli>=2.0.0; python_version < '3.11'",
 ]
 
 [dependency-groups]

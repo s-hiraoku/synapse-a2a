@@ -15,13 +15,20 @@ import os
 import re
 import signal
 import sqlite3
+import sys
 import time
 from collections.abc import AsyncGenerator, Callable, Iterable, Iterator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import tomllib
+# tomllib was added to stdlib in Python 3.11 (PEP 680); fall back to the
+# `tomli` backport on 3.10 so Canvas can still parse Codex MCP configs.
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # pragma: no cover - 3.10 compat branch
+    import tomli as tomllib
+
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
