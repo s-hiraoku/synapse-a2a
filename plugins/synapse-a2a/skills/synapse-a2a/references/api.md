@@ -94,8 +94,44 @@ When a spawned agent hits a permission prompt (e.g., tool approval), the control
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/debug/pty` | GET | Return the pyte-rendered virtual terminal state as JSON (`display`, `cursor`, `alt_screen`, `rows`, `columns`) |
+| `/debug/waiting` | GET | Return the recent WAITING-detection attempts ring buffer plus `renderer_available` |
 
 `GET /debug/pty` exposes exactly what `waiting_detection` regexes see: the raw PTY stream is replayed through a pyte-backed virtual terminal (`PtyRenderer`) so cursor-motion CSI sequences, ratatui-style redraws, and alt-screen overlays are resolved against a real screen before matching. Use it when tuning profile `waiting_detection` patterns or diagnosing why a WAITING prompt was (or was not) detected.
+
+`GET /debug/waiting` returns an in-memory ring buffer (default 50 entries) of recent WAITING detection attempts, one per incoming PTY chunk. Response shape:
+
+```json
+{
+  "renderer_available": true,
+  "attempts": [
+    {
+      "timestamp": 1776819000.12,
+      "profile": "codex",
+      "path_used": "renderer",
+      "renderer_on": true,
+      "pattern_matched": true,
+      "pattern_source": "primary",
+      "confidence": 1.0,
+      "idle_gate_passed": false,
+      "new_data_hex_prefix": "50726f636565643f",
+      "rendered_text_tail": "...Proceed?"
+    }
+  ]
+}
+```
+
+Field meanings:
+- `path_used`: `"renderer"` (pyte virtual terminal path) or `"strip_ansi"` (fallback path)
+- `renderer_on`: whether `PtyRenderer` is initialised on this agent (see `renderer_available` below)
+- `pattern_source`: `"primary"` (profile-specific regex), `"heuristic"` (generic fallback), or `null`
+- `confidence`: `1.0` for primary regex, `0.6` for heuristic, `0.0` for no match
+- `idle_gate_passed`: whether `time_since_output >= waiting_idle_timeout` was satisfied
+- `new_data_hex_prefix`: first 64 bytes of the raw PTY chunk as hex (preserves ANSI/binary data)
+- `rendered_text_tail`: last 256 chars of the rendered (or strip-ANSI'd) text
+
+Returns HTTP 503 when the controller predates Phase 1 (#627). Use `synapse status <agent> --debug-waiting` for formatted aggregates; query this endpoint directly when you need the raw attempts for custom analysis or periodic collection.
+
+**`renderer_available`:** reflects whether `PtyRenderer` initialised successfully for this agent. If pyte failed to start, the agent falls back to the strip-ANSI path (lower fidelity for ratatui TUIs). This field appears in `synapse list --json`, `synapse status --json`, and the `/debug/waiting` snapshot. The text output of `synapse list` / `synapse status` annotates the status as `WAITING (renderer: off)` when the renderer is down.
 
 ### Shared Memory Endpoints
 

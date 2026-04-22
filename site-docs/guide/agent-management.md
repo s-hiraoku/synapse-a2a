@@ -347,3 +347,28 @@ Status transitions use **compound signals** to improve accuracy. The PROCESSING-
 This prevents agents from briefly flickering to READY while still processing an injected task or actively editing files. WAITING detection uses **fresh-output-only** matching to avoid false positives from old prompt patterns in the scrollback buffer.
 
 See [Architecture — Compound Signal Detection](../concepts/architecture.md#compound-signal-detection) for technical details.
+
+### Renderer Availability
+
+Each agent wraps its PTY output in a `PtyRenderer` (pyte-backed virtual terminal) so cursor motion, ratatui redraws, and alt-screen overlays are resolved into stable text before `waiting_detection` regexes run. If initialization fails (for example on a pyte import error), the controller falls back to a plain ANSI-stripping path — functional for line-oriented CLIs but less accurate for ratatui-style TUIs like Codex.
+
+Fallback is observable rather than silent:
+
+- `synapse list` / `synapse status` plain-text output annotates the status as `WAITING (renderer: off)` / `READY (renderer: off)` etc. when the renderer is down.
+- `synapse list --json` and `synapse status --json` expose `renderer_available: bool` on each agent.
+- `GET /debug/waiting` returns `renderer_available` at the top level.
+
+If `(renderer: off)` persists on an agent, restart the agent (`synapse kill <id>` then respawn) — renderer failures are per-process and do not recover automatically.
+
+### WAITING Detection Diagnostics (`--debug-waiting`)
+
+`synapse status <agent> --debug-waiting` (added in v0.28.0, see #608/#627) prints the last ~50 WAITING-detection attempts that the agent recorded in-memory, plus aggregate counts:
+
+- Total attempts, `pattern_matched` ratio, `path_used` distribution (renderer vs strip_ansi)
+- `pattern_source` distribution (primary regex / heuristic / none)
+- `confidence` distribution (1.0 primary / 0.6 heuristic / 0.0 miss)
+- `idle_gate_passed=false` count — "prompt was visible but the idle gate dropped it"
+
+Use this when a prompt *should* have flipped the agent to WAITING but did not: each attempt row includes `new_data_hex_prefix` (raw bytes) and `rendered_text_tail` (what the detector saw), so you can diagnose whether the regex missed, the idle gate dropped it, or the renderer garbled it.
+
+The buffer is in-memory only — it empties on process restart. For long-running collection across multiple agents, scrape `GET /debug/waiting` into a JSONL (see [Issue #630](https://github.com/s-hiraoku/synapse-a2a/issues/630), Phase 1.5).

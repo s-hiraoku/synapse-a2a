@@ -62,7 +62,9 @@ synapse list --json
 
 **Plain Output:** `synapse list --plain` forces single-shot text output without entering the Rich TUI, even when stdout is a TTY. `SYNAPSE_NONINTERACTIVE=1` provides the same behavior for automation wrappers.
 
-**JSON Output:** `synapse list --json` outputs a JSON array of agent objects (fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, optionally `editing_file`).
+**JSON Output:** `synapse list --json` outputs a JSON array of agent objects (fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, optionally `editing_file`, and `renderer_available` when the controller reports it).
+
+**Renderer state annotation:** when an agent's `PtyRenderer` failed to initialise (for example pyte import failure), the plain-text STATUS column is annotated as `WAITING (renderer: off)` / `READY (renderer: off)` etc. The JSON `status` value itself is unchanged; `renderer_available: false` in the JSON row is the structured equivalent. A missing renderer degrades WAITING detection for ratatui/alt-screen TUIs like Codex — prefer restarting the agent if this persists.
 
 **Name vs ID:** Display shows name if set, internal operations use Runtime ID (`synapse-claude-8100`).
 
@@ -275,15 +277,27 @@ synapse status claude              # Only if single instance
 
 # Machine-readable JSON
 synapse status my-claude --json
+
+# WAITING detection diagnostics (Phase 1 observability)
+synapse status my-claude --debug-waiting
+synapse status my-claude --debug-waiting --json
 ```
 
 **Text output sections:**
-- **Agent Info**: ID, type, name, role, port, status, PID, working directory, uptime
+- **Agent Info**: ID, type, name, role, port, status (with `(renderer: off)` annotation when `PtyRenderer` failed), PID, working directory, uptime
 - **Current Task**: Task preview with elapsed time (e.g., `Review code (2m 15s)`)
 - **Recent Messages**: Last 5 messages from history (task ID, direction, sender, preview)
 - **File Locks**: Files currently locked by this agent (if File Safety is enabled)
 
-**JSON output** includes all the same data in structured format, with `uptime_seconds` and `current_task.elapsed_seconds` as numeric values for programmatic use.
+**JSON output** includes all the same data in structured format, with `uptime_seconds` and `current_task.elapsed_seconds` as numeric values for programmatic use. Adds `renderer_available: bool` when the controller reports it.
+
+**`--debug-waiting`:** prints the last ~50 WAITING-detection attempts recorded in the agent's in-memory ring buffer, plus aggregate counts:
+
+- Total attempts, `pattern_matched` ratio, `path_used` distribution (renderer vs strip_ansi)
+- `confidence` distribution (1.0 primary / 0.6 heuristic / 0.0 miss)
+- `idle_gate_passed=false` count (the "prompt was visible but idle gate dropped it" case — a common Phase 2 investigation target)
+
+Use this when a WAITING prompt did not trip the controller as expected: each attempt carries `new_data_hex_prefix` (raw bytes) and `rendered_text_tail` (what the detector saw) so you can see why the match failed. Data is ephemeral — it disappears on process restart. For long-running collection feed `/debug/waiting` into a JSONL (see Issue #630).
 
 **Use cases:**
 - Checking what an agent is currently working on and how long it has been running
