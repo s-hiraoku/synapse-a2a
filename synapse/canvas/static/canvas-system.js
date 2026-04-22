@@ -41,6 +41,7 @@
       if (ns.currentRoute === "admin") {
         loadAdminAgents();
       }
+      document.dispatchEvent(new CustomEvent("synapse:system-updated"));
     } catch (e) {
       console.error("Failed to load system panel:", e);
     }
@@ -1300,4 +1301,5 @@
   ns.renderSystemAgents = renderSystemAgents;
   ns.renderRegistryErrors = renderRegistryErrors;
   ns.scopeBadge = scopeBadge;
+  ns.emptyState = emptyState;
 })(window.SynapseCanvas);

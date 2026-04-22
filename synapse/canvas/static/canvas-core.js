@@ -64,7 +64,7 @@ window.SynapseCanvas = (function() {
   const SPOTLIGHT_SWAP_DELAY = 420;
 
   // Route labels for topbar
-  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", workflow: "Workflow", multiagent: "Patterns", knowledge: "Knowledge", system: "System", admin: "Agent Control", database: "Database" };
+  var ROUTE_LABELS = { canvas: "Canvas", dashboard: "Dashboard", history: "Canvas / History", workflow: "Workflow", multiagent: "Patterns", knowledge: "Knowledge", system: "System", admin: "Agent Control", database: "Database", harnesses: "Harnesses", skills: "Harnesses / Skills", mcp: "Harnesses / MCP Servers" };
 
   // Current route
   let currentRoute = "canvas";
@@ -1099,6 +1099,9 @@ window.SynapseCanvas = (function() {
     if (hash === "#/knowledge") return "knowledge";
     if (hash === "#/admin") return "admin";
     if (hash === "#/database") return "database";
+    if (hash === "#/harnesses") return "harnesses";
+    if (hash === "#/harnesses/skills") return "skills";
+    if (hash === "#/harnesses/mcp") return "mcp";
     return "canvas";
   }
 
@@ -1146,11 +1149,15 @@ window.SynapseCanvas = (function() {
   function navigate() {
     currentRoute = getRoute();
     var knowledgeView = document.getElementById("knowledge-view");
+    var harnessesView = document.getElementById("harnesses-view");
+    var skillsView = document.getElementById("skills-view");
+    var mcpView = document.getElementById("mcp-view");
 
-    // Update nav links — Canvas parent stays active when History sub-route is shown
+    // Update nav links — parent links stay active when a sub-route is shown
     navLinks.forEach(link => {
       var isActive = link.dataset.route === currentRoute;
       if (link.dataset.route === "canvas" && currentRoute === "history") isActive = true;
+      if (link.dataset.route === "harnesses" && (currentRoute === "skills" || currentRoute === "mcp")) isActive = true;
       link.classList.toggle("active", isActive);
     });
 
@@ -1170,6 +1177,9 @@ window.SynapseCanvas = (function() {
     if (knowledgeView) knowledgeView.classList.add("view-hidden");
     if (adminView) adminView.classList.add("view-hidden");
     if (databaseView) databaseView.classList.add("view-hidden");
+    if (harnessesView) harnessesView.classList.add("view-hidden");
+    if (skillsView) skillsView.classList.add("view-hidden");
+    if (mcpView) mcpView.classList.add("view-hidden");
 
     _dashboardRendered = false;
     _systemPanelRendered = false;
@@ -1213,6 +1223,17 @@ window.SynapseCanvas = (function() {
       if (databaseView) databaseView.classList.remove("view-hidden");
       filterBar.style.display = "none";
       loadDatabaseList();
+    } else if (currentRoute === "harnesses") {
+      if (harnessesView) harnessesView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+    } else if (currentRoute === "skills") {
+      if (skillsView) skillsView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      if (typeof ns.loadSkillsView === "function") ns.loadSkillsView();
+    } else if (currentRoute === "mcp") {
+      if (mcpView) mcpView.classList.remove("view-hidden");
+      filterBar.style.display = "none";
+      if (typeof ns.loadMcpView === "function") ns.loadMcpView();
     } else {
       historyView.classList.remove("view-hidden");
       filterBar.style.display = "";
