@@ -6,6 +6,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### v0.28.0
 
+- **Added**: WAITING detection observability layer — Phase 1 (#608, #627). `IdleDetector` ring buffer records each detection attempt with `path_used`, `renderer_on`, `pattern_matched`, `pattern_source`, `confidence`, `idle_gate_passed`, `new_data_hex_prefix`, `rendered_text_tail`. `TerminalController` wraps `PtyRenderer` initialisation in try/except and exposes `renderer_available`. New `/debug/waiting` endpoint and `synapse status <agent> --debug-waiting` surface recent attempts + aggregates (total / match ratio / path usage / confidence / idle-gate drops). `synapse list` / `synapse status` annotate status with `(renderer: off)` and emit `renderer_available` in JSON. Phase 1 is observation only — detection logic is unchanged
 - **Added**: Canvas Skills Viewer (`#/harnesses/skills`) — new SPA sub-view that lists every discovered skill grouped by scope (User Global, Synapse Global, Plugin, per-active-project). SKILL.md frontmatter is parsed with PyYAML so quoted colons and multi-line values now parse correctly
 - **Added**: Canvas MCP Servers Viewer (`#/harnesses/mcp`) — inventories MCP servers from every active project's `.mcp.json` plus five user-scope agent configs (Claude Code, Codex, Gemini, OpenCode, Claude Desktop). `env` values are stripped to keys-only before reaching the UI
 - **Added**: `synapse canvas restart` — stop-then-start helper for the `⚠ STALE` case after upgrades. Accepts `--port/-p` and `--no-open`
