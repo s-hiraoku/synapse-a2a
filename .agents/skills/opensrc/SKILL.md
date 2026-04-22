@@ -2,6 +2,10 @@
 name: opensrc
 description: Fetch dependency source code to give AI agents deeper implementation context. Use when the agent needs to understand how a library works internally, read source code for a package, fetch implementation details for a dependency, or explore how an npm/PyPI/crates.io package is built. Triggers include "fetch source for", "read the source of", "how does X work internally", "get the implementation of", "opensrc path", or any task requiring access to dependency source code beyond types and docs.
 allowed-tools: Bash(opensrc:*)
+metadata:
+  internal: true
+  source: https://github.com/vercel-labs/opensrc/blob/main/skills/opensrc/SKILL.md
+  note: External skill registered from vercel-labs/opensrc; not part of synapse-a2a's plugin distribution. Installed directly into .agents/skills (canonical) and .claude/skills (symlink). Marked internal:true to satisfy tests/test_skill_structure.py TestSyncedSkillParity.
 ---
 
 # Source Code Fetching with opensrc
