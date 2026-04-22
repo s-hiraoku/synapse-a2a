@@ -75,6 +75,21 @@ def test_render_spotlight_reuses_existing_shell_for_same_card_updates() -> None:
     assert result.returncode == 0, result.stderr or result.stdout
 
 
+def test_run_mermaid_isolates_malformed_diagram_failures() -> None:
+    """runMermaid should render valid diagrams even when another diagram is malformed."""
+    script = Path("tests/canvas_frontend_mermaid_test.js")
+    if shutil.which("node") is None:
+        pytest.skip("node is required for tests/canvas_frontend_mermaid_test.js")
+    result = subprocess.run(
+        ["node", str(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+
+
 def test_canvas_css_uses_signal_room_design_tokens() -> None:
     """canvas.css + palette.css should define design tokens and glass surfaces."""
     css = read_canvas_css()

@@ -1548,7 +1548,22 @@ def create_a2a_router(
         """
         if controller is None or not hasattr(controller, "pty_snapshot"):
             raise HTTPException(status_code=503, detail="pty renderer not available")
-        snapshot: dict[str, Any] = controller.pty_snapshot()
+        try:
+            snapshot: dict[str, Any] = controller.pty_snapshot()
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503, detail="pty renderer not available"
+            ) from exc
+        return snapshot
+
+    @router.get("/debug/waiting")
+    async def get_debug_waiting(_: Any = Depends(require_auth)) -> dict[str, Any]:
+        """Return recent WAITING-detection attempts."""
+        if controller is None or not hasattr(controller, "waiting_debug_snapshot"):
+            raise HTTPException(
+                status_code=503, detail="waiting debug data not available"
+            )
+        snapshot: dict[str, Any] = controller.waiting_debug_snapshot()
         return snapshot
 
     # --------------------------------------------------------

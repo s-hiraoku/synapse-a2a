@@ -121,6 +121,24 @@ class TestIdentityInstruction:
         assert controller.status == "PROCESSING"
         controller._dispatch_status_callbacks.assert_not_called()
 
+    def test_renderer_initialization_failure_disables_renderer(self, mock_registry):
+        """Renderer startup failures should be observable and non-fatal."""
+        with patch("synapse.controller.PtyRenderer", side_effect=RuntimeError("boom")):
+            ctrl = TerminalController(
+                command="echo test",
+                idle_regex=r"\$",
+                registry=mock_registry,
+                agent_id="synapse-claude-8100",
+                agent_type="claude",
+                submit_seq="\r",
+            )
+
+        assert ctrl.renderer_available is False
+        assert ctrl._idle_detector._renderer is None
+
+    def test_renderer_available_true_when_renderer_starts(self, controller):
+        assert controller.renderer_available is True
+
     def test_identity_sent_on_first_idle(self, controller):
         """Identity instruction should be sent on first IDLE detection."""
         controller.running = True

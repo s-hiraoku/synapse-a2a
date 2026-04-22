@@ -33,6 +33,7 @@ def make_agent(
     working_dir: str,
     endpoint: str,
     transport: str,
+    renderer_available: bool | None = None,
     current_task_preview: str | None = None,
     task_received_at: float | None = None,
     editing_file: str | None = None,
@@ -57,6 +58,8 @@ def make_agent(
         "summary": None,
         "transport": transport,
     }
+    if renderer_available is not None:
+        agent["renderer_available"] = renderer_available
     if editing_file is not None:
         agent["editing_file"] = editing_file
     return agent
@@ -96,6 +99,7 @@ class TestListJson:
             working_dir="repo-a",
             endpoint="http://localhost:8100",
             transport="UDS→",
+            renderer_available=False,
             current_task_preview="Review issue #380",
             task_received_at=1710000000.0,
         )
@@ -128,8 +132,36 @@ class TestListJson:
                 "summary": None,
                 "is_orphan": None,
                 "spawned_by": None,
+                "renderer_available": False,
             }
         ]
+
+    def test_list_text_appends_renderer_state_to_status(self) -> None:
+        """Plain list output should expose renderer state without a new column."""
+        list_cmd = create_list_command()
+        args = MagicMock()
+        args.plain_output = True
+        agent = make_agent(
+            agent_id="synapse-codex-8120",
+            agent_type="codex",
+            port=8120,
+            status="WAITING",
+            pid=32345,
+            working_dir="repo-c",
+            endpoint="http://localhost:8120",
+            transport="-",
+            renderer_available=False,
+        )
+
+        with patch.object(
+            list_cmd,
+            "_get_agent_data",
+            return_value=([agent], [], False),
+        ):
+            list_cmd.run(args)
+
+        rows = [call.args[0] for call in list_cmd._print.call_args_list]
+        assert any("WAITING (renderer: off)" in row for row in rows)
 
     def test_list_json_multiple_agents(self) -> None:
         """Should output multiple agents as a JSON array."""

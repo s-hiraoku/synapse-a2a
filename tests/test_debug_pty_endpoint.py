@@ -106,3 +106,47 @@ class TestDebugPtyEndpoint:
         client = TestClient(app)
         response = client.get("/debug/pty")
         assert response.status_code == 503
+
+
+class TestDebugWaitingEndpoint:
+    def test_returns_waiting_detection_snapshot(self) -> None:
+        controller = MagicMock()
+        controller.status = "WAITING"
+        controller.renderer_available = False
+        controller.waiting_debug_snapshot.return_value = {
+            "renderer_available": False,
+            "attempts": [
+                {
+                    "timestamp": 1776814438.0,
+                    "profile": "codex",
+                    "path_used": "strip_ansi",
+                    "renderer_on": False,
+                    "pattern_matched": False,
+                    "pattern_source": None,
+                    "confidence": 0.0,
+                    "idle_gate_passed": False,
+                    "new_data_hex_prefix": "6f7264696e617279",
+                    "rendered_text_tail": "ordinary",
+                }
+            ],
+        }
+        app = FastAPI()
+        app.include_router(create_a2a_router(controller, "codex", 8126, "\n"))
+        client = TestClient(app)
+
+        response = client.get("/debug/waiting")
+
+        assert response.status_code == 200
+        assert response.json()["renderer_available"] is False
+        assert response.json()["attempts"][0]["path_used"] == "strip_ansi"
+
+    def test_handles_controller_without_waiting_debug_snapshot(self) -> None:
+        legacy = MagicMock(spec=["status", "on_status_change"])
+        legacy.status = "PROCESSING"
+        app = FastAPI()
+        app.include_router(create_a2a_router(legacy, "codex", 8126, "\n"))
+        client = TestClient(app)
+
+        response = client.get("/debug/waiting")
+
+        assert response.status_code == 503

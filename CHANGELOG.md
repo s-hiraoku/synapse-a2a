@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Profile command tokenization (#614, #624):** profile command strings with multiple tokens (e.g. `python3 -u dummy_agent.py`) are now split with `shlex` before launch, so profile-defined arguments are executed correctly. (Subsumes the un-tagged `0.27.2` entry below.)
+- **Canvas Mermaid render isolation (#398, #626):** a single malformed mermaid card no longer breaks valid diagrams rendered in the same batch — each render failure is isolated per-diagram.
 
 ## [0.27.2] - 2026-04-20
 
@@ -80,29 +81,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 
 - **End-to-end verification of `post-impl` workflow (#531, #600):** added `tests/test_post_impl_workflow_e2e.py` (marked `@pytest.mark.e2e`, opt-in via `pytest -m e2e`) which exercises the full `_WorkflowHelper` lifecycle: 5-step progression, helper spawned-once / killed-once, no 409 on step 5, helper-vs-caller-endpoint dispatch. The test loads the real `.synapse/workflows/post-impl.yaml`, so any future change to its step shape will be caught at the assertion level.
-
-## [Unreleased]
-
-## [0.27.0] - 2026-04-19
-
-### Added
-
-- **`synapse cleanup` for orphaned spawned agents (#332):** New top-level command that kills children whose `spawned_by` parent is gone or whose parent PID is dead. `synapse spawn` now propagates the calling agent's `SYNAPSE_AGENT_ID` to the child as `SYNAPSE_SPAWNED_BY` so the registry records the parent-child link automatically. `synapse cleanup --dry-run` lists orphans without killing; bare `synapse cleanup` kills all orphans (with confirmation, `-f` to skip); `synapse cleanup <agent>` targets one orphan and refuses non-orphans so existing `synapse kill` semantics remain intact. `synapse list` annotates orphans inline (`STATUS [ORPHAN]`) and exposes `is_orphan` / `spawned_by` in `--json` output. The opt-in env var `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<seconds>` enables opportunistic reaping of orphans that have been READY longer than the timeout.
-- **Worktree-aware agent-profile save defaults (#410):** When the interactive save-prompt fires inside a worktree session, the default scope flips from `project` to `user` and the prompt explains why ("project scope in a worktree is deleted on cleanup"). On worktree cleanup, any saved `*.agent` files under `<worktree>/.synapse/agents/` are also copied back to the main repo's `.synapse/agents/` as a safety net — main-repo files win on collision and identical files are skipped silently. Detection is now pure-Python (`worktree.is_path_in_worktree`) instead of shelling out to `git rev-parse`, so the per-prompt cost on the common non-worktree path is negligible.
-
-### Fixed
-
-- **Idle-detection prompt heuristic safety net (#572, #594):** The `idle_detector` generic-prompt heuristic now has an explicit safety net so accidental loop-confidence promotions cannot misclassify a still-PROCESSING agent as WAITING. Also tightens the WAITING-confidence threshold so transient single-prompt frames no longer flip status alone.
-- **Nested-worktree path resolution (#546, #598):** `synapse spawn --worktree` invoked from inside an existing worktree now anchors the new worktree at the *main* repo root (`git rev-parse --git-common-dir` parent) instead of the calling worktree's toplevel. Prevents nested `<wt-A>/.synapse/worktrees/<wt-B>/` paths from accumulating across recursive spawns.
-
-### Documentation
-
-- **Subagent-vs-spawn guidance (#595):** The `synapse-a2a` skill now recommends Claude Code's Agent tool / Codex subprocess for same-model delegation rather than always spawning a fresh `synapse` agent. Captures the lower startup cost and shared context advantage when both calls would land on the same model.
-- **No-cd-into-worktree warning (#547, #599):** The `synapse-a2a` skill's new "Worktree Discipline" section tells subagents never to `cd` into `.synapse/worktrees/` (the parent's persistent shell inherits the cwd change), and points them at absolute paths and `git -C /abs/path …` instead. Mirrored byte-for-byte into `.agents/skills/` and `.claude/skills/`.
-
-### Tests
-
-- **Post-impl workflow e2e (#531, #600):** New opt-in pytest test (`@pytest.mark.e2e`) exercises the full `run_workflow` + `_WorkflowHelper` lifecycle for the real `post-impl.yaml` without spawning live Claude/Codex agents. A `FakeHelperController` mocks the helper contract while production code paths run unmodified — asserts the #531 acceptance criteria (5 steps reach `completed`, helper spawned/killed exactly once, no 409 `Agent busy`, `synapse workflow status` reports per-step progression). Default `pytest -q` is unaffected; opt in with `pytest -m e2e` or `SYNAPSE_E2E_POSTIMPL=1`.
 
 ## [0.26.5] - 2026-04-19
 

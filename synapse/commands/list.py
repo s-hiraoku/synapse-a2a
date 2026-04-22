@@ -171,6 +171,7 @@ class ListCommand:
                 "task_received_at": info.get("task_received_at"),
                 "summary": info.get("summary"),
                 "transport": registry.get_transport_display(agent_id) or "-",
+                "renderer_available": info.get("renderer_available"),
             }
 
             if show_file_safety:
@@ -662,6 +663,15 @@ class ListCommand:
         "spawned_by",
     )
 
+    def _format_status(self, agent: dict[str, Any]) -> str:
+        status = str(agent.get("status", "-"))
+        renderer_available = agent.get("renderer_available")
+        if renderer_available is False:
+            return f"{status} (renderer: off)"
+        if renderer_available is True:
+            return f"{status} (renderer: on)"
+        return status
+
     def run_json(self, args: argparse.Namespace) -> None:
         """Output agent list as JSON array for programmatic consumption."""
         registry = self._registry_factory()
@@ -670,6 +680,8 @@ class ListCommand:
         result = []
         for agent in agents:
             entry = {k: agent.get(k) for k in self._JSON_FIELDS}
+            if "renderer_available" in agent:
+                entry["renderer_available"] = agent.get("renderer_available")
             # Use full path for working_dir in JSON (short name is for TUI only)
             entry["working_dir"] = agent.get("working_dir_full") or agent.get(
                 "working_dir"
@@ -725,7 +737,7 @@ class ListCommand:
                         (agent.get("skill_set") or "-", 16),
                         (agent.get("agent_id", "-"), 24),
                         (agent["port"], 8),
-                        (agent["status"], 12),
+                        (self._format_status(agent), 12),
                         (str(agent.get("transport") or "-"), 10),
                         (agent.get("working_dir") or "-", 20),
                     ]
