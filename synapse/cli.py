@@ -679,7 +679,11 @@ def cmd_status(args: argparse.Namespace) -> None:
         file_safety_manager=file_safety,
         output=sys.stdout,
     )
-    cmd.run(args.target, json_output=getattr(args, "json_output", False))
+    cmd.run(
+        args.target,
+        json_output=getattr(args, "json_output", False),
+        debug_waiting=getattr(args, "debug_waiting", False),
+    )
 
 
 def cmd_merge(args: argparse.Namespace) -> None:
@@ -2538,6 +2542,7 @@ def cmd_run_interactive(
                 worktree_branch=worktree_branch,
                 worktree_base_branch=worktree_base_branch,
                 spawned_by=spawned_by,
+                renderer_available=controller.renderer_available,
             )
         except NameConflictError as e:
             print(f"Error: {e}")
@@ -3177,6 +3182,11 @@ Status meanings:
     p_status.add_argument("target", help="Agent name, ID, type-port, or type")
     p_status.add_argument(
         "--json", action="store_true", dest="json_output", help="Output as JSON"
+    )
+    p_status.add_argument(
+        "--debug-waiting",
+        action="store_true",
+        help="Show recent WAITING detection attempts and aggregate diagnostics",
     )
     p_status.set_defaults(func=cmd_status)
 

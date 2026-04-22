@@ -50,7 +50,9 @@ class RichRenderer:
         """Get the console instance."""
         return self._console
 
-    def _format_status(self, status: str) -> Text:
+    def _format_status(
+        self, status: str, renderer_available: bool | None = None
+    ) -> Text:
         """Format status with appropriate color.
 
         Args:
@@ -60,7 +62,12 @@ class RichRenderer:
             Rich Text object with styled status.
         """
         style = STATUS_STYLES.get(status, "")
-        return Text(status, style=style)
+        text = Text(status, style=style)
+        if renderer_available is False:
+            text.append(" (renderer: off)", style="dim")
+        elif renderer_available is True:
+            text.append(" (renderer: on)", style="dim")
+        return text
 
     def _build_empty_table(self) -> Table:
         """Build a table showing 'No agents running' with port ranges.
@@ -89,7 +96,7 @@ class RichRenderer:
         "TYPE": ("cyan", 8, 12, None, "agent_type"),
         "ROLE": (None, 10, 20, None, "role"),
         "SKILL_SET": ("blue", 10, 16, None, "skill_set"),
-        "STATUS": (None, 12, None, 13, "status"),
+        "STATUS": (None, 12, None, 30, "status"),
         "CURRENT": (None, 20, 20, 20, "current_task_preview"),
         "TRANSPORT": (None, 10, None, 10, "transport"),
         "WORKING_DIR": (None, 20, 30, None, "working_dir"),
@@ -214,7 +221,12 @@ class RichRenderer:
             for col_name in valid_columns:
                 _, _, _, _, data_key = self.COLUMN_DEFS[col_name]
                 if col_name == "STATUS":
-                    row.append(self._format_status(agent.get(data_key, "-")))
+                    row.append(
+                        self._format_status(
+                            agent.get(data_key, "-"),
+                            agent.get("renderer_available"),
+                        )
+                    )
                 elif col_name == "ROLE":
                     # Show filename only for file references
                     row.append(get_role_display(agent.get(data_key)) or "-")
