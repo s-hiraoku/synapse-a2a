@@ -1,0 +1,224 @@
+name: Auto Resolve Mechanical Conflicts
+
+# Automatically resolves "mechanical" merge conflicts (CHANGELOG append,
+# uv.lock regeneration, version-line conflicts). Anything else gets a
+# "needs-manual-rebase" label for human/agent review.
+#
+# Trigger design:
+#   - push to main          → re-evaluate every open PR (base moved)
+#   - pull_request sync     → evaluate the PR that just pushed
+# Label contract:
+#   - needs-manual-rebase   → auto-resolve failed, human must act
+# Prerequisite:
+#   Create the label once:
+#     gh label create needs-manual-rebase \
+#       --color d73a4a \
+#       --description "Auto-resolve bailed out; manual merge/rebase required"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write         # push resolved commits back to PR head
+  pull-requests: write    # add/remove label
+
+jobs:
+  enumerate:
+    name: Enumerate PRs to evaluate
+    runs-on: ubuntu-latest
+    outputs:
+      prs: ${{ steps.list.outputs.prs }}
+    steps:
+      - name: List target PRs
+        id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            echo "prs=[$PR_NUMBER]" >> "$GITHUB_OUTPUT"
+          else
+            # push to main: evaluate every open PR
+            prs=$(gh pr list --state open --base main --json number --jq 'map(.number)')
+            echo "prs=${prs}" >> "$GITHUB_OUTPUT"
+          fi
+
+  resolve:
+    name: Resolve PR #${{ matrix.pr }}
+    needs: enumerate
+    if: needs.enumerate.outputs.prs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.enumerate.outputs.prs) }}
+    steps:
+      - name: Fetch PR metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          data=$(gh pr view ${{ matrix.pr }} --json headRefName,headRefOid,baseRefName,isCrossRepository,mergeable,mergeStateStatus)
+          echo "$data" | jq -r '"head=" + .headRefName' >> "$GITHUB_OUTPUT"
+          echo "$data" | jq -r '"base=" + .baseRefName' >> "$GITHUB_OUTPUT"
+          echo "$data" | jq -r '"fork=" + (.isCrossRepository|tostring)' >> "$GITHUB_OUTPUT"
+
+      - name: Skip forks (no push permission)
+        if: steps.meta.outputs.fork == 'true'
+        run: |
+          echo "PR #${{ matrix.pr }} is from a fork; skipping."
+          exit 0
+
+      - uses: actions/checkout@v6
+        if: steps.meta.outputs.fork == 'false'
+        with:
+          ref: ${{ steps.meta.outputs.head }}
+          fetch-depth: 0
+
+      - name: Poll mergeable status
+        id: mergeable
+        if: steps.meta.outputs.fork == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # GitHub computes `mergeable` async; it returns UNKNOWN right after a
+          # push. Poll up to ~60s until it resolves to MERGEABLE or CONFLICTING.
+          for i in $(seq 1 12); do
+            state=$(gh pr view ${{ matrix.pr }} --json mergeable --jq '.mergeable')
+            if [ "$state" != "UNKNOWN" ]; then
+              echo "state=$state" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "state=UNKNOWN" >> "$GITHUB_OUTPUT"
+
+      - name: Early exit if not conflicting
+        if: steps.meta.outputs.fork == 'false' && steps.mergeable.outputs.state != 'CONFLICTING'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "PR #${{ matrix.pr }} is not in CONFLICTING state (state=${{ steps.mergeable.outputs.state }}); nothing to do."
+          # If a stale needs-manual-rebase label exists, remove it
+          gh pr edit ${{ matrix.pr }} --remove-label needs-manual-rebase 2>/dev/null || true
+
+      - name: Attempt merge origin/${{ steps.meta.outputs.base }}
+        id: merge
+        if: steps.meta.outputs.fork == 'false' && steps.mergeable.outputs.state == 'CONFLICTING'
+        run: |
+          set -euo pipefail
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+          git fetch origin ${{ steps.meta.outputs.base }}
+          if git merge "origin/${{ steps.meta.outputs.base }}" --no-commit --no-ff; then
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Classify conflict scope
+        id: scope
+        if: steps.merge.outputs.conflict == 'true'
+        run: |
+          set -euo pipefail
+          conflicts=$(git diff --name-only --diff-filter=U)
+          echo "--- conflicting files ---"
+          echo "$conflicts"
+          echo "-------------------------"
+
+          mechanical=true
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              CHANGELOG.md) ;;
+              uv.lock) ;;
+              pyproject.toml) ;;
+              plugins/*/\.claude-plugin/plugin.json) ;;
+              plugins/*/.claude-plugin/plugin.json) ;;
+              *) mechanical=false ;;
+            esac
+          done <<< "$conflicts"
+
+          # Preserve the file list for the next step
+          printf '%s\n' "$conflicts" > /tmp/conflict-files.txt
+          echo "mechanical=$mechanical" >> "$GITHUB_OUTPUT"
+
+      - name: Set up uv (for lock regeneration)
+        if: steps.scope.outputs.mechanical == 'true'
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Mechanical resolve
+        id: resolve
+        if: steps.scope.outputs.mechanical == 'true'
+        env:
+          BASE: ${{ steps.meta.outputs.base }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            echo "--- resolving: $f ---"
+            case "$f" in
+              CHANGELOG.md)
+                # Union merge: keep both sides' entries
+                git show ":1:$f" > /tmp/base.txt 2>/dev/null || : > /tmp/base.txt
+                git show ":2:$f" > /tmp/ours.txt
+                git show ":3:$f" > /tmp/theirs.txt
+                python3 scripts/merge_changelog.py \
+                  /tmp/base.txt /tmp/ours.txt /tmp/theirs.txt > "$f"
+                git add "$f"
+                ;;
+              uv.lock)
+                # Regenerate deterministically from pyproject.toml (post-merge)
+                git checkout --ours pyproject.toml 2>/dev/null || true
+                rm -f "$f"
+                uv lock
+                git add "$f"
+                ;;
+              pyproject.toml|plugins/*/.claude-plugin/plugin.json)
+                # Accept the higher semver on the version line only;
+                # bail if any non-version line also conflicts
+                git show ":2:$f" > /tmp/ours.txt
+                git show ":3:$f" > /tmp/theirs.txt
+                python3 scripts/merge_version_line.py \
+                  /tmp/ours.txt /tmp/theirs.txt > "$f"
+                git add "$f"
+                ;;
+            esac
+          done < /tmp/conflict-files.txt
+
+          # Verify no conflict markers remain
+          if git diff --check; then
+            echo "resolved=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "resolved=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push if resolved
+        if: steps.resolve.outputs.resolved == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git commit -m "chore: auto-resolve mechanical merge conflicts with ${{ steps.meta.outputs.base }}"
+          git push origin HEAD:${{ steps.meta.outputs.head }}
+          gh pr edit ${{ matrix.pr }} --remove-label needs-manual-rebase 2>/dev/null || true
+
+      - name: Bail out — label for manual rebase
+        if: |
+          steps.merge.outputs.conflict == 'true' && (
+            steps.scope.outputs.mechanical != 'true' ||
+            steps.resolve.outputs.resolved != 'true'
+          )
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git merge --abort 2>/dev/null || true
+          gh pr edit ${{ matrix.pr }} --add-label needs-manual-rebase
