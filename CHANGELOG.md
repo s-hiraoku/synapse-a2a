@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-04-23
+
+Patch release that rolls up the Phase 1 documentation coverage and Phase 1.5 collection pipeline that landed on `main` after the `v0.28.0` tag was cut. No code changes to the WAITING detection itself; Phase 2 (detection logic changes) remains out of scope.
+
+### Added
+
+- **`synapse waiting-debug` CLI — Phase 1.5 collection pipeline (#630, #632):** `synapse waiting-debug collect` appends per-agent `/debug/waiting` snapshots to `~/.synapse/waiting_debug.jsonl` (user-scoped so data accumulates across projects); `synapse waiting-debug report [--since] [--agent] [--json]` produces aggregate counts (profile, `pattern_source`, `path_used`, `confidence`, `idle_gate_drops`, `renderer_unavailable_agents`) for Phase 2 analysis. Collector continues on per-agent errors and skips empty attempts by default (`--include-empty` overrides). `.synapse/waiting_debug.*` added to `.gitignore`. New `docs/phase15-collection.md` documents the CLI plus cron and launchd scheduling recipes (5-minute cadence).
+
+### Documentation
+
+- **WAITING observability reference coverage (#608, #631):** `synapse-a2a` skill references (`api.md`, `commands.md`) now document `GET /debug/waiting` (response shape, field semantics, 503 fallback), the `--debug-waiting` flag and its aggregate output, the `renderer_available` JSON field, and the `WAITING (renderer: off)` plain-text annotation. `site-docs/guide/agent-management.md` gains new "Renderer Availability" and "WAITING Detection Diagnostics" subsections describing the pyte fallback, the `(renderer: off)` behavior, and how to read `--debug-waiting` aggregates + per-attempt rows. Canonical skill changes mirrored to `.agents/skills/` and `.claude/skills/`.
+
+### Fixed
+
+- **`tests/test_skill_structure.py::TestSyncedSkillParity` for externally-registered skills (#629):** the `opensrc` skill (registered from `vercel-labs/opensrc` into `.agents/skills/opensrc` and `.claude/skills/opensrc`) is not part of the `synapse-a2a` plugin distribution, so the `no_orphan_synced_skills` check was failing. Added `metadata.internal: true` plus `source` and `note` fields to the frontmatter; the test already exempts skills whose `metadata` contains `internal: true`.
+
 ## [0.28.0] - 2026-04-22
 
 ### Added
@@ -3516,6 +3532,7 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - PyPI publishing instructions
 
 [Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.2...HEAD
+[0.28.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.2...v0.28.0
 [0.27.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.1...v0.27.2
 [0.27.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.0...v0.27.1
