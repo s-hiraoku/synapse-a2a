@@ -166,12 +166,18 @@ Once the Canvas server is running (`synapse canvas serve`), open the
 **Harnesses → Skills** entry in the sidebar, or navigate directly to
 `http://localhost:3000/#/harnesses/skills`.
 
-The viewer is a tree-table of every skill discovered across all four
-scopes — User Global, Project, Synapse Central Store, and Plugin —
-arranged as a **two-level hierarchy** (大分類 → 中分類 → スキル):
+The viewer is a tree-table of every skill discovered across the four
+underlying scopes (User Global, Project, Synapse Central Store, and
+Plugin), arranged as a **two-level hierarchy** (大分類 → 中分類 → スキル).
+
+Note that the UI collapses `project` and `plugin` into a single
+**Projects** section — plugin-scoped skills (`plugins/*/skills/**`)
+appear anchored to their owning project root rather than as a separate
+top-level section. The three top-level sections are therefore:
 
 1. **Top-level sections** (rendered as separate tables): **User
-   Global** (first), **Projects**, **Synapse Central Store**.
+   Global** (first), **Projects** (includes plugin-scoped skills),
+   **Synapse Central Store**.
 2. **Sub-groups inside each section**:
    - **User Global** splits by agent harness — **Claude Code**
      (`.claude/skills/**`) and **Codex / OpenCode / Gemini / Copilot**

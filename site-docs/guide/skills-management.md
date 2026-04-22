@@ -182,10 +182,13 @@ Plugin scopes. Use the name filter to narrow the list; each row shows
 the skill name, description, target agent directories, and absolute
 path on disk.
 
-If the viewer looks stale after a skill install, the Canvas server
-caches its frontend assets at startup — run
-[`synapse canvas restart`](../reference/cli.md#restart) to reload on
-the same port. See [Canvas → Harnesses → Skills
+If the viewer looks stale after a skill install, two caches are in
+play on the running Canvas process: a TTL cache on `/api/system` that
+memoizes the discovered skill list, and frontend assets the browser
+loaded at startup. Both are refreshed by
+[`synapse canvas restart`](../reference/cli.md#restart), which
+restarts the server in place on the same port. See
+[Canvas → Harnesses → Skills
 View](canvas.md#harnesses-skills-view-harnessesskills) for the full
 viewer reference.
 

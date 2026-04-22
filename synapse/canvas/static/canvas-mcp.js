@@ -27,17 +27,22 @@
     return data && Array.isArray(data.mcp_servers) ? data.mcp_servers : [];
   }
 
-  function fingerprint(servers) {
-    let out = "";
+  function fingerprint(servers, projectRoots) {
+    // Include projectRoots so adding/removing an empty project (no .mcp.json)
+    // still triggers a re-render of the "no .mcp.json" rows.
+    let out = "roots\t" + (projectRoots || []).join("|") + "\n";
     for (const s of servers) {
       out += (s.name || "") + "\t" + (s.scope || "") + "\t" + (s.command || "") + "\t"
-        + (s.args || []).join(" ") + "\t" + (s.env_keys || []).join(",") + "\n";
+        + (s.args || []).join(" ") + "\t" + (s.env_keys || []).join(",") + "\t"
+        + (s.url || "") + "\t" + (s.project_root || "") + "\n";
     }
     return out;
   }
 
   function commandLine(server) {
-    const parts = [server.command || ""];
+    // HTTP/SSE transports declare `url` instead of `command` + args.
+    if (!server.command) return server.url || "";
+    const parts = [server.command];
     for (const a of server.args || []) parts.push(String(a));
     return parts.filter(Boolean).join(" ");
   }
@@ -407,7 +412,7 @@
   function refreshRender(force) {
     if (!tableWrap) return;
     const servers = getServers();
-    const fp = fingerprint(servers);
+    const fp = fingerprint(servers, getProjectRoots());
     if (!force && fp === _lastFingerprint) return;
     _lastFingerprint = fp;
 

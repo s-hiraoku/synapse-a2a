@@ -162,10 +162,21 @@ def parse_skill_frontmatter(path: Path) -> dict[str, str] | None:
     except yaml.YAMLError:
         return None
 
-    if not isinstance(data, dict) or "name" not in data:
+    if not isinstance(data, dict) or not isinstance(data.get("name"), str):
         return None
 
-    return {str(k): ("" if v is None else str(v)).strip() for k, v in data.items()}
+    # Skip container values (list/dict) — their str() form is unhelpful.
+    # Keep scalars (str/int/float/bool) which have meaningful string forms.
+    result: dict[str, str] = {}
+    for k, v in data.items():
+        key = str(k)
+        if v is None:
+            result[key] = ""
+        elif isinstance(v, (str, int, float, bool)):
+            result[key] = str(v).strip()
+        else:
+            result[key] = ""
+    return result
 
 
 # ──────────────────────────────────────────────────────────

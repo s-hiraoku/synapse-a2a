@@ -26,9 +26,13 @@
   }
 
   function fingerprint(skills) {
+    // Include agent_dirs and project_root so changes in grouping/location
+    // trigger a re-render, not just changes to name/scope/path/description.
     let out = "";
     for (const s of skills) {
-      out += (s.name || "") + "\t" + (s.scope || "") + "\t" + (s.path || "") + "\t" + (s.description || "") + "\n";
+      const dirs = (s.agent_dirs || []).slice().sort().join(",");
+      out += (s.name || "") + "\t" + (s.scope || "") + "\t" + (s.path || "") + "\t"
+        + (s.description || "") + "\t" + dirs + "\t" + (s.project_root || "") + "\n";
     }
     return out;
   }
@@ -158,7 +162,22 @@
       caret.classList.toggle("ph-caret-right", collapsed);
     }
     const childRows = parentRow._childRows || [];
-    for (const r of childRows) r.classList.toggle("is-hidden-by-collapse", collapsed);
+    if (collapsed) {
+      for (const r of childRows) r.classList.add("is-hidden-by-collapse");
+      return;
+    }
+    // Expanding: reveal direct children, but respect any nested groups that
+    // are still collapsed (their own children should remain hidden).
+    const hiddenNested = new Set();
+    for (const r of childRows) {
+      if (r.classList.contains("skill-group-row") && r.classList.contains("is-collapsed")) {
+        for (const nr of r._childRows || []) hiddenNested.add(nr);
+      }
+    }
+    for (const r of childRows) {
+      if (hiddenNested.has(r)) continue;
+      r.classList.remove("is-hidden-by-collapse");
+    }
   }
 
   function toggleGroup(parentRow) {
@@ -353,9 +372,8 @@
 
     const sections = tableWrap.querySelectorAll(".harness-section");
     for (const section of sections) {
-      let sectionVisible = 0;
+      const visibleRows = new Set();
       const groupRows = section.querySelectorAll("tr.skill-group-row");
-      const rowsWithoutGroup = [];
       if (groupRows.length) {
         for (const parent of groupRows) {
           const children = parent._childRows || [];
@@ -365,27 +383,28 @@
             const name = (child.dataset.skillName || "").toLowerCase();
             const hit = !filtering || name.includes(q);
             child.classList.toggle("is-hidden-by-filter", !hit);
-            if (hit) matchCount++;
+            if (hit) {
+              matchCount++;
+              visibleRows.add(child);
+            }
           }
           const groupHasMatches = !filtering || matchCount > 0;
           parent.classList.toggle("is-hidden-by-filter", !groupHasMatches);
           if (filtering && groupHasMatches && parent.classList.contains("is-collapsed")) {
             setCollapsed(parent, false);
           }
-          if (groupHasMatches) sectionVisible += filtering ? matchCount : children.filter(r => !r.classList.contains("skill-group-row")).length;
         }
       }
       // Flat rows (sections without group headers, e.g. Synapse)
       const flat = section.querySelectorAll("tr.skill-row:not([data-group-key])");
       for (const r of flat) {
-        rowsWithoutGroup.push(r);
         const name = (r.dataset.skillName || "").toLowerCase();
         const hit = !filtering || name.includes(q);
         r.classList.toggle("is-hidden-by-filter", !hit);
-        if (hit) sectionVisible++;
+        if (hit) visibleRows.add(r);
       }
-      section.classList.toggle("is-hidden-by-filter", filtering && sectionVisible === 0);
-      visible += sectionVisible;
+      section.classList.toggle("is-hidden-by-filter", filtering && visibleRows.size === 0);
+      visible += visibleRows.size;
     }
 
     if (countLabel) {

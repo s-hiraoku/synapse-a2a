@@ -762,7 +762,7 @@ Project roots are inferred from the `working_dir` of every live agent in the reg
 
 A **name filter** at the top narrows the tree by substring match against skill names. Groups with no visible children are hidden automatically so the tree stays compact while you search. Parent rows are collapsible (click or Enter/Space).
 
-The view is pull-based: the Canvas server enumerates skill directories on demand — agents do not need to register skills explicitly. To refresh the list after installing a new skill or editing a `SKILL.md`, use [`synapse canvas restart`](../reference/cli.md#restart) so the server picks up updated frontend assets and re-scans the skill directories on the next request.
+The Canvas server enumerates skill directories inside `/api/system`, but the result is cached per-process (a TTL cache on slow-changing system data), so adding or editing a `SKILL.md` while the server is running is not picked up until the cache expires. To force an immediate refresh — along with reloading any frontend assets the running process has cached in memory — use [`synapse canvas restart`](../reference/cli.md#restart). Agents themselves do not need to register skills explicitly.
 
 ### Harnesses → MCP Servers View (`#/harnesses/mcp`)
 

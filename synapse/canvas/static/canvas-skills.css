@@ -317,7 +317,6 @@
   max-width: 360px;
   width: 360px;
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .skill-location-targets {
@@ -348,7 +347,6 @@
   font-size: var(--text-xs);
   color: var(--color-text);
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .mcp-env-chip {
