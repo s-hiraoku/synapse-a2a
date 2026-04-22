@@ -304,6 +304,35 @@ Use this when a WAITING prompt did not trip the controller as expected: each att
 - Debugging why an agent is stuck in PROCESSING (check file locks)
 - Reviewing recent communication history for a specific agent
 
+### Waiting Debug Collection (`synapse waiting-debug`)
+
+Added in v0.28.1 (#630, #632). Persists the in-memory `/debug/waiting` ring buffer across every running agent so Phase 2 detection work has real data.
+
+```bash
+# Collect one snapshot per running agent into ~/.synapse/waiting_debug.jsonl
+synapse waiting-debug collect
+synapse waiting-debug collect --agent <agent-id>       # single agent
+synapse waiting-debug collect --include-empty          # record empty rings too
+synapse waiting-debug collect --out /tmp/debug.jsonl   # override output path
+
+# Aggregate / inspect
+synapse waiting-debug report
+synapse waiting-debug report --since 2026-04-23T00:00:00+00:00
+synapse waiting-debug report --agent <agent-id>
+synapse waiting-debug report --json
+synapse waiting-debug report --in /tmp/debug.jsonl
+```
+
+- **Output**: `~/.synapse/waiting_debug.jsonl` by default, one JSONL row per `{agent_id, port, collected_at, snapshot}`.
+- **Aggregate fields** (`report` output): total attempts, `profiles` / `pattern_source` / `path_used` / `confidence` distributions, `idle_gate_drops` count, `renderer_unavailable_agents` ratio.
+- **Error handling**: per-agent HTTP / parse errors log one warning to stderr and the collector continues with the next agent. Invalid JSONL lines in the input also warn and are skipped.
+
+**Prerequisite — bump the CLI first:** `synapse waiting-debug` exists only in v0.28.1+. Upgrade with `uv tool upgrade synapse-a2a` or `pipx upgrade synapse-a2a` before arming a schedule; otherwise the subcommand parser rejects `waiting-debug` on every run.
+
+**Legacy-agent caveat:** agents still running on a pre-0.28.0 binary do not expose `GET /debug/waiting` and log an expected `HTTP Error 404: Not Found`. Respawn them with the upgraded CLI (`synapse kill <id>` + spawn) to bring them into the dataset.
+
+**Schedule it** — there is no `synapse schedule` CLI for this. Use cron or launchd at a 5-minute cadence. See `docs/phase15-collection.md` for the canonical cron line and launchd plist.
+
 ### Saved Agent Definitions
 
 Manage reusable agent definitions that persist across sessions. Saved agents are stored as `.agent` files in project (`.synapse/agents/`) or user (`~/.synapse/agents/`) scope.

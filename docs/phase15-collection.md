@@ -110,3 +110,73 @@ Load it with:
 ```bash
 launchctl load ~/Library/LaunchAgents/dev.synapse.waiting-debug.plist
 ```
+
+Stop or disable later with:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/dev.synapse.waiting-debug.plist
+```
+
+Useful additions for the plist that can bite on a fresh macOS account:
+
+- `PATH` in `EnvironmentVariables` — launchd does not inherit the login shell's
+  `PATH`, so `synapse` must be reachable via an absolute path in
+  `ProgramArguments` (recommended) or the plist must export
+  `PATH=/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin`.
+- `HOME` — launchd sets `HOME` for user agents automatically, but explicitly
+  adding it to `EnvironmentVariables` makes the collector robust against
+  unusual session contexts.
+
+## Prerequisite: bump the installed `synapse` CLI
+
+`synapse waiting-debug` only exists in **v0.28.1 and newer**. The 5-minute
+cron/launchd schedule will spew `invalid choice: 'waiting-debug'` until the CLI
+is upgraded.
+
+If `synapse` was installed with `uv tool install`:
+
+```bash
+# Pull the latest release from PyPI once it is published
+uv tool upgrade synapse-a2a
+
+# Or install directly from a local checkout (useful before PyPI publish)
+uv tool install --reinstall --from /path/to/synapse-a2a synapse-a2a
+```
+
+If `synapse` was installed with `pipx`:
+
+```bash
+pipx upgrade synapse-a2a
+```
+
+Verify with:
+
+```bash
+synapse --version                   # expect 0.28.1 or newer
+synapse waiting-debug --help        # should list collect/report subcommands
+```
+
+## Known Caveat: Legacy Agents Return 404
+
+Agents that were **spawned with an older `synapse` binary (v0.27.x or earlier)
+remain running with the old Python runtime** and do not expose
+`GET /debug/waiting`. When the collector reaches them it logs a one-line
+warning to stderr:
+
+```text
+Warning: failed to collect waiting debug for <agent-id>: HTTP Error 404: Not Found
+```
+
+This is expected and non-fatal — the collector continues with the next agent
+and still appends any successful snapshots to the JSONL. To bring an existing
+agent into the data set, stop and respawn it with the upgraded CLI:
+
+```bash
+synapse kill <agent-id>
+synapse spawn <profile>            # or the appropriate team/spawn invocation
+```
+
+Only agents respawned after the CLI upgrade will start contributing rows.
+Pre-existing rooms stay invisible to Phase 2 analysis; this trade-off is
+intentional — the alternative (rolling restarts of every running agent on
+upgrade) is disruptive and not needed for Phase 2 planning.

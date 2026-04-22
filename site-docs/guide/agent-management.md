@@ -371,4 +371,37 @@ If `(renderer: off)` persists on an agent, restart the agent (`synapse kill <id>
 
 Use this when a prompt *should* have flipped the agent to WAITING but did not: each attempt row includes `new_data_hex_prefix` (raw bytes) and `rendered_text_tail` (what the detector saw), so you can diagnose whether the regex missed, the idle gate dropped it, or the renderer garbled it.
 
-The buffer is in-memory only — it empties on process restart. For long-running collection across multiple agents, scrape `GET /debug/waiting` into a JSONL (see [Issue #630](https://github.com/s-hiraoku/synapse-a2a/issues/630), Phase 1.5).
+The buffer is in-memory only — it empties on process restart. For long-running collection across multiple agents, use the Phase 1.5 `synapse waiting-debug` CLI (see below).
+
+### Phase 1.5: Periodic Data Collection (`synapse waiting-debug`)
+
+`synapse waiting-debug` (added in v0.28.1, see #630/#632) persists the `/debug/waiting` snapshot exposed by every running agent to `~/.synapse/waiting_debug.jsonl`, so Phase 2 detection-logic work has real data to lean on instead of guesses.
+
+```bash
+synapse waiting-debug collect                         # one-shot across all agents
+synapse waiting-debug collect --agent <id>            # single agent
+synapse waiting-debug collect --include-empty         # record agents whose ring is empty
+synapse waiting-debug report                          # human-readable aggregate
+synapse waiting-debug report --since 2026-04-23T00:00:00+00:00 --agent <id>
+synapse waiting-debug report --json                   # machine-readable for analysis
+```
+
+The report groups results by profile, `pattern_source`, `path_used`, and `confidence`, and surfaces `idle_gate_drops` (prompt visible but gate dropped it) plus the ratio of agents whose snapshot reported `renderer_available=false`.
+
+**Schedule it to run every five minutes** (see `docs/phase15-collection.md` for the canonical recipes):
+
+```bash
+# launchd (macOS)
+cp plists/dev.synapse.waiting-debug.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/dev.synapse.waiting-debug.plist
+
+# cron
+crontab -e
+*/5 * * * * /usr/bin/env synapse waiting-debug collect >> ~/.synapse/waiting_debug_collect.log 2>&1
+```
+
+!!! warning "Bump the installed CLI first"
+    `synapse waiting-debug` only exists in v0.28.1+. Upgrade the globally-installed CLI (`uv tool upgrade synapse-a2a` or `pipx upgrade synapse-a2a`) before arming the schedule, otherwise every run emits `invalid choice: 'waiting-debug'`.
+
+!!! info "Legacy agents return 404"
+    Agents that are still running with a pre-0.28.0 `synapse` binary do not expose `GET /debug/waiting`. The collector logs one `HTTP Error 404: Not Found` warning per legacy agent to stderr and continues. Data accrues only for agents respawned after the CLI upgrade — stop and restart them with `synapse kill <id>` followed by the usual spawn when you want them in the dataset.
