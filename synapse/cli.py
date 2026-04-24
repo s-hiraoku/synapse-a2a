@@ -3229,6 +3229,12 @@ Status meanings:
         action="store_true",
         help="Record agents whose debug endpoint has no attempts",
     )
+    p_waiting_collect.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        help="HTTP timeout in seconds for /debug/waiting requests (default: 5.0)",
+    )
     p_waiting_collect.set_defaults(func=cmd_waiting_debug)
 
     p_waiting_report = waiting_debug_subparsers.add_parser(
@@ -3255,6 +3261,12 @@ Status meanings:
         action="store_true",
         dest="json_output",
         help="Output aggregate data as JSON",
+    )
+    p_waiting_report.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Write the JSON report to the given file instead of stdout",
     )
     p_waiting_report.set_defaults(func=cmd_waiting_debug)
 

@@ -14,7 +14,12 @@ from typing import IO, Any, Protocol
 
 from synapse.registry import AgentRegistry
 
-DEFAULT_WAITING_DEBUG_PATH = Path.home() / ".synapse" / "waiting_debug.jsonl"
+DEFAULT_WAITING_DEBUG_TIMEOUT = 5.0
+
+
+def default_waiting_debug_path() -> Path:
+    """Resolve the default JSONL path at call time so `HOME` overrides apply."""
+    return Path.home() / ".synapse" / "waiting_debug.jsonl"
 
 
 class AgentRegistryLike(Protocol):
@@ -25,8 +30,10 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _http_get_json(url: str) -> dict[str, Any]:
-    with urllib.request.urlopen(url, timeout=3.0) as response:
+def _http_get_json(
+    url: str, *, timeout: float = DEFAULT_WAITING_DEBUG_TIMEOUT
+) -> dict[str, Any]:
+    with urllib.request.urlopen(url, timeout=timeout) as response:
         payload = response.read().decode("utf-8")
     data = json.loads(payload)
     return data if isinstance(data, dict) else {}
@@ -38,24 +45,27 @@ class WaitingDebugCollector:
     def __init__(
         self,
         registry: AgentRegistryLike | None = None,
-        fetcher: Callable[[str], dict[str, Any]] | None = None,
+        fetcher: Callable[..., dict[str, Any]] | None = None,
         clock: Callable[[], str] | None = None,
         stderr: IO[str] | None = None,
+        timeout: float = DEFAULT_WAITING_DEBUG_TIMEOUT,
     ) -> None:
         self._registry = registry or AgentRegistry()
         self._fetcher = fetcher or _http_get_json
         self._clock = clock or _now_iso
         self._stderr = stderr or sys.stderr
+        self._timeout = timeout
 
     def collect(
         self,
         *,
-        out_path: Path | str = DEFAULT_WAITING_DEBUG_PATH,
+        out_path: Path | str | None = None,
         agent_id: str | None = None,
         include_empty: bool = False,
     ) -> int:
         """Collect waiting debug snapshots and append them as JSONL records."""
-        path = Path(out_path).expanduser()
+        resolved = out_path if out_path is not None else default_waiting_debug_path()
+        path = Path(resolved).expanduser()
         path.parent.mkdir(parents=True, exist_ok=True)
 
         written = 0
@@ -67,7 +77,9 @@ class WaitingDebugCollector:
                     continue
 
                 try:
-                    snapshot = self._fetcher(f"{endpoint}/debug/waiting")
+                    snapshot = self._fetcher(
+                        f"{endpoint}/debug/waiting", timeout=self._timeout
+                    )
                 except (
                     OSError,
                     TimeoutError,
@@ -139,17 +151,26 @@ class WaitingDebugReporter:
     def report(
         self,
         *,
-        input_path: Path | str = DEFAULT_WAITING_DEBUG_PATH,
+        input_path: Path | str | None = None,
         since: str | None = None,
         agent_id: str | None = None,
         json_output: bool = False,
+        out_path: Path | str | None = None,
     ) -> dict[str, Any]:
+        resolved_input = (
+            input_path if input_path is not None else default_waiting_debug_path()
+        )
         records = list(
-            self._iter_records(Path(input_path).expanduser(), since, agent_id)
+            self._iter_records(Path(resolved_input).expanduser(), since, agent_id)
         )
         result = self._aggregate(records, since)
 
-        if json_output:
+        if out_path is not None:
+            serialized = json.dumps(result, indent=2, sort_keys=True) + "\n"
+            out = Path(out_path).expanduser()
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(serialized, encoding="utf-8")
+        elif json_output:
             self._output.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
         else:
             self._render_text(result)
@@ -183,11 +204,33 @@ class WaitingDebugReporter:
                     continue
                 if agent_id is not None and record.get("agent_id") != agent_id:
                     continue
-                if since_dt is not None and not _record_is_since(record, since_dt):
+                if since_dt is not None and not self._record_is_since(
+                    record, since_dt, line_number
+                ):
                     continue
                 records.append(record)
 
         return records
+
+    def _record_is_since(
+        self, record: dict[str, Any], since_dt: datetime, line_number: int
+    ) -> bool:
+        collected_at = record.get("collected_at")
+        if not isinstance(collected_at, str):
+            return False
+        try:
+            collected_dt = _parse_iso_datetime(collected_at)
+        except ValueError as exc:
+            print(
+                "Warning: record at line "
+                f"{line_number} has unparseable collected_at: "
+                f"{collected_at!r} ({exc})",
+                file=self._stderr,
+            )
+            return False
+        if collected_dt is None:
+            return False
+        return collected_dt >= since_dt
 
     def _aggregate(
         self, records: list[dict[str, Any]], since: str | None
@@ -306,9 +349,10 @@ def cmd_waiting_debug(args: Any) -> None:
     """Dispatch waiting-debug subcommands."""
     subcommand = getattr(args, "waiting_debug_command", None)
     if subcommand == "collect":
-        collector = WaitingDebugCollector()
+        timeout = getattr(args, "timeout", None) or DEFAULT_WAITING_DEBUG_TIMEOUT
+        collector = WaitingDebugCollector(timeout=timeout)
         written = collector.collect(
-            out_path=getattr(args, "out", None) or DEFAULT_WAITING_DEBUG_PATH,
+            out_path=getattr(args, "out", None),
             agent_id=getattr(args, "agent", None),
             include_empty=getattr(args, "include_empty", False),
         )
@@ -318,10 +362,11 @@ def cmd_waiting_debug(args: Any) -> None:
     if subcommand == "report":
         reporter = WaitingDebugReporter()
         reporter.report(
-            input_path=getattr(args, "input", None) or DEFAULT_WAITING_DEBUG_PATH,
+            input_path=getattr(args, "input", None),
             since=getattr(args, "since", None),
             agent_id=getattr(args, "agent", None),
             json_output=getattr(args, "json_output", False),
+            out_path=getattr(args, "out", None),
         )
         return
 
@@ -335,16 +380,6 @@ def _parse_iso_datetime(value: str | None) -> datetime | None:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed
-
-
-def _record_is_since(record: dict[str, Any], since_dt: datetime) -> bool:
-    collected_at = record.get("collected_at")
-    if not isinstance(collected_at, str):
-        return False
-    collected_dt = _parse_iso_datetime(collected_at)
-    if collected_dt is None:
-        return False
-    return collected_dt >= since_dt
 
 
 def _label(value: Any, fallback: Any) -> str:

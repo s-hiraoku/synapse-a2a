@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`synapse waiting-debug collect --timeout SECONDS`** — override the HTTP timeout used when querying `/debug/waiting` on each registered agent. Default is now **5.0 s** (previously hard-coded 3.0 s), which eliminates a common warn-flood immediately after PtyRenderer boots when agents can't respond within 3 s (#635).
+- **`synapse waiting-debug report --out PATH`** — write the aggregated JSON report to a file instead of stdout. When `--out` is set, stdout is kept empty so the flag is safe to use from cron/scripting without capturing mixed text/JSON output (#635).
+
+### Changed
+
+- **`synapse/commands/waiting_debug.py::default_waiting_debug_path()`** — the default JSONL path (`~/.synapse/waiting_debug.jsonl`) is now resolved lazily per call rather than at module import time. Tests and tools that export `HOME=/tmp/...` now actually redirect collection/reporting instead of silently using the real home. The module-level `DEFAULT_WAITING_DEBUG_PATH` constant is removed — callers either pass `out_path=` / `input_path=` explicitly or let the class resolve the default internally (#635).
+- **`WaitingDebugReporter._record_is_since` — warn on unparseable `collected_at`:** records whose timestamp can't be parsed are still skipped, but now emit `Warning: record at line N has unparseable collected_at: '<value>' (<reason>)` to stderr, matching the existing behavior for invalid JSONL lines (#635).
+
+### Fixed
+
+- **Closes #630 (Phase 1.5 persistence pipeline):** the Phase 1.5 collection pipeline shipped in #632 is now operationally stable with the polish above. Scheduling, retention, and SQLite export remain optional operator-side concerns (docs in `docs/phase15-collection.md`).
+
 ## [0.28.2] - 2026-04-24
 
 Patch release rolling up the Phase 1.5 operational runbook, the Anthropic `--dangerously-skip-permissions` deprecation migration, a Copilot WAITING false-positive fix (bracketed-paste markdown echoes), the new auto-resolve-conflicts CI workflow, and post-release code cleanup across the command layer. No detection-logic changes to the WAITING pipeline itself; Phase 2 remains out of scope.
