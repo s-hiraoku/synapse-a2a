@@ -816,8 +816,8 @@ Save this agent definition for reuse? [y/N]:
 | `synapse file-safety record` | Manually record change |
 | `synapse file-safety cleanup` | Delete old data |
 | `synapse file-safety debug` | Show debug info |
-| `synapse waiting-debug collect` | Append `/debug/waiting` snapshots from every running agent to `~/.synapse/waiting_debug.jsonl` (Phase 1.5 collection pipeline). `--out <path>` overrides the destination, `--agent <id>` filters to one agent, `--include-empty` records empty attempts. See [`docs/phase15-collection.md`](docs/phase15-collection.md) |
-| `synapse waiting-debug report` | Summarise a `waiting_debug.jsonl` file: per-profile / `pattern_source` / `path_used` counts, confidence distribution, `idle_gate_drops`, `renderer_unavailable_agents`. Accepts `--since <iso>`, `--agent <id>`, `--json` |
+| `synapse waiting-debug collect` | Append `/debug/waiting` snapshots from every running agent to `~/.synapse/waiting_debug.jsonl` (Phase 1.5 collection pipeline). `--out <path>` overrides the destination, `--agent <id>` filters to one agent, `--include-empty` records empty attempts, `--timeout <seconds>` sets the per-agent HTTP timeout (default 5.0, v0.28.2). See [`docs/phase15-collection.md`](docs/phase15-collection.md) |
+| `synapse waiting-debug report` | Summarise a `waiting_debug.jsonl` file: per-profile / `pattern_source` / `path_used` counts, confidence distribution, `idle_gate_drops`, `renderer_unavailable_agents`. Accepts `--since <iso>`, `--agent <id>`, `--json`, `--out <path>` (write JSON to file; stdout stays empty, safe for cron) |
 | `synapse skills` | Skill Manager (interactive TUI) |
 | `synapse skills list` | List discovered skills |
 | `synapse skills show <name>` | Show skill details |

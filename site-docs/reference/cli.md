@@ -954,13 +954,37 @@ synapse evolve --generate         # Auto-generate skill .md files
 synapse waiting-debug collect                         # Snapshot all running agents
 synapse waiting-debug collect --agent <id>            # Snapshot a single agent
 synapse waiting-debug collect --include-empty         # Record agents whose ring is empty
+synapse waiting-debug collect --timeout 10            # Override per-agent HTTP timeout
 synapse waiting-debug report                          # Human-readable aggregate
 synapse waiting-debug report --json                   # Machine-readable aggregate
 synapse waiting-debug report --since <ISO8601>        # Restrict the time window
 synapse waiting-debug report --agent <id>             # Restrict to one agent
+synapse waiting-debug report --out report.json        # Write JSON to file (cron-safe)
 ```
 
 Persists `/debug/waiting` snapshots exposed by every running agent to `~/.synapse/waiting_debug.jsonl` so Phase 2 detection-logic work has real data to lean on. `report` aggregates `profile`, `pattern_source`, `path_used`, `confidence`, `idle_gate_drops`, and `renderer_unavailable_agents` across the collected rows. See [Agent Management — Phase 1.5: Periodic Data Collection](../guide/agent-management.md#phase-15-periodic-data-collection-synapse-waiting-debug) for cron/launchd scheduling.
+
+### `collect` flags
+
+| Flag | Description |
+|------|-------------|
+| `--agent <id>` | Snapshot a single agent by name, ID, type-port, or type (default: all running agents) |
+| `--include-empty` | Also record agents whose ring buffer is empty (default: skip to keep the JSONL lean) |
+| `--timeout SECONDS` | HTTP timeout used when querying `/debug/waiting` on each agent. Default **5.0 s** (raised from 3.0 s in v0.28.3+). Bump to `10` or higher for slow agents that consistently warn about read timeouts shortly after PtyRenderer boots (#635) |
+| `--out PATH` | Override the JSONL append target (default: `~/.synapse/waiting_debug.jsonl`) |
+
+### `report` flags
+
+| Flag | Description |
+|------|-------------|
+| `--since <ISO8601>` | Restrict the aggregate to records newer than the given timestamp |
+| `--agent <id>` | Restrict to one agent (matches `agent_id` / `agent_name` / `agent_type`) |
+| `--json` | Emit machine-readable JSON instead of the human-readable summary |
+| `--out PATH` | Write the JSON report to `PATH` and keep stdout empty. Safe to use from cron / launchd so you do not have to disentangle warnings from the JSON payload (#635). Implies `--json` semantics for the file contents |
+| `--input PATH` | Read records from an alternate JSONL file (default: `~/.synapse/waiting_debug.jsonl`) |
+
+!!! note "Unparseable `collected_at`"
+    Records whose `collected_at` field can't be parsed as ISO8601 are still skipped when `--since` filtering is applied, but now emit a `Warning: record at line N has unparseable collected_at: '<value>' (<reason>)` message to stderr so operators can spot bad writers (#635). Previously those rows were dropped silently.
 
 !!! note "CLI bump required"
     `synapse waiting-debug` only exists in v0.28.1+. Upgrade the globally-installed CLI (`uv tool upgrade synapse-a2a` or `pipx upgrade synapse-a2a`) before arming a schedule, otherwise every run emits `invalid choice: 'waiting-debug'`.

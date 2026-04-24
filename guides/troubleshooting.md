@@ -488,6 +488,10 @@ curl http://localhost:8126/debug/pty | jq '{alt_screen, cursor}'
 
 **コレクタが legacy エージェントに対して 404 を警告する**: pre-0.28.0 バイナリで起動したままのエージェントは `/debug/waiting` エンドポイントを公開していません。`synapse waiting-debug collect` はそのエージェントについて 1 件の warning をログに出して skip しますが、これは想定内の挙動で non-fatal です。気になる場合は該当エージェントを 0.28.1+ で再スポーンしてください。運用ランブック (cron / launchd plist、ProgramArguments の絶対パス注意点、PATH 継承問題) は [`docs/phase15-collection.md`](../docs/phase15-collection.md) を参照。
 
+**コレクタが頻繁にタイムアウト警告を出す**: v0.28.2 でデフォルト HTTP timeout を 3 秒 → 5 秒に引き上げましたが、負荷の高いホストや遅い PTY レンダラーで `/debug/waiting` が 5 秒以内に応答しない場合があります。`synapse waiting-debug collect --timeout 10` のように明示的に値を上げて緩和できます（cron / launchd の `ProgramArguments` に `--timeout` 引数を追加）。収集中の stdout / stderr を cron 経由でログファイルに混ざりなくキャプチャしたい場合は `synapse waiting-debug report --out /path/to/report.json` を使うと stdout は空になり、集計結果のみがファイルに書き出されます。
+
+**`report` 実行時に `unparseable collected_at` という warning が出る**: v0.28.2 から、JSONL レコードの `collected_at` が ISO-8601 としてパースできない場合に stderr へ `Warning: record at line N has unparseable collected_at: 'value' (reason)` を出した上でその行をスキップします（以前はサイレントに drop）。cron のログと JSONL が同じファイルに書かれて混ざっている、手で編集した JSONL に壊れた timestamp が残っている、といったケースの早期発見に使えます。
+
 ---
 
 ### 4.3 レスポンスが返ってこない（タイムアウト）

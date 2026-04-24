@@ -717,6 +717,24 @@ synapse waiting-debug report --json     # aggregate profile / pattern_source / c
 
 See [Agent Management — WAITING Detection Diagnostics](guide/agent-management.md#waiting-detection-diagnostics-debug-waiting) and the reference pages [API → GET /debug/waiting](reference/api.md#get-debugwaiting) and [CLI → Waiting-Debug](reference/cli.md#waiting-debug-phase-15-collection) for the full field schema and launchd/cron recipes.
 
+!!! tip "Slow agents: `--timeout`"
+    If `synapse waiting-debug collect` consistently warns about `/debug/waiting` read timeouts shortly after an agent boots (the PtyRenderer hasn't finished initialising yet and the default 5 s HTTP timeout fires), raise it:
+
+    ```bash
+    synapse waiting-debug collect --timeout 10
+    ```
+
+    The default was bumped from 3.0 s to 5.0 s in v0.28.3 to eliminate the most common warn-flood; `--timeout` handles the long tail (#635).
+
+!!! tip "Cron-safe report output: `--out`"
+    When running `synapse waiting-debug report` from cron or launchd, prefer `--out PATH` over redirecting stdout. With `--out`, stdout is kept empty so any warnings (e.g. unparseable `collected_at` rows) are easy to surface in mail without having to disentangle them from the JSON payload:
+
+    ```bash
+    synapse waiting-debug report --out ~/.synapse/waiting_report.json
+    ```
+
+    `--out` implies JSON format for the file contents (#635).
+
 !!! note "`(renderer: off)` in `synapse list`"
     If `synapse list` shows `WAITING (renderer: off)` or the JSON reports `renderer_available: false`, the per-process pyte renderer failed to initialise and the agent has fallen back to plain ANSI stripping. Restart the agent (`synapse kill <id>` then respawn) — renderer failures do not recover automatically.
 

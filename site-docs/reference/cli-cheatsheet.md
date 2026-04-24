@@ -18,7 +18,9 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse status <target>` | Detailed status for a single agent |
 | `synapse status <target> --debug-waiting` | Dump the in-memory WAITING-detection ring |
 | `synapse waiting-debug collect` | Snapshot `/debug/waiting` for all agents into `~/.synapse/waiting_debug.jsonl` |
+| `synapse waiting-debug collect --timeout 10` | Override the per-agent HTTP timeout (default 5.0 s) for slow agents |
 | `synapse waiting-debug report` | Aggregate the collected WAITING snapshots (text or `--json`) |
+| `synapse waiting-debug report --out report.json` | Write JSON report to file (stdout stays empty — cron-safe) |
 | `synapse kill <target>` | Graceful shutdown (30 s timeout) |
 | `synapse kill <target> -f` | Force kill (immediate SIGKILL) |
 | `synapse cleanup` | Kill orphan child agents (parent PID dead) |
