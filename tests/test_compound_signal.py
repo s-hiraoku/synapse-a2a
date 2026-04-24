@@ -485,6 +485,15 @@ WAITING_NEGATIVE_CASES = [
     ("codex", "Working on your request..."),
     # Copilot — should not match normal processing output
     ("copilot", "Working on task..."),
+    # Copilot — pasted markdown content must NOT trigger WAITING during the
+    # submit-confirmation window (regression: bracketed-paste echo of the
+    # user's own message looked like a numbered selection prompt).
+    ("copilot", "1. First item\n2. Second item"),
+    ("copilot", "  2. Second option"),
+    ("copilot", "> a quote"),
+    ("copilot", "* a bullet point"),
+    ("copilot", "PRs to review:\n* PR #100\n* PR #101"),
+    ("copilot", "Steps:\n1. clone\n2. build\n3. test"),
     # OpenCode — old patterns must NOT match; also guard against partial matches
     ("opencode", "  1. First item"),
     ("opencode", "[y/N]"),
