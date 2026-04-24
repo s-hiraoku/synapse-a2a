@@ -403,5 +403,5 @@ crontab -e
 !!! warning "Bump the installed CLI first"
     `synapse waiting-debug` only exists in v0.28.1+. Upgrade the globally-installed CLI (`uv tool upgrade synapse-a2a` or `pipx upgrade synapse-a2a`) before arming the schedule, otherwise every run emits `invalid choice: 'waiting-debug'`.
 
-!!! info "Legacy agents return 404"
-    Agents that are still running with a pre-0.28.0 `synapse` binary do not expose `GET /debug/waiting`. The collector logs one `HTTP Error 404: Not Found` warning per legacy agent to stderr and continues. Data accrues only for agents respawned after the CLI upgrade — stop and restart them with `synapse kill <id>` followed by the usual spawn when you want them in the dataset.
+!!! info "Legacy agents return 404 (or 503 when capability-gated)"
+    Agents that are still running with a pre-0.28.0 `synapse` binary do not expose `GET /debug/waiting`. The collector logs one `HTTP Error 404: Not Found` warning per legacy agent to stderr and continues. Agents on v0.28.0+ whose controller lacks the `waiting_debug_snapshot` capability (e.g., a non-PTY runtime) instead return `HTTP Error 503: Service Unavailable` with detail `waiting debug data not available` — also expected and non-fatal. Data accrues only for agents respawned after the CLI upgrade — stop and restart them with `synapse kill <id>` followed by the usual spawn when you want them in the dataset.

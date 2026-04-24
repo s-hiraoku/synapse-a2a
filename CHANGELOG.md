@@ -9,12 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.28.2] - 2026-04-24
 
-Patch release rolling up the Phase 1.5 operational runbook, the Anthropic `--dangerously-skip-permissions` deprecation migration, a Copilot WAITING false-positive fix (bracketed-paste markdown echoes), and post-release code cleanup across the command layer. No detection-logic changes to the WAITING pipeline itself; Phase 2 remains out of scope.
+Patch release rolling up the Phase 1.5 operational runbook, the Anthropic `--dangerously-skip-permissions` deprecation migration, a Copilot WAITING false-positive fix (bracketed-paste markdown echoes), the new auto-resolve-conflicts CI workflow, and post-release code cleanup across the command layer. No detection-logic changes to the WAITING pipeline itself; Phase 2 remains out of scope.
 
 ### Added
 
-- **Phase 1.5 operational runbook (`docs/phase15-collection.md` + mirrors):** launchd scheduling recipe for macOS, CLI-bump requirement for the new `waiting-debug` verb, and the legacy `/debug/waiting` 404 caveat for agents that predate Phase 1. Guides, skills, and `site-docs/troubleshooting.md` gain short callouts + cross-links so the operator path is navigable from either `synapse --help` or the site.
+- **Phase 1.5 operational runbook (`docs/phase15-collection.md` + mirrors):** launchd scheduling recipe for macOS, CLI-bump requirement for the new `waiting-debug` verb, and the legacy `/debug/waiting` 404 caveat for agents that predate Phase 1 (plus a 503 case for v0.28.0+ agents whose controller lacks the `waiting_debug_snapshot` capability). Guides, skills, and `site-docs/troubleshooting.md` gain short callouts + cross-links so the operator path is navigable from either `synapse --help` or the site.
 - **`guides/references.md` §1.26 `synapse waiting-debug`:** the CLI reference previously jumped from §1.25 to the API section without documenting the new subcommand.
+- **Auto Resolve Mechanical Conflicts workflow (`.github/workflows/auto-resolve-conflicts.yml`, #633):** GitHub Actions workflow that detects merge conflicts on `push` to `main` and on `pull_request` events, then auto-resolves the three "mechanical" cases — `CHANGELOG.md` union-merge (new `scripts/merge_changelog.py`), `uv.lock` regeneration via `uv lock`, and version-line conflicts in `pyproject.toml` / `plugins/*/.claude-plugin/plugin.json` (new `scripts/merge_version_line.py`, picks the higher semver). Anything outside these patterns is left untouched and the PR gets a `needs-manual-rebase` label. Forks are skipped (no push permission via default `GITHUB_TOKEN`). Create the label once with `gh label create needs-manual-rebase --color d73a4a --description "Auto-resolve bailed out; manual merge/rebase required"`.
 
 ### Changed
 
@@ -43,6 +44,7 @@ Patch release rolling up the Phase 1.5 operational runbook, the Anthropic `--dan
 - **`tests/test_copilot.py::test_profile_disables_heuristic_fallback`** — guards the explicit `heuristic_fallback: false` invariant for Copilot.
 - **`tests/test_compound_signal.py::WAITING_NEGATIVE_CASES`** — 6 new Copilot negative cases covering the same markdown-echo scenarios end-to-end through the compound-signal path.
 - **`tests/test_claude_profile.py`** — new suite covering the `--permission-mode=auto` migration for the Claude profile and settings.
+- **`tests/test_merge_changelog.py`, `tests/test_merge_version_line.py`:** coverage for the two new auto-resolve helper scripts used by the CI workflow.
 
 ## [0.28.1] - 2026-04-23
 
@@ -1108,8 +1110,6 @@ Patch release that rolls up the Phase 1 documentation coverage and Phase 1.5 col
 - Prevent path traversal in skill-creator `run_eval.py`
 - Fix false negative in skill-creator tool detection loop
 
-## [Unreleased]
-
 ## [0.15.3] - 2026-03-18
 
 ### Added
@@ -1223,23 +1223,6 @@ Patch release that rolls up the Phase 1 documentation coverage and Phase 1.5 col
 
 - Admin responses no longer contain terminal junk (ANSI escapes, status bars, spinners)
 - Reply receiver applies `_strip_terminal_junk` to auto-notify artifact responses
-
-## [0.12.1] - 2026-03-15
-
-### Added
-
-- `link-preview` Canvas format with OGP metadata fetching and server-side enrichment
-- `synapse canvas link <url>` CLI command for posting rich link preview cards
-
-### Fixed
-
-- SSRF: validate redirect targets at each hop to prevent private IP bypass via open redirects
-- OGP streaming: use `aiter_bytes()` to enforce 64KB read limit (was `aread()` + truncate)
-- Parallel OGP fetch via `asyncio.gather` for composite cards with multiple link-preview blocks
-- CSS token `--color-muted` → `--color-text-muted` for link-preview card styles
-- CLI `canvas link` exits with non-zero status on failure
-- URL validation in `post_link_preview` rejects empty and non-http(s) URLs
-- Test isolation: prevent Canvas CLI tests from writing to live server DB
 
 ## [0.12.1] - 2026-03-15
 
