@@ -5,13 +5,14 @@ from __future__ import annotations
 import json
 import time
 import urllib.error
-import urllib.request
 from collections import Counter
 from collections.abc import Callable
 from io import StringIO
 from typing import IO, TYPE_CHECKING, Any
 
 from synapse.commands.renderers.rich_renderer import format_elapsed
+from synapse.commands.waiting_debug import _format_counter, _http_get_json
+from synapse.utils import format_renderer_suffix
 
 if TYPE_CHECKING:
     from synapse.file_safety import FileSafetyManager
@@ -34,7 +35,7 @@ class StatusCommand:
         self._history_manager = history_manager
         self._file_safety_manager = file_safety_manager
         self._output = output or StringIO()
-        self._debug_waiting_fetcher = debug_waiting_fetcher or self._http_get_json
+        self._debug_waiting_fetcher = debug_waiting_fetcher or _http_get_json
 
     def _write(self, text: str) -> None:
         self._output.write(text)
@@ -173,18 +174,7 @@ class StatusCommand:
 
     def _format_status(self, info: dict[str, Any]) -> str:
         status = str(info.get("status", "-"))
-        renderer_available = info.get("renderer_available")
-        if renderer_available is False:
-            return f"{status} (renderer: off)"
-        if renderer_available is True:
-            return f"{status} (renderer: on)"
-        return status
-
-    def _http_get_json(self, url: str) -> dict[str, Any]:
-        with urllib.request.urlopen(url, timeout=3.0) as response:
-            payload = response.read().decode("utf-8")
-        data = json.loads(payload)
-        return data if isinstance(data, dict) else {}
+        return status + format_renderer_suffix(info.get("renderer_available"))
 
     def _render_waiting_debug(self, info: dict[str, Any]) -> None:
         endpoint = info.get("endpoint")
@@ -221,8 +211,8 @@ class StatusCommand:
         self._writeln(f"  Renderer: {self._renderer_label(payload)}")
         self._writeln(f"  Total attempts: {total}")
         self._writeln(f"  Pattern matched: {matched}/{total} ({ratio:.1f}%)")
-        self._writeln(f"  Path usage: {self._format_counter(path_counts)}")
-        self._writeln(f"  Confidence: {self._format_counter(confidence_counts)}")
+        self._writeln(f"  Path usage: {_format_counter(path_counts)}")
+        self._writeln(f"  Confidence: {_format_counter(confidence_counts)}")
         self._writeln(f"  Idle gate drops: {idle_gate_drops}")
 
         if not attempts:
@@ -252,11 +242,6 @@ class StatusCommand:
         if renderer_available is False:
             return "off"
         return "unknown"
-
-    def _format_counter(self, counter: Counter[str]) -> str:
-        if not counter:
-            return "-"
-        return ", ".join(f"{key}={counter[key]}" for key in sorted(counter))
 
     def _get_history(self, info: dict[str, Any]) -> list[dict[str, Any]]:
         """Get recent message history for the agent."""

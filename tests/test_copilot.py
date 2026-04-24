@@ -119,19 +119,69 @@ class TestCopilotProfile:
         assert profile["long_submit_confirm_retries"] >= 1
 
     def test_profile_waiting_detection_patterns(self, profile):
-        """Profile waiting detection should match expected patterns."""
+        """Profile waiting detection should match Copilot's actual approval UI.
+
+        The regex anchors numbered selectors on Copilot-specific verbs
+        (Yes/No/Allow/Deny/Approve/Skip) so that pasted markdown content
+        (numbered lists, blockquotes, bullets) does not falsely trigger
+        WAITING during the submit-confirmation window.
+        """
         regex = profile["waiting_detection"]["regex"]
         compiled = re.compile(regex, re.MULTILINE)
 
-        # Should match numbered choices
-        assert compiled.search("1. First option")
-        assert compiled.search("  2. Second option")
+        # Real Copilot CLI approval prompts
+        assert compiled.search("  1. Yes")
+        assert compiled.search(
+            "  2. Yes, and approve touch for the rest of the running session"
+        )
+        assert compiled.search("  3. No, and tell Copilot what to do differently (Esc)")
+        assert compiled.search("1. Yes, proceed")
 
         # Should match Yes/No prompts
         assert compiled.search("[y/N]")
         assert compiled.search("[Y/n]")
         assert compiled.search("(y/n)")
         assert compiled.search("(Y/N)")
+
+    def test_profile_waiting_regex_ignores_pasted_markdown(self, profile):
+        """Waiting regex must not match pasted markdown content.
+
+        Regression for: synapse send delivered text to Copilot, but the
+        bracketed-paste echo of markdown numbered lists / > quotes /
+        * bullets matched the waiting_regex, flipping status to WAITING
+        and tricking submit confirmation into reporting success without
+        retrying the Enter keystroke.
+        """
+        regex = profile["waiting_detection"]["regex"]
+        compiled = re.compile(regex, re.MULTILINE)
+
+        # Pasted markdown lists / quotes / bullets must NOT trigger WAITING
+        false_positive_samples = [
+            "1. First item\n2. Second item",
+            "  2. Second option",
+            "> a quote",
+            "* a bullet point",
+            "PRs to review:\n* PR #100\n* PR #101",
+            "Steps:\n1. clone\n2. build\n3. test",
+            "Please review:\n1. file1\n2. file2",
+            "1. Run the tests",
+            "1. First option",
+            "Working on task...",
+        ]
+        for sample in false_positive_samples:
+            assert compiled.search(sample) is None, (
+                f"waiting_regex should not match pasted content: {sample!r}"
+            )
+
+    def test_profile_disables_heuristic_fallback(self, profile):
+        """Copilot disables heuristic_fallback to avoid generic-prompt false positives.
+
+        The generic _GENERIC_PROMPT_PATTERNS include ❯/›/● anchored selectors
+        which collide with Copilot's own ❯ input prompt and routine status
+        redraws. The Copilot-specific regex above already covers the real
+        approval UI, so the safety net is unnecessary and harmful here.
+        """
+        assert profile["waiting_detection"].get("heuristic_fallback") is False
 
     def test_profile_auto_approve_uses_canonical_allow_all_flag(self, profile):
         """Copilot auto-approve should use the documented canonical flag."""

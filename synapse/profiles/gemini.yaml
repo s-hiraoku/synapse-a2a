@@ -32,12 +32,20 @@ waiting_detection:
   waiting_expiry: 10                           # Auto-clear WAITING after 10s
 
 # Auto-approve configuration
-# Gemini --yolo enables Docker sandbox by default
+# Modern Gemini CLI prefers `--approval-mode=yolo` (the unified --approval-mode
+# parameter that also supports default / auto_edit). The legacy `--yolo` and
+# its short alias `-y` still work but the project recommends migrating to
+# --approval-mode=yolo for clarity and future compatibility. We keep both
+# legacy forms in alternative_flags so users who pass --yolo / -y manually
+# do not get a duplicated flag injected.
+# Note: `--yolo` / `--approval-mode=yolo` only control approval behavior.
+# Docker sandboxing is a separate concern controlled by `--sandbox` / `-s`
+# (or env `GEMINI_SANDBOX=docker`). For automation, the recommended safe
+# combo is `--approval-mode=yolo --sandbox`.
 auto_approve:
-  cli_flag: "--yolo"
-  # -y is the short alias for --yolo; --approval-mode sets a specific mode.
-  # If any of these are present, skip --yolo injection.
+  cli_flag: "--approval-mode=yolo"
   alternative_flags:
+    - "--yolo"
     - "-y"
     - "--approval-mode"
   runtime_response: "\r"

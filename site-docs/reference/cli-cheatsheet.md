@@ -16,6 +16,9 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse list` | Live TUI showing all running agents |
 | `synapse list --json` | Output agent list as JSON array |
 | `synapse status <target>` | Detailed status for a single agent |
+| `synapse status <target> --debug-waiting` | Dump the in-memory WAITING-detection ring |
+| `synapse waiting-debug collect` | Snapshot `/debug/waiting` for all agents into `~/.synapse/waiting_debug.jsonl` |
+| `synapse waiting-debug report` | Aggregate the collected WAITING snapshots (text or `--json`) |
 | `synapse kill <target>` | Graceful shutdown (30 s timeout) |
 | `synapse kill <target> -f` | Force kill (immediate SIGKILL) |
 | `synapse cleanup` | Kill orphan child agents (parent PID dead) |
@@ -196,7 +199,12 @@ synapse list --json
 
 # Detailed status for a single agent (uptime, current task, history, locks)
 synapse status my-claude
-synapse status my-claude --json    # Machine-readable JSON output
+synapse status my-claude --json              # Machine-readable JSON output
+synapse status my-claude --debug-waiting     # Dump in-memory WAITING-detection ring
+
+# Phase 1.5: persist /debug/waiting snapshots across all agents
+synapse waiting-debug collect                # Append to ~/.synapse/waiting_debug.jsonl
+synapse waiting-debug report --json          # Aggregate profile/pattern_source/confidence
 
 # Jump to an agent's terminal
 synapse jump my-claude

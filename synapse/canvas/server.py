@@ -22,8 +22,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-# tomllib was added to stdlib in Python 3.11 (PEP 680); fall back to the
-# `tomli` backport on 3.10 so Canvas can still parse Codex MCP configs.
 if sys.version_info >= (3, 11):
     import tomllib
 else:  # pragma: no cover - 3.10 compat branch
@@ -623,23 +621,22 @@ def _collect_mcp_servers(
     if user_dir is None:
         return servers
 
-    _load_json_mcp = _load_json_mcp_section  # local alias keeps the table readable
     user_sources: list[tuple[str, Path, Callable[[Path], dict[str, Any]]]] = [
         (
             "claude",
             user_dir / ".claude.json",
-            lambda p: _load_json_mcp(p, "mcpServers"),
+            lambda p: _load_json_mcp_section(p, "mcpServers"),
         ),
         ("codex", user_dir / ".codex" / "config.toml", _load_toml_mcp_section),
         (
             "gemini",
             user_dir / ".gemini" / "settings.json",
-            lambda p: _load_json_mcp(p, "mcpServers"),
+            lambda p: _load_json_mcp_section(p, "mcpServers"),
         ),
         (
             "opencode",
             user_dir / ".config" / "opencode" / "opencode.json",
-            lambda p: _load_json_mcp(p, "mcp"),
+            lambda p: _load_json_mcp_section(p, "mcp"),
         ),
         (
             "claude_desktop",
@@ -648,7 +645,7 @@ def _collect_mcp_servers(
             / "Application Support"
             / "Claude"
             / "claude_desktop_config.json",
-            lambda p: _load_json_mcp(p, "mcpServers"),
+            lambda p: _load_json_mcp_section(p, "mcpServers"),
         ),
     ]
     for scope, src, loader in user_sources:

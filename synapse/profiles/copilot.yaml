@@ -40,9 +40,18 @@ input_ready_pattern: "❯"                       # Copilot shows ❯ when ready 
 # Copilot CLI uses Ink TUI with numbered selection for tool approvals
 # UI: 1. Yes / 2. Yes, and approve TOOL for the rest of the running session
 #      3. No, and tell Copilot what to do differently (Esc)
+#
+# Regex anchors numbered choices on Copilot-specific verbs (Yes/No/Allow/Deny/
+# Approve/Skip) instead of any "N. text" line. This prevents bracketed-paste
+# echoes of user-pasted markdown (numbered lists, > quotes, * bullets) from
+# falsely flipping status to WAITING during the submit-confirmation window,
+# which previously caused `synapse send` to "deliver" text without submitting
+# the prompt.
+# heuristic_fallback is disabled because the generic ❯/›/● selectors trigger
+# on Copilot's own ❯ input prompt and on routine status redraws.
 waiting_detection:
-  regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)|approve .+ for the rest of the running session|No, and tell Copilot"
-  heuristic_fallback: true
+  regex: "^\\s*\\d+\\.\\s+(Yes|No|Allow|Deny|Approve|Skip)\\b|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)|approve .+ for the rest of the running session|No, and tell Copilot"
+  heuristic_fallback: false
   require_idle: true
   idle_timeout: 0.5            # 500ms no output after pattern
   waiting_expiry: 10           # Auto-clear WAITING after 10s

@@ -7,9 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.2] - 2026-04-24
+
+Patch release rolling up the Phase 1.5 operational runbook, the Anthropic `--dangerously-skip-permissions` deprecation migration, a Copilot WAITING false-positive fix (bracketed-paste markdown echoes), the new auto-resolve-conflicts CI workflow, and post-release code cleanup across the command layer. No detection-logic changes to the WAITING pipeline itself; Phase 2 remains out of scope.
+
 ### Added
 
-- **Auto Resolve Mechanical Conflicts workflow (`.github/workflows/auto-resolve-conflicts.yml`):** GitHub Actions workflow that detects merge conflicts on `push` to `main` and on `pull_request` events, then auto-resolves the three "mechanical" cases — `CHANGELOG.md` union-merge (new `scripts/merge_changelog.py`), `uv.lock` regeneration via `uv lock`, and version-line conflicts in `pyproject.toml` / `plugins/*/.claude-plugin/plugin.json` (new `scripts/merge_version_line.py`, picks the higher semver). Anything outside these patterns is left untouched and the PR gets a `needs-manual-rebase` label. Forks are skipped (no push permission via default `GITHUB_TOKEN`). Create the label once with `gh label create needs-manual-rebase --color d73a4a --description "Auto-resolve bailed out; manual merge/rebase required"`.
+- **Phase 1.5 operational runbook (`docs/phase15-collection.md` + mirrors):** launchd scheduling recipe for macOS, CLI-bump requirement for the new `waiting-debug` verb, and the legacy `/debug/waiting` 404 caveat for agents that predate Phase 1 (plus a 503 case for v0.28.0+ agents whose controller lacks the `waiting_debug_snapshot` capability). Guides, skills, and `site-docs/troubleshooting.md` gain short callouts + cross-links so the operator path is navigable from either `synapse --help` or the site.
+- **`guides/references.md` §1.26 `synapse waiting-debug`:** the CLI reference previously jumped from §1.25 to the API section without documenting the new subcommand.
+- **Auto Resolve Mechanical Conflicts workflow (`.github/workflows/auto-resolve-conflicts.yml`, #633):** GitHub Actions workflow that detects merge conflicts on `push` to `main` and on `pull_request` events, then auto-resolves the three "mechanical" cases — `CHANGELOG.md` union-merge (new `scripts/merge_changelog.py`), `uv.lock` regeneration via `uv lock`, and version-line conflicts in `pyproject.toml` / `plugins/*/.claude-plugin/plugin.json` (new `scripts/merge_version_line.py`, picks the higher semver). Anything outside these patterns is left untouched and the PR gets a `needs-manual-rebase` label. Forks are skipped (no push permission via default `GITHUB_TOKEN`). Create the label once with `gh label create needs-manual-rebase --color d73a4a --description "Auto-resolve bailed out; manual merge/rebase required"`.
+
+### Changed
+
+- **Default auto-approve flag migration — Claude Code `--dangerously-skip-permissions` → `--permission-mode=auto`:** Anthropic deprecated the legacy flag in favor of the safety-classifier `auto` mode. `synapse/profiles/claude.yaml`, `synapse/settings.py` (`DEFAULT_SETTINGS` coordinator), and the `synapse-a2a` / `synapse-manager` skill references now ship the new flag by default. The legacy form is preserved in each profile's `alternative_flags` so in-flight scripts keep working. Gemini (`--approval-mode=yolo` over `--yolo`/`-y`) reflects the same upstream guidance. Existing `synapse spawn` / `synapse team start` invocations continue to auto-inject the flag — no user action required.
+- **Copilot `waiting_detection.regex` hardened against bracketed-paste markdown echoes:** the prior regex matched any `^\s*\d+\.` line, so when the user pasted markdown numbered lists / blockquotes / bullets via `synapse send`, Copilot's bracketed-paste echo of the user's own message flipped status to WAITING and tricked the submit-confirmation loop into reporting success without re-pressing Enter. The regex is now anchored on Copilot's actual approval verbs (Yes/No/Allow/Deny/Approve/Skip) and `heuristic_fallback` is disabled for this profile (the generic `❯/›/●` anchors collide with Copilot's own input prompt redraws). Regression coverage added in `tests/test_compound_signal.py` and `tests/test_copilot.py`.
+- **Copilot profile `long_submit_confirm_retries` tuning** and related `tests/test_auto_approve.py` adjustments to match the new auto-approve flag set.
+- **`synapse/commands/status.py` + `synapse/commands/waiting_debug.py`: DRY the shared `_http_get_json` and `_format_counter` helpers.** `StatusCommand` now imports both from `waiting_debug` (single source of truth); `urllib.request` dropped from `status.py` as a consequence.
+- **`synapse/utils.format_renderer_suffix()` extracted** and used from `synapse/commands/status.py`, `synapse/commands/list.py`, and `synapse/commands/renderers/rich_renderer.py` — the three independent implementations of `" (renderer: on/off)"` are now one helper.
+- **`synapse/skills.parse_skill_frontmatter` no longer stores `""` for container-typed frontmatter keys;** behavior now matches the pre-existing "skip containers" comment. Shipped scalar-only frontmatter is unaffected; covered by existing `tests/test_skills.py::TestParseFrontmatter`.
+
+### Fixed
+
+- **`synapse/commands/waiting_debug.py::_iter_records` TOCTOU:** replaced `if not path.exists(): return []` followed by `path.open(...)` with `try: path.open(...) except FileNotFoundError`. Prevents the (unlikely) race where the JSONL is unlinked between the `exists()` probe and the `open()` call.
+- **`synapse/canvas/server.py` noise removal:** deleted the `_load_json_mcp = _load_json_mcp_section` local alias (inlined into the four `lambda`s), and removed the WHAT-comment over the `tomllib` version check.
+
+### Documentation
+
+- **`guides/profiles.md`:** the `copilot.yaml` snippet now matches the shipped file (new anchored regex + `heuristic_fallback: false`) with operator-facing rationale. The prior snippet showed the pre-bracketed-paste-fix regex.
+- **`guides/troubleshooting.md`:** two new operational callouts (Phase 1.5 CLI-bump requirement + legacy 404 caveat) with cross-links to `docs/phase15-collection.md`, matching the skill + site-docs narrative so guide users aren't left chasing "invalid choice" errors.
+- **`site-docs/troubleshooting.md`:** new "WAITING Detection Diagnostics (v0.28.0+)" subsection consolidating `--debug-waiting`, `waiting-debug collect/report`, the `(renderer: off)` annotation, and cross-links to the agent-management guide + API reference + CLI reference.
+- **`site-docs/reference/{api,cli-cheatsheet,cli}.md`:** `GET /debug/waiting` schema, `--debug-waiting` flag row, and new "Waiting-Debug (Phase 1.5 Collection)" CLI section with bump + legacy-404 admonitions.
+
+### Tests
+
+- **`tests/test_copilot.py::test_profile_waiting_regex_ignores_pasted_markdown`** — regression matrix of 10 pasted-markdown samples (numbered lists, blockquotes, bullets, mixed content) that must NOT match Copilot's waiting regex.
+- **`tests/test_copilot.py::test_profile_disables_heuristic_fallback`** — guards the explicit `heuristic_fallback: false` invariant for Copilot.
+- **`tests/test_compound_signal.py::WAITING_NEGATIVE_CASES`** — 6 new Copilot negative cases covering the same markdown-echo scenarios end-to-end through the compound-signal path.
+- **`tests/test_claude_profile.py`** — new suite covering the `--permission-mode=auto` migration for the Claude profile and settings.
+- **`tests/test_merge_changelog.py`, `tests/test_merge_version_line.py`:** coverage for the two new auto-resolve helper scripts used by the CI workflow.
 
 ## [0.28.1] - 2026-04-23
 
@@ -3516,7 +3551,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.2...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.2...HEAD
+[0.28.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.1...v0.28.2
 [0.28.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.2...v0.28.0
 [0.27.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.1...v0.27.2

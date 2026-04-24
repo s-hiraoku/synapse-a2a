@@ -496,8 +496,14 @@ class TestProfileAutoApproveConfig:
     @pytest.mark.parametrize(
         "profile_name,expected_flag",
         [
-            ("claude", "--dangerously-skip-permissions"),
-            ("gemini", "--yolo"),
+            # Claude Code: switched from --dangerously-skip-permissions to
+            # --permission-mode=auto (Anthropic's documented successor —
+            # safety classifier instead of disabling all checks).
+            ("claude", "--permission-mode=auto"),
+            # Gemini CLI: switched from --yolo to --approval-mode=yolo for
+            # consistency with the unified --approval-mode parameter
+            # (default / auto_edit / yolo).
+            ("gemini", "--approval-mode=yolo"),
             ("codex", "--full-auto"),
             ("copilot", "--allow-all"),
         ],

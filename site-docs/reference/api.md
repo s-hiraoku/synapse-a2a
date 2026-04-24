@@ -164,6 +164,7 @@ curl http://localhost:8100/tasks/550e8400-e29b-41d4-a716-446655440000
 | POST | `/tasks/{id}/cancel` | Cancel a task |
 | GET | `/status` | Agent status (READY/PROCESSING/WAITING/DONE) |
 | GET | `/debug/pty` | Snapshot of the pyte-backed virtual terminal (debug) |
+| GET | `/debug/waiting` | Last ~50 WAITING-detection attempts plus `renderer_available` (debug) |
 
 ### Priority Send
 
@@ -321,6 +322,46 @@ curl http://localhost:8100/debug/pty | jq .display
 | `columns` / `rows` | Virtual terminal dimensions |
 
 The endpoint is exposed by every per-agent A2A server and is intended for human inspection and regression debugging.
+
+### GET /debug/waiting
+
+Returns the in-memory ring of the most recent WAITING-detection attempts plus a top-level `renderer_available` flag. Used by `synapse status <agent> --debug-waiting` and by the Phase 1.5 `synapse waiting-debug collect` CLI to persist snapshots for offline analysis.
+
+```bash
+curl http://localhost:8100/debug/waiting | jq .
+```
+
+**Response (abridged):**
+
+```json
+{
+  "renderer_available": true,
+  "attempts": [
+    {
+      "timestamp": "2026-04-22T10:00:00+00:00",
+      "profile": "claude",
+      "pattern_source": "profile",
+      "path_used": "pyte",
+      "confidence": 0.92,
+      "idle_gate_dropped": false,
+      "matched": true
+    }
+  ],
+  "counts": {
+    "total": 42,
+    "matched": 11,
+    "idle_gate_drops": 3
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `renderer_available` | `true` when the pyte renderer is usable on this agent; `false` triggers the `(renderer: off)` status annotation |
+| `attempts` | Rolling buffer of the last ~50 detection attempts (oldest first) |
+| `counts` | Aggregate counters over the buffer — totals, matches, idle-gate drops |
+
+The ring is in-memory only and empties on process restart. Use [`synapse waiting-debug collect`](cli.md#waiting-debug-phase-15-collection) to persist snapshots across agents.
 
 
 ---

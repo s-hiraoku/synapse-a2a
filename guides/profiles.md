@@ -400,7 +400,8 @@ idle_detection:
 input_ready_pattern: "❯"
 
 waiting_detection:
-  regex: "^\\s*\\d+\\.\\s+.+$|^\\s*[>\\*]\\s+.+$|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)"
+  regex: "^\\s*\\d+\\.\\s+(Yes|No|Allow|Deny|Approve|Skip)\\b|\\[[yYnN]/[yYnN]\\]|\\([yYnN]/[yYnN]\\)|approve .+ for the rest of the running session|No, and tell Copilot"
+  heuristic_fallback: false
   require_idle: true
   idle_timeout: 0.5
   waiting_expiry: 10
@@ -418,7 +419,8 @@ waiting_detection:
 - **submit confirmation**: `submit_confirm_timeout` / `submit_confirm_retries` で Copilot がプロンプトをクリアしたことを確認。長いメッセージやファイル参照送信では `long_submit_confirm_timeout` / `long_submit_confirm_retries` でより大きな確認バジェットを使用
 - **timeout 戦略**: 一貫したプロンプトパターンがないため、タイムアウトベースで検出
 - 500ms の短いタイムアウト（高速応答性）
-- **WAITING 検出**: 番号付き選択UI、Y/N プロンプトを検出 + `waiting_expiry: 10` で自動クリア
+- **WAITING 検出**: 番号付き選択 UI（`1. Yes / 2. No / 3. Allow / 4. Deny / 5. Approve / 6. Skip` のような Copilot 固有の動詞に限定）、Y/N プロンプト、`approve ... for the rest of the running session`、`No, and tell Copilot` を検出 + `waiting_expiry: 10` で自動クリア。汎用 `N. text` や `> quote` / `* bullet` にマッチさせると、ユーザーがペーストした markdown の番号付きリストや引用行をブラケテッドペースト echo で拾ってしまい、submit 確認中に status が誤って WAITING に倒れる事故が起きたため、アンカーを Copilot 特有の動詞に絞っている
+- **`heuristic_fallback: false`**: 汎用ヒューリスティック（`❯` / `›` / `●` 等のセレクタ）は Copilot 自身の `❯` 入力プロンプトや定常的なステータス再描画でマッチしてしまうため、Copilot プロファイルでは明示的に無効化している
 
 ---
 

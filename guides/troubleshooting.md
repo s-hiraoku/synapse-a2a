@@ -482,6 +482,12 @@ curl http://localhost:8126/debug/pty | jq '{alt_screen, cursor}'
 
 **汎用ヒューリスティック フォールバック (#594)**: プロファイル regex がマッチしなくても、共通の確認プロンプト形（`[Y/N]`、`Press Enter`、`Do you want to ...`、番号付き選択肢など）に該当すれば WAITING に遷移します。フォールバック由来の場合は `IdleStateEvaluation.waiting_source = "heuristic"` / `waiting_confidence = 0.6` が立ち、profile regex の一致は `waiting_source = "regex"` / `waiting_confidence = 1.0` になります。プロファイル側で無効化するには `waiting_detection.heuristic_fallback: false` を設定してください。
 
+**WAITING 観測レイヤ (Phase 1 + 1.5, v0.28.1)**: 直近の detection 試行を ring buffer で保持するため、`GET /debug/waiting` / `synapse status <agent> --debug-waiting` で `path_used`、`pattern_source`、`confidence`、`idle_gate_passed`、`renderer_on`、生バイト prefix / レンダリング末尾などを確認できます。`synapse list` / `synapse status` も `(renderer: off)` と `renderer_available` フィールドでレンダラー初期化失敗を可視化します。複数エージェント・長期間のデータ収集には `synapse waiting-debug collect` / `report`（Phase 1.5 収集パイプライン、詳細は [`docs/phase15-collection.md`](../docs/phase15-collection.md)）を利用してください。
+
+**`synapse waiting-debug: invalid choice` と出る**: `synapse waiting-debug` サブコマンドは **v0.28.1 以降** でのみ提供されます。古い CLI で `collect` / `report` を呼ぶと argparse が `invalid choice: 'waiting-debug'` で exit します。`pipx upgrade synapse-a2a` または `uv tool upgrade synapse-a2a` で CLI 本体を更新してから cron / launchd ジョブに組み込んでください。
+
+**コレクタが legacy エージェントに対して 404 を警告する**: pre-0.28.0 バイナリで起動したままのエージェントは `/debug/waiting` エンドポイントを公開していません。`synapse waiting-debug collect` はそのエージェントについて 1 件の warning をログに出して skip しますが、これは想定内の挙動で non-fatal です。気になる場合は該当エージェントを 0.28.1+ で再スポーンしてください。運用ランブック (cron / launchd plist、ProgramArguments の絶対パス注意点、PATH 継承問題) は [`docs/phase15-collection.md`](../docs/phase15-collection.md) を参照。
+
 ---
 
 ### 4.3 レスポンスが返ってこない（タイムアウト）

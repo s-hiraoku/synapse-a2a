@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.28.2
+
+- **Changed**: Default auto-approve migration — Claude Code now injects `--permission-mode=auto` (classifier-gated) instead of the deprecated `--dangerously-skip-permissions`; Gemini switches to the unified `--approval-mode=yolo`. Legacy flags stay in each profile's `alternative_flags` so manual invocations aren't double-injected.
+- **Fixed**: Copilot `waiting_detection.regex` no longer matches pasted markdown numbered lists / blockquotes / bullets (bracketed-paste echoes were flipping status to WAITING and short-circuiting submit-confirmation). Regex is now anchored on Copilot's actual approval verbs and `heuristic_fallback` is disabled for this profile. Regression coverage in `tests/test_copilot.py` and `tests/test_compound_signal.py`.
+- **Added**: Phase 1.5 operational runbook — launchd macOS scheduling recipe, CLI-bump requirement for `waiting-debug`, and a legacy-404 caveat for pre-Phase-1 agents. Narrative cross-links added across guides, skills, and `site-docs/troubleshooting.md` so the operator path is reachable from either surface.
+- **Changed**: Command-layer DRY pass — `format_renderer_suffix()` helper extracted in `synapse/utils.py`; the three duplicate `(renderer: on/off)` implementations across `status.py` / `list.py` / `rich_renderer.py` now share it. `_http_get_json` and `_format_counter` consolidated into `synapse.commands.waiting_debug` and imported by `status.py`.
+- **Fixed**: `synapse/commands/waiting_debug.py::_iter_records` TOCTOU hardening (`FileNotFoundError` replaces pre-`exists()` probe).
+
 ### v0.28.1
 
 - **Added**: `synapse waiting-debug` CLI — Phase 1.5 collection pipeline (#630, #632). `collect` appends `/debug/waiting` snapshots to `~/.synapse/waiting_debug.jsonl`; `report` prints aggregate counts (profile, `pattern_source`, `path_used`, `confidence`, `idle_gate_drops`, `renderer_unavailable_agents`) in text or JSON. `.synapse/waiting_debug.*` ignored; `docs/phase15-collection.md` documents cron and launchd scheduling at 5-minute cadence

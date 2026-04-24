@@ -2043,6 +2043,32 @@ Canvas UI の Patterns タブでパターンの一覧と詳細を表示できま
 
 ---
 
+### 1.26 synapse waiting-debug
+
+Phase 1.5 の WAITING 観測データ収集パイプライン (v0.28.1 以降)。
+
+```bash
+# 登録済み全エージェントから /debug/waiting snapshot を集めて JSONL に追記
+synapse waiting-debug collect
+# デフォルト: ~/.synapse/waiting_debug.jsonl
+# --out <path>         出力先を変更
+# --agent <agent_id>   特定エージェントに絞る
+# --include-empty      attempts が空のエージェントも記録
+
+# JSONL を集計（per-profile / pattern_source / path_used / confidence / idle_gate_drops / renderer_unavailable_agents）
+synapse waiting-debug report
+# --in <path>          入力先を変更（default: ~/.synapse/waiting_debug.jsonl）
+# --since <iso>        指定時刻以降のレコードのみ
+# --agent <agent_id>   特定エージェントのみ
+# --json               集計を JSON で出力
+```
+
+- `collect` は各エージェントの `http://localhost:<port>/debug/waiting` を 3 秒 timeout で叩き、取得した snapshot に `agent_id` / `agent_type` / `port` / `collected_at` を付与して JSONL に追記します。取得に失敗したエージェントについては stderr に 1 件 warning を出して skip します（legacy な pre-0.28.0 バイナリで起動中のエージェントは `/debug/waiting` を公開していないので、この挙動が正常です）。
+- `report` は集計のみで副作用はありません。`idle_gate_drops` は「regex にマッチしたが idle gate を通らなかった」件数、`renderer_unavailable_agents` は `snapshot.renderer_available == false` だったエージェントの数です。
+- cron / launchd で定期的に collect を回すための運用手順（ProgramArguments の絶対パス、PATH 継承問題、バージョン bump の必要性）は [`docs/phase15-collection.md`](../docs/phase15-collection.md) を参照。
+
+---
+
 ## 2. HTTP API リファレンス
 
 ### 2.1 エンドポイント一覧
@@ -2359,6 +2385,57 @@ Host: localhost:8100
 # waiting_detection regex が何を見ているかを親エージェントから確認
 curl http://localhost:8126/debug/pty | jq .display
 ```
+
+---
+
+### 2.3.2 GET /debug/waiting
+
+WAITING 検知の試行履歴（ring buffer）と aggregates を返すデバッグ用エンドポイントです（Phase 1 観測レイヤ、v0.28.1）。`IdleDetector` が保持している最近の試行ごとに `path_used` (renderer / strip_ansi), `renderer_on`, `pattern_matched`, `pattern_source` (primary / heuristic), `confidence`, `idle_gate_passed`, `new_data_hex_prefix`（raw 64 byte prefix）, `rendered_text_tail`（末尾 256 文字）を含みます。検知ロジック自体は Phase 1 では変更せず、Phase 2 の分析用データ源として使われます。
+
+**リクエスト**:
+
+```http
+GET /debug/waiting HTTP/1.1
+Host: localhost:8100
+```
+
+**レスポンス（抜粋）**:
+
+```json
+{
+  "renderer_available": true,
+  "attempts": [
+    {
+      "timestamp": 1745000000.123,
+      "profile": "codex",
+      "path_used": "renderer",
+      "renderer_on": true,
+      "pattern_matched": true,
+      "pattern_source": "primary",
+      "confidence": 1.0,
+      "idle_gate_passed": true,
+      "new_data_hex_prefix": "1b5b48...",
+      "rendered_text_tail": "... Do you want to proceed? [Y/n]"
+    }
+  ]
+}
+```
+
+`agent_id` / `agent_type` / `port` / `collected_at` などのメタデータと aggregates 集計は、サンプリングと集計を担当する `synapse waiting-debug collect` / `report` 側で付与・計算されます。生のエンドポイントは「コントローラが直接観測した試行リスト」だけを返します。
+
+コントローラが存在しない、または `waiting_debug_snapshot` を公開していない pre-0.28.0 のレガシーバイナリでは `503 Service Unavailable` を返します。`renderer_available: false` 単独では 503 にはなりません（その場合は `renderer_available: false` のまま 200 を返し、`attempts` には strip_ansi パスで観測した試行が記録されています）。
+
+**curl 例**:
+
+```bash
+# 親エージェントから WAITING 検知の観測履歴を取得
+curl http://localhost:8126/debug/waiting | jq '.attempts'
+
+# CLI から pretty-print
+synapse status synapse-codex-8123 --debug-waiting
+```
+
+複数エージェントを長期サンプリングする場合は `synapse waiting-debug collect` / `report`（Phase 1.5 collection pipeline、詳細は [`docs/phase15-collection.md`](../docs/phase15-collection.md)）を使って JSONL に蓄積してから aggregates レポートを作れます（profile / pattern_source / path_used / confidence の集計は report 側で行います）。
 
 ---
 

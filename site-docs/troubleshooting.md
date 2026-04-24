@@ -696,6 +696,30 @@ curl -s http://localhost:8100/debug/pty | jq .display
 
 See [API Endpoints → GET /debug/pty](reference/api.md#get-debugpty) for the full schema.
 
+### WAITING Detection Diagnostics (v0.28.0+)
+
+If an agent's status feels wrong — stuck on PROCESSING when the CLI is obviously at a prompt, or the reverse — inspect the in-memory WAITING-detection ring:
+
+```bash
+# Per-agent: last ~50 detection attempts plus aggregate counts
+synapse status <agent> --debug-waiting
+
+# Raw endpoint (same data, JSON)
+curl -s http://localhost:8100/debug/waiting | jq .
+```
+
+For longer-running investigations, schedule the Phase 1.5 collector (v0.28.1+) to snapshot every running agent every five minutes:
+
+```bash
+synapse waiting-debug collect           # appends to ~/.synapse/waiting_debug.jsonl
+synapse waiting-debug report --json     # aggregate profile / pattern_source / confidence
+```
+
+See [Agent Management — WAITING Detection Diagnostics](guide/agent-management.md#waiting-detection-diagnostics-debug-waiting) and the reference pages [API → GET /debug/waiting](reference/api.md#get-debugwaiting) and [CLI → Waiting-Debug](reference/cli.md#waiting-debug-phase-15-collection) for the full field schema and launchd/cron recipes.
+
+!!! note "`(renderer: off)` in `synapse list`"
+    If `synapse list` shows `WAITING (renderer: off)` or the JSON reports `renderer_available: false`, the per-process pyte renderer failed to initialise and the agent has fallen back to plain ANSI stripping. Restart the agent (`synapse kill <id>` then respawn) — renderer failures do not recover automatically.
+
 ### Advanced A2A Debugging
 
 For debugging internal A2A communication at the protocol level:
