@@ -448,6 +448,7 @@ def test_collect_default_timeout_is_five_seconds(tmp_path: Path):
 
 def test_default_waiting_debug_path_is_lazy(tmp_path: Path, monkeypatch):
     """default_waiting_debug_path() should re-evaluate HOME each call."""
+    monkeypatch.delenv("SYNAPSE_WAITING_DEBUG_PATH", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
     first = default_waiting_debug_path()
     assert first == tmp_path / ".synapse" / "waiting_debug.jsonl"
@@ -458,6 +459,13 @@ def test_default_waiting_debug_path_is_lazy(tmp_path: Path, monkeypatch):
     second = default_waiting_debug_path()
     assert second == other / ".synapse" / "waiting_debug.jsonl"
     assert second != first
+
+
+def test_default_waiting_debug_path_honors_env_override(tmp_path: Path, monkeypatch):
+    """SYNAPSE_WAITING_DEBUG_PATH overrides the default location."""
+    override = tmp_path / "custom" / "wd.jsonl"
+    monkeypatch.setenv("SYNAPSE_WAITING_DEBUG_PATH", str(override))
+    assert default_waiting_debug_path() == override
 
 
 def test_collect_resolves_default_path_lazily(tmp_path: Path, monkeypatch, capsys):

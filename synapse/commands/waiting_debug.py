@@ -12,14 +12,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Any, Protocol
 
+from synapse.paths import get_waiting_debug_path
 from synapse.registry import AgentRegistry
 
 DEFAULT_WAITING_DEBUG_TIMEOUT = 5.0
 
 
 def default_waiting_debug_path() -> Path:
-    """Resolve the default JSONL path at call time so `HOME` overrides apply."""
-    return Path.home() / ".synapse" / "waiting_debug.jsonl"
+    """Return the default JSONL path; thin wrapper around `paths.get_waiting_debug_path`.
+
+    Kept for test imports and backwards compatibility. Resolves `HOME` and
+    `SYNAPSE_WAITING_DEBUG_PATH` lazily per call.
+    """
+    return Path(get_waiting_debug_path())
 
 
 class AgentRegistryLike(Protocol):
@@ -195,10 +200,7 @@ class WaitingDebugReporter:
                 try:
                     record = json.loads(line)
                 except json.JSONDecodeError as exc:
-                    print(
-                        f"Warning: skipping invalid JSONL line {line_number}: {exc}",
-                        file=self._stderr,
-                    )
+                    self._warn(f"skipping invalid JSONL line {line_number}: {exc}")
                     continue
                 if not isinstance(record, dict):
                     continue
@@ -212,6 +214,9 @@ class WaitingDebugReporter:
 
         return records
 
+    def _warn(self, message: str) -> None:
+        print(f"Warning: {message}", file=self._stderr)
+
     def _record_is_since(
         self, record: dict[str, Any], since_dt: datetime, line_number: int
     ) -> bool:
@@ -221,11 +226,9 @@ class WaitingDebugReporter:
         try:
             collected_dt = _parse_iso_datetime(collected_at)
         except ValueError as exc:
-            print(
-                "Warning: record at line "
-                f"{line_number} has unparseable collected_at: "
-                f"{collected_at!r} ({exc})",
-                file=self._stderr,
+            self._warn(
+                f"record at line {line_number} has unparseable collected_at: "
+                f"{collected_at!r} ({exc})"
             )
             return False
         if collected_dt is None:
