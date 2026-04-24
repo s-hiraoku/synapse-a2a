@@ -9,13 +9,20 @@ Use `--no-auto-approve` to disable this behavior.
 
 ## Quick Reference
 
-| Agent | Args | Example |
+| Agent | Default Args | Example |
 |-------|------|---------|
-| **Claude Code** | `--dangerously-skip-permissions` | `synapse spawn claude -- --dangerously-skip-permissions` |
-| **Gemini CLI** | `--yolo` (or `-y`) | `synapse spawn gemini -- --yolo` |
+| **Claude Code** | `--permission-mode=auto` (was `--dangerously-skip-permissions`) | `synapse spawn claude -- --permission-mode=auto` |
+| **Gemini CLI** | `--approval-mode=yolo` (was `--yolo` / `-y`) | `synapse spawn gemini -- --approval-mode=yolo` |
 | **Codex CLI** | `--full-auto` | `synapse spawn codex -- --full-auto` |
-| **GitHub Copilot CLI** | `--yolo` (or `--allow-all`) | `synapse spawn copilot -- --yolo` |
+| **GitHub Copilot CLI** | `--allow-all` (alias `--yolo`) | `synapse spawn copilot -- --allow-all` |
 | **OpenCode** | env: `OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS=true` | Config: `opencode.json` に `"permission": "allow"` |
+
+> **Migration note (2026-04):** Anthropic deprecated `--dangerously-skip-permissions`
+> in favor of `--permission-mode=auto`, which keeps a safety classifier active
+> instead of disabling all checks. Gemini CLI similarly recommends the unified
+> `--approval-mode=<mode>` form over the legacy short flags. The legacy flags
+> still work and remain in each profile's `alternative_flags` so users who pass
+> them manually do not get a duplicated flag injected.
 
 ## Detailed Permission Modes
 
@@ -32,7 +39,9 @@ Use `--no-auto-approve` to disable this behavior.
 | `dontAsk` | Denies all tools except `permissions.allow` rules and read-only Bash. |
 | `bypassPermissions` | Skips all checks except protected paths; **`--dangerously-skip-permissions`** is the alias for `--permission-mode bypassPermissions`. Isolated containers only. |
 
-v2.0+ recommends **Hooks** (PreToolUse events) as a safer alternative to `--dangerously-skip-permissions`.
+**Synapse default:** `--permission-mode=auto` (was `--dangerously-skip-permissions`).
+v2.0+ also recommends **Hooks** (PreToolUse events) as a more granular alternative
+to bypass-style flags.
 
 ### Codex CLI
 
@@ -50,7 +59,8 @@ Config: `~/.codex/config.toml` profiles with `approval_policy = "never"`.
 
 | Flag | Behavior |
 |------|----------|
-| `--yolo` (`-y`) | Auto-approve all tool calls. Docker sandbox enabled by default |
+| `--approval-mode=yolo` | Auto-approve all tool calls. Docker sandbox enabled by default. Synapse default |
+| `--yolo` (`-y`) | Legacy short form of `--approval-mode=yolo`; still accepted |
 | `--approval-mode=auto_edit` | Auto-approve file read/write only |
 | `--allowed-tools "ShellTool(git status)"` | Bypass specific tools only |
 
@@ -81,8 +91,8 @@ Synapse automatically injects the appropriate flag when spawning agents:
 
 ```bash
 # Default: auto-approve enabled
-synapse spawn claude          # → --dangerously-skip-permissions injected
-synapse team start claude gemini  # → each agent gets its own flag
+synapse spawn claude          # → --permission-mode=auto injected (was --dangerously-skip-permissions)
+synapse team start claude gemini  # → each agent gets its own flag (Gemini gets --approval-mode=yolo)
 
 # Opt out
 synapse spawn claude --no-auto-approve

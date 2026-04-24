@@ -192,7 +192,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "role": "coordinator",
         "skill_set": "manager",
         "port": 8150,
-        "tool_args": ["--dangerously-skip-permissions"],
+        "tool_args": ["--permission-mode=auto"],
         "auto_start": False,
     },
 }

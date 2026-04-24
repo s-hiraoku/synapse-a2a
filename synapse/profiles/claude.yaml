@@ -35,11 +35,21 @@ waiting_detection:
 
 # Auto-approve configuration (used by synapse spawn / team start)
 # cli_flag: Injected as tool_arg to skip permission prompts at launch.
-#   Claude Code v2+ accepts `--permission-mode <mode>`; the legacy
-#   `--dangerously-skip-permissions` is an alias for `--permission-mode bypassPermissions`
-#   and remains supported, so we keep using it here for maximum compatibility.
+#   Anthropic's current recommendation is `--permission-mode auto` (formerly
+#   "auto mode"), which uses a classifier to block risky actions while
+#   allowing routine work. The legacy `--dangerously-skip-permissions`
+#   (alias for `--permission-mode bypassPermissions`) disables all checks
+#   and is explicitly discouraged for new code — see
+#   https://code.claude.com/docs/en/permission-modes.md
+#   We keep both legacy forms in alternative_flags so users who still pass
+#   them manually do not get a duplicated flag injected.
+#   Auto mode requires Max/Team/Enterprise/API plan and Sonnet 4.6 / Opus 4.6+.
 # runtime_response: Sent to PTY when WAITING status detected during execution
 auto_approve:
-  cli_flag: "--dangerously-skip-permissions"
+  cli_flag: "--permission-mode=auto"
+  alternative_flags:
+    - "--permission-mode=bypassPermissions"
+    - "--permission-mode"
+    - "--dangerously-skip-permissions"
   runtime_response: "y\r"
   deny_response: "n\r"

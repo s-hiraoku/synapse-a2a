@@ -21,14 +21,16 @@ def test_messaging_doc_softens_vscode_capability_claim() -> None:
 
 def test_spawning_doc_uses_current_gemini_flag_and_safe_examples() -> None:
     text = _read("plugins/synapse-a2a/skills/synapse-a2a/references/spawning.md")
-    # Auto-approve section should list current flags
-    assert "| **Gemini CLI** | `--yolo` |" in text
+    # Auto-approve section should list the current modern flags. Anthropic
+    # deprecated --dangerously-skip-permissions in favor of
+    # --permission-mode=auto (2026-04); Gemini moved to --approval-mode=yolo.
+    assert "| **Claude Code** | `--permission-mode=auto` |" in text
+    assert "| **Gemini CLI** | `--approval-mode=yolo` |" in text
     assert "synapse team start claude gemini codex" in text
-    # Old manual flag passing should be removed
-    assert "synapse spawn gemini -- --approval-mode=yolo" not in text
-    assert (
-        "synapse team start claude claude -- --dangerously-skip-permissions" not in text
-    )
+    # Doc should not advertise the deprecated Claude flag in the auto-injected
+    # table row; mentioning it as historical context is fine but it should
+    # never appear as the recommended default.
+    assert "| **Claude Code** | `--dangerously-skip-permissions` |" not in text
 
 
 def test_check_team_status_reports_failures_and_empty_states_distinctly() -> None:

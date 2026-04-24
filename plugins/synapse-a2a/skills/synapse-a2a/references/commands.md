@@ -164,14 +164,14 @@ synapse spawn claude --name Impl --role "implementer" --worktree            # au
 synapse spawn gemini --name Analyst -w feat-auth                            # named worktree
 synapse spawn codex --name Coder --worktree                                 # Codex in worktree
 
-# Pass tool-specific arguments after '--' (permission skip flags per CLI)
-synapse spawn claude -- --dangerously-skip-permissions   # Claude: skip all prompts
-synapse spawn gemini -- -y                               # Gemini: yolo mode
+# Pass tool-specific arguments after '--' (auto-approve / permission flags per CLI)
+synapse spawn claude -- --permission-mode=auto           # Claude: auto mode (was --dangerously-skip-permissions)
+synapse spawn gemini -- --approval-mode=yolo             # Gemini: yolo mode (was --yolo / -y)
 synapse spawn codex -- --full-auto                       # Codex: sandboxed auto-approve
-synapse spawn copilot -- --allow-all-tools               # Copilot: allow all tools
+synapse spawn copilot -- --allow-all                     # Copilot: allow all tools
 
 # Combine worktree + tool args (worktree before '--', tool args after '--')
-synapse spawn claude --name Impl --worktree -- --dangerously-skip-permissions
+synapse spawn claude --name Impl --worktree -- --permission-mode=auto
 ```
 
 **Worktree Isolation (`--worktree` / `-w`, Synapse-native flag):**
@@ -1159,12 +1159,12 @@ synapse team start claude gemini --all-new
 # Horizontal layout
 synapse team start claude gemini --layout horizontal
 
-# Pass tool-specific arguments after '--' (automation args: unattended/permission-skip args such as --dangerously-skip-permissions, --approval-mode=yolo, --full-auto)
+# Pass tool-specific arguments after '--' (automation args: unattended/permission flags such as --permission-mode=auto, --approval-mode=yolo, --full-auto)
 # Keep teams homogeneous when forwarding CLI-specific args to all agents.
-synapse team start claude claude -- --dangerously-skip-permissions
+synapse team start claude claude -- --permission-mode=auto
 synapse team start gemini gemini -- --approval-mode=yolo
 synapse team start codex codex -- --full-auto
-synapse team start copilot copilot -- --allow-all-tools
+synapse team start copilot copilot -- --allow-all
 
 # Worktree isolation (Synapse-level flag, before '--'; creates per-agent worktrees for ALL agent types)
 synapse team start claude gemini --worktree
@@ -1187,7 +1187,7 @@ curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "gemini"], "tool_args": ["--approval-mode=yolo"]}'
 # Note: tool_args are passed to ALL agents. Keep teams homogeneous when using CLI-specific args:
-# Claude: ["--dangerously-skip-permissions"], Gemini: ["--approval-mode=yolo"], Codex: ["--full-auto"], Copilot: ["--allow-all-tools"]
+# Claude: ["--permission-mode=auto"], Gemini: ["--approval-mode=yolo"], Codex: ["--full-auto"], Copilot: ["--allow-all"]
 ```
 
 ### Spawn via A2A API
@@ -1204,7 +1204,7 @@ curl -X POST http://localhost:8100/spawn \
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
   -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["--approval-mode=yolo"]}'
-# Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Gemini ["--approval-mode=yolo"], Codex ["--full-auto"], Copilot ["--allow-all-tools"]
+# Per-CLI tool_args: Claude ["--permission-mode=auto"], Gemini ["--approval-mode=yolo"], Codex ["--full-auto"], Copilot ["--allow-all"]
 
 # With worktree isolation (works for all agent types)
 curl -X POST http://localhost:8100/spawn \
@@ -1280,10 +1280,10 @@ synapse session restore my-team -w
 synapse session restore my-team --resume
 
 # Combine resume with worktree and tool args
-synapse session restore my-team --resume --worktree -- --dangerously-skip-permissions
+synapse session restore my-team --resume --worktree -- --permission-mode=auto
 
 # Pass tool args to spawned agents (after '--')
-synapse session restore my-team -- --dangerously-skip-permissions
+synapse session restore my-team -- --permission-mode=auto
 ```
 
 Each agent in the session is spawned via `spawn_agent()`. The `--worktree` / `-w` flag overrides the saved worktree setting for all agents. Tool args after `--` are passed through to the underlying CLI.

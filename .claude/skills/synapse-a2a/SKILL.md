@@ -165,17 +165,25 @@ Apply the same rule to `synapse team start`: include the appropriate forwarded
 CLI args by default, and keep teams homogeneous when those args are
 CLI-specific.
 
-Common defaults:
-- Claude Code: `synapse spawn claude --name <n> --role "<r>" -- --dangerously-skip-permissions`
+Common defaults (Synapse already injects these automatically — pass `--no-auto-approve`
+to opt out):
+- Claude Code: `synapse spawn claude --name <n> --role "<r>" -- --permission-mode=auto`
 - Gemini CLI: `synapse spawn gemini --name <n> --role "<r>" -- --approval-mode=yolo`
 - Codex CLI: `synapse spawn codex --name <n> --role "<r>" -- --full-auto`
 - OpenCode: `synapse spawn opencode --name <n> --role "<r>" -- --agent build` (selects the build agent profile; not a skip-approval flag)
 - Copilot CLI: `synapse spawn copilot --name <n> --role "<r>" -- --allow-all-tools`
-- Claude team: `synapse team start claude claude -- --dangerously-skip-permissions`
+- Claude team: `synapse team start claude claude -- --permission-mode=auto`
 - Gemini team: `synapse team start gemini gemini -- --approval-mode=yolo`
 - Codex team: `synapse team start codex codex -- --full-auto`
 - OpenCode team: `synapse team start opencode opencode -- --agent build` (selects the build agent profile; permission prompts still depend on OpenCode config)
 - Copilot team: `synapse team start copilot copilot -- --allow-all-tools`
+
+> **2026-04 migration:** Anthropic deprecated `--dangerously-skip-permissions`
+> in favor of `--permission-mode=auto` (safety classifier instead of disabling
+> all checks). Gemini similarly recommends `--approval-mode=yolo` over the
+> legacy `--yolo` / `-y` short forms. Synapse now injects the new flags by
+> default; the legacy forms still work and remain in each profile's
+> `alternative_flags`.
 
 | Condition | Action |
 |-----------|--------|
