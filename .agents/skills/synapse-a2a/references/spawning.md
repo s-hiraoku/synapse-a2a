@@ -155,13 +155,13 @@ Since v0.17.16, `synapse spawn` and `synapse team start` **automatically inject*
 the appropriate CLI permission bypass flag for each agent profile. You no longer
 need to pass `-- <flags>` manually.
 
-| CLI | Auto-injected Flag |
-|-----|-------------------|
-| **Claude Code** | `--dangerously-skip-permissions` |
-| **Gemini CLI** | `--yolo` |
-| **Codex CLI** | `--full-auto` |
-| **Copilot CLI** | `--yolo` |
-| **OpenCode** | env `OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS=true` |
+| CLI | Auto-injected Flag | Notes |
+|-----|-------------------|-------|
+| **Claude Code** | `--permission-mode=auto` | Anthropic's documented successor to the deprecated `--dangerously-skip-permissions`. Safety classifier active. Requires Max/Team/Enterprise/API plan + Sonnet 4.6 / Opus 4.6+. |
+| **Gemini CLI** | `--approval-mode=yolo` | Unified `--approval-mode` form preferred over the legacy `--yolo` / `-y`. |
+| **Codex CLI** | `--full-auto` | `-a on-request -s workspace-write` (sandboxed auto-approve). |
+| **Copilot CLI** | `--allow-all` | `--yolo` is an alias and still recognized. |
+| **OpenCode** | env `OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS=true` | OpenCode has no CLI flag; uses env var. |
 
 To disable auto-approve: `synapse spawn claude --no-auto-approve`
 
@@ -232,8 +232,8 @@ Agents can spawn other agents programmatically via `POST /spawn`:
 {"profile": "gemini", "name": "Worker", "worktree": true}
 {"profile": "claude", "name": "Worker", "worktree": "my-feature"}
 
-// Claude with permission skip
-{"profile": "claude", "name": "Worker", "tool_args": ["--dangerously-skip-permissions"]}
+// Claude with auto permission mode (was --dangerously-skip-permissions)
+{"profile": "claude", "name": "Worker", "tool_args": ["--permission-mode=auto"]}
 
 // Codex with auto-approve
 {"profile": "codex", "name": "Coder", "tool_args": ["--full-auto"]}
