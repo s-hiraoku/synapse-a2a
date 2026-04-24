@@ -92,8 +92,9 @@ For AI-controlled terminals, do not use bare `synapse list`. Use `synapse list -
 ### Status
 
 ```bash
-synapse status <target>            # Show detailed agent status
-synapse status <target> --json     # Output as JSON
+synapse status <target>                  # Show detailed agent status
+synapse status <target> --json           # Output as JSON
+synapse status <target> --debug-waiting  # Dump the in-memory WAITING-detection ring
 ```
 
 Shows a comprehensive view of a single agent including metadata, uptime, current task with elapsed time, recent message history, and file locks. See [Agent Management — Detailed Status](../guide/agent-management.md#detailed-status) for more.
@@ -102,6 +103,7 @@ Shows a comprehensive view of a single agent including metadata, uptime, current
 |------|-------------|
 | `<target>` | Agent name, ID, type-port, or type |
 | `--json` | Output as JSON (machine-readable) |
+| `--debug-waiting` | Print the last ~50 WAITING-detection attempts (pattern source, path used, confidence, idle-gate drops). See [Agent Management — WAITING Detection Diagnostics](../guide/agent-management.md#waiting-detection-diagnostics-debug-waiting) |
 
 ### Kill
 
@@ -945,6 +947,26 @@ synapse evolve --generate         # Auto-generate skill .md files
 |------|-------------|
 | `--generate` | Generate `.md` skill files from candidates |
 | `--output-dir DIR` | Output directory for generated files |
+
+## Waiting-Debug (Phase 1.5 Collection)
+
+```bash
+synapse waiting-debug collect                         # Snapshot all running agents
+synapse waiting-debug collect --agent <id>            # Snapshot a single agent
+synapse waiting-debug collect --include-empty         # Record agents whose ring is empty
+synapse waiting-debug report                          # Human-readable aggregate
+synapse waiting-debug report --json                   # Machine-readable aggregate
+synapse waiting-debug report --since <ISO8601>        # Restrict the time window
+synapse waiting-debug report --agent <id>             # Restrict to one agent
+```
+
+Persists `/debug/waiting` snapshots exposed by every running agent to `~/.synapse/waiting_debug.jsonl` so Phase 2 detection-logic work has real data to lean on. `report` aggregates `profile`, `pattern_source`, `path_used`, `confidence`, `idle_gate_drops`, and `renderer_unavailable_agents` across the collected rows. See [Agent Management — Phase 1.5: Periodic Data Collection](../guide/agent-management.md#phase-15-periodic-data-collection-synapse-waiting-debug) for cron/launchd scheduling.
+
+!!! note "CLI bump required"
+    `synapse waiting-debug` only exists in v0.28.1+. Upgrade the globally-installed CLI (`uv tool upgrade synapse-a2a` or `pipx upgrade synapse-a2a`) before arming a schedule, otherwise every run emits `invalid choice: 'waiting-debug'`.
+
+!!! note "Legacy agents"
+    Agents still running a pre-0.28.0 `synapse` binary do not expose `GET /debug/waiting`. The collector logs one `HTTP Error 404: Not Found` warning per legacy agent and continues; respawn those agents to include them in the dataset.
 
 ## Low-Level A2A Tool
 

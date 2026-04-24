@@ -816,6 +816,8 @@ Save this agent definition for reuse? [y/N]:
 | `synapse file-safety record` | Manually record change |
 | `synapse file-safety cleanup` | Delete old data |
 | `synapse file-safety debug` | Show debug info |
+| `synapse waiting-debug collect` | Append `/debug/waiting` snapshots from every running agent to `~/.synapse/waiting_debug.jsonl` (Phase 1.5 collection pipeline). `--out <path>` overrides the destination, `--agent <id>` filters to one agent, `--include-empty` records empty attempts. See [`docs/phase15-collection.md`](docs/phase15-collection.md) |
+| `synapse waiting-debug report` | Summarise a `waiting_debug.jsonl` file: per-profile / `pattern_source` / `path_used` counts, confidence distribution, `idle_gate_drops`, `renderer_unavailable_agents`. Accepts `--since <iso>`, `--agent <id>`, `--json` |
 | `synapse skills` | Skill Manager (interactive TUI) |
 | `synapse skills list` | List discovered skills |
 | `synapse skills show <name>` | Show skill details |
@@ -1689,6 +1691,8 @@ For Copilot specifically, bracketed paste is enabled because Copilot CLI 1.0.12+
 ### WAITING Detection
 
 WAITING detection is enabled in all five profiles (claude, codex, gemini, opencode, copilot). The [#140](https://github.com/s-hiraoku/synapse-a2a/issues/140) false positive issue was resolved by matching only against fresh PTY output (`new_data`) and adding auto-expiry (`waiting_expiry`, default 10s) with buffer tail re-check. As of [#572](https://github.com/s-hiraoku/synapse-a2a/issues/572), the waiting_detection regex is evaluated against a `pyte`-backed virtual terminal (`synapse/pty_renderer.py`) that replays cursor-motion CSI sequences in place, so TUI-based agents (ratatui, Ink, Bubble Tea) that overwrite the same cells are matched against the text a human actually sees rather than an ANSI-stripped byte stream. Alt-screen buffer (`\x1b[?1049h/l`) enter/leave is tracked, and a new `GET /debug/pty` endpoint on each per-agent A2A server returns the rendered screen as JSON (`{display, cursor, alt_screen, columns, rows}`) for debugging regex matches.
+
+**WAITING observability (Phase 1 + 1.5, v0.28.1):** each per-agent A2A server also exposes `GET /debug/waiting`, a ring buffer of recent detection attempts with `path_used`, `pattern_source`, `confidence`, `idle_gate_passed`, `renderer_on`, and raw/rendered snippets. `synapse status <agent> --debug-waiting` pretty-prints that buffer plus aggregates, `synapse list` / `synapse status` surface `(renderer: off)` and `renderer_available` when the pyte renderer failed to initialise, and `synapse waiting-debug collect` / `report` provide a cross-agent JSONL collection pipeline for Phase 2 analysis (see [`docs/phase15-collection.md`](docs/phase15-collection.md)). Detection logic itself is intentionally unchanged in this layer.
 
 Detects agents waiting for user input (selection UI, Y/n prompts) using agent-specific regex patterns:
 
