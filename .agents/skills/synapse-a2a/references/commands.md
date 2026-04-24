@@ -329,7 +329,7 @@ synapse waiting-debug report --in /tmp/debug.jsonl
 
 **Prerequisite — bump the CLI first:** `synapse waiting-debug` exists only in v0.28.1+. Upgrade with `uv tool upgrade synapse-a2a` or `pipx upgrade synapse-a2a` before arming a schedule; otherwise the subcommand parser rejects `waiting-debug` on every run.
 
-**Legacy-agent caveat:** agents still running on a pre-0.28.0 binary do not expose `GET /debug/waiting` and log an expected `HTTP Error 404: Not Found`. Respawn them with the upgraded CLI (`synapse kill <id>` + spawn) to bring them into the dataset.
+**Legacy-agent caveat:** agents still running on a pre-0.28.0 binary do not expose `GET /debug/waiting` and log an expected `HTTP Error 404: Not Found`. Agents on v0.28.0+ whose controller lacks the `waiting_debug_snapshot` capability (e.g., a non-PTY runtime) return `HTTP Error 503: Service Unavailable` with detail `waiting debug data not available` — also expected and non-fatal. Respawn them with the upgraded CLI (`synapse kill <id>` + spawn) to bring them into the dataset.
 
 **Schedule it** — there is no `synapse schedule` CLI for this. Use cron or launchd at a 5-minute cadence. See `docs/phase15-collection.md` for the canonical cron line and launchd plist.
 
