@@ -8,6 +8,7 @@ do not get a duplicated injection.
 """
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -58,3 +59,90 @@ class TestClaudeAutoApprove:
         mid-session is unrelated to the launch flag — keep it stable."""
         assert claude_profile["auto_approve"]["runtime_response"] == "y\r"
         assert claude_profile["auto_approve"]["deny_response"] == "n\r"
+
+
+class TestClaudeAutoApproveSpawnIntegration:
+    """End-to-end checks that prepare_spawn() respects the alternative_flags
+    list when the user passes a permission-mode flag manually.
+
+    The YAML-only assertions above guarantee the alternatives list contents
+    but not that the spawn pipeline actually consults it. A regression here
+    would mean the user passes ``--permission-mode bypassPermissions`` and
+    Synapse silently appends ``--permission-mode=auto`` on top, producing a
+    conflicting CLI invocation that Claude Code rejects.
+    """
+
+    def test_space_separated_permission_mode_skips_injection(self) -> None:
+        """``["--permission-mode", "auto"]`` (space-separated form) must be
+        recognised as already-present so the canonical ``--permission-mode=auto``
+        is not appended on top.
+        """
+        from synapse.spawn import prepare_spawn
+
+        with (
+            patch("synapse.spawn.is_port_available", return_value=True),
+        ):
+            prepared = prepare_spawn(
+                "claude",
+                port=8100,
+                tool_args=["--permission-mode", "bypassPermissions"],
+            )
+
+        assert prepared.tool_args is not None
+        # Canonical flag must not be appended when the user already specified
+        # the bare alternative form.
+        assert "--permission-mode=auto" not in prepared.tool_args
+        # User's tokens must be preserved verbatim.
+        assert prepared.tool_args[-2:] == ["--permission-mode", "bypassPermissions"]
+
+    def test_legacy_dangerously_skip_permissions_skips_injection(self) -> None:
+        """The historical ``--dangerously-skip-permissions`` flag is still
+        accepted as a synonym; injection must be skipped so users who
+        haven't yet migrated their scripts don't get a conflicting flag."""
+        from synapse.spawn import prepare_spawn
+
+        with (
+            patch("synapse.spawn.is_port_available", return_value=True),
+        ):
+            prepared = prepare_spawn(
+                "claude",
+                port=8100,
+                tool_args=["--dangerously-skip-permissions"],
+            )
+
+        assert prepared.tool_args is not None
+        assert "--permission-mode=auto" not in prepared.tool_args
+        assert "--dangerously-skip-permissions" in prepared.tool_args
+
+    def test_permission_mode_equals_form_skips_injection(self) -> None:
+        """``--permission-mode=bypassPermissions`` (= form) must also satisfy
+        the alternative_flags check via exact-match against the explicit
+        long form listed in claude.yaml."""
+        from synapse.spawn import prepare_spawn
+
+        with (
+            patch("synapse.spawn.is_port_available", return_value=True),
+        ):
+            prepared = prepare_spawn(
+                "claude",
+                port=8100,
+                tool_args=["--permission-mode=bypassPermissions"],
+            )
+
+        assert prepared.tool_args is not None
+        assert "--permission-mode=auto" not in prepared.tool_args
+        assert "--permission-mode=bypassPermissions" in prepared.tool_args
+
+    def test_no_user_flag_injects_canonical_default(self) -> None:
+        """When the user passes no permission flag, prepare_spawn must inject
+        the canonical ``--permission-mode=auto`` so headless agents start
+        without prompting."""
+        from synapse.spawn import prepare_spawn
+
+        with (
+            patch("synapse.spawn.is_port_available", return_value=True),
+        ):
+            prepared = prepare_spawn("claude", port=8100, tool_args=[])
+
+        assert prepared.tool_args is not None
+        assert "--permission-mode=auto" in prepared.tool_args

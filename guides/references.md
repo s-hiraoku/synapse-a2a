@@ -2403,12 +2403,11 @@ Host: localhost:8100
 
 ```json
 {
-  "agent_id": "synapse-codex-8123",
-  "profile": "codex",
   "renderer_available": true,
   "attempts": [
     {
-      "ts": "2026-04-23T10:12:34Z",
+      "timestamp": 1745000000.123,
+      "profile": "codex",
       "path_used": "renderer",
       "renderer_on": true,
       "pattern_matched": true,
@@ -2418,30 +2417,25 @@ Host: localhost:8100
       "new_data_hex_prefix": "1b5b48...",
       "rendered_text_tail": "... Do you want to proceed? [Y/n]"
     }
-  ],
-  "aggregates": {
-    "total": 42,
-    "matched": 17,
-    "path_used": {"renderer": 40, "strip_ansi": 2},
-    "confidence_hist": {"1.0": 15, "0.6": 2, "0.0": 25},
-    "idle_gate_drops": 3
-  }
+  ]
 }
 ```
 
-コントローラが存在しない場合や PTY renderer が初期化に失敗している場合は `503 Service Unavailable`（body に `renderer_available: false`）を返します。
+`agent_id` / `agent_type` / `port` / `collected_at` などのメタデータと aggregates 集計は、サンプリングと集計を担当する `synapse waiting-debug collect` / `report` 側で付与・計算されます。生のエンドポイントは「コントローラが直接観測した試行リスト」だけを返します。
+
+コントローラが存在しない、または `waiting_debug_snapshot` を公開していない pre-0.28.0 のレガシーバイナリでは `503 Service Unavailable` を返します。`renderer_available: false` 単独では 503 にはなりません（その場合は `renderer_available: false` のまま 200 を返し、`attempts` には strip_ansi パスで観測した試行が記録されています）。
 
 **curl 例**:
 
 ```bash
 # 親エージェントから WAITING 検知の観測履歴を取得
-curl http://localhost:8126/debug/waiting | jq '.aggregates'
+curl http://localhost:8126/debug/waiting | jq '.attempts'
 
-# CLI から pretty-print + aggregates
+# CLI から pretty-print
 synapse status synapse-codex-8123 --debug-waiting
 ```
 
-複数エージェントを長期サンプリングする場合は `synapse waiting-debug collect` / `report`（Phase 1.5 collection pipeline、詳細は [`docs/phase15-collection.md`](../docs/phase15-collection.md)）を使って JSONL に蓄積してから aggregates レポートを作れます。
+複数エージェントを長期サンプリングする場合は `synapse waiting-debug collect` / `report`（Phase 1.5 collection pipeline、詳細は [`docs/phase15-collection.md`](../docs/phase15-collection.md)）を使って JSONL に蓄積してから aggregates レポートを作れます（profile / pattern_source / path_used / confidence の集計は report 側で行います）。
 
 ---
 

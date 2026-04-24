@@ -171,12 +171,12 @@ to opt out):
 - Gemini CLI: `synapse spawn gemini --name <n> --role "<r>" -- --approval-mode=yolo`
 - Codex CLI: `synapse spawn codex --name <n> --role "<r>" -- --full-auto`
 - OpenCode: `synapse spawn opencode --name <n> --role "<r>" -- --agent build` (selects the build agent profile; not a skip-approval flag)
-- Copilot CLI: `synapse spawn copilot --name <n> --role "<r>" -- --allow-all-tools`
+- Copilot CLI: `synapse spawn copilot --name <n> --role "<r>" -- --allow-all`
 - Claude team: `synapse team start claude claude -- --permission-mode=auto`
 - Gemini team: `synapse team start gemini gemini -- --approval-mode=yolo`
 - Codex team: `synapse team start codex codex -- --full-auto`
 - OpenCode team: `synapse team start opencode opencode -- --agent build` (selects the build agent profile; permission prompts still depend on OpenCode config)
-- Copilot team: `synapse team start copilot copilot -- --allow-all-tools`
+- Copilot team: `synapse team start copilot copilot -- --allow-all`
 
 > **2026-04 migration:** Anthropic deprecated `--dangerously-skip-permissions`
 > in favor of `--permission-mode=auto` (safety classifier instead of disabling

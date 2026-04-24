@@ -37,8 +37,11 @@ waiting_detection:
 # its short alias `-y` still work but the project recommends migrating to
 # --approval-mode=yolo for clarity and future compatibility. We keep both
 # legacy forms in alternative_flags so users who pass --yolo / -y manually
-# do not get a duplicated flag injected. --yolo enables Docker sandbox by
-# default (same behavior as --approval-mode=yolo).
+# do not get a duplicated flag injected.
+# Note: `--yolo` / `--approval-mode=yolo` only control approval behavior.
+# Docker sandboxing is a separate concern controlled by `--sandbox` / `-s`
+# (or env `GEMINI_SANDBOX=docker`). For automation, the recommended safe
+# combo is `--approval-mode=yolo --sandbox`.
 auto_approve:
   cli_flag: "--approval-mode=yolo"
   alternative_flags:
