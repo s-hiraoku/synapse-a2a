@@ -16,6 +16,7 @@ from synapse.commands.cleanup import opportunistic_cleanup_idle_orphans
 from synapse.file_safety import FileSafetyManager
 from synapse.port_manager import PORT_RANGES
 from synapse.registry import AgentRegistry
+from synapse.utils import format_renderer_suffix
 
 if TYPE_CHECKING:
     from rich.console import Console
@@ -665,12 +666,7 @@ class ListCommand:
 
     def _format_status(self, agent: dict[str, Any]) -> str:
         status = str(agent.get("status", "-"))
-        renderer_available = agent.get("renderer_available")
-        if renderer_available is False:
-            return f"{status} (renderer: off)"
-        if renderer_available is True:
-            return f"{status} (renderer: on)"
-        return status
+        return status + format_renderer_suffix(agent.get("renderer_available"))
 
     def run_json(self, args: argparse.Namespace) -> None:
         """Output agent list as JSON array for programmatic consumption."""

@@ -159,13 +159,15 @@ class WaitingDebugReporter:
     def _iter_records(
         self, path: Path, since: str | None, agent_id: str | None
     ) -> list[dict[str, Any]]:
-        if not path.exists():
-            return []
-
         since_dt = _parse_iso_datetime(since) if since else None
         records: list[dict[str, Any]] = []
 
-        with path.open(encoding="utf-8") as input_file:
+        try:
+            input_file = path.open(encoding="utf-8")
+        except FileNotFoundError:
+            return []
+
+        with input_file:
             for line_number, line in enumerate(input_file, start=1):
                 if not line.strip():
                     continue

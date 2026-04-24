@@ -14,7 +14,7 @@ from rich.text import Text
 
 from synapse.port_manager import PORT_RANGES
 from synapse.status import STATUS_STYLES
-from synapse.utils import get_role_display
+from synapse.utils import format_renderer_suffix, get_role_display
 
 
 def format_elapsed(seconds: float) -> str:
@@ -63,10 +63,9 @@ class RichRenderer:
         """
         style = STATUS_STYLES.get(status, "")
         text = Text(status, style=style)
-        if renderer_available is False:
-            text.append(" (renderer: off)", style="dim")
-        elif renderer_available is True:
-            text.append(" (renderer: on)", style="dim")
+        suffix = format_renderer_suffix(renderer_available)
+        if suffix:
+            text.append(suffix, style="dim")
         return text
 
     def _build_empty_table(self) -> Table:

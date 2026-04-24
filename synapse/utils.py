@@ -192,6 +192,15 @@ def generate_task_id() -> str:
     return str(uuid4())[:8]
 
 
+def format_renderer_suffix(renderer_available: bool | None) -> str:
+    """Return " (renderer: on/off)" suffix, or "" when state is unknown."""
+    if renderer_available is True:
+        return " (renderer: on)"
+    if renderer_available is False:
+        return " (renderer: off)"
+    return ""
+
+
 def format_role_section(role: str) -> str:
     """
     Format a role section for agent instructions.

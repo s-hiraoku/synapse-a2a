@@ -165,17 +165,12 @@ def parse_skill_frontmatter(path: Path) -> dict[str, str] | None:
     if not isinstance(data, dict) or not isinstance(data.get("name"), str):
         return None
 
-    # Skip container values (list/dict) — their str() form is unhelpful.
-    # Keep scalars (str/int/float/bool) which have meaningful string forms.
     result: dict[str, str] = {}
     for k, v in data.items():
-        key = str(k)
         if v is None:
-            result[key] = ""
+            result[str(k)] = ""
         elif isinstance(v, (str, int, float, bool)):
-            result[key] = str(v).strip()
-        else:
-            result[key] = ""
+            result[str(k)] = str(v).strip()
     return result
 
 
