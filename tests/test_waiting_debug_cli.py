@@ -550,6 +550,37 @@ def test_report_warns_on_invalid_collected_at(tmp_path: Path):
     assert "not-a-valid-timestamp" in warnings_text
 
 
+def test_cmd_waiting_debug_passes_zero_timeout_literally(monkeypatch):
+    """`--timeout 0` must reach the Collector as 0.0, not be replaced by default."""
+    from argparse import Namespace
+
+    from synapse.commands.waiting_debug import cmd_waiting_debug
+
+    captured: dict[str, float] = {}
+
+    class _Recorder:
+        def __init__(self, *, timeout: float) -> None:
+            captured["timeout"] = timeout
+
+        def collect(self, **_: Any) -> int:
+            return 0
+
+    monkeypatch.setattr(
+        "synapse.commands.waiting_debug.WaitingDebugCollector", _Recorder
+    )
+
+    args = Namespace(
+        waiting_debug_command="collect",
+        timeout=0.0,
+        out=None,
+        agent=None,
+        include_empty=False,
+    )
+    cmd_waiting_debug(args)
+
+    assert captured["timeout"] == 0.0
+
+
 def test_waiting_debug_cli_parses_timeout_and_out_flags(tmp_path: Path):
     with patch("synapse.cli.cmd_waiting_debug") as mock_cmd:
         with patch.object(

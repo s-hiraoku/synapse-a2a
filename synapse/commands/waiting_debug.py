@@ -349,7 +349,8 @@ def cmd_waiting_debug(args: Any) -> None:
     """Dispatch waiting-debug subcommands."""
     subcommand = getattr(args, "waiting_debug_command", None)
     if subcommand == "collect":
-        timeout = getattr(args, "timeout", None) or DEFAULT_WAITING_DEBUG_TIMEOUT
+        timeout_arg = getattr(args, "timeout", None)
+        timeout = DEFAULT_WAITING_DEBUG_TIMEOUT if timeout_arg is None else timeout_arg
         collector = WaitingDebugCollector(timeout=timeout)
         written = collector.collect(
             out_path=getattr(args, "out", None),
