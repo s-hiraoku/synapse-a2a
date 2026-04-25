@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.3] - 2026-04-26
+
+Patch release for the Phase 1.5 polish work tracked in #635 / #630 and merged via #638. Operationally focused: warns less right after PtyRenderer boot, honors `HOME` overrides in tests, lets cron capture JSON reports atomically, and documents the `--timeout 0` fast-fail mode so operators don't read it as "no timeout". No detection-logic changes; Phase 2 remains out of scope.
+
 ### Added
 
 - **`synapse waiting-debug collect --timeout SECONDS`** — override the HTTP timeout used when querying `/debug/waiting` on each registered agent. Default is now **5.0 s** (previously hard-coded 3.0 s), which eliminates a common warn-flood immediately after PtyRenderer boots when agents can't respond within 3 s (#635).
