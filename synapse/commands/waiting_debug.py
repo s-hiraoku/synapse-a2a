@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from collections import Counter
@@ -25,6 +28,20 @@ def default_waiting_debug_path() -> Path:
     `SYNAPSE_WAITING_DEBUG_PATH` lazily per call.
     """
     return Path(get_waiting_debug_path())
+
+
+def non_negative_float_arg(value: str) -> float:
+    """argparse type for `--timeout`: rejects negative values, allows 0 and positive.
+
+    `urllib` treats `timeout=0` as non-blocking ("never wait, fail fast"), which
+    is a legitimate fast-fail mode some operators want; positive values are the
+    common case. Negative values have no defined meaning and are rejected here
+    so they fail before reaching urllib.
+    """
+    parsed = float(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError(f"--timeout must be >= 0 (got {value!r})")
+    return parsed
 
 
 class AgentRegistryLike(Protocol):
@@ -172,15 +189,33 @@ class WaitingDebugReporter:
 
         if out_path is not None:
             serialized = json.dumps(result, indent=2, sort_keys=True) + "\n"
-            out = Path(out_path).expanduser()
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(serialized, encoding="utf-8")
+            self._atomic_write(Path(out_path).expanduser(), serialized)
         elif json_output:
             self._output.write(json.dumps(result, indent=2, sort_keys=True) + "\n")
         else:
             self._render_text(result)
 
         return result
+
+    @staticmethod
+    def _atomic_write(target: Path, content: str) -> None:
+        """Write text to `target` atomically via temp-file + os.replace.
+
+        Avoids exposing partial content to concurrent readers (e.g. cron jobs
+        reading the previous report while a new one is being generated).
+        """
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=target.parent,
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+        os.replace(tmp_path, target)
 
     def _iter_records(
         self, path: Path, since: str | None, agent_id: str | None
@@ -231,8 +266,7 @@ class WaitingDebugReporter:
                 f"{collected_at!r} ({exc})"
             )
             return False
-        if collected_dt is None:
-            return False
+        assert collected_dt is not None
         return collected_dt >= since_dt
 
     def _aggregate(

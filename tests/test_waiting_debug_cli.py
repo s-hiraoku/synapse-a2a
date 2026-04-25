@@ -623,3 +623,61 @@ def test_waiting_debug_cli_parses_timeout_and_out_flags(tmp_path: Path):
         report_args = mock_cmd.call_args.args[0]
         assert report_args.out == tmp_path / "report.json"
         assert report_args.json_output is True
+
+
+def test_non_negative_float_arg_accepts_zero_and_positive():
+    from synapse.commands.waiting_debug import non_negative_float_arg
+
+    assert non_negative_float_arg("0") == 0.0
+    assert non_negative_float_arg("0.5") == 0.5
+    assert non_negative_float_arg("12.5") == 12.5
+
+
+def test_non_negative_float_arg_rejects_negative():
+    import argparse
+
+    import pytest
+
+    from synapse.commands.waiting_debug import non_negative_float_arg
+
+    with pytest.raises(argparse.ArgumentTypeError, match=">= 0"):
+        non_negative_float_arg("-1")
+
+
+def test_cli_rejects_negative_timeout():
+    """argparse should reject `--timeout -1` before reaching the collector."""
+    import pytest
+
+    with patch.object(
+        sys,
+        "argv",
+        ["synapse", "waiting-debug", "collect", "--timeout", "-1"],
+    ):
+        with pytest.raises(SystemExit):
+            main()
+
+
+def test_report_writes_atomically(tmp_path: Path):
+    """report --out should never leave a partially-written file behind."""
+    input_path = tmp_path / "waiting_debug.jsonl"
+    input_path.write_text(
+        json.dumps(
+            {
+                "agent_id": "synapse-codex-8123",
+                "agent_type": "codex",
+                "port": 8123,
+                "collected_at": "2026-04-23T10:00:00+09:00",
+                "snapshot": _snapshot(_attempt(profile="codex")),
+            }
+        )
+        + "\n"
+    )
+    out_path = tmp_path / "subdir" / "report.json"
+    reporter = WaitingDebugReporter(output=StringIO())
+
+    reporter.report(input_path=input_path, json_output=True, out_path=out_path)
+
+    assert out_path.exists()
+    leftover_temps = list(out_path.parent.glob(".report.json.*.tmp"))
+    assert leftover_temps == []
+    assert json.loads(out_path.read_text())["total_attempts"] == 1

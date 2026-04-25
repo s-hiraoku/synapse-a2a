@@ -16,10 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`synapse/commands/waiting_debug.py::default_waiting_debug_path()`** — the default JSONL path (`~/.synapse/waiting_debug.jsonl`) is now resolved lazily per call rather than at module import time. Tests and tools that export `HOME=/tmp/...` now actually redirect collection/reporting instead of silently using the real home. The module-level `DEFAULT_WAITING_DEBUG_PATH` constant is removed — callers either pass `out_path=` / `input_path=` explicitly or let the class resolve the default internally (#635).
 - **`WaitingDebugReporter._record_is_since` — warn on unparseable `collected_at`:** records whose timestamp can't be parsed are still skipped, but now emit `Warning: record at line N has unparseable collected_at: '<value>' (<reason>)` to stderr, matching the existing behavior for invalid JSONL lines (#635).
+- **`waiting-debug collect --timeout` argparse validation:** negative values are now rejected at argparse time (`--timeout must be >= 0`) instead of being passed through to `urllib`. Zero is still accepted and forwarded as the deliberate "fail fast / never wait" mode (#635, CodeRabbit follow-up).
+- **`waiting-debug report --out` is now atomic:** the JSON report is written to a sibling temp file and `os.replace`d into place, so concurrent readers (e.g. cron-driven dashboards) never see a half-written file (#635, CodeRabbit follow-up).
 
 ### Fixed
 
 - **Closes #630 (Phase 1.5 persistence pipeline):** the Phase 1.5 collection pipeline shipped in #632 is now operationally stable with the polish above. Scheduling, retention, and SQLite export remain optional operator-side concerns (docs in `docs/phase15-collection.md`).
+- **`WaitingDebugReporter._record_is_since` dead branch removed:** the `if collected_dt is None` check after `_parse_iso_datetime` was unreachable when `collected_at` is a `str` (the only path that reaches it), so the dead branch is gone (#635, CodeRabbit follow-up).
 
 ## [0.28.2] - 2026-04-24
 

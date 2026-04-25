@@ -98,7 +98,7 @@ from synapse.commands.spawn_cmd import (
     cmd_team_start,
 )
 from synapse.commands.start import StartCommand
-from synapse.commands.waiting_debug import cmd_waiting_debug
+from synapse.commands.waiting_debug import cmd_waiting_debug, non_negative_float_arg
 from synapse.commands.workflow import (
     cmd_workflow_create,
     cmd_workflow_delete,
@@ -3231,9 +3231,9 @@ Status meanings:
     )
     p_waiting_collect.add_argument(
         "--timeout",
-        type=float,
+        type=non_negative_float_arg,
         default=None,
-        help="HTTP timeout in seconds for /debug/waiting requests (default: 5.0)",
+        help="HTTP timeout in seconds for /debug/waiting requests (>= 0; default: 5.0)",
     )
     p_waiting_collect.set_defaults(func=cmd_waiting_debug)
 

@@ -48,7 +48,12 @@ repeat `Warning: failed to collect waiting debug for <agent-id>: timed out`
 entries on stderr. Pass `--timeout 10` (or higher) to relax the budget, and
 add the same flag to the cron/launchd invocation so the schedule picks it up.
 An explicit `--timeout 0` is preserved as-is (passed to `urllib`) rather than
-falling back to the default.
+falling back to the default. Note that `urllib.request.urlopen(..., timeout=0)`
+puts the underlying socket into non-blocking mode and will fail almost
+immediately (typically `BlockingIOError`/`URLError`), so `--timeout 0` is a
+deliberate "fail fast, never wait" mode — it is **not** the same as "no
+timeout". To get the standard 5-second budget, simply omit `--timeout`.
+Negative values are rejected by argparse before reaching the collector.
 
 The default JSONL path (`~/.synapse/waiting_debug.jsonl`) is resolved at call
 time, so test harnesses or alternate profiles that override `HOME` see the
@@ -85,7 +90,10 @@ synapse waiting-debug report --out /tmp/waiting_debug_report.json
 
 `--out` takes precedence over `--json`: when both are set, nothing is written
 to stdout and the JSON report is written to the given file instead (v0.28.2).
-Parent directories are created on demand.
+Parent directories are created on demand. The write is **atomic** — the
+report is staged in a sibling `.report.json.<random>.tmp` file and
+`os.replace`d into place, so a cron-driven dashboard that reads the report
+file in parallel will never see a half-written document.
 
 The report includes profile, `pattern_source`, `path_used`, and `confidence`
 distributions, plus idle-gate drop counts and the ratio of agents whose
