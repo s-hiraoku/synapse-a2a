@@ -4,13 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
-### Unreleased (post-v0.28.2)
+### v0.28.3
 
 - **Added**: `synapse waiting-debug collect --timeout SECONDS` — overrides the HTTP timeout used when querying `/debug/waiting` on each registered agent. Default raised from 3.0 s to **5.0 s**, which eliminates the common warn-flood immediately after PtyRenderer boots when agents can't respond within 3 s (#635).
-- **Added**: `synapse waiting-debug report --out PATH` — writes the aggregated JSON report to a file instead of stdout. When `--out` is set, stdout stays empty so the flag is safe to use from cron / launchd without capturing mixed text/JSON output (#635).
+- **Added**: `synapse waiting-debug report --out PATH` — writes the aggregated JSON report to a file instead of stdout. When `--out` is set, stdout stays empty so the flag is safe to use from cron / launchd without capturing mixed text/JSON output. The write is **atomic** (temp file + `os.replace`) so concurrent readers never see a half-written report (#635).
 - **Changed**: `WaitingDebugReporter._record_is_since` — records whose `collected_at` can't be parsed are still skipped for `--since` filtering, but now emit `Warning: record at line N has unparseable collected_at: '<value>' (<reason>)` to stderr instead of being silently dropped. Matches existing behaviour for invalid JSONL lines (#635).
-- **Changed**: `synapse.commands.waiting_debug.default_waiting_debug_path()` is resolved lazily per call; tests and tools that set `HOME=/tmp/...` now actually redirect collection/reporting instead of silently using the real home. The module-level `DEFAULT_WAITING_DEBUG_PATH` constant is removed (#635).
-- **Fixed**: Closes #630 — Phase 1.5 persistence pipeline is now operationally stable with the polish above.
+- **Changed**: `synapse.commands.waiting_debug.default_waiting_debug_path()` is resolved lazily per call; tests and tools that set `HOME=/tmp/...` now actually redirect collection/reporting instead of silently using the real home. New `SYNAPSE_WAITING_DEBUG_PATH` env var override is honored via `synapse/paths.py` (#635).
+- **Changed**: `--timeout` argparse validation rejects negative values (`--timeout must be >= 0`); `--timeout 0` is preserved as the deliberate "fail fast / never wait" mode (urllib non-blocking) and is **not** equivalent to "no timeout" — omit the flag for the default 5 s budget (#635).
+- **Fixed**: Closes #630 — Phase 1.5 persistence pipeline is now operationally stable with the polish above. Dead `if collected_dt is None: return False` branch in `_record_is_since` removed (unreachable when `collected_at` is `str`).
 
 ### v0.28.2
 
