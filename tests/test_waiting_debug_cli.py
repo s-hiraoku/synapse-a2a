@@ -14,6 +14,7 @@ from synapse.cli import main
 from synapse.commands.waiting_debug import (
     WaitingDebugCollector,
     WaitingDebugReporter,
+    default_waiting_debug_path,
 )
 
 
@@ -82,9 +83,13 @@ def test_collect_appends_one_jsonl_record_per_agent_with_attempts(tmp_path: Path
         "http://localhost:8123/debug/waiting": _snapshot(_attempt()),
         "http://localhost:8100/debug/waiting": _snapshot(),
     }
+
+    def fetcher(url: str, *, timeout: float) -> dict[str, Any]:
+        return payloads[url]
+
     collector = WaitingDebugCollector(
         registry=FakeRegistry(agents),
-        fetcher=payloads.__getitem__,
+        fetcher=fetcher,
         clock=lambda: "2026-04-23T10:00:00+09:00",
     )
 
@@ -109,7 +114,7 @@ def test_collect_include_empty_records_agents_without_attempts(tmp_path: Path):
     }
     collector = WaitingDebugCollector(
         registry=FakeRegistry(agents),
-        fetcher=lambda url: _snapshot(),
+        fetcher=lambda url, *, timeout: _snapshot(),
         clock=lambda: "2026-04-23T10:00:00+09:00",
     )
 
@@ -129,7 +134,7 @@ def test_collect_continues_after_endpoint_error(tmp_path: Path):
         "synapse-codex-8123": _agent("synapse-codex-8123", "codex", 8123),
     }
 
-    def fetcher(url: str) -> dict[str, Any]:
+    def fetcher(url: str, *, timeout: float) -> dict[str, Any]:
         if url == "http://localhost:8100/debug/waiting":
             raise urllib.error.URLError("connection refused")
         return _snapshot(_attempt(profile="codex"))
@@ -158,7 +163,7 @@ def test_collect_agent_filter_limits_collection(tmp_path: Path):
     }
     fetched_urls: list[str] = []
 
-    def fetcher(url: str) -> dict[str, Any]:
+    def fetcher(url: str, *, timeout: float) -> dict[str, Any]:
         fetched_urls.append(url)
         return _snapshot(_attempt(profile="codex"))
 
@@ -392,3 +397,287 @@ def test_waiting_debug_cli_parses_collect_and_report_subcommands(tmp_path: Path)
         assert report_args.since == "2026-04-23T10:00:00+09:00"
         assert report_args.agent == "synapse-codex-8123"
         assert report_args.json_output is True
+
+
+def test_collect_passes_timeout_to_fetcher(tmp_path: Path):
+    """--timeout should be propagated to the HTTP fetcher."""
+    out_path = tmp_path / "waiting_debug.jsonl"
+    agents = {
+        "synapse-codex-8123": _agent("synapse-codex-8123", "codex", 8123),
+    }
+    recorded: dict[str, float] = {}
+
+    def fetcher(url: str, *, timeout: float) -> dict[str, Any]:
+        recorded["timeout"] = timeout
+        return _snapshot(_attempt())
+
+    collector = WaitingDebugCollector(
+        registry=FakeRegistry(agents),
+        fetcher=fetcher,
+        clock=lambda: "2026-04-23T10:00:00+09:00",
+        timeout=12.5,
+    )
+
+    collector.collect(out_path=out_path)
+
+    assert recorded["timeout"] == 12.5
+
+
+def test_collect_default_timeout_is_five_seconds(tmp_path: Path):
+    """Default timeout should be 5.0s (raised from the legacy 3.0s)."""
+    out_path = tmp_path / "waiting_debug.jsonl"
+    agents = {
+        "synapse-codex-8123": _agent("synapse-codex-8123", "codex", 8123),
+    }
+    recorded: dict[str, float] = {}
+
+    def fetcher(url: str, *, timeout: float) -> dict[str, Any]:
+        recorded["timeout"] = timeout
+        return _snapshot(_attempt())
+
+    collector = WaitingDebugCollector(
+        registry=FakeRegistry(agents),
+        fetcher=fetcher,
+        clock=lambda: "2026-04-23T10:00:00+09:00",
+    )
+
+    collector.collect(out_path=out_path)
+
+    assert recorded["timeout"] == 5.0
+
+
+def test_default_waiting_debug_path_is_lazy(tmp_path: Path, monkeypatch):
+    """default_waiting_debug_path() should re-evaluate HOME each call."""
+    monkeypatch.delenv("SYNAPSE_WAITING_DEBUG_PATH", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    first = default_waiting_debug_path()
+    assert first == tmp_path / ".synapse" / "waiting_debug.jsonl"
+
+    other = tmp_path / "other-home"
+    other.mkdir()
+    monkeypatch.setenv("HOME", str(other))
+    second = default_waiting_debug_path()
+    assert second == other / ".synapse" / "waiting_debug.jsonl"
+    assert second != first
+
+
+def test_default_waiting_debug_path_honors_env_override(tmp_path: Path, monkeypatch):
+    """SYNAPSE_WAITING_DEBUG_PATH overrides the default location."""
+    override = tmp_path / "custom" / "wd.jsonl"
+    monkeypatch.setenv("SYNAPSE_WAITING_DEBUG_PATH", str(override))
+    assert default_waiting_debug_path() == override
+
+
+def test_collect_resolves_default_path_lazily(tmp_path: Path, monkeypatch, capsys):
+    """collect() with no out_path should resolve ~/.synapse at call time."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    agents = {
+        "synapse-codex-8123": _agent("synapse-codex-8123", "codex", 8123),
+    }
+
+    def fetcher(url: str, *, timeout: float) -> dict[str, Any]:
+        return _snapshot(_attempt())
+
+    collector = WaitingDebugCollector(
+        registry=FakeRegistry(agents),
+        fetcher=fetcher,
+        clock=lambda: "2026-04-23T10:00:00+09:00",
+    )
+
+    collector.collect()
+
+    expected = tmp_path / ".synapse" / "waiting_debug.jsonl"
+    assert expected.exists()
+
+
+def test_report_writes_json_to_out_path(tmp_path: Path):
+    """--out should write the JSON report to a file."""
+    input_path = tmp_path / "waiting_debug.jsonl"
+    input_path.write_text(
+        json.dumps(
+            {
+                "agent_id": "synapse-codex-8123",
+                "agent_type": "codex",
+                "port": 8123,
+                "collected_at": "2026-04-23T10:00:00+09:00",
+                "snapshot": _snapshot(_attempt(profile="codex")),
+            }
+        )
+        + "\n"
+    )
+    out_path = tmp_path / "report.json"
+    stdout = StringIO()
+    reporter = WaitingDebugReporter(output=stdout)
+
+    result = reporter.report(input_path=input_path, json_output=True, out_path=out_path)
+
+    assert out_path.exists()
+    written = json.loads(out_path.read_text())
+    assert written == result
+    assert written["total_attempts"] == 1
+    assert stdout.getvalue() == ""
+
+
+def test_report_warns_on_invalid_collected_at(tmp_path: Path):
+    """Records with unparseable collected_at should produce a warning."""
+    input_path = tmp_path / "waiting_debug.jsonl"
+    input_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "agent_id": "synapse-codex-8123",
+                        "agent_type": "codex",
+                        "port": 8123,
+                        "collected_at": "not-a-valid-timestamp",
+                        "snapshot": _snapshot(_attempt(profile="codex")),
+                    }
+                ),
+                json.dumps(
+                    {
+                        "agent_id": "synapse-codex-8123",
+                        "agent_type": "codex",
+                        "port": 8123,
+                        "collected_at": "2026-04-23T10:05:00+09:00",
+                        "snapshot": _snapshot(_attempt(profile="codex")),
+                    }
+                ),
+            ]
+        )
+        + "\n"
+    )
+    warnings = StringIO()
+    reporter = WaitingDebugReporter(output=StringIO(), stderr=warnings)
+
+    result = reporter.report(input_path=input_path, since="2026-04-23T09:00:00+09:00")
+
+    assert result["total_attempts"] == 1
+    warnings_text = warnings.getvalue()
+    assert "Warning:" in warnings_text
+    assert "collected_at" in warnings_text
+    assert "not-a-valid-timestamp" in warnings_text
+
+
+def test_cmd_waiting_debug_passes_zero_timeout_literally(monkeypatch):
+    """`--timeout 0` must reach the Collector as 0.0, not be replaced by default."""
+    from argparse import Namespace
+
+    from synapse.commands.waiting_debug import cmd_waiting_debug
+
+    captured: dict[str, float] = {}
+
+    class _Recorder:
+        def __init__(self, *, timeout: float) -> None:
+            captured["timeout"] = timeout
+
+        def collect(self, **_: Any) -> int:
+            return 0
+
+    monkeypatch.setattr(
+        "synapse.commands.waiting_debug.WaitingDebugCollector", _Recorder
+    )
+
+    args = Namespace(
+        waiting_debug_command="collect",
+        timeout=0.0,
+        out=None,
+        agent=None,
+        include_empty=False,
+    )
+    cmd_waiting_debug(args)
+
+    assert captured["timeout"] == 0.0
+
+
+def test_waiting_debug_cli_parses_timeout_and_out_flags(tmp_path: Path):
+    with patch("synapse.cli.cmd_waiting_debug") as mock_cmd:
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "synapse",
+                "waiting-debug",
+                "collect",
+                "--timeout",
+                "12.5",
+            ],
+        ):
+            main()
+        collect_args = mock_cmd.call_args.args[0]
+        assert collect_args.timeout == 12.5
+
+    with patch("synapse.cli.cmd_waiting_debug") as mock_cmd:
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "synapse",
+                "waiting-debug",
+                "report",
+                "--out",
+                str(tmp_path / "report.json"),
+                "--json",
+            ],
+        ):
+            main()
+        report_args = mock_cmd.call_args.args[0]
+        assert report_args.out == tmp_path / "report.json"
+        assert report_args.json_output is True
+
+
+def test_non_negative_float_arg_accepts_zero_and_positive():
+    from synapse.commands.waiting_debug import non_negative_float_arg
+
+    assert non_negative_float_arg("0") == 0.0
+    assert non_negative_float_arg("0.5") == 0.5
+    assert non_negative_float_arg("12.5") == 12.5
+
+
+def test_non_negative_float_arg_rejects_negative():
+    import argparse
+
+    import pytest
+
+    from synapse.commands.waiting_debug import non_negative_float_arg
+
+    with pytest.raises(argparse.ArgumentTypeError, match=">= 0"):
+        non_negative_float_arg("-1")
+
+
+def test_cli_rejects_negative_timeout():
+    """argparse should reject `--timeout -1` before reaching the collector."""
+    import pytest
+
+    with patch.object(
+        sys,
+        "argv",
+        ["synapse", "waiting-debug", "collect", "--timeout", "-1"],
+    ):
+        with pytest.raises(SystemExit):
+            main()
+
+
+def test_report_writes_atomically(tmp_path: Path):
+    """report --out should never leave a partially-written file behind."""
+    input_path = tmp_path / "waiting_debug.jsonl"
+    input_path.write_text(
+        json.dumps(
+            {
+                "agent_id": "synapse-codex-8123",
+                "agent_type": "codex",
+                "port": 8123,
+                "collected_at": "2026-04-23T10:00:00+09:00",
+                "snapshot": _snapshot(_attempt(profile="codex")),
+            }
+        )
+        + "\n"
+    )
+    out_path = tmp_path / "subdir" / "report.json"
+    reporter = WaitingDebugReporter(output=StringIO())
+
+    reporter.report(input_path=input_path, json_output=True, out_path=out_path)
+
+    assert out_path.exists()
+    leftover_temps = list(out_path.parent.glob(".report.json.*.tmp"))
+    assert leftover_temps == []
+    assert json.loads(out_path.read_text())["total_attempts"] == 1

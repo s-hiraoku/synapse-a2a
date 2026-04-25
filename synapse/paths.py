@@ -155,3 +155,16 @@ def get_synapse_skills_dir() -> str:
         "SYNAPSE_SKILLS_DIR",
         Path.home() / ".synapse" / "skills",
     )
+
+
+def get_waiting_debug_path() -> str:
+    """Get the path to the WAITING debug JSONL file.
+
+    Default: ~/.synapse/waiting_debug.jsonl (user-global, resolved lazily
+    so tests that override ``HOME`` take effect).
+    Override with SYNAPSE_WAITING_DEBUG_PATH environment variable.
+    """
+    return _resolve_path(
+        "SYNAPSE_WAITING_DEBUG_PATH",
+        Path.home() / ".synapse" / "waiting_debug.jsonl",
+    )

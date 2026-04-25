@@ -29,7 +29,7 @@ class StatusCommand:
         history_manager: HistoryManager | None = None,
         file_safety_manager: FileSafetyManager | None = None,
         output: IO[str] | None = None,
-        debug_waiting_fetcher: Callable[[str], dict[str, Any]] | None = None,
+        debug_waiting_fetcher: Callable[..., dict[str, Any]] | None = None,
     ) -> None:
         self._registry = registry
         self._history_manager = history_manager

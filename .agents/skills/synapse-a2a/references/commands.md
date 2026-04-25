@@ -314,6 +314,7 @@ synapse waiting-debug collect
 synapse waiting-debug collect --agent <agent-id>       # single agent
 synapse waiting-debug collect --include-empty          # record empty rings too
 synapse waiting-debug collect --out /tmp/debug.jsonl   # override output path
+synapse waiting-debug collect --timeout 10             # per-request HTTP timeout (default 5.0s)
 
 # Aggregate / inspect
 synapse waiting-debug report
@@ -321,11 +322,13 @@ synapse waiting-debug report --since 2026-04-23T00:00:00+00:00
 synapse waiting-debug report --agent <agent-id>
 synapse waiting-debug report --json
 synapse waiting-debug report --in /tmp/debug.jsonl
+synapse waiting-debug report --out /tmp/report.json    # write JSON to file (stdout stays empty)
 ```
 
 - **Output**: `~/.synapse/waiting_debug.jsonl` by default, one JSONL row per `{agent_id, port, collected_at, snapshot}`.
 - **Aggregate fields** (`report` output): total attempts, `profiles` / `pattern_source` / `path_used` / `confidence` distributions, `idle_gate_drops` count, `renderer_unavailable_agents` ratio.
-- **Error handling**: per-agent HTTP / parse errors log one warning to stderr and the collector continues with the next agent. Invalid JSONL lines in the input also warn and are skipped.
+- **Error handling**: per-agent HTTP / parse errors log one warning to stderr and the collector continues with the next agent. Invalid JSONL lines in the input also warn and are skipped. Rows whose `collected_at` is missing or unparseable as ISO-8601 now emit a stderr warning and are skipped (previously dropped silently).
+- **Flags added in v0.28.2 (#638)**: `collect --timeout SECONDS` (default raised from 3.0 to 5.0), and `report --out PATH` (writes the JSON report to a file and leaves stdout empty — pair with `--json` when you want machine-readable output).
 
 **Prerequisite — bump the CLI first:** `synapse waiting-debug` exists only in v0.28.1+. Upgrade with `uv tool upgrade synapse-a2a` or `pipx upgrade synapse-a2a` before arming a schedule; otherwise the subcommand parser rejects `waiting-debug` on every run.
 

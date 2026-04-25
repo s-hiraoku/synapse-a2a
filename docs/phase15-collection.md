@@ -35,10 +35,30 @@ Useful options:
 synapse waiting-debug collect --out /tmp/waiting_debug.jsonl
 synapse waiting-debug collect --agent synapse-codex-8123
 synapse waiting-debug collect --include-empty
+synapse waiting-debug collect --timeout 10
 ```
 
 The collector warns on stderr when one agent cannot be reached and continues
 collecting the remaining agents.
+
+Each agent's `/debug/waiting` request uses a **5-second HTTP timeout by
+default** (raised from 3 s in v0.28.2). On slow or heavily loaded hosts where
+the agent's controller cannot assemble the snapshot within 5 s you will see
+repeat `Warning: failed to collect waiting debug for <agent-id>: timed out`
+entries on stderr. Pass `--timeout 10` (or higher) to relax the budget, and
+add the same flag to the cron/launchd invocation so the schedule picks it up.
+An explicit `--timeout 0` is preserved as-is (passed to `urllib`) rather than
+falling back to the default. Note that `urllib.request.urlopen(..., timeout=0)`
+puts the underlying socket into non-blocking mode and will fail almost
+immediately (typically `BlockingIOError`/`URLError`), so `--timeout 0` is a
+deliberate "fail fast, never wait" mode — it is **not** the same as "no
+timeout". To get the standard 5-second budget, simply omit `--timeout`.
+Negative values are rejected by argparse before reaching the collector.
+
+The default JSONL path (`~/.synapse/waiting_debug.jsonl`) is resolved at call
+time, so test harnesses or alternate profiles that override `HOME` see the
+expected `<HOME>/.synapse/waiting_debug.jsonl` location — no module-level
+constant is captured at import time (v0.28.2).
 
 ## Report Aggregates
 
@@ -61,9 +81,29 @@ Produce machine-readable JSON for Phase 2 analysis:
 synapse waiting-debug report --json
 ```
 
+Capture the JSON report into a file (stdout stays empty, so this is safe for
+cron / scripted pipelines that redirect stdout to a log):
+
+```bash
+synapse waiting-debug report --out /tmp/waiting_debug_report.json
+```
+
+`--out` takes precedence over `--json`: when both are set, nothing is written
+to stdout and the JSON report is written to the given file instead (v0.28.2).
+Parent directories are created on demand. The write is **atomic** — the
+report is staged in a sibling `.report.json.<random>.tmp` file and
+`os.replace`d into place, so a cron-driven dashboard that reads the report
+file in parallel will never see a half-written document.
+
 The report includes profile, `pattern_source`, `path_used`, and `confidence`
 distributions, plus idle-gate drop counts and the ratio of agents whose
 snapshot reported `renderer_available=false`.
+
+When a JSONL record has a `collected_at` field that cannot be parsed as
+ISO-8601, `report` no longer silently drops it. It prints
+`Warning: record at line N has unparseable collected_at: 'value' (reason)` to
+stderr and skips only that row (v0.28.2). This helps catch JSONL files that
+got mixed with cron stdout or hand-edited with a broken timestamp.
 
 ## Run Every Five Minutes
 
@@ -74,6 +114,20 @@ Cron example:
 
 ```cron
 */5 * * * * /usr/bin/env synapse waiting-debug collect >> ~/.synapse/waiting_debug_collect.log 2>&1
+```
+
+On hosts where 5 seconds is not enough for every agent's snapshot, pin a
+longer timeout explicitly:
+
+```cron
+*/5 * * * * /usr/bin/env synapse waiting-debug collect --timeout 10 >> ~/.synapse/waiting_debug_collect.log 2>&1
+```
+
+If you also want a daily aggregate JSON written somewhere predictable without
+polluting the collector log, drive `report` from cron with `--out`:
+
+```cron
+0 * * * * /usr/bin/env synapse waiting-debug report --out ~/.synapse/waiting_debug_report.json 2>> ~/.synapse/waiting_debug_report.err
 ```
 
 Launchd example for macOS, saved as
@@ -125,7 +179,13 @@ Useful additions for the plist that can bite on a fresh macOS account:
   `PATH=/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin`.
 - `HOME` — launchd sets `HOME` for user agents automatically, but explicitly
   adding it to `EnvironmentVariables` makes the collector robust against
-  unusual session contexts.
+  unusual session contexts. From v0.28.2 the collector resolves the default
+  JSONL path lazily, so overriding `HOME` for a sandboxed run actually routes
+  output to `<HOME>/.synapse/waiting_debug.jsonl` as expected.
+- `--timeout` — if your agents' controllers regularly take longer than 5 s to
+  respond to `/debug/waiting`, append `--timeout` and a value to
+  `ProgramArguments` (e.g. add `<string>--timeout</string><string>10</string>`
+  after `<string>collect</string>`).
 
 ## Prerequisite: bump the installed `synapse` CLI
 

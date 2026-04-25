@@ -98,7 +98,7 @@ from synapse.commands.spawn_cmd import (
     cmd_team_start,
 )
 from synapse.commands.start import StartCommand
-from synapse.commands.waiting_debug import cmd_waiting_debug
+from synapse.commands.waiting_debug import cmd_waiting_debug, non_negative_float_arg
 from synapse.commands.workflow import (
     cmd_workflow_create,
     cmd_workflow_delete,
@@ -3229,6 +3229,12 @@ Status meanings:
         action="store_true",
         help="Record agents whose debug endpoint has no attempts",
     )
+    p_waiting_collect.add_argument(
+        "--timeout",
+        type=non_negative_float_arg,
+        default=None,
+        help="HTTP timeout in seconds for /debug/waiting requests (>= 0; default: 5.0)",
+    )
     p_waiting_collect.set_defaults(func=cmd_waiting_debug)
 
     p_waiting_report = waiting_debug_subparsers.add_parser(
@@ -3255,6 +3261,12 @@ Status meanings:
         action="store_true",
         dest="json_output",
         help="Output aggregate data as JSON",
+    )
+    p_waiting_report.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Write the JSON report to the given file instead of stdout",
     )
     p_waiting_report.set_defaults(func=cmd_waiting_debug)
 
