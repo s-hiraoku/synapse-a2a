@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Delay sends to READY agents (#467).
 - **`/dev-issue <number>` slash command (skill):** bootstraps a new issue implementation in one step — fetches the issue and related closed PRs in parallel, greps the repo for code hotspots from the body, infers a branch prefix from labels and a slug from the title, generates a structured task brief at `/tmp/issue<num>-task.md` (mirroring the handwritten brief format used in recent issue → codex spawn flows like #467), creates a fresh branch from latest `origin/main`, and (by default) spawns a codex agent with `synapse spawn codex --task-file ... --notify`. Supports `--solo` (skip spawn) and `--dry-run` (brief only, no branch / no spawn). Canonical at `.agents/skills/dev-issue/SKILL.md`, mirrored as a symlink at `.claude/skills/dev-issue/` and as a copy at `plugins/synapse-a2a/skills/dev-issue/` for plugin distribution.
 
+### Fixed
+
+- Workflow target type resolution now respects the caller working directory (#568).
+
 ## [0.29.0] - 2026-04-26
 
 Minor release surfacing the `WAITING_FOR_INPUT` agent status for non-permission A2A `input_required` waits (#538) and closing the registry status drift that left `synapse list` showing stale `PROCESSING` after every task in `task_store` had finalised (#569). Together they make `synapse list` a faithful view of `task_store` reality across both forward (working → terminal) and sideways (input_required → permission vs non-permission) transitions. No detection-logic changes outside the A2A status callback path; controller PTY scope is unchanged.

@@ -433,7 +433,11 @@ def _resolve_target_endpoint(target: str) -> str | None:
     """Resolve a workflow target to its current HTTP endpoint."""
     from synapse.canvas.server import _resolve_agent_endpoint
 
-    return _resolve_agent_endpoint(target)
+    return _resolve_agent_endpoint(
+        target,
+        caller_working_dir=os.getcwd(),
+        bare_type_same_dir_only=True,
+    )
 
 
 def _force_loopback_endpoint(endpoint: str) -> str:

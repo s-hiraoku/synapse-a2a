@@ -164,6 +164,7 @@ def _resolve_agent_endpoint(
     target: str,
     *,
     caller_working_dir: str | None = None,
+    bare_type_same_dir_only: bool = False,
 ) -> str | None:
     """Resolve an agent target to its HTTP endpoint.
 
@@ -173,6 +174,8 @@ def _resolve_agent_endpoint(
         target: Agent ID, name, or type to resolve.
         caller_working_dir: Optional caller directory used to prefer same-dir
             type fallback matches.
+        bare_type_same_dir_only: When True, type targets must resolve within
+            caller_working_dir and never fall back to a global type match.
 
     Returns:
         HTTP endpoint URL, or None if not found.
@@ -203,6 +206,8 @@ def _resolve_agent_endpoint(
         if len(same_dir_matches) == 1:
             _log_type_fallback(target, same_dir_matches[0])
             return same_dir_matches[0].get("endpoint")
+        if bare_type_same_dir_only:
+            return None
 
     if len(type_matches) == 1:
         _log_type_fallback(target, type_matches[0])
