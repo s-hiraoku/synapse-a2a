@@ -220,14 +220,25 @@ def cmd_send(args: argparse.Namespace) -> None:
     # Determine response_mode based on a2a.flow setting and flags
     response_mode = _get_response_mode(getattr(args, "response_mode", None))
 
-    # Wait for target to leave PROCESSING unless explicitly bypassed.
-    # Silent sends are fire-and-forget and are used by reply-style flows, so
-    # waiting here can deadlock the responder against the original sender.
-    if (
-        response_mode != "silent"
-        and not getattr(args, "force", False)
-        and getattr(args, "priority", 0) != 5
-    ):
+    def _refresh_target_agent() -> dict | None:
+        """Re-read the target agent's registry entry, or None if it vanished."""
+        agents_now = AgentRegistry().list_agents()
+        return next(
+            (a for a in agents_now.values() if a.get("agent_id") == agent_id),
+            None,
+        )
+
+    # Sends should not bypass status-aware delays unless the caller explicitly
+    # opts out. Silent sends are fire-and-forget reply flows that can deadlock
+    # if we wait; --force and priority=5 are deliberate emergency overrides.
+    delay_bypassed = (
+        response_mode == "silent"
+        or getattr(args, "force", False)
+        or getattr(args, "priority", 0) == 5
+    )
+
+    # Wait for target to leave PROCESSING unless bypassed.
+    if not delay_bypassed:
         status = target_agent.get("status", "")
         if status == "PROCESSING":
             display_name = target_agent.get("name") or agent_id
@@ -247,16 +258,7 @@ def cmd_send(args: argparse.Namespace) -> None:
                 time.sleep(1)
                 waited += 1
 
-                reg = AgentRegistry()
-                agents = reg.list_agents()
-                refreshed = next(
-                    (
-                        agent
-                        for agent in agents.values()
-                        if agent.get("agent_id") == agent_id
-                    ),
-                    None,
-                )
+                refreshed = _refresh_target_agent()
                 if refreshed:
                     target_agent = refreshed
                     status = refreshed.get("status", "")
@@ -273,44 +275,29 @@ def cmd_send(args: argparse.Namespace) -> None:
 
     # Give READY targets a short window to flip to PROCESSING before injecting
     # a message, which avoids interrupting a user who is still typing at prompt.
-    if (
-        response_mode != "silent"
-        and not getattr(args, "force", False)
-        and getattr(args, "priority", 0) != 5
-    ):
-        status = target_agent.get("status", "")
-        if status == "READY":
-            try:
-                ready_delay = float(os.environ.get("SYNAPSE_SEND_READY_DELAY", "2"))
-            except ValueError:
-                ready_delay = 2.0
-            if not math.isfinite(ready_delay):
-                ready_delay = 2.0
-            ready_delay = max(ready_delay, 0.0)
+    if not delay_bypassed and target_agent.get("status", "") == "READY":
+        try:
+            ready_delay = float(os.environ.get("SYNAPSE_SEND_READY_DELAY", "2"))
+        except ValueError:
+            ready_delay = 2.0
+        if not math.isfinite(ready_delay):
+            ready_delay = 2.0
+        ready_delay = max(ready_delay, 0.0)
 
-            if ready_delay > 0:
-                poll_interval = 0.25
-                elapsed = 0.0
-                while elapsed < ready_delay:
-                    time.sleep(poll_interval)
-                    elapsed += poll_interval
+        if ready_delay > 0:
+            poll_interval = 0.25
+            elapsed = 0.0
+            while elapsed < ready_delay:
+                time.sleep(poll_interval)
+                elapsed += poll_interval
 
-                    reg = AgentRegistry()
-                    agents = reg.list_agents()
-                    refreshed = next(
-                        (
-                            agent
-                            for agent in agents.values()
-                            if agent.get("agent_id") == agent_id
-                        ),
-                        None,
-                    )
-                    if refreshed:
-                        target_agent = refreshed
-                        if refreshed.get("status", "") == "PROCESSING":
-                            break
-                    else:
+                refreshed = _refresh_target_agent()
+                if refreshed:
+                    target_agent = refreshed
+                    if refreshed.get("status", "") == "PROCESSING":
                         break
+                else:
+                    break
 
     # Check working_dir mismatch (skip with --force)
     if not getattr(args, "force", False) and _warn_working_dir_mismatch(

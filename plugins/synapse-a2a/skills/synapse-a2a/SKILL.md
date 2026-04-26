@@ -201,6 +201,18 @@ to opt out):
 
 > **⚠️ Common pitfall:** sending to an agent that is not yet READY either hangs at the HTTP layer or blocks on the internal readiness wait. Either use `synapse spawn --task-file` (preferred — it handles readiness for you), or explicitly confirm `"status": "READY"` before calling `synapse send`. Do not assume 30 seconds is enough — most profiles take 1-5 minutes.
 
+**Agent status set** (`synapse list --json` `.status`):
+
+| Status | Meaning | Action |
+|--------|---------|--------|
+| `READY` | Idle, can accept new work | `synapse send` |
+| `PROCESSING` | Actively working a task | Wait, or `synapse interrupt` if stuck |
+| `WAITING` | Awaiting a permission/approval prompt | `synapse approve` / `synapse reject` |
+| `WAITING_FOR_INPUT` | Task is paused asking for non-permission input (#538) | `synapse reply <task_id>` with the answer |
+| `RATE_LIMITED` | Last task failed due to LLM provider rate limit (#561) | Wait for the provider window to reset, then re-send |
+| `DONE` | Task complete; demotes to READY after ~10s | Read result, then proceed |
+| `SHUTTING_DOWN` | Agent is exiting | Do not send |
+
 Killing spawned agents after completion frees ports, memory, and PTY sessions,
 and prevents orphaned agents from accidentally accepting future tasks.
 

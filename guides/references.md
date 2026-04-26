@@ -539,6 +539,7 @@ synapse send <target> <message|--message-file PATH|--task-file PATH|--stdin> [--
 **Note**: 送信元の CWD とターゲットの `working_dir` が異なる場合、警告を表示して終了コード 1 で終了します。ただし、ワークツリーの関係（親リポジトリ ↔ 子ワークツリー、兄弟ワークツリー）は自動検出されるため `--force` は不要です。異なるプロジェクトの場合のみ `--force` でバイパスしてください。
 **Note**: 送信元エージェントが特定できない場合（`SYNAPSE_AGENT_ID` 未設定かつ PID マッチングも失敗）、`Warning: Could not identify sender agent. Set SYNAPSE_AGENT_ID or use --from.` を表示します。サンドボックス環境では `--from` を明示指定してください。
 **Note**: `local send failed` エラー時は `SYNAPSE_LOG_LEVEL=DEBUG` を設定して再実行すると、HTTP ステータス等の詳細ログが出力されます（UDS/TCP 接続失敗、HTTP 409 "Agent busy" 等）。
+**Note**: 配信前ウェイト — ターゲットが PROCESSING の場合は最大 30 秒 idle を待ち、READY の場合はデフォルト 2 秒の遅延を入れてから配信します (`SYNAPSE_SEND_READY_DELAY` で上書き可、ユーザーの入力中テキスト保護目的、[#467](https://github.com/s-hiraoku/synapse-a2a/issues/467) / [#642](https://github.com/s-hiraoku/synapse-a2a/pull/642))。READY ディレイ中にターゲットが PROCESSING に遷移した場合は即時送信。`--force` / priority 5 / `--silent` ではどちらもスキップされます。
 
 **レスポンスモードの使い分け**:
 

@@ -77,6 +77,9 @@ Nested workflows are expanded recursively at run time. The runner rejects cycles
 
 When `auto_spawn` is enabled, `target` is also used as the spawn profile name if the agent is not already running. In that case, prefer a profile name such as `claude`, `gemini`, or `codex` rather than a custom name, Runtime ID, or type-port shorthand.
 
+!!! note "Bare-type targets respect the caller's working directory (#568)"
+    When a step uses a bare type like `target: claude` or `target: codex`, the workflow runner restricts the match to agents whose `working_dir` matches the caller's CWD. This prevents `synapse workflow run` from accidentally dispatching to an unrelated agent of the same type running in another project (e.g. a `nix-claude` in `~/nix-config`), and lets `auto_spawn` correctly create a fresh agent in the workflow's CWD when no local match exists. `agent_id` and custom-name targets continue to match globally; `target: self` is unchanged.
+
 ### Example: Security Audit Pipeline
 
 ```yaml

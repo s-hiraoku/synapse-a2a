@@ -928,6 +928,13 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--wai
 
 **Note**: `--message-file` / `--task-file` / `--stdin` 経由で渡されるメッセージは shell 展開を経由しないため、バックティック（` `` `）等を含んでいても shell 展開の警告は表示されません。コードブロックやスクリプトを含む長文メッセージを送信する際に推奨されます。
 
+**配信前ウェイト**: `synapse send` は受信側の状態に応じて短い待機を挟みます。
+
+- **PROCESSING ウェイト**: ターゲットが PROCESSING の場合、最大 30 秒間 idle になるまで待ってから配信します（busy 中の取りこぼし防止）。
+- **READY ディレイ ([#467](https://github.com/s-hiraoku/synapse-a2a/issues/467) / [#642](https://github.com/s-hiraoku/synapse-a2a/pull/642))**: ターゲットが READY の場合、デフォルト 2 秒の遅延を入れてから配信します。これによりユーザーが入力中のテキストを上書きしてしまうのを避けます。`SYNAPSE_SEND_READY_DELAY`（秒）で上書き可能。待機中にターゲットが PROCESSING に遷移したら、即座に送信を実行します。
+
+いずれも `--force` / priority 5 / `--silent` 送信ではスキップされます。
+
 **レスポンスモードの使い分け**:
 
 | メッセージ種類 | モード | 例 |
@@ -1369,7 +1376,7 @@ steps:
 
 `synapse workflow run` は複数の安全装置を重ねて、長時間の自動化フロー中に親 PTY を占有しないように設計されています。
 
-- **CWD 絞り込み (local_only)** — `target: claude` のような型名ターゲットは、呼び出し元と同じワーキングディレクトリで動いているエージェントにのみ解決されます。別プロジェクトの同型エージェントに誤って送信されることはありません。該当するエージェントが存在しない場合は `--auto-spawn` と組み合わせてその場で新規起動します (下記参照)。
+- **CWD 絞り込み (local_only)** — `target: claude` のような型名ターゲットは、呼び出し元と同じワーキングディレクトリで動いているエージェントにのみ解決されます。別プロジェクトの同型エージェントに誤って送信されることはありません。0.30.x で workflow_runner が `bare_type_same_dir_only=True` を強制するようになり、レジストリに同型の別ディレクトリ・エージェントが居ても workflow からは見えなくなりました ([#568](https://github.com/s-hiraoku/synapse-a2a/issues/568) / [#645](https://github.com/s-hiraoku/synapse-a2a/pull/645))。該当するエージェントが存在しない場合は `--auto-spawn` と組み合わせてその場で新規起動します (下記参照)。
 - **`--auto-spawn` でスポーンされる子の権限フラグ** — workflow 経由で自動スポーンされる子エージェントには、プロファイルの `auto_approve.alternative_flags` の先頭が付与されます (例: codex なら `--dangerously-bypass-approvals-and-sandbox`)。バッチ実行されるワークフロー子は runtime permission prompt で止まらず走り切る必要があるため、`--full-auto` デフォルトではなく sandbox を解除した形で起動します。対話的に `synapse spawn` / `synapse team start` で起動する場合は従来通りの `--full-auto` デフォルトです。
 - **Busy retry** — 連続するステップの遷移期は、ターゲットが前ステップの finalization 中で短時間 busy になります。これを素早くリトライするため、runner は 409 応答を受けたら `/tasks` エンドポイントを 30 秒おきにポーリングして idle を待ち、最大 10 回 (約 5 分間) リトライします。ターゲットが idle になった瞬間に次の送信を走らせるので、無駄に sleep し続けることはありません。
 - **Approval Gate による自動承認** — 子エージェントが permission prompt で停止すると、子のサーバは親エージェントに構造化された escalation メッセージ (`permission_escalation` メタデータ付き) を送ります。親エージェントの受信ハンドラは `synapse/approval_gate.py` の Decision Engine に dispatch し、ポリシーに従って `POST /tasks/<id>/permission/approve` または `deny` を自動的に送り返します。親 PTY に人間への alert が出ることはなく、ポリシー経由で挙動を制御できます。
