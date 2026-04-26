@@ -56,7 +56,13 @@ from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
 from synapse.reply_target import save_reply_target
-from synapse.status import RATE_LIMITED, READY, WAITING, WAITING_FOR_INPUT
+from synapse.status import (
+    PROCESSING,
+    RATE_LIMITED,
+    READY,
+    WAITING,
+    WAITING_FOR_INPUT,
+)
 from synapse.terminal_jump import create_panes, detect_terminal_app
 from synapse.utils import (
     extract_file_parts,
@@ -1019,7 +1025,7 @@ def create_a2a_router(
             return
         agent_info = registry.get_agent(agent_id)
         if agent_info and agent_info.get("status") in (
-            "PROCESSING",
+            PROCESSING,
             READY,
             WAITING_FOR_INPUT,
         ):

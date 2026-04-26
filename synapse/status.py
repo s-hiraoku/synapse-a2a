@@ -2,6 +2,8 @@
 
 Status flow:
     PROCESSING -> READY/WAITING/WAITING_FOR_INPUT -> PROCESSING -> ... -> DONE -> READY (after 10s)
+    PROCESSING/READY/WAITING_FOR_INPUT -> RATE_LIMITED (on LLM provider rate-limit error;
+        next controller PTY tick overwrites RATE_LIMITED when fresh output is observed)
 
 Statuses:
     READY: Agent is idle (not processing anything)

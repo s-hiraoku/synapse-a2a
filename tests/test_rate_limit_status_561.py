@@ -58,15 +58,18 @@ class TestRateLimitStatus561:
         task_store.update_status(task.id, "working")
         return task
 
+    @pytest.mark.parametrize(
+        "current_status", [PROCESSING, READY, WAITING_FOR_INPUT]
+    )
     def test_rate_limit_output_sets_registry_status(
-        self, mock_controller: MagicMock
+        self, mock_controller: MagicMock, current_status: str
     ) -> None:
         mock_controller.status = READY
         mock_controller.get_context.return_value = (
             "Provider error: rate limit exceeded, please retry later"
         )
         mock_registry = MagicMock()
-        mock_registry.get_agent.return_value = {"status": PROCESSING}
+        mock_registry.get_agent.return_value = {"status": current_status}
         status_callback = self._register_callback(mock_controller, mock_registry)
         self._create_working_task()
 
