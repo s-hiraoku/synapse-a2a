@@ -48,8 +48,10 @@ def _make_task():
 class TestSendProcessingWait:
     """Tests for cmd_send waiting on PROCESSING targets."""
 
-    def test_ready_target_sends_immediately(self, capsys):
-        """READY targets should not wait before sending."""
+    def test_ready_target_sends_immediately_when_ready_delay_disabled(
+        self, capsys, monkeypatch
+    ):
+        """READY targets should not trigger PROCESSING wait output."""
         from synapse.tools.a2a import cmd_send
 
         args = _make_args()
@@ -57,6 +59,7 @@ class TestSendProcessingWait:
         reg = MagicMock()
         reg.list_agents.return_value = {target["agent_id"]: target}
         task = _make_task()
+        monkeypatch.setenv("SYNAPSE_SEND_READY_DELAY", "0")
 
         with (
             patch("synapse.tools.a2a.AgentRegistry", return_value=reg),
@@ -91,6 +94,7 @@ class TestSendProcessingWait:
         task = _make_task()
 
         monkeypatch.setenv("SYNAPSE_SEND_WAIT_TIMEOUT", "5")
+        monkeypatch.setenv("SYNAPSE_SEND_READY_DELAY", "0")
 
         with (
             patch(
