@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 import json
+import math
 import os
 import shlex
 import sys
@@ -282,6 +283,8 @@ def cmd_send(args: argparse.Namespace) -> None:
             try:
                 ready_delay = float(os.environ.get("SYNAPSE_SEND_READY_DELAY", "2"))
             except ValueError:
+                ready_delay = 2.0
+            if not math.isfinite(ready_delay):
                 ready_delay = 2.0
             ready_delay = max(ready_delay, 0.0)
 

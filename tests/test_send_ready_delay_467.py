@@ -183,3 +183,25 @@ class TestSendReadyDelay467:
         )
 
         assert sleep_calls == [0.25]
+
+    def test_non_finite_env_value_falls_back_to_default(self, monkeypatch):
+        """SYNAPSE_SEND_READY_DELAY=inf/nan must fall back to 2.0, not loop forever."""
+        for raw in ("inf", "-inf", "nan"):
+            monkeypatch.setenv("SYNAPSE_SEND_READY_DELAY", raw)
+            target = _make_target("READY")
+            sleep_calls: list[float] = []
+            registries = [
+                _make_registry(target),
+                *[_make_registry(target) for _ in range(8)],
+            ]
+
+            _run_cmd_send(
+                _make_args(),
+                registries,
+                monkeypatch=monkeypatch,
+                sleep_calls=sleep_calls,
+            )
+
+            assert sleep_calls == [0.25] * 8, (
+                f"env={raw!r} should fall back to 2.0s window (8 polls), got {sleep_calls!r}"
+            )
