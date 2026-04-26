@@ -56,6 +56,7 @@ from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
 from synapse.reply_target import save_reply_target
+from synapse.status import WAITING, WAITING_FOR_INPUT
 from synapse.terminal_jump import create_panes, detect_terminal_app
 from synapse.utils import (
     extract_file_parts,
@@ -264,7 +265,8 @@ def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
     mapping: dict[str, TaskState] = {
         "STARTING": "submitted",
         "BUSY": "working",
-        "WAITING": "input_required",
+        WAITING: "input_required",
+        WAITING_FOR_INPUT: "input_required",
         "READY": "completed",
         "DONE": "completed",
         "NOT_STARTED": "submitted",
@@ -1102,8 +1104,34 @@ def create_a2a_router(
     # When status transitions to READY or DONE, check working tasks.
     if controller:
 
+        def _has_non_permission_input_required_task() -> bool:
+            for task in task_store.list_tasks():
+                if task.status != "input_required":
+                    continue
+                metadata = task.metadata or {}
+                if not isinstance(metadata.get("permission"), dict):
+                    return True
+            return False
+
+        def _is_permission_waiting_status(new_status: str) -> bool:
+            if new_status == WAITING:
+                return True
+            if getattr(controller, "status", None) == WAITING:
+                return True
+            waiting_source = getattr(controller, "last_waiting_source", "none")
+            return waiting_source not in (None, "", "none")
+
+        def _sync_registry_input_wait_status(new_status: str) -> None:
+            if registry is None or agent_id is None:
+                return
+            if _is_permission_waiting_status(new_status):
+                registry.update_status(agent_id, WAITING)
+                return
+            if _has_non_permission_input_required_task():
+                registry.update_status(agent_id, WAITING_FOR_INPUT)
+
         def _on_status_change(old: str, new: str) -> None:
-            if new == "WAITING":
+            if new == WAITING:
                 for task in task_store.list_tasks():
                     if task.status != "working":
                         continue
@@ -1153,14 +1181,20 @@ def create_a2a_router(
                         self_agent_type=agent_type,
                     )
                     _run_async_from_sync(coro)
+                _sync_registry_input_wait_status(new)
                 return
 
-            if old == "WAITING":
+            if old == WAITING:
                 for task in task_store.list_tasks():
-                    if task.status == "input_required":
+                    metadata = task.metadata or {}
+                    if task.status == "input_required" and isinstance(
+                        metadata.get("permission"), dict
+                    ):
                         task_store.update_status(task.id, "working")
                 # Fall through to the READY/DONE finalization below so
                 # that WAITING → READY completes working tasks normally.
+
+            _sync_registry_input_wait_status(new)
 
             if new not in ("READY", "DONE"):
                 return
