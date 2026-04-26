@@ -1647,7 +1647,7 @@ For Copilot specifically, bracketed paste is enabled because Copilot CLI 1.0.12+
 | NAME | Custom name (if assigned) |
 | TYPE | Agent type (claude, gemini, codex, etc.) |
 | ROLE | Agent role description (if assigned) |
-| STATUS | Current status (READY, WAITING, PROCESSING, DONE) |
+| STATUS | Current status (READY, WAITING, WAITING_FOR_INPUT, PROCESSING, DONE) |
 | CURRENT | Current task preview with elapsed time (e.g., "Review code (2m 15s)") |
 | TRANSPORT | Communication transport indicator |
 | WORKING_DIR | Current working directory |
@@ -1670,9 +1670,12 @@ For Copilot specifically, bracketed paste is enabled because Copilot CLI 1.0.12+
 | Status | Color | Meaning |
 |--------|-------|---------|
 | **READY** | Green | Agent is idle, waiting for input |
-| **WAITING** | Cyan | Agent is showing selection UI, waiting for user choice |
+| **WAITING** | Cyan | Agent is showing a permission prompt (selection UI / Y-N) |
+| **WAITING_FOR_INPUT** | Orange | Agent has an A2A task in `input_required` for a non-permission response ([#538](https://github.com/s-hiraoku/synapse-a2a/issues/538) / [#640](https://github.com/s-hiraoku/synapse-a2a/pull/640)) |
 | **PROCESSING** | Yellow | Agent is actively working |
 | **DONE** | Blue | Task completed (auto-transitions to READY after 10s) |
+
+The registry status is reconciled against `task_store` on every controller transition: WAITING (permission) wins over WAITING_FOR_INPUT, and a fully terminal `task_store` demotes a stale PROCESSING / WAITING_FOR_INPUT back to READY ([#569](https://github.com/s-hiraoku/synapse-a2a/pull/569)).
 
 ### Interactive Controls
 

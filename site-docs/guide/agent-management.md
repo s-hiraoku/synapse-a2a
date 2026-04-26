@@ -331,9 +331,12 @@ When using `synapse send`, `synapse kill`, `synapse jump`, `synapse rename`, or 
 |--------|:---:|---------|
 | **READY** | :material-circle:{ .status-ready } | Idle, waiting for input |
 | **PROCESSING** | :material-circle:{ .status-processing } | Actively working |
-| **WAITING** | :material-circle:{ .status-waiting } | Showing selection UI |
+| **WAITING** | :material-circle:{ .status-waiting } | Showing selection UI (e.g. permission prompt) |
+| **WAITING_FOR_INPUT** | :material-circle:{ .status-waiting } | A2A `input_required` task awaiting non-permission response (#538/#640) |
 | **DONE** | :material-circle:{ .status-done } | Task completed (auto-clears 10s) |
 | **SHUTTING_DOWN** | :material-circle:{ .status-shutdown } | Shutdown in progress |
+
+`WAITING` is reserved for permission-style prompts where the PTY is showing a choice UI; `WAITING_FOR_INPUT` is set when an A2A task transitions to `input_required` for a non-permission reason (e.g. a child agent is asking the parent a follow-up question). Both states are registry-level and exposed via `synapse list` / `synapse status` (text and `--json`). The status sync layer demotes stale `PROCESSING` / `WAITING_FOR_INPUT` entries back to `READY` once the task store is non-empty and every task is terminal, so a finished agent is never shown as still working (#569).
 
 Dead processes are automatically cleaned from the registry and hidden from `synapse list`.
 
