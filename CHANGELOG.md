@@ -7,9 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-04-26
+
+Minor release surfacing the `WAITING_FOR_INPUT` agent status for non-permission A2A `input_required` waits (#538) and closing the registry status drift that left `synapse list` showing stale `PROCESSING` after every task in `task_store` had finalised (#569). Together they make `synapse list` a faithful view of `task_store` reality across both forward (working → terminal) and sideways (input_required → permission vs non-permission) transitions. No detection-logic changes outside the A2A status callback path; controller PTY scope is unchanged.
+
 ### Added
 
 - **`WAITING_FOR_INPUT` agent status (#538):** non-permission A2A `input_required` tasks now surface as a distinct registry/list/status state, while permission prompts keep the existing `WAITING` state.
+
+### Fixed
+
+- **Agent registry status sync (#569):** A2A status callbacks now demote stale registry `PROCESSING` / `WAITING_FOR_INPUT` states back to `READY` when the task store is non-empty and all tasks are terminal, preventing `synapse list` from showing active work after every task has completed.
 
 ## [0.28.3] - 2026-04-26
 
@@ -3576,7 +3584,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.3...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.3...v0.29.0
 [0.28.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.1...v0.28.2
 [0.28.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.0...v0.28.1

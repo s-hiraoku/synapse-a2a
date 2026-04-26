@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.29.0
+
+- **Added**: `WAITING_FOR_INPUT` agent status (#538, #640) — non-permission A2A `input_required` tasks now surface as a distinct registry/list/status state, while permission prompts keep the existing `WAITING` state. Rendered as orange in the Rich TUI; included in `ALL_STATUSES` and exposed via `synapse list` / `synapse status` (text and `--json`).
+- **Fixed**: Agent registry status sync (#569) — A2A status callbacks now demote stale registry `PROCESSING` / `WAITING_FOR_INPUT` states back to `READY` when the task store is non-empty and all tasks are terminal, preventing `synapse list` from showing active work after every task has completed.
+
 ### v0.28.3
 
 - **Added**: `synapse waiting-debug collect --timeout SECONDS` — overrides the HTTP timeout used when querying `/debug/waiting` on each registered agent. Default raised from 3.0 s to **5.0 s**, which eliminates the common warn-flood immediately after PtyRenderer boots when agents can't respond within 3 s (#635).

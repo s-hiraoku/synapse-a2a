@@ -34,6 +34,26 @@ def workflow_dirs(tmp_path: Path) -> tuple[Path, Path]:
     return project, user
 
 
+@pytest.fixture(autouse=True)
+def _stub_workflow_skill_sync():
+    """Suppress skill auto-generation in workflow CRUD tests.
+
+    `cmd_workflow_create` / `cmd_workflow_delete` call
+    `sync_workflow_skill` / `remove_workflow_skill` against `Path.cwd()`,
+    which is the real project root during tests — that's how leftover
+    `.agents/skills/my-review/`, `.claude/skills/user-wf/` entries used
+    to appear after running this file. Stubbing the helpers at their
+    source module keeps each test fully isolated to `tmp_path`.
+    Both helpers are imported lazily inside the command functions, so
+    patching the source module catches every call site at once.
+    """
+    with (
+        patch("synapse.workflow_skill_sync.sync_workflow_skill", return_value=[]),
+        patch("synapse.workflow_skill_sync.remove_workflow_skill", return_value=[]),
+    ):
+        yield
+
+
 def _make_store(project_dir: Path, user_dir: Path):
     """Create a WorkflowStore with custom directories."""
     from synapse.workflow import WorkflowStore
