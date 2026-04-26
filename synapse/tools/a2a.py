@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 import json
+import math
 import os
 import shlex
 import sys
@@ -269,6 +270,47 @@ def cmd_send(args: argparse.Namespace) -> None:
                     f"Warning: Timed out waiting for {display_name} to become READY. Continuing send.",
                     file=sys.stderr,
                 )
+
+    # Give READY targets a short window to flip to PROCESSING before injecting
+    # a message, which avoids interrupting a user who is still typing at prompt.
+    if (
+        response_mode != "silent"
+        and not getattr(args, "force", False)
+        and getattr(args, "priority", 0) != 5
+    ):
+        status = target_agent.get("status", "")
+        if status == "READY":
+            try:
+                ready_delay = float(os.environ.get("SYNAPSE_SEND_READY_DELAY", "2"))
+            except ValueError:
+                ready_delay = 2.0
+            if not math.isfinite(ready_delay):
+                ready_delay = 2.0
+            ready_delay = max(ready_delay, 0.0)
+
+            if ready_delay > 0:
+                poll_interval = 0.25
+                elapsed = 0.0
+                while elapsed < ready_delay:
+                    time.sleep(poll_interval)
+                    elapsed += poll_interval
+
+                    reg = AgentRegistry()
+                    agents = reg.list_agents()
+                    refreshed = next(
+                        (
+                            agent
+                            for agent in agents.values()
+                            if agent.get("agent_id") == agent_id
+                        ),
+                        None,
+                    )
+                    if refreshed:
+                        target_agent = refreshed
+                        if refreshed.get("status", "") == "PROCESSING":
+                            break
+                    else:
+                        break
 
     # Check working_dir mismatch (skip with --force)
     if not getattr(args, "force", False) and _warn_working_dir_mismatch(

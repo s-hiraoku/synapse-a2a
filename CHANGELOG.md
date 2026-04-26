@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Delay sends to READY agents (#467).
+
 ## [0.29.0] - 2026-04-26
 
 Minor release surfacing the `WAITING_FOR_INPUT` agent status for non-permission A2A `input_required` waits (#538) and closing the registry status drift that left `synapse list` showing stale `PROCESSING` after every task in `task_store` had finalised (#569). Together they make `synapse list` a faithful view of `task_store` reality across both forward (working → terminal) and sideways (input_required → permission vs non-permission) transitions. No detection-logic changes outside the A2A status callback path; controller PTY scope is unchanged.
