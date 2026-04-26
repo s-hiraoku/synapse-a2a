@@ -769,15 +769,17 @@ class TestRichRenderer:
         assert table.row_count == 1
 
     def test_waiting_for_input_status_has_distinct_style(self):
-        """WAITING_FOR_INPUT should render with a yellow/orange style."""
+        """WAITING_FOR_INPUT should render with the canonical orange3 style."""
         from synapse.commands.renderers.rich_renderer import RichRenderer
+        from synapse.status import STATUS_STYLES, WAITING, WAITING_FOR_INPUT
 
         renderer = RichRenderer()
 
-        text = renderer._format_status("WAITING_FOR_INPUT")
+        text = renderer._format_status(WAITING_FOR_INPUT)
 
-        assert text.plain == "WAITING_FOR_INPUT"
-        assert "yellow" in text.style or "orange" in text.style
+        assert text.plain == WAITING_FOR_INPUT
+        assert str(text.style) == STATUS_STYLES[WAITING_FOR_INPUT]
+        assert str(text.style) != STATUS_STYLES[WAITING]
 
     def test_build_empty_table(self):
         """Should build empty table with port ranges."""

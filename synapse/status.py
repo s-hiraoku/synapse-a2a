@@ -1,7 +1,7 @@
 """Agent status constants and utilities.
 
 Status flow:
-    PROCESSING -> READY/WAITING -> PROCESSING -> ... -> DONE -> READY (after 10s)
+    PROCESSING -> READY/WAITING/WAITING_FOR_INPUT -> PROCESSING -> ... -> DONE -> READY (after 10s)
 
 Statuses:
     READY: Agent is idle (not processing anything)
