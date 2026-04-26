@@ -293,6 +293,10 @@ class TestStatusMapping:
         """NOT_STARTED should map to submitted."""
         assert map_synapse_status_to_a2a("NOT_STARTED") == "submitted"
 
+    def test_map_waiting_for_input_to_input_required(self):
+        """WAITING_FOR_INPUT should map to input_required."""
+        assert map_synapse_status_to_a2a("WAITING_FOR_INPUT") == "input_required"
+
     def test_map_unknown_to_working(self):
         """Unknown status should default to working."""
         assert map_synapse_status_to_a2a("UNKNOWN") == "working"
@@ -382,6 +386,116 @@ class TestA2ARouterEndpoints:
         permission = updated.metadata["permission"]
         assert permission["waiting_confidence"] == 0.6
         assert permission["waiting_source"] == "heuristic"
+
+    def test_input_required_task_updates_registry_waiting_for_input(
+        self, mock_controller
+    ):
+        """Non-permission input_required tasks should surface in registry."""
+        from synapse.a2a_compat import task_store
+        from synapse.a2a_models import Message, TextPart
+
+        with task_store._lock:
+            task_store._tasks.clear()
+
+        mock_controller.status = "PROCESSING"
+        mock_controller.last_waiting_source = "none"
+        mock_registry = MagicMock()
+
+        create_a2a_router(
+            mock_controller,
+            "test-agent",
+            8000,
+            "\n",
+            agent_id="synapse-test-agent-8000",
+            registry=mock_registry,
+        )
+        on_status_change = mock_controller.on_status_change.call_args.args[0]
+
+        task = task_store.create(Message(parts=[TextPart(text="Confirm spec?")]))
+        task_store.update_status(task.id, "input_required")
+
+        on_status_change("READY", "PROCESSING")
+
+        mock_registry.update_status.assert_called_with(
+            "synapse-test-agent-8000", "WAITING_FOR_INPUT"
+        )
+
+    def test_permission_waiting_keeps_registry_waiting(self, mock_controller):
+        """Permission prompts should keep registry WAITING when both states exist."""
+        from synapse.a2a_compat import task_store
+        from synapse.a2a_models import Message, TextPart
+
+        with task_store._lock:
+            task_store._tasks.clear()
+
+        mock_controller.status = "WAITING"
+        mock_controller.get_context.return_value = "Allow Bash command?"
+        mock_controller.last_waiting_source = "regex"
+        mock_registry = MagicMock()
+
+        create_a2a_router(
+            mock_controller,
+            "test-agent",
+            8000,
+            "\n",
+            agent_id="synapse-test-agent-8000",
+            registry=mock_registry,
+        )
+        on_status_change = mock_controller.on_status_change.call_args.args[0]
+
+        task = task_store.create(Message(parts=[TextPart(text="Confirm spec?")]))
+        task_store.update_status(task.id, "input_required")
+
+        on_status_change("PROCESSING", "WAITING")
+
+        mock_registry.update_status.assert_any_call(
+            "synapse-test-agent-8000", "WAITING"
+        )
+        assert ("synapse-test-agent-8000", "WAITING_FOR_INPUT") not in [
+            call.args for call in mock_registry.update_status.call_args_list
+        ]
+
+    def test_permission_clear_preserves_non_permission_input_required(
+        self, mock_controller
+    ):
+        """Clearing permission WAITING should reveal verifier input_required tasks."""
+        from synapse.a2a_compat import task_store
+        from synapse.a2a_models import Message, TextPart
+
+        with task_store._lock:
+            task_store._tasks.clear()
+
+        mock_controller.status = "READY"
+        mock_controller.last_waiting_source = "none"
+        mock_registry = MagicMock()
+
+        create_a2a_router(
+            mock_controller,
+            "test-agent",
+            8000,
+            "\n",
+            agent_id="synapse-test-agent-8000",
+            registry=mock_registry,
+        )
+        on_status_change = mock_controller.on_status_change.call_args.args[0]
+
+        permission_task = task_store.create(
+            Message(parts=[TextPart(text="Permission prompt")]),
+            metadata={"permission": {"pty_context": "Allow Bash?"}},
+        )
+        verifier_task = task_store.create(
+            Message(parts=[TextPart(text="Confirm spec?")])
+        )
+        task_store.update_status(permission_task.id, "input_required")
+        task_store.update_status(verifier_task.id, "input_required")
+
+        on_status_change("WAITING", "READY")
+
+        assert task_store.get(permission_task.id).status != "input_required"
+        assert task_store.get(verifier_task.id).status == "input_required"
+        mock_registry.update_status.assert_any_call(
+            "synapse-test-agent-8000", "WAITING_FOR_INPUT"
+        )
 
     def test_tasks_send_outputs_plain_message(self, client, mock_controller):
         """/tasks/send should output message with A2A prefix and sender for agent identification."""

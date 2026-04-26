@@ -6,6 +6,7 @@ Status flow:
 Statuses:
     READY: Agent is idle (not processing anything)
     WAITING: Agent is waiting for user input (showing choices/prompt)
+    WAITING_FOR_INPUT: Agent has an A2A task waiting for a non-permission response
     PROCESSING: Agent is actively working (generating output, waiting for A2A response)
     DONE: Agent has completed a task (transitions to READY after timeout or new activity)
 """
@@ -15,17 +16,21 @@ from __future__ import annotations
 # Status constants
 READY = "READY"
 WAITING = "WAITING"
+WAITING_FOR_INPUT = "WAITING_FOR_INPUT"
 PROCESSING = "PROCESSING"
 DONE = "DONE"
 SHUTTING_DOWN = "SHUTTING_DOWN"
 
 # All valid statuses
-ALL_STATUSES = frozenset({READY, WAITING, PROCESSING, DONE, SHUTTING_DOWN})
+ALL_STATUSES = frozenset(
+    {READY, WAITING, WAITING_FOR_INPUT, PROCESSING, DONE, SHUTTING_DOWN}
+)
 
 # Status display colors (for Rich TUI)
 STATUS_STYLES = {
     READY: "bold green",  # Green: idle, ready for input
     WAITING: "bold cyan",  # Cyan: waiting for user input/choice
+    WAITING_FOR_INPUT: "bold orange3",  # Orange: waiting for A2A/human response
     PROCESSING: "bold yellow",  # Yellow: actively working
     DONE: "bold blue",  # Blue: completed successfully
     SHUTTING_DOWN: "bold red",  # Red: graceful shutdown in progress

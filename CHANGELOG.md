@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`WAITING_FOR_INPUT` agent status (#538):** non-permission A2A `input_required` tasks now surface as a distinct registry/list/status state, while permission prompts keep the existing `WAITING` state.
+
 ## [0.28.3] - 2026-04-26
 
 Patch release for the Phase 1.5 polish work tracked in #635 / #630 and merged via #638. Operationally focused: warns less right after PtyRenderer boot, honors `HOME` overrides in tests, lets cron capture JSON reports atomically, and documents the `--timeout 0` fast-fail mode so operators don't read it as "no timeout". No detection-logic changes; Phase 2 remains out of scope.
@@ -3572,7 +3576,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.2...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.3...HEAD
+[0.28.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.1...v0.28.2
 [0.28.1]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.27.2...v0.28.0

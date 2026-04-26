@@ -115,6 +115,15 @@ class TestStatusMetadata:
         text = output.getvalue()
         assert "Status:      WAITING (renderer: off)" in text
 
+    def test_displays_waiting_for_input_status(self):
+        """Should show WAITING_FOR_INPUT as its own status."""
+        info = _make_agent_info(status="WAITING_FOR_INPUT")
+        cmd, output = _make_command(agent_info=info)
+        cmd.run("my-claude")
+
+        text = output.getvalue()
+        assert "Status:      WAITING_FOR_INPUT" in text
+
 
 class TestStatusCurrentTask:
     """Tests for current task with elapsed time."""
@@ -196,6 +205,15 @@ class TestStatusJsonOutput:
         assert data["agent_id"] == "synapse-claude-8100"
         assert data["status"] == "READY"
         assert data["renderer_available"] is True
+
+    def test_json_output_preserves_waiting_for_input(self):
+        """JSON output should expose WAITING_FOR_INPUT unchanged."""
+        info = _make_agent_info(status="WAITING_FOR_INPUT")
+        cmd, output = _make_command(agent_info=info)
+        cmd.run("my-claude", json_output=True)
+
+        data = json.loads(output.getvalue())
+        assert data["status"] == "WAITING_FOR_INPUT"
 
     def test_json_not_found(self):
         """Should output error JSON when agent not found."""

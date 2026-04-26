@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from synapse.registry import AgentRegistry, NameConflictError, resolve_uds_path
+from synapse.status import STATUS_STYLES, WAITING_FOR_INPUT, is_valid_status
 
 
 @pytest.fixture
@@ -75,6 +76,17 @@ def test_register_with_custom_status(registry):
     with open(expected_file) as f:
         data = json.load(f)
         assert data["status"] == "BUSY"
+
+
+def test_waiting_for_input_is_valid_registry_status(registry):
+    """WAITING_FOR_INPUT should be a first-class registry status."""
+    agent_id = "test_waiting_for_input_agent"
+    registry.register(agent_id, "claude", 8100)
+
+    assert is_valid_status(WAITING_FOR_INPUT) is True
+    assert WAITING_FOR_INPUT in STATUS_STYLES
+    assert registry.update_status(agent_id, WAITING_FOR_INPUT) is True
+    assert registry.get_agent(agent_id)["status"] == WAITING_FOR_INPUT
 
 
 def test_register_includes_endpoint(registry):
