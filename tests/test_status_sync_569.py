@@ -21,6 +21,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from synapse.a2a_compat import create_a2a_router
+from synapse.a2a_models import Message, TextPart
+from synapse.status import WAITING_FOR_INPUT
 from synapse.task_store import TaskStore
 
 
@@ -184,3 +186,117 @@ class TestGetTasksNoRogueWrite:
         assert task.status != "input_required", (
             "GET /tasks/{id} must not set input_required — it is a read-only endpoint"
         )
+
+
+class TestTerminalTasksDemoteRegistry:
+    """Fix 3: terminal-only task_store should demote stale registry states."""
+
+    agent_id = "synapse-test-agent-8126"
+
+    def setup_method(self) -> None:
+        from synapse.a2a_compat import task_store
+
+        with task_store._lock:
+            task_store._tasks.clear()
+
+    def _register_callback(self, mock_controller: MagicMock, mock_registry: MagicMock):
+        create_a2a_router(
+            mock_controller,
+            "codex",
+            8126,
+            "\n",
+            agent_id=self.agent_id,
+            registry=mock_registry,
+        )
+        return mock_controller.on_status_change.call_args.args[0]
+
+    def test_terminal_only_tasks_demote_processing_to_ready(
+        self, mock_controller: MagicMock
+    ) -> None:
+        from synapse.a2a_compat import task_store
+
+        mock_controller.status = "READY"
+        mock_controller.get_context.return_value = "Task completed"
+        mock_controller.last_waiting_source = "none"
+        mock_registry = MagicMock()
+        mock_registry.get_agent.return_value = {"status": "PROCESSING"}
+        status_callback = self._register_callback(mock_controller, mock_registry)
+
+        task = task_store.create(Message(parts=[TextPart(text="hello")]))
+        task_store.update_status(task.id, "working")
+
+        status_callback("PROCESSING", "READY")
+
+        mock_registry.update_status.assert_any_call(self.agent_id, "READY")
+
+    def test_working_task_keeps_processing(self, mock_controller: MagicMock) -> None:
+        from synapse.a2a_compat import task_store
+
+        mock_controller.status = "PROCESSING"
+        mock_controller.last_waiting_source = "none"
+        mock_registry = MagicMock()
+        mock_registry.get_agent.return_value = {"status": "PROCESSING"}
+        status_callback = self._register_callback(mock_controller, mock_registry)
+
+        task = task_store.create(Message(parts=[TextPart(text="hello")]))
+        task_store.update_status(task.id, "working")
+
+        status_callback("READY", "PROCESSING")
+
+        assert (self.agent_id, "READY") not in [
+            call.args for call in mock_registry.update_status.call_args_list
+        ]
+
+    def test_input_required_task_does_not_demote(
+        self, mock_controller: MagicMock
+    ) -> None:
+        from synapse.a2a_compat import task_store
+
+        mock_controller.status = "PROCESSING"
+        mock_controller.last_waiting_source = "none"
+        mock_registry = MagicMock()
+        mock_registry.get_agent.return_value = {"status": "PROCESSING"}
+        status_callback = self._register_callback(mock_controller, mock_registry)
+
+        task = task_store.create(Message(parts=[TextPart(text="confirm?")]))
+        task_store.update_status(task.id, "input_required")
+
+        status_callback("READY", "PROCESSING")
+
+        mock_registry.update_status.assert_any_call(self.agent_id, WAITING_FOR_INPUT)
+        assert (self.agent_id, "READY") not in [
+            call.args for call in mock_registry.update_status.call_args_list
+        ]
+
+    def test_empty_task_store_does_not_demote(self, mock_controller: MagicMock) -> None:
+        mock_controller.status = "PROCESSING"
+        mock_controller.last_waiting_source = "none"
+        mock_registry = MagicMock()
+        mock_registry.get_agent.return_value = {"status": "PROCESSING"}
+        status_callback = self._register_callback(mock_controller, mock_registry)
+
+        status_callback("READY", "PROCESSING")
+
+        assert (self.agent_id, "READY") not in [
+            call.args for call in mock_registry.update_status.call_args_list
+        ]
+
+    def test_demotion_does_not_touch_controller_status(
+        self, mock_controller: MagicMock
+    ) -> None:
+        from synapse.a2a_compat import task_store
+
+        mock_controller.status = "PROCESSING"
+        mock_controller.get_context.return_value = "Task completed"
+        mock_controller.last_waiting_source = "none"
+        mock_registry = MagicMock()
+        mock_registry.get_agent.return_value = {"status": "PROCESSING"}
+        status_callback = self._register_callback(mock_controller, mock_registry)
+
+        task = task_store.create(Message(parts=[TextPart(text="hello")]))
+        task_store.update_status(task.id, "working")
+
+        status_callback("PROCESSING", "READY")
+
+        assert mock_controller.status == "PROCESSING"
+        mock_registry.update_status.assert_any_call(self.agent_id, "READY")

@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`WAITING_FOR_INPUT` agent status (#538):** non-permission A2A `input_required` tasks now surface as a distinct registry/list/status state, while permission prompts keep the existing `WAITING` state.
 
+### Fixed
+
+- **Agent registry status sync (#569):** A2A status callbacks now demote stale registry `PROCESSING` / `WAITING_FOR_INPUT` states back to `READY` when the task store is non-empty and all tasks are terminal, preventing `synapse list` from showing active work after every task has completed.
+
 ## [0.28.3] - 2026-04-26
 
 Patch release for the Phase 1.5 polish work tracked in #635 / #630 and merged via #638. Operationally focused: warns less right after PtyRenderer boot, honors `HOME` overrides in tests, lets cron capture JSON reports atomically, and documents the `--timeout 0` fast-fail mode so operators don't read it as "no timeout". No detection-logic changes; Phase 2 remains out of scope.

@@ -1113,6 +1113,14 @@ def create_a2a_router(
                     return True
             return False
 
+        def _has_only_terminal_tasks() -> bool:
+            tasks = task_store.list_tasks()
+            if not tasks:
+                return False
+            return all(
+                task.status in ("completed", "failed", "canceled") for task in tasks
+            )
+
         def _is_permission_waiting_status(new_status: str) -> bool:
             if new_status == WAITING:
                 return True
@@ -1129,6 +1137,13 @@ def create_a2a_router(
                 return
             if _has_non_permission_input_required_task():
                 registry.update_status(agent_id, WAITING_FOR_INPUT)
+            if _has_only_terminal_tasks():
+                agent_info = registry.get_agent(agent_id)
+                if agent_info and agent_info.get("status") in (
+                    "PROCESSING",
+                    WAITING_FOR_INPUT,
+                ):
+                    registry.update_status(agent_id, "READY")
 
         def _on_status_change(old: str, new: str) -> None:
             if new == WAITING:
@@ -1232,6 +1247,7 @@ def create_a2a_router(
                             sender_task_id=si.sender_task_id,
                         )
                         _run_async_from_sync(coro)
+            _sync_registry_input_wait_status(new)
 
         controller.on_status_change(_on_status_change)
 
