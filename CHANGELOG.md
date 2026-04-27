@@ -14,6 +14,7 @@ Minor release adding a true PTY-level cancellation path for stuck agents while p
 ### Added
 
 - Surface HTTP task `input_required` state in `synapse list` / `synapse status` so a parent operator sees the approve URL without an extra HTTP query (#651).
+- Surface child agent reply-send stalls via `SENDING_REPLY` sub-state and per-agent Recent Messages filter (#644).
 - True PTY-level interrupt API (`mode=pty|signal|auto`) for stuck agents (#647).
 - Surface LLM provider rate limits as `RATE_LIMITED` agent status (#561).
 - Delay sends to READY agents (#467).

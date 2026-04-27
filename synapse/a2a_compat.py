@@ -60,6 +60,7 @@ from synapse.status import (
     PROCESSING,
     RATE_LIMITED,
     READY,
+    SENDING_REPLY,
     WAITING,
     WAITING_FOR_INPUT,
 )
@@ -1235,8 +1236,10 @@ def create_a2a_router(
                 agent_info = registry.get_agent(agent_id)
                 if agent_info and agent_info.get("status") in (
                     "PROCESSING",
+                    SENDING_REPLY,
                     WAITING_FOR_INPUT,
                 ):
+                    # SENDING_REPLY is a short-lived outbound-send sub-state.
                     registry.update_status(agent_id, "READY")
 
         def _on_status_change(old: str, new: str) -> None:

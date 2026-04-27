@@ -21,6 +21,7 @@ synapse list --json
 - Auto-refresh when agent status changes (via file watcher)
 - Color-coded status display:
   - READY = green (idle, waiting for input)
+  - SENDING_REPLY = bold cyan (temporarily sending an outbound A2A send/reply POST)
   - WAITING = cyan (awaiting user input - selection, confirmation; auto-expires after `waiting_expiry`, default 10s)
   - PROCESSING = yellow (busy handling a task)
   - DONE = blue (task completed, auto-clears after 10s)
@@ -286,7 +287,7 @@ synapse status my-claude --debug-waiting --json
 **Text output sections:**
 - **Agent Info**: ID, type, name, role, port, status (with `(renderer: off)` annotation when `PtyRenderer` failed), PID, working directory, uptime
 - **Current Task**: Task preview with elapsed time (e.g., `Review code (2m 15s)`)
-- **Recent Messages**: Last 5 messages from history (task ID, direction, sender, preview)
+- **Recent Messages**: Last 5 history messages involving the selected agent (task ID, direction, sender, preview)
 - **File Locks**: Files currently locked by this agent (if File Safety is enabled)
 
 **JSON output** includes all the same data in structured format, with `uptime_seconds` and `current_task.elapsed_seconds` as numeric values for programmatic use. Adds `renderer_available: bool` when the controller reports it.
@@ -303,6 +304,7 @@ Use this when a WAITING prompt did not trip the controller as expected: each att
 - Checking what an agent is currently working on and how long it has been running
 - Debugging why an agent is stuck in PROCESSING (check file locks)
 - Reviewing recent communication history for a specific agent
+- Confirming a transient `SENDING_REPLY` state is just an outbound A2A POST in progress
 
 ### Waiting Debug Collection (`synapse waiting-debug`)
 
@@ -671,6 +673,8 @@ synapse history search "error" "authentication" --logic AND
 # Filter by agent
 synapse history search "bug" --agent claude --limit 20
 ```
+
+`synapse status <agent>`'s Recent Messages section filters by sender or recipient, so it shows the target agent's conversation context rather than unrelated global messages. `synapse history list/search --agent <name>` filters only by `agent_name` (the producer of the observation row), not by sender/receiver.
 
 ### View Statistics
 
