@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Default agent instructions (`synapse://instructions/default`) now describe `synapse memory` as legacy and direct callers needing that interface to fetch `synapse://instructions/shared-memory` explicitly. New agents are guided to LLM Wiki by default; the `synapse memory` CLI commands and the `shared-memory` MCP resource are unchanged for backward compatibility (#527).
 ### Added
 
 - `synapse watchdog check` command for one-shot stuck-agent detection (#646).
