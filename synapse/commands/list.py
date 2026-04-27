@@ -173,6 +173,7 @@ class ListCommand:
                 "summary": info.get("summary"),
                 "transport": registry.get_transport_display(agent_id) or "-",
                 "renderer_available": info.get("renderer_available"),
+                "input_required_tasks": info.get("input_required_tasks") or [],
             }
 
             if show_file_safety:
@@ -662,6 +663,7 @@ class ListCommand:
         "summary",
         "is_orphan",
         "spawned_by",
+        "input_required_tasks",
     )
 
     def _format_status(self, agent: dict[str, Any]) -> str:
