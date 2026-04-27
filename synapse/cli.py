@@ -99,6 +99,7 @@ from synapse.commands.spawn_cmd import (
 )
 from synapse.commands.start import StartCommand
 from synapse.commands.waiting_debug import cmd_waiting_debug, non_negative_float_arg
+from synapse.commands.watchdog import cmd_watchdog_check
 from synapse.commands.workflow import (
     cmd_workflow_create,
     cmd_workflow_delete,
@@ -3183,6 +3184,32 @@ Status meanings:
         help="Force one-shot plain-text output without the Rich TUI",
     )
     p_list.set_defaults(func=cmd_list)
+
+    # watchdog
+    p_watchdog = subparsers.add_parser(
+        "watchdog",
+        help="One-shot stuck-agent detection",
+        description="Run watchdog checks for stuck or stalled live agents.",
+    )
+    p_watchdog.set_defaults(func=lambda _args: p_watchdog.print_help())
+    watchdog_subparsers = p_watchdog.add_subparsers(
+        dest="watchdog_command", metavar="SUBCOMMAND"
+    )
+    p_watchdog_check = watchdog_subparsers.add_parser(
+        "check",
+        help="Check live agents for stuck-state heuristics",
+    )
+    p_watchdog_check.add_argument(
+        "--alarm-only",
+        action="store_true",
+        help="Show only agents with watchdog alarms",
+    )
+    p_watchdog_check.add_argument(
+        "--json",
+        action="store_true",
+        help="Output watchdog reports as JSON",
+    )
+    p_watchdog_check.set_defaults(func=cmd_watchdog_check)
 
     # status
     p_status = subparsers.add_parser(

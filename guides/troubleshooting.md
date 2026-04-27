@@ -436,12 +436,17 @@ flowchart TB
 synapse status <agent-name>
 synapse status <agent-name> --json
 
+# 全 live エージェントをまとめてスタック判定（Stage 1 MVP, #646）
+synapse watchdog check --alarm-only
+
 # CLI を直接起動してプロンプトを確認
 claude
 
 # 表示されるプロンプト
 # > _
 ```
+
+`synapse watchdog check` は `PROCESSING` が 30 分以上続き、直近 10 分の outbound A2A 送信が 0 件のエージェントを `Stuck-on-reply suspected` としてフラグ立てします。`--json` で programmatic に取り出せるので、cron / launchd 経由の定期チェックにも使えます。詳細は [references.md §1.27](references.md)。
 
 **対処法**:
 

@@ -374,6 +374,7 @@ flowchart TB
 | `synapse reset` | 設定をデフォルトに戻す（`--force` で確認スキップ） |
 | `synapse --version` | バージョン情報表示 |
 | `synapse list` | 実行中エージェント一覧 |
+| `synapse watchdog check` | スタックエージェントを heuristic で検知（Stage 1 MVP, [#646](https://github.com/s-hiraoku/synapse-a2a/issues/646)）。`--alarm-only` で alarm 行のみ filter、`--json` で programmatic 出力 |
 | `synapse send` | メッセージ送信 |
 | `synapse interrupt` | ソフト割り込み送信 |
 | `synapse broadcast` | カレントディレクトリの全エージェントにメッセージ送信 |
@@ -1789,6 +1790,11 @@ done
 別のエージェントを監視し、必要に応じて介入する。
 
 ```bash
+# 全 live エージェントをまとめてヒューリスティック判定（Stage 1 MVP, #646）
+synapse watchdog check                # table 出力
+synapse watchdog check --alarm-only   # alarm 行のみ
+synapse watchdog check --json         # JSON 配列（programmatic consumer 向け）
+
 # ステータス確認
 curl http://localhost:8120/status
 
@@ -1798,6 +1804,8 @@ synapse send codex "進捗を報告して" --priority 1
 # 応答がない場合は緊急介入
 synapse send codex "状況を報告して" --priority 5
 ```
+
+`synapse watchdog check` は `RATE_LIMITED > 30m` / `SENDING_REPLY > 60s` / `PROCESSING > 30m` で直近 10 分の outbound A2A 0 件 / spawn から 60s〜5m 経過しても READY 未到達、の 4 ヒューリスティックで stuck を判定します。詳細は [references.md §1.27](references.md)。Stage 2-4（バックグラウンドデーモン、push 通知、自動 recovery）は future work です。
 
 ---
 

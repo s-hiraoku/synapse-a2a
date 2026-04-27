@@ -410,3 +410,32 @@ crontab -e
 
 !!! info "Legacy agents return 404 (or 503 when capability-gated)"
     Agents that are still running with a pre-0.28.0 `synapse` binary do not expose `GET /debug/waiting`. The collector logs one `HTTP Error 404: Not Found` warning per legacy agent to stderr and continues. Agents on v0.28.0+ whose controller lacks the `waiting_debug_snapshot` capability (e.g., a non-PTY runtime) instead return `HTTP Error 503: Service Unavailable` with detail `waiting debug data not available` — also expected and non-fatal. Data accrues only for agents respawned after the CLI upgrade — stop and restart them with `synapse kill <id>` followed by the usual spawn when you want them in the dataset.
+
+### Stuck-Agent Watchdog (`watchdog check`)
+
+`synapse watchdog check` (added in #646, Stage 1 MVP) is a complementary observability layer focused on **stuck-state detection** rather than the WAITING-detection sampling that `--debug-waiting` and `waiting-debug` provide. It scans every live registry entry once and flags agents that match one of four duration- or outbound-history-based heuristics.
+
+```bash
+synapse watchdog check                 # Heuristic table for every live agent
+synapse watchdog check --alarm-only    # Only rows where a heuristic fired
+synapse watchdog check --json          # Machine-readable WatchdogReport[]
+```
+
+The table shows `ID`, `STATUS`, `UPTIME`, `SAME_STATUS_FOR`, `LAST_OUTBOUND`, and an `ALARM` column. The first matching rule (priority order) wins:
+
+| # | Trigger | Alarm |
+|---|---------|-------|
+| 1 | `RATE_LIMITED` for more than 30 min | `Rate-limited > 30m` |
+| 2 | `SENDING_REPLY` for more than 60 s | `Send stuck > 60s` |
+| 3 | `PROCESSING` for more than 30 min **and** no outbound A2A send in the last 10 min | `Stuck-on-reply suspected` |
+| 4 | Spawn never reached `READY` (uptime 60 s–5 min, no `last_status_change_at`) | `Spawn never ready` |
+
+Heuristic 3 cross-references the same `HistoryManager` that backs `synapse history`, filtered to outbound rows whose `metadata.sender_id` matches the agent — so a `PROCESSING` agent that is still actively replying to peers is **not** flagged.
+
+!!! tip "Stage 1 is operator-driven"
+    There is no background daemon yet. Run `synapse watchdog check --alarm-only` manually when an agent feels stuck, or schedule it from cron / launchd alongside `synapse waiting-debug collect`. Stage 2-4 (background daemon, `synapse list --watch` integration, A2A push notifications, automatic recovery) ship in follow-up PRs.
+
+!!! note "Duration heuristics need `last_status_change_at`"
+    Heuristics 1-3 read `last_status_change_at` (added in #646), which is written only on real status transitions. Pre-existing registry entries that lack the field are skipped rather than counted from epoch — restart older agents (`synapse kill <id>` then respawn) to include them.
+
+See [CLI Reference — Watchdog](../reference/cli.md#watchdog-stuck-agent-detection) for the full flag and JSON schema.

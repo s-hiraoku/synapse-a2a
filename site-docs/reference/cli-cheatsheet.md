@@ -21,6 +21,9 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse waiting-debug collect --timeout 10` | Override the per-agent HTTP timeout (default 5.0 s) for slow agents |
 | `synapse waiting-debug report` | Aggregate the collected WAITING snapshots (text or `--json`) |
 | `synapse waiting-debug report --out report.json` | Write JSON report to file (stdout stays empty — cron-safe) |
+| `synapse watchdog check` | One-shot stuck-agent heuristic table for every live agent (#646) |
+| `synapse watchdog check --alarm-only` | Same scan, but only rows with an alarm (cron-friendly) |
+| `synapse watchdog check --json` | Same scan as JSON (`WatchdogReport[]`) |
 | `synapse kill <target>` | Graceful shutdown (30 s timeout) |
 | `synapse kill <target> -f` | Force kill (immediate SIGKILL) |
 | `synapse cleanup` | Kill orphan child agents (parent PID dead) |
@@ -207,6 +210,11 @@ synapse status my-claude --debug-waiting     # Dump in-memory WAITING-detection 
 # Phase 1.5: persist /debug/waiting snapshots across all agents
 synapse waiting-debug collect                # Append to ~/.synapse/waiting_debug.jsonl
 synapse waiting-debug report --json          # Aggregate profile/pattern_source/confidence
+
+# Stuck-agent watchdog (Stage 1 MVP, #646)
+synapse watchdog check                       # Heuristic table for every live agent
+synapse watchdog check --alarm-only          # Cron-friendly: silent when nothing is stuck
+synapse watchdog check --json                # Machine-readable WatchdogReport[]
 
 # Jump to an agent's terminal
 synapse jump my-claude

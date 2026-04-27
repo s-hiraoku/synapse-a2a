@@ -3,6 +3,7 @@
 | Command | Purpose |
 |---------|---------|
 | `synapse list` | Check agent status (auto-updates; `--json` for JSON array) |
+| `synapse watchdog check [--alarm-only] [--json]` | Stage 1 stuck-agent heuristic scan (#646) |
 | `synapse spawn <type\|id> --name <n> --role "<r>"` | Start agent (ad-hoc or from saved definition) |
 | `synapse send <name> "<msg>" --silent` | Delegate task (fire-and-forget) |
 | `synapse send <name> "<msg>" --wait` | Request reply (blocking) |

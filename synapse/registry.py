@@ -218,6 +218,7 @@ class AgentRegistry:
             "port": port,
             "status": status,
             "status_updated_at": now,
+            "last_status_change_at": now,
             "registered_at": now,
             "pid": os.getpid(),
             "working_dir": os.getcwd(),
@@ -402,8 +403,12 @@ class AgentRegistry:
         """
 
         def set_status(data: dict) -> None:
+            previous_status = data.get("status")
+            now = time.time()
             data["status"] = status
-            data["status_updated_at"] = time.time()
+            data["status_updated_at"] = now
+            if previous_status != status:
+                data["last_status_change_at"] = now
 
         return self._atomic_update(agent_id, set_status, "status")
 
