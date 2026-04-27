@@ -58,9 +58,7 @@ class TestRateLimitStatus561:
         task_store.update_status(task.id, "working")
         return task
 
-    @pytest.mark.parametrize(
-        "current_status", [PROCESSING, READY, WAITING_FOR_INPUT]
-    )
+    @pytest.mark.parametrize("current_status", [PROCESSING, READY, WAITING_FOR_INPUT])
     def test_rate_limit_output_sets_registry_status(
         self, mock_controller: MagicMock, current_status: str
     ) -> None:
