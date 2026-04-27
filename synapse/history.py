@@ -18,6 +18,48 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _metadata_agent_ids(metadata: dict[str, Any]) -> set[str]:
+    """Extract sender/recipient agent IDs from observation metadata."""
+    agent_ids: set[str] = set()
+    for key in (
+        "sender_id",
+        "recipient_id",
+        "recipient_agent_id",
+        "target_agent_id",
+        "target_id",
+    ):
+        value = metadata.get(key)
+        if isinstance(value, str):
+            agent_ids.add(value)
+
+    sender = metadata.get("sender")
+    if isinstance(sender, dict):
+        sender_id = sender.get("sender_id")
+        if isinstance(sender_id, str):
+            agent_ids.add(sender_id)
+
+    recipient = metadata.get("recipient")
+    if isinstance(recipient, dict):
+        recipient_id = recipient.get("recipient_id") or recipient.get("agent_id")
+        if isinstance(recipient_id, str):
+            agent_ids.add(recipient_id)
+
+    target = metadata.get("target")
+    if isinstance(target, dict):
+        target_id = target.get("target_agent_id") or target.get("agent_id")
+        if isinstance(target_id, str):
+            agent_ids.add(target_id)
+
+    return agent_ids
+
+
+def _observation_matches_agent_id(observation: dict[str, Any], agent_id: str) -> bool:
+    metadata = observation.get("metadata")
+    if not isinstance(metadata, dict):
+        return False
+    return agent_id in _metadata_agent_ids(metadata)
+
+
 @contextlib.contextmanager
 def _db_connection(
     db_path: str, row_factory: bool = False
@@ -292,12 +334,14 @@ class HistoryManager:
         self,
         limit: int = 50,
         agent_name: str | None = None,
+        agent_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """List observations with optional filtering.
 
         Args:
             limit: Maximum number of observations to return
             agent_name: Optional filter by agent name
+            agent_id: Optional filter by sender or recipient agent ID
 
         Returns:
             List of observation dicts, ordered by timestamp (newest first)
@@ -315,20 +359,24 @@ class HistoryManager:
                             SELECT * FROM observations
                             WHERE agent_name = ?
                             ORDER BY timestamp DESC
-                            LIMIT ?
                             """,
-                            (agent_name, limit),
+                            (agent_name,),
                         )
                     else:
                         cursor.execute(
                             """
                             SELECT * FROM observations
                             ORDER BY timestamp DESC
-                            LIMIT ?
                             """,
-                            (limit,),
                         )
-                    return [self._row_to_dict(row) for row in cursor.fetchall()]
+                    observations = [self._row_to_dict(row) for row in cursor.fetchall()]
+                    if agent_id:
+                        observations = [
+                            obs
+                            for obs in observations
+                            if _observation_matches_agent_id(obs, agent_id)
+                        ]
+                    return observations[:limit]
             except sqlite3.Error as e:
                 print(f"Warning: Failed to list observations: {e}", file=sys.stderr)
                 return []

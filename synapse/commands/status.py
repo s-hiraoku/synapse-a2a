@@ -249,8 +249,9 @@ class StatusCommand:
             return []
         try:
             agent_name = info.get("agent_type", "unknown")
+            agent_id = info.get("agent_id")
             return self._history_manager.list_observations(
-                agent_name=agent_name, limit=5
+                agent_name=agent_name, agent_id=agent_id, limit=5
             )
         except Exception:  # broad catch: history lookup is optional status info
             return []

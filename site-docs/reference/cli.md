@@ -97,7 +97,7 @@ synapse status <target> --json           # Output as JSON
 synapse status <target> --debug-waiting  # Dump the in-memory WAITING-detection ring
 ```
 
-Shows a comprehensive view of a single agent including metadata, uptime, current task with elapsed time, recent message history, and file locks. See [Agent Management — Detailed Status](../guide/agent-management.md#detailed-status) for more.
+Shows a comprehensive view of a single agent including metadata, uptime, current task with elapsed time, recent message history, and file locks. Recent Messages includes the last 5 history entries where the selected agent is the sender or recipient. See [Agent Management — Detailed Status](../guide/agent-management.md#detailed-status) for more.
 
 | Flag | Description |
 |------|-------------|
@@ -256,6 +256,8 @@ synapse send <target> "<message>" [OPTIONS]
 **PROCESSING wait**: When the target agent's status is `PROCESSING`, `synapse send` automatically waits (polling every 1 second) for the agent to become `READY` before delivering the message. This prevents messages from being queued behind an in-progress task. The wait is skipped for `--silent` sends, priority-5 (critical) sends, and when `--force` is specified. The timeout is controlled by `SYNAPSE_SEND_WAIT_TIMEOUT` (default: 30 seconds).
 
 **READY-delay** (#467, #642): When the target is already `READY`, `synapse send` pauses briefly (default **2 seconds**, polling every 250 ms) before injecting the message. This avoids interrupting a user who is still typing at the agent's prompt; if the agent flips to `PROCESSING` during the window the send proceeds immediately. The delay is configurable via `SYNAPSE_SEND_READY_DELAY` (seconds, set to `0` to disable) and is bypassed for `--silent`, priority-5, and `--force` sends.
+
+**Outbound status** (#644): During the outbound A2A POST, the sender briefly shows `SENDING_REPLY` in `synapse list` / `synapse status`. The previous status is restored afterward, and terminal or protected states (`DONE`, `SHUTTING_DOWN`, `RATE_LIMITED`) are not overwritten.
 
 !!! tip "Choosing response mode"
     - `--notify` (default): Returns immediately; you get a PTY notification when the receiver completes. Best for most use cases.

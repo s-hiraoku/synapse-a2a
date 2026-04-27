@@ -1651,7 +1651,7 @@ For Copilot specifically, bracketed paste is enabled because Copilot CLI 1.0.12+
 | NAME | Custom name (if assigned) |
 | TYPE | Agent type (claude, gemini, codex, etc.) |
 | ROLE | Agent role description (if assigned) |
-| STATUS | Current status (READY, WAITING, WAITING_FOR_INPUT, PROCESSING, RATE_LIMITED, DONE) |
+| STATUS | Current status (READY, WAITING, WAITING_FOR_INPUT, PROCESSING, SENDING_REPLY, RATE_LIMITED, DONE) |
 | CURRENT | Current task preview with elapsed time (e.g., "Review code (2m 15s)") |
 | TRANSPORT | Communication transport indicator |
 | WORKING_DIR | Current working directory |
@@ -1677,6 +1677,7 @@ For Copilot specifically, bracketed paste is enabled because Copilot CLI 1.0.12+
 | **WAITING** | Cyan | Agent is showing a permission prompt (selection UI / Y-N) |
 | **WAITING_FOR_INPUT** | Orange | Agent has an A2A task in `input_required` for a non-permission response ([#538](https://github.com/s-hiraoku/synapse-a2a/issues/538) / [#640](https://github.com/s-hiraoku/synapse-a2a/pull/640)) |
 | **PROCESSING** | Yellow | Agent is actively working |
+| **SENDING_REPLY** | Cyan | Agent is posting an outbound A2A send/reply request. This transient state restores the previous status when the POST finishes and does not overwrite terminal states such as DONE, SHUTTING_DOWN, or RATE_LIMITED |
 | **RATE_LIMITED** | Bold Magenta | LLM provider rate limit hit; surfaced when the error_detector returns the `RATE_LIMITED` error code. Overrides PROCESSING / READY / WAITING_FOR_INPUT until the agent recovers ([#561](https://github.com/s-hiraoku/synapse-a2a/issues/561) / [#648](https://github.com/s-hiraoku/synapse-a2a/pull/648), forthcoming in 0.30.x) |
 | **DONE** | Blue | Task completed (auto-transitions to READY after 10s) |
 
@@ -1717,7 +1718,7 @@ The `PROCESSING` to `READY` transition uses compound signals to prevent prematur
 - **`task_active` flag**: Suppresses READY when an A2A task is being processed (timeout: `task_protection_timeout`, default 30s)
 - **File locks**: Suppresses READY when the agent holds file locks via FileSafetyManager
 
-Use `synapse status <agent>` to inspect the detailed state of a specific agent, including current task elapsed time and file locks.
+Use `synapse status <agent>` to inspect the detailed state of a specific agent, including current task elapsed time and file locks. Its Recent Messages section shows messages where the selected agent was involved as sender or receiver, rather than unrelated global history.
 
 ---
 

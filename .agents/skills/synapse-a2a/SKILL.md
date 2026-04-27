@@ -206,6 +206,7 @@ to opt out):
 | Status | Meaning | Action |
 |--------|---------|--------|
 | `READY` | Idle, can accept new work | `synapse send` |
+| `SENDING_REPLY` | Temporarily sending an outbound A2A send/reply POST | Wait; previous status is restored after the POST finishes |
 | `PROCESSING` | Actively working a task | Wait, or `synapse interrupt` if stuck |
 | `WAITING` | Awaiting a permission/approval prompt | `synapse approve` / `synapse reject` |
 | `WAITING_FOR_INPUT` | Task is paused asking for non-permission input (#538) | `synapse reply <task_id>` with the answer |
