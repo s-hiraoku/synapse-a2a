@@ -534,6 +534,8 @@ CLI 出力からエラーパターンを検出し、タスクを自動的に `fa
 | システムエラー | `command not found`, `permission denied` | `COMMAND_NOT_FOUND`, `PERMISSION_DENIED` |
 | ネットワーク | `connection refused`, `timeout` | `CONNECTION_REFUSED`, `TIMEOUT` |
 | API エラー | `rate limit`, `unauthorized` | `RATE_LIMITED`, `AUTH_ERROR` |
+
+> **Note**: 0.30.x 以降、`RATE_LIMITED` エラーコードはタスクを `failed` にするだけでなく、レジストリのエージェントステータスも `RATE_LIMITED`（太字マゼンタ）に切り替わります。`synapse list` で LLM プロバイダー側のレート制限ヒットを一目で確認できます ([#561](https://github.com/s-hiraoku/synapse-a2a/issues/561) / [#648](https://github.com/s-hiraoku/synapse-a2a/pull/648))。
 | AI 拒否 | `I cannot`, `I'm unable to` | `AGENT_REFUSED` |
 | 汎用エラー | `error:`, `failed:`, `exception:` | `CLI_ERROR`, `EXECUTION_FAILED` |
 

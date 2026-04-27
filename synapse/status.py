@@ -2,6 +2,8 @@
 
 Status flow:
     PROCESSING -> READY/WAITING/WAITING_FOR_INPUT -> PROCESSING -> ... -> DONE -> READY (after 10s)
+    PROCESSING/READY/WAITING_FOR_INPUT -> RATE_LIMITED (on LLM provider rate-limit error;
+        next controller PTY tick overwrites RATE_LIMITED when fresh output is observed)
 
 Statuses:
     READY: Agent is idle (not processing anything)
@@ -9,6 +11,7 @@ Statuses:
     WAITING_FOR_INPUT: Agent has an A2A task waiting for a non-permission response
     PROCESSING: Agent is actively working (generating output, waiting for A2A response)
     DONE: Agent has completed a task (transitions to READY after timeout or new activity)
+    RATE_LIMITED: Agent hit an LLM provider rate limit
 """
 
 from __future__ import annotations
@@ -19,11 +22,12 @@ WAITING = "WAITING"
 WAITING_FOR_INPUT = "WAITING_FOR_INPUT"
 PROCESSING = "PROCESSING"
 DONE = "DONE"
+RATE_LIMITED = "RATE_LIMITED"
 SHUTTING_DOWN = "SHUTTING_DOWN"
 
 # All valid statuses
 ALL_STATUSES = frozenset(
-    {READY, WAITING, WAITING_FOR_INPUT, PROCESSING, DONE, SHUTTING_DOWN}
+    {READY, WAITING, WAITING_FOR_INPUT, PROCESSING, DONE, RATE_LIMITED, SHUTTING_DOWN}
 )
 
 # Status display colors (for Rich TUI)
@@ -33,6 +37,7 @@ STATUS_STYLES = {
     WAITING_FOR_INPUT: "bold orange3",  # Orange: waiting for A2A/human response
     PROCESSING: "bold yellow",  # Yellow: actively working
     DONE: "bold blue",  # Blue: completed successfully
+    RATE_LIMITED: "bold magenta",  # Magenta: LLM provider rate limit hit
     SHUTTING_DOWN: "bold red",  # Red: graceful shutdown in progress
 }
 

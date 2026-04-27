@@ -4,6 +4,13 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### Unreleased
+
+- **Added**: `RATE_LIMITED` agent status (#561) — surfaces an LLM provider rate-limit signal as a distinct registry/list/status state, rendered bold magenta in `synapse list` so a quota-blocked agent is no longer indistinguishable from one actively `PROCESSING`.
+- **Added**: `synapse send` READY-delay (#467, merged via #642) — when the target is already `READY`, sends pause briefly (default **2 s**, env `SYNAPSE_SEND_READY_DELAY`) before injecting the message so a user typing at the prompt is not interrupted; bypassed for `--silent`, priority-5, and `--force` sends.
+- **Added**: `/dev-issue <number>` slash command skill (#643) — bootstraps a new issue implementation in one step: fetches the issue and related closed PRs in parallel, greps the repo for code hotspots, infers a branch prefix from labels and a slug from the title, writes a structured task brief at `/tmp/issue<num>-task.md`, creates a fresh branch from latest `origin/main`, and (by default) spawns a codex agent with `synapse spawn codex --task-file ... --notify`. `--solo` skips the spawn; `--dry-run` produces the brief only.
+- **Fixed**: Workflow target type resolution respects caller `working_dir` (#568) — bare-type targets like `target: claude` / `target: codex` now match only agents in the workflow's CWD, so `synapse workflow run` no longer dispatches to an unrelated `nix-claude` in another project and `auto_spawn` correctly creates a fresh agent in the workflow's CWD when no local match exists. `agent_id` and custom-name targets remain global; `target: self` is unchanged.
+
 ### v0.29.0
 
 - **Added**: `WAITING_FOR_INPUT` agent status (#538, #640) — non-permission A2A `input_required` tasks now surface as a distinct registry/list/status state, while permission prompts keep the existing `WAITING` state. Rendered as orange in the Rich TUI; included in `ALL_STATUSES` and exposed via `synapse list` / `synapse status` (text and `--json`).
