@@ -5,6 +5,7 @@ import subprocess
 import sys
 import textwrap
 import threading
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -395,6 +396,27 @@ def test_update_status(registry):
 
     info = registry.get_agent(agent_id)
     assert info["status"] == "IDLE"
+
+
+def test_last_status_change_at_tracks_real_transitions(registry):
+    """last_status_change_at should not move on same-status rewrites."""
+    agent_id = "test_last_status_change_at"
+    registry.register(agent_id, "claude", 8100, status="STARTING")
+
+    registered_info = registry.get_agent(agent_id)
+    first_changed_at = registered_info["last_status_change_at"]
+    assert first_changed_at == registered_info["registered_at"]
+
+    time.sleep(0.01)
+    assert registry.update_status(agent_id, "READY") is True
+    transitioned_at = registry.get_agent(agent_id)["last_status_change_at"]
+    assert transitioned_at > first_changed_at
+
+    time.sleep(0.01)
+    assert registry.update_status(agent_id, "READY") is True
+    rewritten_info = registry.get_agent(agent_id)
+    assert rewritten_info["last_status_change_at"] == transitioned_at
+    assert rewritten_info["status_updated_at"] >= transitioned_at
 
 
 def test_update_status_nonexistent(registry):
