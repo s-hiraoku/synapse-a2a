@@ -36,7 +36,7 @@ The framework automatically handles routing - you don't need to know where the m
 | `/tasks/send` | POST | Send message (subject to Readiness Gate) |
 | `/tasks/{id}` | GET | Get task status |
 | `/tasks` | GET | List tasks |
-| `/tasks/{id}/cancel` | POST | Cancel task |
+| `/tasks/{id}/cancel` | POST | Cancel task (Synapse extends with `mode`/`repeat` query params — see "Task Cancel Interrupt Modes" below) |
 | `/status` | GET | READY/PROCESSING status |
 
 ### Synapse Extensions
@@ -50,6 +50,17 @@ The framework automatically handles routing - you don't need to know where the m
 | `/reply-stack/list` | GET | List sender IDs available for reply (`synapse reply --list-targets`) |
 | `/reply-stack/get` | GET | Get sender info without removing (supports `?sender_id=`) |
 | `/reply-stack/pop` | GET | Pop sender info from reply map (supports `?sender_id=`) |
+
+### Task Cancel Interrupt Modes
+
+`POST /tasks/{task_id}/cancel` cancels a submitted or working task and interrupts the agent process. It accepts optional query parameters:
+
+| Parameter | Values | Default | Description |
+|-----------|--------|---------|-------------|
+| `mode` | `auto`, `pty`, `signal` | `auto` | `auto` uses the active profile's `interrupt.default_mode`; `pty` injects Ctrl+C bytes into the PTY; `signal` sends the legacy process SIGINT. |
+| `repeat` | integer >= 1 | `1` | Number of Ctrl+C injections when `mode=pty`; ignored by `mode=signal`. When `mode=auto`, the profile's `interrupt.pty_repeat` overrides this value. |
+
+Invalid `mode` values return **HTTP 400**. Profiles can declare `interrupt.default_mode`, `interrupt.pty_repeat`, and `interrupt.graceful_supported`; older controllers without profile interrupt config fall back to `signal`.
 
 ## Completion Callback (`--silent` Flow)
 
