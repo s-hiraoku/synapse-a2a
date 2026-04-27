@@ -148,7 +148,9 @@ class HistoryManager:
                             input TEXT NOT NULL,
                             output TEXT NOT NULL,
                             status TEXT NOT NULL,
-                            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            timestamp DATETIME DEFAULT (
+                                strftime('%Y-%m-%d %H:%M:%f', 'now')
+                            ),
                             metadata TEXT
                         )
                         """
@@ -314,7 +316,9 @@ class HistoryManager:
                         set_clauses.append("metadata = ?")
                         params.append(metadata_json)
 
-                    set_clauses.append("timestamp = CURRENT_TIMESTAMP")
+                    set_clauses.append(
+                        "timestamp = strftime('%Y-%m-%d %H:%M:%f', 'now')"
+                    )
                     params.append(task_id)
                     cursor.execute(
                         f"UPDATE observations SET {', '.join(set_clauses)}"
