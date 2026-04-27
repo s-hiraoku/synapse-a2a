@@ -132,6 +132,7 @@ class TestListJson:
                 "summary": None,
                 "is_orphan": None,
                 "spawned_by": None,
+                "input_required_tasks": None,
                 "renderer_available": False,
             }
         ]
@@ -258,6 +259,7 @@ class TestListJson:
                 "summary": None,
                 "is_orphan": None,
                 "spawned_by": None,
+                "input_required_tasks": None,
                 "editing_file": "tests/test_cmd_list_json.py",
             }
         ]
