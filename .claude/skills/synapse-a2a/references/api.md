@@ -220,6 +220,8 @@ When `--wait` or `--notify` is used, Synapse expects an explicit reply:
 
 This flow ensures reliable request-response patterns between agents.
 
+While an agent is performing an outbound A2A send/reply POST, the registry status is set to `SENDING_REPLY`. The previous status is restored in `finally` after the POST completes; terminal/protective statuses (`DONE`, `SHUTTING_DOWN`, `RATE_LIMITED`) are not overwritten by this transient transport state.
+
 **Failure semantics:**
 - `synapse reply --fail "<reason>"` records a failed explicit reply locally and returns a structured `failed` task to the sender (`REPLY_FAILED`)
 - If a `--wait` or `--notify` task completes without an explicit `synapse reply`, the receiver-side task is automatically marked as `MISSING_REPLY`

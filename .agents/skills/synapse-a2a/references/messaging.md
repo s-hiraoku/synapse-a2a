@@ -84,6 +84,8 @@ synapse reply "Analysis result: ..."
 
 Synapse automatically tracks senders who expect a reply (marked with `[REPLY EXPECTED]` in the delivered message). `synapse reply` knows who to respond to without additional configuration.
 
+During outbound A2A send/reply POSTs, the sender may briefly appear as `SENDING_REPLY` in `synapse list` or `synapse status`. This is a transient transport state: Synapse restores the previous status after the POST finishes and does not overwrite terminal/protective states such as `DONE`, `SHUTTING_DOWN`, or `RATE_LIMITED`.
+
 ### Broadcasting to All Agents
 
 Send a message to every agent sharing the same working directory:
