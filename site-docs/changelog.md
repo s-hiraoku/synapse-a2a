@@ -4,6 +4,11 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### Unreleased
+
+- **Added**: `synapse watchdog check` (#646) — Stage 1 MVP one-shot CLI that scans every live agent and surfaces stuck-state suspicions via a heuristic table. Supports `--alarm-only` (only rows with an alarm) and `--json` (machine-readable output). Heuristics in priority order: (1) `RATE_LIMITED` for over 30 minutes, (2) `SENDING_REPLY` for over 60 seconds, (3) `PROCESSING` for over 30 minutes with no outbound A2A in the last 10 minutes, (4) spawn never reaching `READY` between 60 seconds and 5 minutes after registration. Stage 2-4 (background daemon, `synapse list --watch` integration, automatic recovery) ship in future PRs.
+- **Added**: `last_status_change_at` field on registry entries, written only on real status transitions so no-op rewrites preserve the timestamp. Pre-existing entries with the field absent are skipped by duration-based heuristics rather than counted from epoch.
+
 ### v0.30.0
 
 - **Added**: True PTY-level interrupt API (#647) — `POST /tasks/{id}/cancel` now accepts `mode=auto|pty|signal` and `repeat`, allowing stuck agents to receive Ctrl+C bytes through the PTY while preserving the legacy SIGINT path for `mode=signal`.

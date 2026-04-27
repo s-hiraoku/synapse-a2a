@@ -497,6 +497,7 @@ synapse external add <new_url> --alias <alias>
 - Idle detection timeout may be too short -- increase in profile YAML
 - Send an interrupt: `synapse interrupt <agent> "Status?"`
 - Force kill and restart: `synapse kill <agent> -f`
+- Quickly triage with the watchdog: `synapse watchdog check --alarm-only` flags `PROCESSING` over 30 min with no outbound A2A in the last 10 min as `Stuck-on-reply suspected`, plus `RATE_LIMITED > 30m`, `Send stuck > 60s`, and `Spawn never ready` (#646). See [Agent Management — Stuck-Agent Watchdog](guide/agent-management.md#stuck-agent-watchdog-watchdog-check).
 
 ??? note "Understanding Idle Detection Strategies"
     Synapse supports three idle detection strategies, configured per agent type in YAML profiles:

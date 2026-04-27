@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `synapse watchdog check` command for one-shot stuck-agent detection (#646).
+
 ### Fixed
 
 - `clear_reply_target()` now swallows cleanup `PermissionError`/`OSError` failures so sandbox unlink errors no longer mask successful reply sends (#653).

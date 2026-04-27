@@ -996,6 +996,40 @@ Persists `/debug/waiting` snapshots exposed by every running agent to `~/.synaps
 !!! note "Legacy agents"
     Agents still running a pre-0.28.0 `synapse` binary do not expose `GET /debug/waiting`. The collector logs one `HTTP Error 404: Not Found` warning per legacy agent and continues; respawn those agents to include them in the dataset.
 
+## Watchdog (Stuck-Agent Detection)
+
+```bash
+synapse watchdog check                 # Heuristic table for every live agent
+synapse watchdog check --alarm-only    # Only rows with an alarm
+synapse watchdog check --json          # Machine-readable JSON
+```
+
+Stage 1 MVP one-shot scan that flags potentially stuck agents using duration- and outbound-history-based heuristics. The table renders one row per live agent with `ID`, `STATUS`, `UPTIME`, `SAME_STATUS_FOR`, `LAST_OUTBOUND`, and an `ALARM` column (e.g., `⚠ Stuck-on-reply suspected`) or `-` when no heuristic fires. JSON output mirrors the `WatchdogReport` dataclass (`agent_id`, `status`, `uptime_seconds`, `same_status_seconds`, `last_outbound_seconds_ago`, `alarm`).
+
+| Flag | Description |
+|------|-------------|
+| `--alarm-only` | Restrict output to agents whose heuristics fired. Useful for cron / scripted polling so empty runs print nothing |
+| `--json` | Emit each report as a JSON array element instead of the Rich table. Combine with `--alarm-only` for alarm-only JSON |
+
+### Heuristics (priority order)
+
+| # | Trigger | Alarm |
+|---|---------|-------|
+| 1 | `RATE_LIMITED` for more than 30 min | `Rate-limited > 30m` |
+| 2 | `SENDING_REPLY` for more than 60 s | `Send stuck > 60s` |
+| 3 | `PROCESSING` for more than 30 min **and** no outbound A2A send in the last 10 min | `Stuck-on-reply suspected` |
+| 4 | Spawn never reached `READY` (uptime 60 s–5 min, no `last_status_change_at`) | `Spawn never ready` |
+
+The first matching rule wins. `last_outbound_seconds_ago` reads recent outbound entries from the same `HistoryManager` that backs `synapse history`, filtered to rows where the metadata `sender_id` matches the agent.
+
+!!! note "`last_status_change_at` is required for duration heuristics"
+    Heuristics 1-3 need `last_status_change_at` (#646) to compute `same_status_seconds`. Registry entries from agents started before this field was introduced are skipped by those heuristics rather than counted from epoch. Restart older agents to include them.
+
+!!! info "Stage 2-4 (future)"
+    The background daemon, `synapse list --watch` integration, A2A push notifications, multi-watchdog locking, and automatic recovery (e.g., auto-cancel + interrupt for stuck `SENDING_REPLY`) land in follow-up PRs. The Stage 1 MVP is operator-driven only — run it manually or from cron when you want a snapshot.
+
+See [Agent Management — Stuck-Agent Watchdog](../guide/agent-management.md#stuck-agent-watchdog-watchdog-check) for operator workflow.
+
 ## Low-Level A2A Tool
 
 ```bash

@@ -43,6 +43,7 @@ Inter-agent communication framework via Google A2A Protocol.
 |------|---------|
 | List agents | `synapse list` for humans (auto-refresh, interactive: arrows/1-9 select, Enter jump, k kill, / filter). For AI/scripts use `synapse list --json`, `synapse list --plain`, or MCP `list_agents` |
 | Agent detail | `synapse status <target> [--json]` |
+| Stuck-agent watchdog (Stage 1) | `synapse watchdog check [--alarm-only] [--json]` (one-shot heuristic scan; #646) |
 | Send message | `synapse send <target> "<msg>"` (default: `--notify`; `--from` auto-detected) |
 | Broadcast | `synapse broadcast "<msg>"` |
 | Wait for reply | `synapse send <target> "<msg>" --wait` |
