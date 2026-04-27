@@ -76,5 +76,8 @@ def load_reply_target(agent_id: str) -> SenderInfo | None:
 
 def clear_reply_target(agent_id: str) -> None:
     """Delete persisted reply target sender information for an agent."""
-    reply_file = _get_reply_target_path(agent_id)
-    reply_file.unlink(missing_ok=True)
+    try:
+        reply_file = _get_reply_target_path(agent_id)
+        reply_file.unlink(missing_ok=True)
+    except (OSError, ValueError) as e:
+        logger.warning("Failed to clear reply target for %s: %s", agent_id, e)

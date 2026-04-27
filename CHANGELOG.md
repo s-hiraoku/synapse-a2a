@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `clear_reply_target()` now swallows cleanup `PermissionError`/`OSError` failures so sandbox unlink errors no longer mask successful reply sends (#653).
+
 ## [0.30.0] - 2026-04-27
 
 Minor release adding a true PTY-level cancellation path for stuck agents while preserving the existing SIGINT broadcast behavior for signal-mode callers. The cancel API can now choose `mode=pty`, `mode=signal`, or profile-driven `mode=auto`, with per-profile defaults for Claude, Codex, Gemini, Copilot, and OpenCode. This release also surfaces the `RATE_LIMITED` agent status (#561), the READY-send delay, the `/dev-issue` skill, the workflow target-resolution fix, and synchronized API/site documentation.
