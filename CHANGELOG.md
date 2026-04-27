@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-04-27
+
+Minor release adding a true PTY-level cancellation path for stuck agents while preserving the existing SIGINT broadcast behavior for signal-mode callers. The cancel API can now choose `mode=pty`, `mode=signal`, or profile-driven `mode=auto`, with per-profile defaults for Claude, Codex, Gemini, Copilot, and OpenCode. This release also includes the READY-send delay, `/dev-issue` skill, workflow target-resolution fix, and synchronized API/site documentation.
+
 ### Added
 
 - True PTY-level interrupt API (`mode=pty|signal|auto`) for stuck agents (#647).
@@ -3594,7 +3598,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.3...v0.29.0
 [0.28.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.1...v0.28.2
