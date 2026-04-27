@@ -50,6 +50,7 @@ def test_clear(tmp_path, monkeypatch) -> None:
 def test_clear_swallows_permission_error(tmp_path, monkeypatch, caplog) -> None:
     """clear_reply_target should log and suppress PermissionError."""
     monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
+    monkeypatch.setattr(logging.getLogger("synapse"), "propagate", True)
     caplog.set_level(logging.WARNING, logger="synapse.reply_target")
 
     def raise_permission_error(self: Path, missing_ok: bool = False) -> None:
@@ -65,6 +66,7 @@ def test_clear_swallows_permission_error(tmp_path, monkeypatch, caplog) -> None:
 def test_clear_swallows_oserror(tmp_path, monkeypatch, caplog) -> None:
     """clear_reply_target should log and suppress generic OSError."""
     monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
+    monkeypatch.setattr(logging.getLogger("synapse"), "propagate", True)
     caplog.set_level(logging.WARNING, logger="synapse.reply_target")
 
     def raise_oserror(self: Path, missing_ok: bool = False) -> None:
@@ -80,6 +82,7 @@ def test_clear_swallows_oserror(tmp_path, monkeypatch, caplog) -> None:
 def test_clear_swallows_invalid_agent_id(tmp_path, monkeypatch, caplog) -> None:
     """clear_reply_target should log and suppress invalid agent IDs."""
     monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
+    monkeypatch.setattr(logging.getLogger("synapse"), "propagate", True)
     caplog.set_level(logging.WARNING, logger="synapse.reply_target")
 
     clear_reply_target("../etc/passwd")
