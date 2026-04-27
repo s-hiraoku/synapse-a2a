@@ -1,5 +1,6 @@
 """Tests for file-based reply target persistence."""
 
+import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -44,6 +45,46 @@ def test_clear(tmp_path, monkeypatch) -> None:
     clear_reply_target(agent_id)
 
     assert not reply_file.exists()
+
+
+def test_clear_swallows_permission_error(tmp_path, monkeypatch, caplog) -> None:
+    """clear_reply_target should log and suppress PermissionError."""
+    monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
+    caplog.set_level(logging.WARNING, logger="synapse.reply_target")
+
+    def raise_permission_error(self: Path, missing_ok: bool = False) -> None:
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(Path, "unlink", raise_permission_error)
+
+    clear_reply_target("synapse-codex-8122")
+
+    assert "Failed to clear reply target" in caplog.text
+
+
+def test_clear_swallows_oserror(tmp_path, monkeypatch, caplog) -> None:
+    """clear_reply_target should log and suppress generic OSError."""
+    monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
+    caplog.set_level(logging.WARNING, logger="synapse.reply_target")
+
+    def raise_oserror(self: Path, missing_ok: bool = False) -> None:
+        raise OSError(30, "Read-only file system")
+
+    monkeypatch.setattr(Path, "unlink", raise_oserror)
+
+    clear_reply_target("synapse-codex-8122")
+
+    assert "Failed to clear reply target" in caplog.text
+
+
+def test_clear_swallows_invalid_agent_id(tmp_path, monkeypatch, caplog) -> None:
+    """clear_reply_target should log and suppress invalid agent IDs."""
+    monkeypatch.setenv("SYNAPSE_REPLY_TARGET_DIR", str(tmp_path))
+    caplog.set_level(logging.WARNING, logger="synapse.reply_target")
+
+    clear_reply_target("../etc/passwd")
+
+    assert "Failed to clear reply target" in caplog.text
 
 
 def test_load_missing(tmp_path, monkeypatch) -> None:
