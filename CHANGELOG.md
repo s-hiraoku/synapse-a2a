@@ -17,7 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `recent_messages` timestamps now use millisecond precision so rapid history writes within the same second can still be ordered distinctly (#661).
+- Parent-side `synapse send` observations no longer write placeholder text into `output_text`, keeping recent message output reserved for agent responses (#660).
 - `clear_reply_target()` now swallows cleanup `PermissionError`/`OSError` failures so sandbox unlink errors no longer mask successful reply sends (#653).
+- `synapse status <agent> --json` recent messages now include parent-side A2A sends to the agent (#659).
 
 ## [0.30.0] - 2026-04-27
 

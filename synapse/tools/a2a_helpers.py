@@ -220,6 +220,7 @@ def _record_sent_message(
             "direction": "sent",
             "target_agent_id": target_agent.get("agent_id"),
             "target_agent_type": target_agent.get("agent_type"),
+            "output_kind": "send_placeholder",
             "priority": priority,
         }
         if sender_info:
@@ -230,7 +231,7 @@ def _record_sent_message(
             agent_name=sender_name,
             session_id="a2a-send",
             input_text=f"@{target_agent.get('agent_type')} {message}",
-            output_text=f"Task sent to {target_agent.get('agent_id')}",
+            output_text="",
             status="sent",
             metadata=metadata,
         )
