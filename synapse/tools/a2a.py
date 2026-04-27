@@ -99,8 +99,23 @@ def _set_sending_reply_status(
 def _restore_sending_reply_status(
     registry: AgentRegistry, sender_agent_id: str | None, original_status: str | None
 ) -> None:
-    if sender_agent_id and original_status:
-        registry.update_status(sender_agent_id, original_status)
+    """Restore the sender's status after an outbound A2A POST.
+
+    Only restores when the live status is still ``SENDING_REPLY``. If the
+    controller has moved the agent to a protected status (e.g. ``DONE``,
+    ``RATE_LIMITED``, ``SHUTTING_DOWN``) during the send, leave it alone so
+    the protected state wins — the contract is that ``_set_sending_reply_status``
+    refuses to start a SENDING_REPLY transition over those statuses, and the
+    finally block must not silently undo a controller intervention either.
+    """
+    if not sender_agent_id or not original_status:
+        return
+    agent_info = registry.get_agent(sender_agent_id)
+    if not agent_info:
+        return
+    if agent_info.get("status") != SENDING_REPLY:
+        return
+    registry.update_status(sender_agent_id, original_status)
 
 
 def cmd_list(args: argparse.Namespace) -> None:

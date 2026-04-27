@@ -67,11 +67,21 @@ def _sender(status: str = PROCESSING) -> dict[str, object]:
 
 def _mock_registry(current_status: str) -> MagicMock:
     registry = MagicMock()
+    state = {"status": current_status}
+
+    def _get_agent(_agent_id: str) -> dict[str, object]:
+        return _sender(state["status"])
+
+    def _update_status(_agent_id: str, status: str) -> bool:
+        state["status"] = status
+        return True
+
     registry.list_agents.return_value = {
         "synapse-claude-8104": _agent(),
         "synapse-codex-8121": _sender(current_status),
     }
-    registry.get_agent.return_value = _sender(current_status)
+    registry.get_agent.side_effect = _get_agent
+    registry.update_status.side_effect = _update_status
     return registry
 
 
@@ -184,6 +194,38 @@ def test_sending_reply_does_not_overwrite_terminal_status(current_status: str) -
 
     assert ("synapse-codex-8121", "SENDING_REPLY") not in [
         call.args for call in registry.update_status.call_args_list
+    ]
+
+
+@pytest.mark.parametrize("intervening_status", [DONE, RATE_LIMITED, SHUTTING_DOWN])
+def test_restore_skips_when_controller_moves_to_protected_status(
+    intervening_status: str,
+) -> None:
+    """If the controller moves the agent to a protected status mid-send,
+    the finally block must NOT clobber it back to the original status."""
+    from synapse.tools.a2a import (
+        _restore_sending_reply_status,
+        _set_sending_reply_status,
+    )
+
+    registry = _mock_registry(PROCESSING)
+
+    original_status = _set_sending_reply_status(registry, "synapse-codex-8121")
+    assert original_status == PROCESSING
+
+    # Controller intervenes: agent enters a protected status while POST is in flight.
+    registry.update_status("synapse-codex-8121", intervening_status)
+
+    # Finally block runs.
+    _restore_sending_reply_status(registry, "synapse-codex-8121", original_status)
+
+    # The protected status must survive — no PROCESSING write should follow it.
+    final_status = registry.get_agent("synapse-codex-8121")["status"]
+    assert final_status == intervening_status
+
+    update_calls = [call.args for call in registry.update_status.call_args_list]
+    assert ("synapse-codex-8121", PROCESSING) not in update_calls[
+        update_calls.index(("synapse-codex-8121", intervening_status)) :
     ]
 
 
