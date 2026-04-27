@@ -30,6 +30,16 @@ from synapse.registry import (
 )
 from synapse.reply_stack import SenderInfo
 from synapse.reply_target import clear_reply_target, load_reply_target
+from synapse.status import (
+    DONE,
+    PROCESSING,
+    RATE_LIMITED,
+    READY,
+    SENDING_REPLY,
+    SHUTTING_DOWN,
+    WAITING,
+    WAITING_FOR_INPUT,
+)
 from synapse.tools.a2a_helpers import (  # noqa: F401 -- re-export
     _add_message_source_flags,
     _add_response_mode_flags,
@@ -61,6 +71,36 @@ from synapse.tools.a2a_helpers import (  # noqa: F401 -- re-export
     get_parent_pid,
     is_descendant_of,
 )
+
+_SENDING_REPLY_SOURCE_STATUSES = frozenset(
+    {READY, PROCESSING, WAITING, WAITING_FOR_INPUT}
+)
+_SENDING_REPLY_PROTECTED_STATUSES = frozenset({DONE, SHUTTING_DOWN, RATE_LIMITED})
+
+
+def _set_sending_reply_status(
+    registry: AgentRegistry, sender_agent_id: str | None
+) -> str | None:
+    """Set the sender registry status while an outbound A2A POST is active."""
+    if not sender_agent_id:
+        return None
+    agent_info = registry.get_agent(sender_agent_id)
+    if not agent_info:
+        return None
+    original_status = agent_info.get("status")
+    if original_status in _SENDING_REPLY_PROTECTED_STATUSES:
+        return None
+    if original_status not in _SENDING_REPLY_SOURCE_STATUSES:
+        return None
+    registry.update_status(sender_agent_id, SENDING_REPLY)
+    return str(original_status)
+
+
+def _restore_sending_reply_status(
+    registry: AgentRegistry, sender_agent_id: str | None, original_status: str | None
+) -> None:
+    if sender_agent_id and original_status:
+        registry.update_status(sender_agent_id, original_status)
 
 
 def cmd_list(args: argparse.Namespace) -> None:
@@ -321,20 +361,25 @@ def cmd_send(args: argparse.Namespace) -> None:
 
     # Add metadata (sender info and response_mode)
     client = A2AClient()
-    task = client.send_to_local(
-        endpoint=str(target_agent["endpoint"]),
-        message=message,
-        file_parts=file_parts,
-        priority=args.priority,
-        wait_for_completion=(response_mode == "wait"),
-        timeout=60,
-        sender_info=sender_info or None,
-        response_mode=response_mode,
-        uds_path=uds_path,
-        registry=reg,
-        sender_agent_id=sender_info.get("sender_id") if sender_info else None,
-        target_agent_id=agent_id,
-    )
+    outbound_sender_id = sender_info.get("sender_id") if sender_info else sender_id
+    original_status = _set_sending_reply_status(reg, outbound_sender_id)
+    try:
+        task = client.send_to_local(
+            endpoint=str(target_agent["endpoint"]),
+            message=message,
+            file_parts=file_parts,
+            priority=args.priority,
+            wait_for_completion=(response_mode == "wait"),
+            timeout=60,
+            sender_info=sender_info or None,
+            response_mode=response_mode,
+            uds_path=uds_path,
+            registry=reg,
+            sender_agent_id=sender_info.get("sender_id") if sender_info else None,
+            target_agent_id=agent_id,
+        )
+    finally:
+        _restore_sending_reply_status(reg, outbound_sender_id, original_status)
 
     if not task:
         print("Error sending message: local send failed", file=sys.stderr)
@@ -767,16 +812,21 @@ def cmd_reply(args: argparse.Namespace) -> None:
     # Send reply using A2AClient (prefer UDS if available)
     # sender_info is guaranteed to be dict here (str case exits above)
     client = A2AClient()
-    result = client.send_to_local(
-        endpoint=target_endpoint or "http://localhost",
-        message=message,
-        priority=3,  # Normal priority for replies
-        sender_info=sender_info,
-        response_mode="silent",  # Reply doesn't expect a reply back
-        in_reply_to=task_id,
-        uds_path=target_uds_path or None,
-        extra_metadata=extra_metadata,
-    )
+    reg = AgentRegistry()
+    original_status = _set_sending_reply_status(reg, my_agent_id)
+    try:
+        result = client.send_to_local(
+            endpoint=target_endpoint or "http://localhost",
+            message=message,
+            priority=3,  # Normal priority for replies
+            sender_info=sender_info,
+            response_mode="silent",  # Reply doesn't expect a reply back
+            in_reply_to=task_id,
+            uds_path=target_uds_path or None,
+            extra_metadata=extra_metadata,
+        )
+    finally:
+        _restore_sending_reply_status(reg, my_agent_id, original_status)
 
     if not result:
         print("Error: Failed to send reply", file=sys.stderr)
