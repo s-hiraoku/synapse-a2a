@@ -63,7 +63,7 @@ synapse list --json
 
 **Plain Output:** `synapse list --plain` forces single-shot text output without entering the Rich TUI, even when stdout is a TTY. `SYNAPSE_NONINTERACTIVE=1` provides the same behavior for automation wrappers.
 
-**JSON Output:** `synapse list --json` outputs a JSON array of agent objects (fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, optionally `editing_file`, and `renderer_available` when the controller reports it).
+**JSON Output:** `synapse list --json` outputs a JSON array of agent objects (fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, optionally `editing_file`, `renderer_available` when the controller reports it, and `input_required_tasks` (#651) — a list of `{task_id, approve_url}` entries for tasks awaiting parent approval; defaults to `null`/`[]` when no tasks are pending).
 
 **Renderer state annotation:** when an agent's `PtyRenderer` failed to initialise (for example pyte import failure), the plain-text STATUS column is annotated as `WAITING (renderer: off)` / `READY (renderer: off)` etc. The JSON `status` value itself is unchanged; `renderer_available: false` in the JSON row is the structured equivalent. A missing renderer degrades WAITING detection for ratatui/alt-screen TUIs like Codex — prefer restarting the agent if this persists.
 
@@ -290,7 +290,7 @@ synapse status my-claude --debug-waiting --json
 - **Recent Messages**: Last 5 history messages involving the selected agent (task ID, direction, sender, preview)
 - **File Locks**: Files currently locked by this agent (if File Safety is enabled)
 
-**JSON output** includes all the same data in structured format, with `uptime_seconds` and `current_task.elapsed_seconds` as numeric values for programmatic use. Adds `renderer_available: bool` when the controller reports it.
+**JSON output** includes all the same data in structured format, with `uptime_seconds` and `current_task.elapsed_seconds` as numeric values for programmatic use. Adds `renderer_available: bool` when the controller reports it. The `input_required_tasks` field (#651) lists `{task_id, approve_url}` entries for any tasks awaiting parent approval, so a parent operator can drive approve/deny without an extra HTTP query.
 
 **`--debug-waiting`:** prints the last ~50 WAITING-detection attempts recorded in the agent's in-memory ring buffer, plus aggregate counts:
 

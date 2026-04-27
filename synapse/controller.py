@@ -45,6 +45,7 @@ from synapse.pty_renderer import PtyRenderer
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.skills import load_skill_sets
+from synapse.status import PROCESSING
 from synapse.terminal_writer import TerminalWriter
 from synapse.utils import (
     RoleFileNotFoundError,
@@ -1203,6 +1204,16 @@ class TerminalController(StatusObserverMixin):
             previous_context,
         )
 
+    def _mark_interrupt_dispatched(self) -> None:
+        """Move agent to PROCESSING after an interrupt; the resulting output is in flight."""
+        with self.lock:
+            old_status = self.status
+            self.status = PROCESSING
+            if self.agent_id:
+                self.registry.update_status(self.agent_id, self.status)
+        if old_status != self.status:
+            self._dispatch_status_callbacks(old_status, self.status)
+
     def interrupt(self) -> None:
         """Send SIGINT to interrupt the controlled process."""
         if not self.running or not self.process:
@@ -1216,13 +1227,7 @@ class TerminalController(StatusObserverMixin):
         else:
             with contextlib.suppress(ProcessLookupError, OSError):
                 os.killpg(os.getpgid(self.process.pid), signal.SIGINT)
-        with self.lock:
-            old_status = self.status
-            self.status = "PROCESSING"  # Interruption might cause output/processing
-            if self.agent_id:
-                self.registry.update_status(self.agent_id, self.status)
-        if old_status != self.status:
-            self._dispatch_status_callbacks(old_status, self.status)
+        self._mark_interrupt_dispatched()
 
     def interrupt_via_pty(self, repeat: int = 1, interval: float = 0.1) -> bool:
         """Inject Ctrl+C as PTY input bytes."""
@@ -1238,13 +1243,7 @@ class TerminalController(StatusObserverMixin):
                 "[%s] interrupt_via_pty write failed: %s", self.agent_id, exc
             )
             return False
-        with self.lock:
-            old_status = self.status
-            self.status = "PROCESSING"
-            if self.agent_id:
-                self.registry.update_status(self.agent_id, self.status)
-        if old_status != self.status:
-            self._dispatch_status_callbacks(old_status, self.status)
+        self._mark_interrupt_dispatched()
         return True
 
     def get_context(self) -> str:

@@ -57,8 +57,11 @@ Safety reduce edit conflicts when several Agents work at once.
 
 `Status`
 : The state of an agent or task. Agent monitor states include `READY`,
-  `WAITING`, `PROCESSING`, and `DONE`; A2A task states include `submitted`,
-  `working`, `input_required`, `completed`, `failed`, and `canceled`.
+  `WAITING`, `WAITING_FOR_INPUT` (non-permission A2A `input_required`),
+  `PROCESSING`, `SENDING_REPLY` (transient outbound A2A POST), `RATE_LIMITED`
+  (LLM provider rate limit hit), `DONE`, and `SHUTTING_DOWN`; A2A task states
+  include `submitted`, `working`, `input_required`, `completed`, `failed`, and
+  `canceled`. See `synapse watchdog check` for stuck-state detection.
 
 `Response Mode`
 : The sender's delivery expectation: `wait`, `notify`, or `silent`, surfaced

@@ -82,7 +82,7 @@ Interactive TUI with real-time updates. See [Agent Management](../guide/agent-ma
 | `--json` | Output agent list as a JSON array for AI/programmatic consumption (no TUI) |
 | `--plain` | Force one-shot plain-text output without entering the Rich TUI |
 
-The `--json` output includes `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `summary`, `is_orphan`, `spawned_by`, and optionally `editing_file`.
+The `--json` output includes `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `last_status_change_at` (#646), `input_required_tasks` (#651), `summary`, `is_orphan`, `spawned_by`, and optionally `editing_file`.
 
 For AI-controlled terminals, do not use bare `synapse list`. Use `synapse list --json`, `synapse list --plain`, `synapse status <target> --json`, or the MCP `list_agents` tool.
 

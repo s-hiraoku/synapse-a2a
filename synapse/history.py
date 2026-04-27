@@ -357,21 +357,28 @@ class HistoryManager:
             try:
                 with _db_connection(self.db_path, row_factory=True) as conn:
                     cursor = conn.cursor()
+                    # When agent_id is set, post-filter discards rows so we cannot
+                    # use the user-facing limit at the SQL layer; bound it to a
+                    # generous prefetch instead.
+                    sql_limit = limit if not agent_id else limit * 20
                     if agent_name:
                         cursor.execute(
                             """
                             SELECT * FROM observations
                             WHERE agent_name = ?
                             ORDER BY timestamp DESC
+                            LIMIT ?
                             """,
-                            (agent_name,),
+                            (agent_name, sql_limit),
                         )
                     else:
                         cursor.execute(
                             """
                             SELECT * FROM observations
                             ORDER BY timestamp DESC
+                            LIMIT ?
                             """,
+                            (sql_limit,),
                         )
                     observations = [self._row_to_dict(row) for row in cursor.fetchall()]
                     if agent_id:
