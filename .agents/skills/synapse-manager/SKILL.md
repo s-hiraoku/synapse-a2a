@@ -38,6 +38,11 @@ synapse list --json
 ```
 
 Review WORKING_DIR, ROLE, STATUS, TYPE. Only READY agents can accept work immediately.
+Other relevant statuses: `PROCESSING` (busy), `WAITING` (permission prompt — use
+`synapse approve`/`synapse reject`), `WAITING_FOR_INPUT` (#538 — task paused asking
+for input, reply via `synapse reply <task_id>`), `RATE_LIMITED` (#561 — LLM provider
+rate limit hit; wait for the window to reset before re-sending), `DONE`
+(demotes to READY ~10s later), `SHUTTING_DOWN` (do not send).
 
 **Spawn only when no existing agent can handle the task:**
 ```bash
@@ -176,6 +181,8 @@ may accidentally accept future tasks intended for other agents.
 | Situation | Action |
 |-----------|--------|
 | Agent stuck PROCESSING >5min | `synapse interrupt <name> "Status?"` |
+| Agent in `WAITING_FOR_INPUT` | `synapse reply <task_id> "<answer>"` |
+| Agent in `RATE_LIMITED` | Wait for LLM provider window to reset, then re-send |
 | Check all agents at once | `synapse broadcast "Status check" -p 4` |
 | New test fails | Feedback with error + suggested fix (Step 6) |
 | Regression test fails | `scripts/regression_triage.sh` to classify |

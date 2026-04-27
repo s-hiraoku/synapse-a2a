@@ -8,6 +8,7 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 - **Added**: True PTY-level interrupt API (#647) — `POST /tasks/{id}/cancel` now accepts `mode=auto|pty|signal` and `repeat`, allowing stuck agents to receive Ctrl+C bytes through the PTY while preserving the legacy SIGINT path for `mode=signal`.
 - **Added**: Profile-driven interrupt defaults — Claude, Codex, Gemini, Copilot, and OpenCode profiles now declare their default cancellation mode, PTY repeat count, and graceful-interrupt support.
+- **Added**: `RATE_LIMITED` agent status (#561) — surfaces an LLM provider rate-limit signal as a distinct registry/list/status state, rendered bold magenta in `synapse list` so a quota-blocked agent is no longer indistinguishable from one actively `PROCESSING`.
 - **Added**: `/dev-issue <number>` slash command skill — bootstraps issue implementation by fetching issue context, generating a task brief, creating a branch, and optionally spawning a Codex worker.
 - **Fixed**: Workflow target type resolution now respects the caller working directory (#568), so bare `target: claude` / `target: codex` workflows do not dispatch to unrelated agents in other projects.
 - **Changed**: Sends to READY agents are delayed briefly (#467) to avoid interrupting user input at a visible prompt.

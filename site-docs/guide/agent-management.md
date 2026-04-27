@@ -333,10 +333,11 @@ When using `synapse send`, `synapse kill`, `synapse jump`, `synapse rename`, or 
 | **PROCESSING** | :material-circle:{ .status-processing } | Actively working |
 | **WAITING** | :material-circle:{ .status-waiting } | Showing selection UI (e.g. permission prompt) |
 | **WAITING_FOR_INPUT** | :material-circle:{ .status-waiting } | A2A `input_required` task awaiting non-permission response (#538/#640) |
+| **RATE_LIMITED** | :material-circle:{ .status-waiting } | LLM provider rate limit detected — bold magenta in `synapse list` (#561) |
 | **DONE** | :material-circle:{ .status-done } | Task completed (auto-clears 10s) |
 | **SHUTTING_DOWN** | :material-circle:{ .status-shutdown } | Shutdown in progress |
 
-`WAITING` is reserved for permission-style prompts where the PTY is showing a choice UI; `WAITING_FOR_INPUT` is set when an A2A task transitions to `input_required` for a non-permission reason (e.g. a child agent is asking the parent a follow-up question). Both states are registry-level and exposed via `synapse list` / `synapse status` (text and `--json`). The status sync layer demotes stale `PROCESSING` / `WAITING_FOR_INPUT` entries back to `READY` once the task store is non-empty and every task is terminal, so a finished agent is never shown as still working (#569).
+`WAITING` is reserved for permission-style prompts where the PTY is showing a choice UI; `WAITING_FOR_INPUT` is set when an A2A task transitions to `input_required` for a non-permission reason (e.g. a child agent is asking the parent a follow-up question). `RATE_LIMITED` is set when the underlying LLM provider returns a rate-limit signal in the agent's PTY output, so an agent that is simply waiting on quota is no longer indistinguishable from an actively working `PROCESSING` agent. All three states are registry-level and exposed via `synapse list` / `synapse status` (text and `--json`). The status sync layer demotes stale `PROCESSING` / `WAITING_FOR_INPUT` entries back to `READY` once the task store is non-empty and every task is terminal, so a finished agent is never shown as still working (#569).
 
 Dead processes are automatically cleaned from the registry and hidden from `synapse list`.
 

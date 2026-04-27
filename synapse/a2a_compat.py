@@ -56,7 +56,13 @@ from synapse.registry import AgentRegistry
 from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
 from synapse.reply_target import save_reply_target
-from synapse.status import WAITING, WAITING_FOR_INPUT
+from synapse.status import (
+    PROCESSING,
+    RATE_LIMITED,
+    READY,
+    WAITING,
+    WAITING_FOR_INPUT,
+)
 from synapse.terminal_jump import create_panes, detect_terminal_app
 from synapse.utils import (
     extract_file_parts,
@@ -1043,6 +1049,17 @@ def create_a2a_router(
         ]
         return notification_task
 
+    def _sync_registry_rate_limited_status(error_code: str | None) -> None:
+        if error_code != RATE_LIMITED or registry is None or agent_id is None:
+            return
+        agent_info = registry.get_agent(agent_id)
+        if agent_info and agent_info.get("status") in (
+            PROCESSING,
+            READY,
+            WAITING_FOR_INPUT,
+        ):
+            registry.update_status(agent_id, RATE_LIMITED)
+
     def _finalize_working_task(
         task_id: str, full_context: str, recent_context: str
     ) -> Task | None:
@@ -1077,6 +1094,7 @@ def create_a2a_router(
                     "error": {"code": error.code, "message": error.message},
                 },
             )
+            _sync_registry_rate_limited_status(error.code)
         else:
             task_store.update_status(task_id, "completed")
             _dispatch_task_event("task.completed", {"task_id": task_id})
