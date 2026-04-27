@@ -663,6 +663,7 @@ class ListCommand:
         "summary",
         "is_orphan",
         "spawned_by",
+        "input_required_tasks",
     )
 
     def _format_status(self, agent: dict[str, Any]) -> str:

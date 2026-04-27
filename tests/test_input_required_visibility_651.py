@@ -130,6 +130,68 @@ class TestListCommandSurfacesInputRequired:
         assert len(agents_list) == 1
         assert agents_list[0].get("input_required_tasks", []) == []
 
+    def test_run_json_exposes_input_required_tasks(
+        self, tmp_registry: AgentRegistry
+    ) -> None:
+        """synapse list --json must include input_required_tasks for programmatic consumers."""
+        import argparse
+        import json
+
+        from synapse.commands.list import ListCommand
+
+        tmp_registry.update_input_required_tasks(
+            "synapse-codex-8121",
+            [
+                {
+                    "task_id": "abc12345",
+                    "approve_url": "http://localhost:8121/.../approve",
+                }
+            ],
+        )
+
+        captured: list[str] = []
+        list_cmd = ListCommand(
+            registry_factory=lambda: tmp_registry,
+            is_process_alive=lambda pid: True,
+            is_port_open=lambda *args, **kwargs: True,
+            clear_screen=lambda: None,
+            time_module=MagicMock(),
+            print_func=captured.append,
+        )
+
+        list_cmd.run_json(argparse.Namespace())
+
+        assert len(captured) == 1
+        payload = json.loads(captured[0])
+        assert len(payload) == 1
+        assert payload[0].get("input_required_tasks") == [
+            {"task_id": "abc12345", "approve_url": "http://localhost:8121/.../approve"}
+        ]
+
+    def test_run_json_empty_input_required_tasks_when_unset(
+        self, tmp_registry: AgentRegistry
+    ) -> None:
+        """synapse list --json should emit empty list when no input_required tasks."""
+        import argparse
+        import json
+
+        from synapse.commands.list import ListCommand
+
+        captured: list[str] = []
+        list_cmd = ListCommand(
+            registry_factory=lambda: tmp_registry,
+            is_process_alive=lambda pid: True,
+            is_port_open=lambda *args, **kwargs: True,
+            clear_screen=lambda: None,
+            time_module=MagicMock(),
+            print_func=captured.append,
+        )
+
+        list_cmd.run_json(argparse.Namespace())
+
+        payload = json.loads(captured[0])
+        assert payload[0].get("input_required_tasks", []) == []
+
 
 class TestSyncInputRequiredTasksHelper:
     """Test the helper that pushes input_required state from task_store to registry."""
