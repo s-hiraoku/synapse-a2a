@@ -397,6 +397,36 @@ _PERMISSION_CONTEXT_MIN_PRINTABLE = 10
 _WAITING_SOURCE_VALUES = frozenset({"regex", "heuristic", "none"})
 
 
+def _sync_registry_input_required_tasks(
+    *,
+    registry: Any,
+    agent_id: str | None,
+    task_store: Any,
+    port: int,
+) -> None:
+    """Mirror task_store input_required tasks into registry for `synapse list`.
+
+    Called whenever a task transitions to/from ``input_required`` so that
+    `synapse list` / `synapse status` can surface the approve URL to a
+    parent operator without having to query the agent's HTTP endpoint.
+    """
+    if registry is None or not agent_id:
+        return
+    summaries: list[dict[str, str]] = []
+    for task in task_store.list_tasks():
+        if task.status != "input_required":
+            continue
+        summaries.append(
+            {
+                "task_id": str(task.id),
+                "approve_url": (
+                    f"http://localhost:{port}/tasks/{task.id}/permission/approve"
+                ),
+            }
+        )
+    registry.update_input_required_tasks(agent_id, summaries)
+
+
 def _load_reply_artifacts(metadata: dict[str, Any]) -> list[Artifact] | None:
     """Deserialize structured reply artifacts from metadata."""
     raw_artifacts = metadata.get(_REPLY_ARTIFACTS_METADATA_KEY)
@@ -1150,6 +1180,15 @@ def create_a2a_router(
         def _sync_registry_input_wait_status(new_status: str) -> None:
             if registry is None or agent_id is None:
                 return
+            # Mirror task_store input_required tasks into the registry so
+            # `synapse list` / `synapse status` can surface the approve URL
+            # to a parent operator without an extra HTTP query (#651).
+            _sync_registry_input_required_tasks(
+                registry=registry,
+                agent_id=agent_id,
+                task_store=task_store,
+                port=port,
+            )
             if _is_permission_waiting_status(new_status):
                 registry.update_status(agent_id, WAITING)
                 return
@@ -1896,6 +1935,12 @@ def create_a2a_router(
             raise HTTPException(status_code=404, detail="Task not found")
 
         task_store.update_status(task_id, "working")
+        _sync_registry_input_required_tasks(
+            registry=registry,
+            agent_id=agent_id,
+            task_store=task_store,
+            port=port,
+        )
 
         if controller:
             approval_msg = (
@@ -1932,6 +1977,12 @@ def create_a2a_router(
 
         reason = request.reason if request else ""
         task_store.update_status(task_id, "input_required")
+        _sync_registry_input_required_tasks(
+            registry=registry,
+            agent_id=agent_id,
+            task_store=task_store,
+            port=port,
+        )
 
         if controller:
             rejection_msg = f"[A2A:PLAN_REJECTED:{task_id[:8]}] Your plan was rejected."
@@ -1983,6 +2034,12 @@ def create_a2a_router(
             ) from e
 
         task_store.update_status(task_id, "working")
+        _sync_registry_input_required_tasks(
+            registry=registry,
+            agent_id=agent_id,
+            task_store=task_store,
+            port=port,
+        )
         return {"status": label, "task_id": task_id}
 
     @router.post("/tasks/{task_id}/permission/approve")

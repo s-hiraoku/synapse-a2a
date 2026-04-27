@@ -407,6 +407,25 @@ class AgentRegistry:
 
         return self._atomic_update(agent_id, set_status, "status")
 
+    def update_input_required_tasks(
+        self, agent_id: str, tasks: list[dict[str, str]]
+    ) -> bool:
+        """Mirror the agent's input_required tasks for `synapse list` visibility.
+
+        Args:
+            agent_id: The unique agent identifier.
+            tasks: List of dicts with ``task_id`` and ``approve_url`` keys
+                (empty list clears the field).
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+
+        def set_tasks(data: dict) -> None:
+            data["input_required_tasks"] = tasks
+
+        return self._atomic_update(agent_id, set_tasks, "input_required_tasks")
+
     def update_tty_device(self, agent_id: str, tty_device: str) -> bool:
         """Update the TTY device for an agent (for terminal jump feature).
 
