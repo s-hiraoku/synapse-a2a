@@ -338,6 +338,66 @@ synapse waiting-debug report --out /tmp/report.json    # write JSON to file (std
 
 **Schedule it** — there is no `synapse schedule` CLI for this. Use cron or launchd at a 5-minute cadence. See `docs/phase15-collection.md` for the canonical cron line and launchd plist.
 
+### Watchdog Stuck-Agent Check (`synapse watchdog check`)
+
+Stage 1 MVP (#646) one-shot CLI that scans every live agent and surfaces stuck-state suspicions via a heuristic table. Programmatic use cases (scripts, CI, monitors) should pass `--json`. Stage 2 (background daemon + A2A push notifications), Stage 3 (`synapse list --watch` integration), and Stage 4 (auto-recovery) are tracked for future PRs.
+
+```bash
+# Default: table of all live agents
+synapse watchdog check
+
+# Filter: only agents with an active alarm
+synapse watchdog check --alarm-only
+
+# JSON array (one object per agent) — for scripts / monitors
+synapse watchdog check --json
+synapse watchdog check --alarm-only --json
+```
+
+**Output columns** (table mode):
+
+- **ID**: Agent ID
+- **STATUS**: Current registry status (e.g., `READY`, `PROCESSING`, `RATE_LIMITED`, `SENDING_REPLY`)
+- **UPTIME**: Time since `registered_at`
+- **SAME_STATUS_FOR**: Time since the last `status` transition (`last_status_change_at`); `-` for legacy entries that predate the field
+- **LAST_OUTBOUND**: Time since the most recent outbound A2A observation for this agent, or `(none)`
+- **ALARM**: `⚠ <reason>` when a heuristic fires, otherwise `-`
+
+**Heuristics (priority order — first match wins):**
+
+| # | Condition | Alarm |
+|---|-----------|-------|
+| 1 | `RATE_LIMITED` for more than 30 min | `Rate-limited > 30m` |
+| 2 | `SENDING_REPLY` for more than 60 sec | `Send stuck > 60s` |
+| 3 | `PROCESSING` for more than 30 min AND no outbound A2A in the last 10 min | `Stuck-on-reply suspected` |
+| 4 | Spawn never reached READY (`registered_at` 60s–5m ago, status ≠ `READY`, `last_status_change_at` missing) | `Spawn never ready` |
+
+The 5-minute upper bound on heuristic 4 prevents misclassifying long-lived legacy agents that may not have populated `last_status_change_at`. Heuristics 1–3 require `last_status_change_at`, so they are silently skipped on pre-`last_status_change_at` registry entries; heuristic 4 only needs `registered_at` (which has always existed) and remains effective on legacy entries.
+
+**JSON schema** (`--json`): a top-level array; each element is one agent's `WatchdogReport`:
+
+```json
+[
+  {
+    "agent_id": "synapse-claude-8100",
+    "status": "PROCESSING",
+    "uptime_seconds": 4321.5,
+    "same_status_seconds": 2105.0,
+    "last_outbound_seconds_ago": 870.2,
+    "alarm": "Stuck-on-reply suspected"
+  }
+]
+```
+
+- `uptime_seconds`, `same_status_seconds`, `last_outbound_seconds_ago` are nullable floats (`null` when the underlying field is missing — e.g., `last_outbound_seconds_ago` is `null` when the agent has not produced an outbound observation).
+- `alarm` is `null` when no heuristic fires; otherwise it is the same short string used in the table's `ALARM` column.
+- `--alarm-only` and `--json` compose: passing both yields a JSON array containing only the agents whose `alarm` is non-null.
+
+**Use cases:**
+- Quickly scanning every live agent for a known stuck pattern without inspecting them one-by-one with `synapse status`.
+- Wiring stuck-agent detection into shell scripts, CI safety nets, or external monitors via `--json --alarm-only`.
+- Debugging spawn-never-ready regressions (heuristic 4) on freshly spawned agents.
+
 ### Saved Agent Definitions
 
 Manage reusable agent definitions that persist across sessions. Saved agents are stored as `.agent` files in project (`.synapse/agents/`) or user (`~/.synapse/agents/`) scope.

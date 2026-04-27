@@ -11,6 +11,7 @@ from typing import Any
 from rich.console import Console
 from rich.table import Table
 
+from synapse.commands.renderers.rich_renderer import format_elapsed
 from synapse.history import HistoryManager
 from synapse.paths import get_history_db_path
 from synapse.port_manager import is_process_alive
@@ -21,25 +22,13 @@ from synapse.watchdog import WatchdogReport, evaluate_agent
 def _format_duration(seconds: float | None) -> str:
     if seconds is None:
         return "-"
-    total_seconds = max(0, int(seconds))
-    hours, remainder = divmod(total_seconds, 3600)
-    minutes, secs = divmod(remainder, 60)
-    if hours:
-        return f"{hours}h {minutes:02d}m"
-    return f"{minutes}m {secs:02d}s"
+    return format_elapsed(max(0.0, seconds))
 
 
 def _format_last_outbound(seconds: float | None) -> str:
     if seconds is None:
         return "(none)"
-    total_seconds = max(0, int(seconds))
-    if total_seconds < 60:
-        return f"{total_seconds}s ago"
-    minutes, secs = divmod(total_seconds, 60)
-    if minutes < 60:
-        return f"{minutes}m ago" if secs == 0 else f"{minutes}m {secs}s ago"
-    hours, minutes = divmod(minutes, 60)
-    return f"{hours}h {minutes:02d}m ago"
+    return f"{format_elapsed(max(0.0, seconds))} ago"
 
 
 def _metadata_sender_id(metadata: Any) -> str | None:
@@ -60,7 +49,7 @@ def _outbound_history_for_agent(
     history_manager: HistoryManager,
     agent_id: str,
 ) -> list[dict[str, Any]]:
-    observations = history_manager.list_observations(limit=50, agent_id=agent_id)
+    observations = history_manager.list_observations(limit=10, agent_id=agent_id)
     return [
         observation
         for observation in observations

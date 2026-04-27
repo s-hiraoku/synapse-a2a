@@ -3191,6 +3191,7 @@ Status meanings:
         help="One-shot stuck-agent detection",
         description="Run watchdog checks for stuck or stalled live agents.",
     )
+    p_watchdog.set_defaults(func=lambda _args: p_watchdog.print_help())
     watchdog_subparsers = p_watchdog.add_subparsers(
         dest="watchdog_command", metavar="SUBCOMMAND"
     )

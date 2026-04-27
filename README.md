@@ -820,6 +820,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse file-safety debug` | Show debug info |
 | `synapse waiting-debug collect` | Append `/debug/waiting` snapshots from every running agent to `~/.synapse/waiting_debug.jsonl` (Phase 1.5 collection pipeline). `--out <path>` overrides the destination, `--agent <id>` filters to one agent, `--include-empty` records empty attempts, `--timeout <seconds>` sets the per-agent HTTP timeout (default 5.0, v0.28.2). See [`docs/phase15-collection.md`](docs/phase15-collection.md) |
 | `synapse waiting-debug report` | Summarise a `waiting_debug.jsonl` file: per-profile / `pattern_source` / `path_used` counts, confidence distribution, `idle_gate_drops`, `renderer_unavailable_agents`. Accepts `--since <iso>`, `--agent <id>`, `--json`, `--out <path>` (write JSON to file; stdout stays empty, safe for cron) |
+| `synapse watchdog check` | One-shot stuck-agent detection across all live agents (Stage 1 MVP, [#646](https://github.com/s-hiraoku/synapse-a2a/issues/646)). Prints a table with ID / STATUS / UPTIME / SAME_STATUS_FOR / LAST_OUTBOUND / ALARM. Heuristics: `RATE_LIMITED > 30m`, `SENDING_REPLY > 60s`, `PROCESSING > 30m` with no outbound A2A in the last 10m, and "spawn never ready" (registered > 60s ago, < 5m, status != READY). `--alarm-only` filters to alarm rows; `--json` emits an array of reports for programmatic consumers. Stage 2-4 (background daemon, push notifications, multi-watchdog locking, automatic recovery) are future work |
 | `synapse skills` | Skill Manager (interactive TUI) |
 | `synapse skills list` | List discovered skills |
 | `synapse skills show <name>` | Show skill details |
@@ -1682,6 +1683,25 @@ For Copilot specifically, bracketed paste is enabled because Copilot CLI 1.0.12+
 | **DONE** | Blue | Task completed (auto-transitions to READY after 10s) |
 
 The registry status is reconciled against `task_store` on every controller transition: WAITING (permission) wins over WAITING_FOR_INPUT, and a fully terminal `task_store` demotes a stale PROCESSING / WAITING_FOR_INPUT back to READY ([#569](https://github.com/s-hiraoku/synapse-a2a/pull/569)).
+
+### Stuck-Agent Watchdog
+
+`synapse watchdog check` is a one-shot, read-only command that scans every live agent in the registry and surfaces stuck-state suspicions in a table (Stage 1 MVP, [#646](https://github.com/s-hiraoku/synapse-a2a/issues/646)). It complements the status colours above: where `synapse list` shows the current state, the watchdog flags states that have lasted longer than expected.
+
+```bash
+synapse watchdog check               # table output
+synapse watchdog check --alarm-only  # only rows that tripped a heuristic
+synapse watchdog check --json        # JSON array for programmatic consumers
+```
+
+Heuristics (priority order):
+
+1. `RATE_LIMITED` for more than 30 minutes
+2. `SENDING_REPLY` for more than 60 seconds
+3. `PROCESSING` for more than 30 minutes with no outbound A2A send/reply in the last 10 minutes
+4. Spawn never ready: registered more than 60s ago (and within 5 minutes), status still not READY
+
+Each row reports `ID`, `STATUS`, `UPTIME`, `SAME_STATUS_FOR`, `LAST_OUTBOUND`, and `ALARM`. The `same_status_seconds` field is computed from `last_status_change_at`, which is written only on real registry status transitions; legacy registry entries that pre-date the field skip duration-based heuristics gracefully. Stage 2-4 (background daemon, A2A push notifications, multi-watchdog locking, `synapse list --watch` integration, automatic recovery) are future work.
 
 ### Interactive Controls
 

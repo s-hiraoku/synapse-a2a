@@ -52,6 +52,7 @@ flowchart TB
         auth["auth"]
         canvas["canvas"]
         multiagent["multiagent (map)"]
+        watchdog["watchdog"]
     end
 
     subgraph Memory["memory サブコマンド"]
@@ -2072,6 +2073,44 @@ synapse waiting-debug report
 - `report` は集計のみで副作用はありません。`idle_gate_drops` は「regex にマッチしたが idle gate を通らなかった」件数、`renderer_unavailable_agents` は `snapshot.renderer_available == false` だったエージェントの数です。`--out` を指定すると stdout には何も出力せず、指定ファイルに JSON 集計を書き出します（cron / scripting 向け）。`--out` と `--json` を同時に指定した場合は `--out` 優先（stdout は空）です。
 - `collected_at` が ISO-8601 としてパースできないレコードは、サイレント drop せず stderr に `Warning: record at line N has unparseable collected_at: 'value' (reason)` を 1 件出した上でその行をスキップします（v0.28.2）。JSONL が cron 出力と混ざった場合の早期検出に使えます。
 - cron / launchd で定期的に collect を回すための運用手順（ProgramArguments の絶対パス、PATH 継承問題、バージョン bump の必要性、`--timeout` / `--out` の使い分け）は [`docs/phase15-collection.md`](../docs/phase15-collection.md) を参照。
+
+---
+
+### 1.27 synapse watchdog
+
+スタックしたエージェントを heuristic で検知する one-shot コマンド (Stage 1 MVP, [#646](https://github.com/s-hiraoku/synapse-a2a/issues/646))。`synapse list` が「現在の STATUS」を表示するのに対し、`synapse watchdog check` は「その STATUS が想定より長く続いていないか」を判定して可視化します。
+
+```bash
+synapse watchdog check               # 全 live エージェントを table 形式でチェック（デフォルト）
+synapse watchdog check --alarm-only  # alarm が立った行だけ表示
+synapse watchdog check --json        # 各 report を JSON 配列で出力（programmatic consumer 向け）
+```
+
+**ヒューリスティック（優先順位順）**:
+
+| # | 条件 | アラーム文言 |
+|---|------|--------------|
+| 1 | `RATE_LIMITED` が 30 分超 | `Rate-limited > 30m` |
+| 2 | `SENDING_REPLY` が 60 秒超 | `Send stuck > 60s` |
+| 3 | `PROCESSING` が 30 分超で、直近 10 分の outbound A2A 送信が 0 件 | `Stuck-on-reply suspected` |
+| 4 | spawn から 60 秒〜5 分経過しても READY にならない | `Spawn never ready` |
+
+**出力カラム**:
+
+| 列 | 説明 |
+|----|------|
+| ID | エージェントID |
+| STATUS | 現在のステータス（`READY`, `PROCESSING`, `RATE_LIMITED`, `SENDING_REPLY` など） |
+| UPTIME | `registered_at` からの経過時間 |
+| SAME_STATUS_FOR | `last_status_change_at` からの経過時間（同じ STATUS が継続している時間） |
+| LAST_OUTBOUND | 直近の outbound A2A 送信からの経過時間（`(none)` は履歴なし） |
+| ALARM | ヒューリスティックに該当した場合のメッセージ（該当なしは `-`） |
+
+**JSON 出力**: 各 report は `agent_id` / `status` / `uptime_seconds` / `same_status_seconds` / `last_outbound_seconds_ago` / `alarm` を持つオブジェクト配列です。`alarm` は該当ヒューリスティックなしの場合 `null`。
+
+**後方互換**: `last_status_change_at` フィールドは本機能で導入されたもので、レジストリの実ステータス遷移時のみ書き込まれます（no-op rewrite では既存値を保持）。古いレジストリエントリ（フィールドが欠落）に対する duration ベースのヒューリスティックは silent に skip されます（false positive 防止）。
+
+**Stage 2-4（future work）**: バックグラウンドデーモン、A2A push 通知、通知の cooldown、マルチ watchdog のロック、`synapse list --watch` 統合、自動 recovery は本 PR の scope 外で、それぞれ別 PR として段階的に追加予定です。
 
 ---
 
