@@ -18,6 +18,11 @@ submit_confirm_retries: integer    # Optional: extra submit attempts after confi
 long_submit_confirm_timeout: float # Optional: confirmation timeout override for long messages
 long_submit_confirm_retries: integer # Optional: confirmation retries override for long messages
 
+interrupt:                         # Optional: cancellation interrupt behavior
+  default_mode: "pty" | "signal"   # Default mode used when cancel API requests mode=auto
+  pty_repeat: integer              # Number of Ctrl+C bytes to inject for PTY mode
+  graceful_supported: boolean      # Whether graceful PTY interrupt is supported
+
 idle_detection:
   strategy: "pattern" | "timeout" | "hybrid"  # Detection strategy (required)
   pattern: string                  # Regex pattern or special name
@@ -124,6 +129,26 @@ long_submit_confirm_retries: 5     # More retries for long messages
 # Default: not set (uses submit_confirm_timeout / submit_confirm_retries)
 ```
 
+### interrupt
+
+Optional profile defaults for task cancellation. `POST /tasks/{id}/cancel`
+accepts `mode=auto|pty|signal`; `auto` resolves from this block. `pty` injects
+Ctrl+C bytes into the agent PTY, while `signal` preserves the existing SIGINT
+process interrupt behavior.
+
+```yaml
+interrupt:
+  default_mode: pty
+  pty_repeat: 2
+  graceful_supported: false
+```
+
+| Field | Description |
+|-------|-------------|
+| `default_mode` | Default mode for cancel requests using `mode=auto`. Must be `pty` or `signal`; `auto` is a request-parameter value only and is **not** valid here. Invalid or missing values fall back to `signal`. |
+| `pty_repeat` | Number of Ctrl+C bytes to inject when `mode=auto` resolves to `pty`. Explicit `mode=pty&repeat=N` requests use the query value instead. |
+| `graceful_supported` | Documents whether the profile supports graceful PTY cancellation. This is profile metadata for tooling and compatibility. |
+
 ### idle_detection.strategy
 
 | Strategy | Description |
@@ -160,6 +185,10 @@ Seconds of no PTY output before considering the agent idle.
 ```yaml
 command: claude
 submit_sequence: "\r"
+interrupt:
+  default_mode: pty
+  pty_repeat: 1
+  graceful_supported: true
 idle_detection:
   strategy: "hybrid"
   pattern: "BRACKETED_PASTE_MODE"
@@ -172,6 +201,10 @@ idle_detection:
 ```yaml
 command: gemini
 submit_sequence: "\r"
+interrupt:
+  default_mode: signal
+  pty_repeat: 1
+  graceful_supported: false
 idle_detection:
   strategy: "hybrid"
   pattern: "BRACKETED_PASTE_MODE"
@@ -189,6 +222,10 @@ waiting_detection:
 ```yaml
 command: codex
 submit_sequence: "\r"
+interrupt:
+  default_mode: signal
+  pty_repeat: 2
+  graceful_supported: false
 idle_detection:
   strategy: "timeout"
   timeout: 3.0
@@ -204,6 +241,10 @@ waiting_detection:
 ```yaml
 command: opencode
 submit_sequence: "\r"
+interrupt:
+  default_mode: pty
+  pty_repeat: 2
+  graceful_supported: false
 idle_detection:
   strategy: "timeout"
   pattern_use: "never"
@@ -223,6 +264,10 @@ args: []
 submit_sequence: "\r"
 write_delay: 0.5
 bracketed_paste: true
+interrupt:
+  default_mode: pty
+  pty_repeat: 2
+  graceful_supported: false
 submit_confirm_timeout: 1.5
 submit_confirm_poll_interval: 0.05
 submit_confirm_retries: 3

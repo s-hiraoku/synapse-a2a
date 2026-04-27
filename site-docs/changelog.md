@@ -4,12 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
-### Unreleased
+### v0.30.0
 
+- **Added**: True PTY-level interrupt API (#647) — `POST /tasks/{id}/cancel` now accepts `mode=auto|pty|signal` and `repeat`, allowing stuck agents to receive Ctrl+C bytes through the PTY while preserving the legacy SIGINT path for `mode=signal`.
+- **Added**: Profile-driven interrupt defaults — Claude, Codex, Gemini, Copilot, and OpenCode profiles now declare their default cancellation mode, PTY repeat count, and graceful-interrupt support.
 - **Added**: `RATE_LIMITED` agent status (#561) — surfaces an LLM provider rate-limit signal as a distinct registry/list/status state, rendered bold magenta in `synapse list` so a quota-blocked agent is no longer indistinguishable from one actively `PROCESSING`.
-- **Added**: `synapse send` READY-delay (#467, merged via #642) — when the target is already `READY`, sends pause briefly (default **2 s**, env `SYNAPSE_SEND_READY_DELAY`) before injecting the message so a user typing at the prompt is not interrupted; bypassed for `--silent`, priority-5, and `--force` sends.
-- **Added**: `/dev-issue <number>` slash command skill (#643) — bootstraps a new issue implementation in one step: fetches the issue and related closed PRs in parallel, greps the repo for code hotspots, infers a branch prefix from labels and a slug from the title, writes a structured task brief at `/tmp/issue<num>-task.md`, creates a fresh branch from latest `origin/main`, and (by default) spawns a codex agent with `synapse spawn codex --task-file ... --notify`. `--solo` skips the spawn; `--dry-run` produces the brief only.
-- **Fixed**: Workflow target type resolution respects caller `working_dir` (#568) — bare-type targets like `target: claude` / `target: codex` now match only agents in the workflow's CWD, so `synapse workflow run` no longer dispatches to an unrelated `nix-claude` in another project and `auto_spawn` correctly creates a fresh agent in the workflow's CWD when no local match exists. `agent_id` and custom-name targets remain global; `target: self` is unchanged.
+- **Added**: `/dev-issue <number>` slash command skill — bootstraps issue implementation by fetching issue context, generating a task brief, creating a branch, and optionally spawning a Codex worker.
+- **Fixed**: Workflow target type resolution now respects the caller working directory (#568), so bare `target: claude` / `target: codex` workflows do not dispatch to unrelated agents in other projects.
+- **Changed**: Sends to READY agents are delayed briefly (#467) to avoid interrupting user input at a visible prompt.
 
 ### v0.29.0
 

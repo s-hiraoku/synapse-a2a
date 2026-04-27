@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-04-27
+
+Minor release adding a true PTY-level cancellation path for stuck agents while preserving the existing SIGINT broadcast behavior for signal-mode callers. The cancel API can now choose `mode=pty`, `mode=signal`, or profile-driven `mode=auto`, with per-profile defaults for Claude, Codex, Gemini, Copilot, and OpenCode. This release also surfaces the `RATE_LIMITED` agent status (#561), the READY-send delay, the `/dev-issue` skill, the workflow target-resolution fix, and synchronized API/site documentation.
+
 ### Added
 
 - Surface HTTP task `input_required` state in `synapse list` / `synapse status` so a parent operator sees the approve URL without an extra HTTP query (#651).
+- True PTY-level interrupt API (`mode=pty|signal|auto`) for stuck agents (#647).
 - Surface LLM provider rate limits as `RATE_LIMITED` agent status (#561).
 - Delay sends to READY agents (#467).
 - **`/dev-issue <number>` slash command (skill):** bootstraps a new issue implementation in one step — fetches the issue and related closed PRs in parallel, greps the repo for code hotspots from the body, infers a branch prefix from labels and a slug from the title, generates a structured task brief at `/tmp/issue<num>-task.md` (mirroring the handwritten brief format used in recent issue → codex spawn flows like #467), creates a fresh branch from latest `origin/main`, and (by default) spawns a codex agent with `synapse spawn codex --task-file ... --notify`. Supports `--solo` (skip spawn) and `--dry-run` (brief only, no branch / no spawn). Canonical at `.agents/skills/dev-issue/SKILL.md`, mirrored as a symlink at `.claude/skills/dev-issue/` and as a copy at `plugins/synapse-a2a/skills/dev-issue/` for plugin distribution.
@@ -3595,7 +3600,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.3...v0.29.0
 [0.28.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.1...v0.28.2

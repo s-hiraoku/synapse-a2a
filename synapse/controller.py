@@ -137,6 +137,7 @@ class TerminalController(StatusObserverMixin):
         long_submit_confirm_timeout: float | None = None,
         long_submit_confirm_retries: int | None = None,
         auto_approve: dict | None = None,
+        interrupt_config: dict | None = None,
     ):
         # Support multi-token command strings (e.g. "python3 -u dummy_agent.py").
         # shlex.split is byte-identical for single-token input: shlex.split("codex") == ["codex"].
@@ -228,6 +229,7 @@ class TerminalController(StatusObserverMixin):
         )
         self._done_time: float | None = None  # Track when DONE status was set
         self._status_callbacks: list[Callable[[str, str], None]] = []
+        self.interrupt_config = interrupt_config or {}
         self._observation_collector: ObservationCollector | None = None
         self._observation_attached = False
         if skip_initial_instructions and mcp_bootstrap:
@@ -1221,6 +1223,29 @@ class TerminalController(StatusObserverMixin):
                 self.registry.update_status(self.agent_id, self.status)
         if old_status != self.status:
             self._dispatch_status_callbacks(old_status, self.status)
+
+    def interrupt_via_pty(self, repeat: int = 1, interval: float = 0.1) -> bool:
+        """Inject Ctrl+C as PTY input bytes."""
+        if self.master_fd is None:
+            return False
+        try:
+            for index in range(max(1, repeat)):
+                if index > 0:
+                    time.sleep(interval)
+                os.write(self.master_fd, b"\x03")
+        except OSError as exc:
+            logger.warning(
+                "[%s] interrupt_via_pty write failed: %s", self.agent_id, exc
+            )
+            return False
+        with self.lock:
+            old_status = self.status
+            self.status = "PROCESSING"
+            if self.agent_id:
+                self.registry.update_status(self.agent_id, self.status)
+        if old_status != self.status:
+            self._dispatch_status_callbacks(old_status, self.status)
+        return True
 
     def get_context(self) -> str:
         """Get the current output context from the controlled process."""
