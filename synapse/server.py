@@ -150,6 +150,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Auto-approve configuration: runtime WAITING detection auto-response
     auto_approve_config = profile.get("auto_approve", {})
+    interrupt_config = profile.get("interrupt", {})
     # Read permission responses BEFORE clearing config (needed for manual approve/deny API)
     approve_response = _decode_profile_escape(
         auto_approve_config.get("runtime_response", "")
@@ -183,6 +184,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         long_submit_confirm_timeout=long_submit_confirm_timeout,
         long_submit_confirm_retries=long_submit_confirm_retries,
         auto_approve=auto_approve_config if auto_approve_config else None,
+        interrupt_config=interrupt_config if interrupt_config else None,
     )
     controller.start()
 

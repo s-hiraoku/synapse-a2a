@@ -7,6 +7,11 @@ submit_sequence: "\r"
 env:
   TERM: "xterm-256color"
 
+interrupt:
+  default_mode: pty
+  pty_repeat: 1
+  graceful_supported: true
+
 # Multi-strategy idle detection configuration
 # Claude Code: Hybrid pattern + timeout detection
 # - Pattern: BRACKETED_PASTE_MODE (ESC[?2004h) indicates idle at startup
