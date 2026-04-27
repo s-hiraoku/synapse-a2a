@@ -41,10 +41,10 @@ Review WORKING_DIR, ROLE, STATUS, TYPE. Only READY agents can accept work immedi
 Other relevant statuses: `SENDING_REPLY` (brief outbound A2A send/reply POST;
 wait for the previous status to return), `PROCESSING` (busy), `WAITING`
 (permission prompt — use `synapse approve`/`synapse reject`), `WAITING_FOR_INPUT`
-(#538 — task paused asking for input, reply via `synapse reply <task_id>`),
-`RATE_LIMITED` (#561 — LLM provider rate limit hit; wait for the window to reset
-before re-sending), `DONE` (demotes to READY ~10s later), `SHUTTING_DOWN` (do not
-send).
+(#538 — task paused asking for input, reply via `synapse reply "<message>"` or
+`synapse reply "<message>" --to <sender_id>`), `RATE_LIMITED` (#561 — LLM
+provider rate limit hit; wait for the window to reset before re-sending), `DONE`
+(demotes to READY ~10s later), `SHUTTING_DOWN` (do not send).
 
 **Spawn only when no existing agent can handle the task:**
 ```bash

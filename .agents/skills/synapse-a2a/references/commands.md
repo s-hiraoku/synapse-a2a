@@ -21,7 +21,7 @@ synapse list --json
 - Auto-refresh when agent status changes (via file watcher)
 - Color-coded status display:
   - READY = green (idle, waiting for input)
-  - SENDING_REPLY = yellow (temporarily sending an outbound A2A send/reply POST)
+  - SENDING_REPLY = bold cyan (temporarily sending an outbound A2A send/reply POST)
   - WAITING = cyan (awaiting user input - selection, confirmation; auto-expires after `waiting_expiry`, default 10s)
   - PROCESSING = yellow (busy handling a task)
   - DONE = blue (task completed, auto-clears after 10s)
@@ -674,7 +674,7 @@ synapse history search "error" "authentication" --logic AND
 synapse history search "bug" --agent claude --limit 20
 ```
 
-Agent filters match messages where the agent is involved as sender or receiver, so status views and history queries show the target agent's conversation context rather than unrelated global messages.
+`synapse status <agent>`'s Recent Messages section filters by sender or recipient, so it shows the target agent's conversation context rather than unrelated global messages. `synapse history list/search --agent <name>` filters only by `agent_name` (the producer of the observation row), not by sender/receiver.
 
 ### View Statistics
 

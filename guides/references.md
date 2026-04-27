@@ -307,7 +307,7 @@ synapse list --json       # JSON 配列出力（AI/スクリプト向け）
 | NAME | カスタム名 |
 | TYPE | エージェントタイプ（プロファイル名） |
 | ROLE | エージェントの役割説明 |
-| STATUS | 現在の状態（READY/PROCESSING/SENDING_REPLY/RATE_LIMITED/DONE） |
+| STATUS | 現在の状態（例: READY/PROCESSING/WAITING/WAITING_FOR_INPUT/SENDING_REPLY/RATE_LIMITED/DONE/SHUTTING_DOWN） |
 | TRANSPORT | 通信中の方式 |
 | CURRENT | 現在のタスクプレビュー |
 | WORKING_DIR | 作業ディレクトリ |
