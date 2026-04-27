@@ -881,7 +881,7 @@ synapse list --json               # JSON 配列出力（AI/スクリプト向け
 | NAME | カスタム名（設定されている場合） |
 | TYPE | エージェントタイプ (claude, gemini, codex など) |
 | ROLE | ロール説明（設定されている場合） |
-| STATUS | 現在のステータス (READY, WAITING, PROCESSING, DONE) |
+| STATUS | 現在のステータス (READY, WAITING, PROCESSING, SENDING_REPLY, RATE_LIMITED, DONE) |
 | TRANSPORT | 通信トランスポート表示 |
 | CURRENT | 現在のタスクプレビュー |
 | WORKING_DIR | 作業ディレクトリ |
@@ -898,6 +898,7 @@ synapse list --json               # JSON 配列出力（AI/スクリプト向け
 - `-`: 通信なし
 
 **Note**: 行を選択すると詳細パネルが表示され、Port/PID/Endpoint/フルパスなどが確認できます。
+**Note**: `synapse status <agent>` の Recent Messages は、指定したエージェントが送信元または受信先として関与した履歴だけを表示します。
 
 ---
 
@@ -934,6 +935,8 @@ synapse send <agent> "メッセージ" [--from AGENT_ID] [--priority <n>] [--wai
 - **READY ディレイ ([#467](https://github.com/s-hiraoku/synapse-a2a/issues/467) / [#642](https://github.com/s-hiraoku/synapse-a2a/pull/642))**: ターゲットが READY の場合、デフォルト 2 秒の遅延を入れてから配信します。これによりユーザーが入力中のテキストを上書きしてしまうのを避けます。`SYNAPSE_SEND_READY_DELAY`（秒）で上書き可能。待機中にターゲットが PROCESSING に遷移したら、即座に送信を実行します。
 
 いずれも `--force` / priority 5 / `--silent` 送信ではスキップされます。
+
+**送信中ステータス**: `synapse send` / `synapse reply` の outbound POST 中、送信元エージェントは一時的に `SENDING_REPLY` と表示されます。POST 完了後は直前のステータスへ戻り、`DONE` / `SHUTTING_DOWN` / `RATE_LIMITED` などの終端・保護ステータスは上書きしません。
 
 **レスポンスモードの使い分け**:
 
@@ -1596,6 +1599,7 @@ curl http://localhost:8100/status
 | `PROCESSING` | 処理中・起動中 |
 | `READY` | 待機中（プロンプト表示中） |
 | `WAITING` | 権限プロンプト待ち（A2A では `input_required` にマッピング）。親エージェントには自動通知され、Approval Gate か `POST /tasks/{id}/permission/approve` / `/deny` で応答可能 |
+| `SENDING_REPLY` | outbound A2A send/reply POST 中（一時表示。完了後は直前のステータスへ戻る） |
 | `NOT_STARTED` | 未起動 |
 
 ---
