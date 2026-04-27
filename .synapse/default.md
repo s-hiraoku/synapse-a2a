@@ -155,9 +155,9 @@ LLM WIKI — Build collective, structured knowledge (preferred):
   beyond a session. Pages can link to each other via [[wikilinks]] and track
   which source files they document (`source_files` frontmatter).
 
-  (Note: `synapse memory save/search` also exists but is in maintenance mode
-  — prefer LLM Wiki for new knowledge. See docs/design/llm-wiki.md for the
-  deprecation decision.)
+  (Legacy: `synapse memory` CLI commands still exist for backward compatibility
+  but are not recommended for new knowledge. If you need that interface for
+  existing tooling, fetch `synapse://instructions/shared-memory` explicitly.)
 
 FILE SAFETY — Lock files before editing in multi-agent setups:
   synapse file-safety lock <file> $SYNAPSE_AGENT_ID
