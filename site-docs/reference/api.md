@@ -161,7 +161,7 @@ curl http://localhost:8100/tasks/550e8400-e29b-41d4-a716-446655440000
 | POST | `/tasks/create` | Create task context without PTY delivery |
 | POST | `/history/update` | Update history observation status (callback) |
 | GET | `/tasks` | List all tasks (query: `context_id`) |
-| POST | `/tasks/{id}/cancel` | Cancel a task |
+| POST | `/tasks/{id}/cancel` | Cancel a task with profile-aware interrupt behavior |
 | GET | `/status` | Agent status (READY/PROCESSING/WAITING/DONE) |
 | GET | `/debug/pty` | Snapshot of the pyte-backed virtual terminal (debug) |
 | GET | `/debug/waiting` | Last ~50 WAITING-detection attempts plus `renderer_available` (debug) |
@@ -227,6 +227,45 @@ curl -X POST http://localhost:8100/tasks/create \
   }
 }
 ```
+
+### Cancel Task
+
+Cancel a running task and interrupt the agent process. By default, Synapse uses
+the target profile's `interrupt.default_mode` so TUI agents that need a literal
+Ctrl+C byte can use PTY-level cancellation while other agents can keep signal
+based cancellation.
+
+```bash
+# Use the profile default interrupt mode
+curl -X POST http://localhost:8100/tasks/550e8400-.../cancel
+
+# Force PTY-level Ctrl+C injection twice
+curl -X POST "http://localhost:8100/tasks/550e8400-.../cancel?mode=pty&repeat=2"
+```
+
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `mode` | string | `auto` | `auto`, `pty`, or `signal`. `auto` resolves from the profile's `interrupt.default_mode`, falling back to `signal`. |
+| `repeat` | integer | `1` | Number of Ctrl+C bytes to inject when `mode=pty`. In `auto` mode, `interrupt.pty_repeat` from the profile overrides this value. |
+
+**Response:**
+
+```json
+{
+  "canceled": true,
+  "task_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Errors:**
+
+| Status | Condition |
+|:------:|-----------|
+| 400 | `mode` is not one of `auto`, `pty`, or `signal` |
+| 400 | Task is not in a cancelable state (must be `submitted` or `working`) — message: `Cannot cancel task in <state> state` |
+| 404 | Task ID does not exist |
 
 ## History Update (Completion Callback)
 

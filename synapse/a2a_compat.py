@@ -916,6 +916,43 @@ def create_a2a_router(
         else:
             asyncio.run(coro)
 
+    def _resolve_interrupt_mode(
+        controller: TerminalController,
+        *,
+        mode: str,
+        repeat: int,
+    ) -> tuple[str, int]:
+        """Resolve cancel interrupt behavior from request params and profile config."""
+        normalized_mode = mode.strip().lower()
+        if normalized_mode not in {"auto", "pty", "signal"}:
+            raise HTTPException(
+                status_code=400,
+                detail="mode must be one of: auto, pty, signal",
+            )
+
+        interrupt_config = getattr(controller, "interrupt_config", None)
+        if not isinstance(interrupt_config, dict):
+            # Older/test controllers may not carry profile config; keep cancel usable.
+            interrupt_config = {}
+
+        if normalized_mode != "auto":
+            return normalized_mode, max(1, repeat)
+
+        default_mode = str(interrupt_config.get("default_mode", "signal")).lower()
+        if default_mode not in {"pty", "signal"}:
+            default_mode = "signal"
+
+        try:
+            resolved_repeat = int(interrupt_config.get("pty_repeat", repeat))
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid pty_repeat in interrupt_config; falling back to "
+                "request repeat=%s",
+                repeat,
+            )
+            resolved_repeat = repeat
+        return default_mode, max(1, resolved_repeat)
+
     def _resolve_pty_context(task_metadata: dict[str, Any]) -> str:
         """Produce a sanitised, length-capped context tail for notifications.
 
@@ -2092,12 +2129,15 @@ def create_a2a_router(
 
     @router.post("/tasks/{task_id}/cancel")
     async def cancel_task(
-        task_id: str, _: Any = Depends(require_auth)
+        task_id: str,
+        mode: str = "auto",
+        repeat: int = 1,
+        _: Any = Depends(require_auth),
     ) -> dict[str, str]:  # noqa: B008
         """
         Cancel a running task.
 
-        Sends SIGINT to the CLI process (Synapse extension).
+        Sends a profile-driven interrupt to the CLI process (Synapse extension).
         Requires authentication when SYNAPSE_AUTH_ENABLED=true.
         """
         task = task_store.get(task_id)
@@ -2111,7 +2151,22 @@ def create_a2a_router(
 
         # Interrupt the CLI
         if controller:
-            controller.interrupt()
+            resolved_mode, resolved_repeat = _resolve_interrupt_mode(
+                controller,
+                mode=mode,
+                repeat=repeat,
+            )
+            if resolved_mode == "pty":
+                if not controller.interrupt_via_pty(repeat=resolved_repeat):
+                    logger.warning(
+                        "interrupt_via_pty failed (master_fd unavailable or "
+                        "write error); falling back to signal interrupt for "
+                        "task %s",
+                        task_id,
+                    )
+                    controller.interrupt()
+            else:
+                controller.interrupt()
 
         task_store.update_status(task_id, "canceled")
 

@@ -4,6 +4,11 @@ submit_sequence: "\r"
 env:
   TERM: "xterm-256color"
 
+interrupt:
+  default_mode: pty
+  pty_repeat: 2
+  graceful_supported: false
+
 # Multi-strategy idle detection configuration
 # OpenCode: Use timeout-based detection
 # OpenCode uses Bubble Tea TUI, similar to Claude Code

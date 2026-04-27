@@ -5,6 +5,11 @@ startup_delay: 8
 env:
   TERM: "xterm-256color"
 
+interrupt:
+  default_mode: signal
+  pty_repeat: 1
+  graceful_supported: false
+
 # Multi-strategy idle detection configuration
 # Gemini: Use hybrid strategy - pattern for first idle (UI ready), timeout for subsequent
 # BRACKETED_PASTE_MODE indicates the TUI input area is ready to receive input
