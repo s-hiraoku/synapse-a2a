@@ -36,7 +36,7 @@ The framework automatically handles routing - you don't need to know where the m
 | `/tasks/send` | POST | Send message (subject to Readiness Gate) |
 | `/tasks/{id}` | GET | Get task status |
 | `/tasks` | GET | List tasks |
-| `/tasks/{id}/cancel` | POST | Cancel task with profile-driven interrupt handling |
+| `/tasks/{id}/cancel` | POST | Cancel task (Synapse extends with `mode`/`repeat` query params — see "Task Cancel Interrupt Modes" below) |
 | `/status` | GET | READY/PROCESSING status |
 
 ### Synapse Extensions

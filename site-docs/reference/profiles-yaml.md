@@ -19,7 +19,7 @@ long_submit_confirm_timeout: float # Optional: confirmation timeout override for
 long_submit_confirm_retries: integer # Optional: confirmation retries override for long messages
 
 interrupt:                         # Optional: cancellation interrupt behavior
-  default_mode: "auto" | "pty" | "signal"  # Mode used by cancel API auto mode
+  default_mode: "pty" | "signal"   # Default mode used when cancel API requests mode=auto
   pty_repeat: integer              # Number of Ctrl+C bytes to inject for PTY mode
   graceful_supported: boolean      # Whether graceful PTY interrupt is supported
 
@@ -145,7 +145,7 @@ interrupt:
 
 | Field | Description |
 |-------|-------------|
-| `default_mode` | Default mode for cancel requests using `mode=auto`. Invalid or missing values fall back to `signal`. |
+| `default_mode` | Default mode for cancel requests using `mode=auto`. Must be `pty` or `signal`; `auto` is a request-parameter value only and is **not** valid here. Invalid or missing values fall back to `signal`. |
 | `pty_repeat` | Number of Ctrl+C bytes to inject when `mode=auto` resolves to `pty`. Explicit `mode=pty&repeat=N` requests use the query value instead. |
 | `graceful_supported` | Documents whether the profile supports graceful PTY cancellation. This is profile metadata for tooling and compatibility. |
 

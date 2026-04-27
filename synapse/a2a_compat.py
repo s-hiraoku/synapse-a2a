@@ -942,7 +942,15 @@ def create_a2a_router(
         if default_mode not in {"pty", "signal"}:
             default_mode = "signal"
 
-        resolved_repeat = int(interrupt_config.get("pty_repeat", repeat))
+        try:
+            resolved_repeat = int(interrupt_config.get("pty_repeat", repeat))
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid pty_repeat in interrupt_config; falling back to "
+                "request repeat=%s",
+                repeat,
+            )
+            resolved_repeat = repeat
         return default_mode, max(1, resolved_repeat)
 
     def _resolve_pty_context(task_metadata: dict[str, Any]) -> str:
@@ -2149,7 +2157,14 @@ def create_a2a_router(
                 repeat=repeat,
             )
             if resolved_mode == "pty":
-                controller.interrupt_via_pty(repeat=resolved_repeat)
+                if not controller.interrupt_via_pty(repeat=resolved_repeat):
+                    logger.warning(
+                        "interrupt_via_pty failed (master_fd unavailable or "
+                        "write error); falling back to signal interrupt for "
+                        "task %s",
+                        task_id,
+                    )
+                    controller.interrupt()
             else:
                 controller.interrupt()
 

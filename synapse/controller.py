@@ -1228,10 +1228,23 @@ class TerminalController(StatusObserverMixin):
         """Inject Ctrl+C as PTY input bytes."""
         if self.master_fd is None:
             return False
-        for index in range(max(1, repeat)):
-            if index > 0:
-                time.sleep(interval)
-            os.write(self.master_fd, b"\x03")
+        try:
+            for index in range(max(1, repeat)):
+                if index > 0:
+                    time.sleep(interval)
+                os.write(self.master_fd, b"\x03")
+        except OSError as exc:
+            logger.warning(
+                "[%s] interrupt_via_pty write failed: %s", self.agent_id, exc
+            )
+            return False
+        with self.lock:
+            old_status = self.status
+            self.status = "PROCESSING"
+            if self.agent_id:
+                self.registry.update_status(self.agent_id, self.status)
+        if old_status != self.status:
+            self._dispatch_status_callbacks(old_status, self.status)
         return True
 
     def get_context(self) -> str:

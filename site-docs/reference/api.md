@@ -264,6 +264,7 @@ curl -X POST "http://localhost:8100/tasks/550e8400-.../cancel?mode=pty&repeat=2"
 | Status | Condition |
 |:------:|-----------|
 | 400 | `mode` is not one of `auto`, `pty`, or `signal` |
+| 400 | Task is not in a cancelable state (must be `submitted` or `working`) — message: `Cannot cancel task in <state> state` |
 | 404 | Task ID does not exist |
 
 ## History Update (Completion Callback)
