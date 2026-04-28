@@ -298,14 +298,14 @@ def _format_artifact_text(artifact: "Artifact", use_markdown: bool = False) -> s
         content = code_data.get("content", str(artifact.data))
         prefix = f"```{language}\n" if use_markdown else f"[Code: {language}]\n"
         suffix = "\n```" if use_markdown else ""
-        return f"{prefix}{content}{suffix}"
+        return strip_control_bytes(f"{prefix}{content}{suffix}")
 
     if artifact.type == "text":
         if isinstance(artifact.data, str):
-            return artifact.data
-        return str(artifact.data.get("content", artifact.data))
+            return strip_control_bytes(artifact.data)
+        return strip_control_bytes(str(artifact.data.get("content", artifact.data)))
 
-    return f"[{artifact.type}] {artifact.data}"
+    return strip_control_bytes(f"[{artifact.type}] {artifact.data}")
 
 
 def _save_task_to_history(
