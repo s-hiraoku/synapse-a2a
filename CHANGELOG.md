@@ -7,36 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-04-28
+
+This release rolls up a "status precision" family that sharpens what `synapse list` / `synapse status` show during long-running and rate-limited work, plus a new one-shot `synapse watchdog check` command for surfacing stuck agents. Status precision now covers `RATE_LIMITED` (#561), the `SENDING_REPLY` sub-state (#644), HTTP `input_required` (#651), and a true PTY-level interrupt path with `mode=pty|signal|auto` (#647). Observability of recent messages is hardened by including parent-side A2A sends (#659), keeping `output_text` reserved for agent responses (#660), and using millisecond-precision history timestamps (#661). The default agent instructions also now describe `synapse memory` as legacy in favor of LLM Wiki (#527). Includes the previously unreleased READY-send delay (#467), the workflow target-resolution fix (#568), and the `/dev-issue` skill that were staged on `main` after the 0.29.0 tag but never shipped.
+
+### Added
+
+- `synapse watchdog check` command for one-shot stuck-agent detection (#646). Stage 1 MVP scans every live agent, prints `ID / STATUS / UPTIME / SAME_STATUS_FOR / LAST_OUTBOUND / ALARM`, and flags `RATE_LIMITED > 30m`, `SENDING_REPLY > 60s`, `PROCESSING > 30m` with no outbound A2A in 10m, and "spawn never ready". `--alarm-only` filters; `--json` emits an array. Stage 2-4 (background daemon, push notifications, multi-watchdog locking, automatic recovery) are future work.
+- Surface HTTP task `input_required` state in `synapse list` / `synapse status` so a parent operator sees the approve URL without an extra HTTP query (#651).
+- Surface child agent reply-send stalls via `SENDING_REPLY` sub-state and per-agent Recent Messages filter (#644).
+- True PTY-level interrupt API (`mode=pty|signal|auto`) for stuck agents (#647). Per-profile defaults for Claude, Codex, Gemini, Copilot, and OpenCode preserve existing SIGINT broadcast behavior for signal-mode callers.
+- Surface LLM provider rate limits as `RATE_LIMITED` agent status (#561). Overrides `PROCESSING` / `READY` / `WAITING_FOR_INPUT` until the agent recovers.
+- Delay sends to READY agents to avoid interrupting user input (#467).
+- **`/dev-issue <number>` slash command (skill):** bootstraps a new issue implementation in one step — fetches the issue and related closed PRs in parallel, greps the repo for code hotspots from the body, infers a branch prefix from labels and a slug from the title, generates a structured task brief at `/tmp/issue<num>-task.md` (mirroring the handwritten brief format used in recent issue → codex spawn flows like #467), creates a fresh branch from latest `origin/main`, and (by default) spawns a codex agent with `synapse spawn codex --task-file ... --notify`. Supports `--solo` (skip spawn) and `--dry-run` (brief only, no branch / no spawn). Canonical at `plugins/synapse-a2a/skills/dev-issue/SKILL.md`, mirrored to `.agents/skills/dev-issue/` and `.claude/skills/dev-issue/` via sync.
+
 ### Changed
 
 - Default agent instructions (`synapse://instructions/default`) now describe `synapse memory` as legacy and direct callers needing that interface to fetch `synapse://instructions/shared-memory` explicitly. New agents are guided to LLM Wiki by default; the `synapse memory` CLI commands and the `shared-memory` MCP resource are unchanged for backward compatibility (#527).
-### Added
-
-- `synapse watchdog check` command for one-shot stuck-agent detection (#646).
 
 ### Fixed
 
 - `recent_messages` timestamps now use millisecond precision so rapid history writes within the same second can still be ordered distinctly (#661).
 - Parent-side `synapse send` observations no longer write placeholder text into `output_text`, keeping recent message output reserved for agent responses (#660).
-- `clear_reply_target()` now swallows cleanup `PermissionError`/`OSError` failures so sandbox unlink errors no longer mask successful reply sends (#653).
 - `synapse status <agent> --json` recent messages now include parent-side A2A sends to the agent (#659).
-
-## [0.30.0] - 2026-04-27
-
-Minor release adding a true PTY-level cancellation path for stuck agents while preserving the existing SIGINT broadcast behavior for signal-mode callers. The cancel API can now choose `mode=pty`, `mode=signal`, or profile-driven `mode=auto`, with per-profile defaults for Claude, Codex, Gemini, Copilot, and OpenCode. This release also surfaces the `RATE_LIMITED` agent status (#561), the READY-send delay, the `/dev-issue` skill, the workflow target-resolution fix, and synchronized API/site documentation.
-
-### Added
-
-- Surface HTTP task `input_required` state in `synapse list` / `synapse status` so a parent operator sees the approve URL without an extra HTTP query (#651).
-- Surface child agent reply-send stalls via `SENDING_REPLY` sub-state and per-agent Recent Messages filter (#644).
-- True PTY-level interrupt API (`mode=pty|signal|auto`) for stuck agents (#647).
-- Surface LLM provider rate limits as `RATE_LIMITED` agent status (#561).
-- Delay sends to READY agents (#467).
-- **`/dev-issue <number>` slash command (skill):** bootstraps a new issue implementation in one step — fetches the issue and related closed PRs in parallel, greps the repo for code hotspots from the body, infers a branch prefix from labels and a slug from the title, generates a structured task brief at `/tmp/issue<num>-task.md` (mirroring the handwritten brief format used in recent issue → codex spawn flows like #467), creates a fresh branch from latest `origin/main`, and (by default) spawns a codex agent with `synapse spawn codex --task-file ... --notify`. Supports `--solo` (skip spawn) and `--dry-run` (brief only, no branch / no spawn). Canonical at `.agents/skills/dev-issue/SKILL.md`, mirrored as a symlink at `.claude/skills/dev-issue/` and as a copy at `plugins/synapse-a2a/skills/dev-issue/` for plugin distribution.
-
-### Fixed
-
+- `clear_reply_target()` now swallows cleanup `PermissionError`/`OSError` failures so sandbox unlink errors no longer mask successful reply sends (#653).
 - Workflow target type resolution now respects the caller working directory (#568).
+- `HistoryManager.list_observations` now applies a SQL `LIMIT` again so callers (`synapse status`, `synapse watchdog check`) no longer read the entire observations table on every invocation. With `agent_id` set, a generous prefetch buffer keeps the post-filter accurate.
+
+### Refactored
+
+- `Controller.interrupt` and `Controller.interrupt_via_pty` share a `_mark_interrupt_dispatched` helper for the post-interrupt PROCESSING status update, removing duplicated lock + dispatch tail.
+- `synapse/a2a_compat.py` and `synapse/controller.py` now use the `READY` / `PROCESSING` / `DONE` constants from `synapse.status` for status comparisons (replaces residual string literals).
+
+### Documentation
+
+- Address CodeRabbit feedback on the skills-role RFC (#625 follow-up, #657): correct the future-dated "2026-04-21 時点" reference, reflow a CommonMark line break that rendered as an unintended space, and clarify local dev policy precedence.
 
 ## [0.29.0] - 2026-04-26
 
@@ -3615,8 +3620,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.30.0...HEAD
-[0.30.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.29.0...v0.30.0
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.29.0...v0.31.0
 [0.29.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.3...v0.29.0
 [0.28.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.2...v0.28.3
 [0.28.2]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.1...v0.28.2

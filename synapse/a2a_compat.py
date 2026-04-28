@@ -57,6 +57,7 @@ from synapse.reply_stack import SenderInfo as ReplyStackSenderInfo
 from synapse.reply_stack import get_reply_stack
 from synapse.reply_target import save_reply_target
 from synapse.status import (
+    DONE,
     PROCESSING,
     RATE_LIMITED,
     READY,
@@ -1235,12 +1236,12 @@ def create_a2a_router(
             if _has_only_terminal_tasks():
                 agent_info = registry.get_agent(agent_id)
                 if agent_info and agent_info.get("status") in (
-                    "PROCESSING",
+                    PROCESSING,
                     SENDING_REPLY,
                     WAITING_FOR_INPUT,
                 ):
                     # SENDING_REPLY is a short-lived outbound-send sub-state.
-                    registry.update_status(agent_id, "READY")
+                    registry.update_status(agent_id, READY)
 
         def _on_status_change(old: str, new: str) -> None:
             if new == WAITING:
@@ -1308,7 +1309,7 @@ def create_a2a_router(
 
             _sync_registry_input_wait_status(new)
 
-            if new not in ("READY", "DONE"):
+            if new not in (READY, DONE):
                 return
             for task in task_store.list_tasks():
                 if task.status != "working":
@@ -2128,7 +2129,7 @@ def create_a2a_router(
             # #569). Removing this branch also prevents PTY context remnants
             # from re-setting ``input_required`` after the controller has
             # already exited WAITING.
-            if synapse_status in ("READY", "DONE"):
+            if synapse_status in (READY, DONE):
                 recent_context = context[-CONTEXT_RECENT_SIZE:]
                 updated_task = _finalize_working_task(task_id, context, recent_context)
 

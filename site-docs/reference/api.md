@@ -329,7 +329,10 @@ curl http://localhost:8100/status
 | `NOT_STARTED` | Controller has not started yet |
 | `PROCESSING` | Agent is actively processing (startup or handling requests) |
 | `READY` | Agent is idle, waiting for user input |
-| `WAITING` | Agent is showing selection UI, waiting for user choice |
+| `WAITING` | Agent is showing a permission / selection UI in the PTY |
+| `WAITING_FOR_INPUT` | Non-permission A2A `input_required` task awaiting a response (#538/#640) |
+| `SENDING_REPLY` | Transient sender-side state during an outbound A2A `send` / `reply` POST; restores previous status afterward (#644) |
+| `RATE_LIMITED` | LLM provider rate limit detected on the agent's PTY output (#561) |
 | `DONE` | Task completed (auto-transitions to READY after 10 seconds) |
 | `SHUTTING_DOWN` | Graceful shutdown in progress |
 
@@ -1045,7 +1048,7 @@ List all running Synapse agents with status and connection info. This is the MCP
 
 | Parameter | Type | Required | Description |
 |-----------|------|:--------:|-------------|
-| `status` | string | No | Filter by agent status (`READY`, `PROCESSING`, `WAITING`, `DONE`, etc.) |
+| `status` | string | No | Filter by agent status (`READY`, `PROCESSING`, `WAITING`, `WAITING_FOR_INPUT`, `SENDING_REPLY`, `RATE_LIMITED`, `DONE`, etc.) |
 
 **Example call:**
 
@@ -1099,6 +1102,8 @@ List all running Synapse agents with status and connection info. This is the MCP
 | `transport` | string | Transport display value (`UDS→`, `TCP→`, or `-`) |
 | `current_task_preview` | string\|null | Preview of the current task (if processing) |
 | `task_received_at` | number\|null | Unix epoch timestamp when the current task was received |
+| `last_status_change_at` | number\|null | Unix epoch seconds of the last real status transition (#646). `null` for pre-existing entries that predate the field — those are skipped by duration-based heuristics rather than counted from epoch |
+| `input_required_tasks` | array | List of `{task_id, approve_url}` summaries mirroring HTTP tasks currently in `input_required` state (#651). Empty array when the agent has no waiting input-required tasks |
 
 ---
 

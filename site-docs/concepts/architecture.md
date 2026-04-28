@@ -140,15 +140,20 @@ sequenceDiagram
 
 ## Agent Status System
 
-Agents use a five-state status model:
+Agents use the following registry-level status model:
 
 | Status | Color | Description |
 |--------|-------|-------------|
 | **READY** | :material-circle:{ .status-ready } Green | Idle, waiting for input |
 | **PROCESSING** | :material-circle:{ .status-processing } Yellow | Actively processing |
-| **WAITING** | :material-circle:{ .status-waiting } Cyan | Showing selection UI |
+| **WAITING** | :material-circle:{ .status-waiting } Cyan | Showing permission / selection UI in the PTY |
+| **WAITING_FOR_INPUT** | :material-circle:{ .status-waiting } Orange | Non-permission A2A `input_required` task awaiting a response (#538/#640) |
+| **SENDING_REPLY** | :material-circle:{ .status-waiting } Cyan | Transient sender-side state during an outbound A2A `send` / `reply` POST (#644) |
+| **RATE_LIMITED** | :material-circle:{ .status-waiting } Bold magenta | LLM provider rate limit detected on the agent's PTY output (#561) |
 | **DONE** | :material-circle:{ .status-done } Blue | Task completed (auto-clears after 10s) |
 | **SHUTTING_DOWN** | :material-circle:{ .status-shutdown } Red | Graceful shutdown in progress |
+
+`WAITING` is reserved for permission-style PTY prompts; `WAITING_FOR_INPUT` is set when an A2A task transitions to `input_required` for a non-permission reason (e.g. a child asking the parent a follow-up). `SENDING_REPLY` restores the prior status after the POST completes and never overwrites `DONE`, `SHUTTING_DOWN`, or `RATE_LIMITED`. See [Agent Management — Status](../guide/agent-management.md#detailed-status) for operator-facing detail.
 
 **Transitions:**
 
@@ -157,8 +162,14 @@ stateDiagram-v2
     [*] --> PROCESSING: Agent starts
     PROCESSING --> READY: Idle detected
     READY --> PROCESSING: Output/activity
-    PROCESSING --> WAITING: Selection UI detected
+    PROCESSING --> WAITING: Permission UI detected
     WAITING --> PROCESSING: Selection made
+    PROCESSING --> WAITING_FOR_INPUT: A2A input_required (non-permission)
+    WAITING_FOR_INPUT --> PROCESSING: Input received
+    PROCESSING --> SENDING_REPLY: Outbound A2A send/reply
+    SENDING_REPLY --> PROCESSING: POST completed
+    PROCESSING --> RATE_LIMITED: Provider rate limit detected
+    RATE_LIMITED --> PROCESSING: Quota recovers
     PROCESSING --> DONE: set_done() called
     DONE --> READY: After 10s idle
     READY --> SHUTTING_DOWN: Shutdown request

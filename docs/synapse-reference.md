@@ -340,9 +340,15 @@ In server mode (when `agent_name` is set), startup/runtime logging is redirected
 
 ## Agent Status System
 
-States: READY → PROCESSING → DONE → READY (auto after 10s), WAITING, SHUTTING_DOWN
+States: READY → PROCESSING → DONE → READY (auto after 10s), WAITING, WAITING_FOR_INPUT, SENDING_REPLY, RATE_LIMITED, SHUTTING_DOWN.
+
+- **WAITING_FOR_INPUT** (#538): non-permission A2A `input_required` tasks now surface as a distinct registry state; permission prompts keep `WAITING`.
+- **SENDING_REPLY** (#644): outbound A2A send/reply POST in progress. Transient — restores the previous status when the POST finishes and does not overwrite `DONE` / `SHUTTING_DOWN` / `RATE_LIMITED`.
+- **RATE_LIMITED** (#561): LLM provider rate limit hit; surfaced when the error_detector returns the `RATE_LIMITED` error code. Overrides `PROCESSING` / `READY` / `WAITING_FOR_INPUT` until the agent recovers.
 
 Compound signal: PROCESSING→READY suppressed when `task_active` flag set or file locks held.
+
+**Stuck-Agent Watchdog**: `synapse watchdog check` (#646) is a one-shot, read-only command that scans every live agent and surfaces stuck-state suspicions. Heuristics: `RATE_LIMITED > 30m`, `SENDING_REPLY > 60s`, `PROCESSING > 30m` with no outbound A2A in the last 10m, and "spawn never ready" (registered > 60s ago, < 5m, status != READY). `--alarm-only` filters to alarm rows; `--json` emits a programmatic array. Stage 2-4 (background daemon, push notifications, multi-watchdog locking, `synapse list --watch` integration, automatic recovery) are future work.
 
 **WAITING auto-approve**: When an agent enters WAITING status (permission prompt detected), the controller automatically sends the profile-specific approval response (e.g., `y\r` for Claude, `\r` for Gemini). PTY output is passed through `strip_ansi()` before regex matching, ensuring reliable WAITING detection for TUI-based agents (ratatui, Ink, Bubble Tea). Enabled by default for spawned agents; disable with `--no-auto-approve` or `SYNAPSE_AUTO_APPROVE=false`. Safety: unlimited consecutive approvals by default (`max_consecutive=0`), no cooldown (`cooldown=0.0`). Set `max_consecutive` to a positive integer to cap consecutive approvals. See [docs/agent-permission-modes.md](agent-permission-modes.md).
 
