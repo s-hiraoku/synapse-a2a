@@ -899,7 +899,7 @@ synapse list --json               # JSON 配列出力（AI/スクリプト向け
 - `-`: 通信なし
 
 **Note**: 行を選択すると詳細パネルが表示され、Port/PID/Endpoint/フルパスなどが確認できます。
-**Note**: `synapse status <agent>` の Recent Messages は、指定したエージェントが送信元または受信先として関与した履歴だけを表示します。0.31.0 以降、親プロセス側からの `synapse send` 観測も recent_messages に含まれるようになり ([#659](https://github.com/s-hiraoku/synapse-a2a/issues/659) / [#662](https://github.com/s-hiraoku/synapse-a2a/pull/662))、タイムスタンプはミリ秒精度で一意化されます ([#661](https://github.com/s-hiraoku/synapse-a2a/issues/661) / [#666](https://github.com/s-hiraoku/synapse-a2a/pull/666))。送信側プレースホルダで `output_text` が上書きされる問題も解消済みです ([#660](https://github.com/s-hiraoku/synapse-a2a/issues/660) / [#663](https://github.com/s-hiraoku/synapse-a2a/pull/663))。
+**Note**: `synapse status <agent>` の Recent Messages は、指定したエージェントが送信元または受信先として関与した履歴だけを表示します。0.31.0 以降、親プロセス側からの `synapse send` 観測も recent_messages に含まれるようになり ([#659](https://github.com/s-hiraoku/synapse-a2a/issues/659) / [#662](https://github.com/s-hiraoku/synapse-a2a/pull/662))、タイムスタンプはミリ秒精度になり、同一秒内の順序判定が改善されます ([#661](https://github.com/s-hiraoku/synapse-a2a/issues/661) / [#666](https://github.com/s-hiraoku/synapse-a2a/pull/666))。送信側プレースホルダで `output_text` が上書きされる問題も解消済みです ([#660](https://github.com/s-hiraoku/synapse-a2a/issues/660) / [#663](https://github.com/s-hiraoku/synapse-a2a/pull/663))。
 
 ---
 

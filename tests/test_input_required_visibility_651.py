@@ -192,6 +192,50 @@ class TestListCommandSurfacesInputRequired:
         payload = json.loads(captured[0])
         assert payload[0].get("input_required_tasks", []) == []
 
+    def test_status_json_exposes_input_required_tasks(
+        self, tmp_registry: AgentRegistry
+    ) -> None:
+        """synapse status <agent> --json must include input_required_tasks (docs/code parity)."""
+        import json
+        from io import StringIO
+
+        from synapse.commands.status import StatusCommand
+
+        tmp_registry.update_input_required_tasks(
+            "synapse-codex-8121",
+            [
+                {
+                    "task_id": "abc12345",
+                    "approve_url": "http://localhost:8121/.../approve",
+                }
+            ],
+        )
+
+        out = StringIO()
+        status_cmd = StatusCommand(registry=tmp_registry, output=out)
+        status_cmd.run("synapse-codex-8121", json_output=True)
+
+        payload = json.loads(out.getvalue())
+        assert payload.get("input_required_tasks") == [
+            {"task_id": "abc12345", "approve_url": "http://localhost:8121/.../approve"}
+        ]
+
+    def test_status_json_empty_input_required_tasks_when_unset(
+        self, tmp_registry: AgentRegistry
+    ) -> None:
+        """synapse status --json should emit empty list when agent has no input_required tasks."""
+        import json
+        from io import StringIO
+
+        from synapse.commands.status import StatusCommand
+
+        out = StringIO()
+        status_cmd = StatusCommand(registry=tmp_registry, output=out)
+        status_cmd.run("synapse-codex-8121", json_output=True)
+
+        payload = json.loads(out.getvalue())
+        assert payload.get("input_required_tasks", []) == []
+
 
 class TestSyncInputRequiredTasksHelper:
     """Test the helper that pushes input_required state from task_store to registry."""

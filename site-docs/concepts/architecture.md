@@ -148,7 +148,7 @@ Agents use the following registry-level status model:
 | **PROCESSING** | :material-circle:{ .status-processing } Yellow | Actively processing |
 | **WAITING** | :material-circle:{ .status-waiting } Cyan | Showing permission / selection UI in the PTY |
 | **WAITING_FOR_INPUT** | :material-circle:{ .status-waiting } Orange | Non-permission A2A `input_required` task awaiting a response (#538/#640) |
-| **SENDING_REPLY** | :material-circle:{ .status-waiting } | Transient sender-side state during an outbound A2A `send` / `reply` POST (#644) |
+| **SENDING_REPLY** | :material-circle:{ .status-waiting } Cyan | Transient sender-side state during an outbound A2A `send` / `reply` POST (#644) |
 | **RATE_LIMITED** | :material-circle:{ .status-waiting } Bold magenta | LLM provider rate limit detected on the agent's PTY output (#561) |
 | **DONE** | :material-circle:{ .status-done } Blue | Task completed (auto-clears after 10s) |
 | **SHUTTING_DOWN** | :material-circle:{ .status-shutdown } Red | Graceful shutdown in progress |

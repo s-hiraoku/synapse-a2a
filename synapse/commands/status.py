@@ -104,6 +104,9 @@ class StatusCommand:
         # File locks
         data["file_locks"] = self._get_file_locks(info)
 
+        # input_required tasks awaiting parent approval (#651)
+        data["input_required_tasks"] = info.get("input_required_tasks") or []
+
         self._writeln(json.dumps(data, indent=2))
 
     def _render_text(self, info: dict[str, Any]) -> None:
