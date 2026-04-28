@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `/dev-issue` summary now suggests the appropriate post-implementation skill based on mode: `/post-impl-codex` for default (codex spawn), `/post-impl-claude` or `/post-impl` (target: self) for `--solo`. Surfaces the docs/skills/site-sync chain so it isn't silently dropped after implementation (#665).
+
 ## [0.31.0] - 2026-04-28
 
 This release rolls up a "status precision" family that sharpens what `synapse list` / `synapse status` show during long-running and rate-limited work, plus a new one-shot `synapse watchdog check` command for surfacing stuck agents. Status precision now covers `RATE_LIMITED` (#561), the `SENDING_REPLY` sub-state (#644), HTTP `input_required` (#651), and a true PTY-level interrupt path with `mode=pty|signal|auto` (#647). Observability of recent messages is hardened by including parent-side A2A sends (#659), keeping `output_text` reserved for agent responses (#660), and using millisecond-precision history timestamps (#661). The default agent instructions also now describe `synapse memory` as legacy in favor of LLM Wiki (#527). Includes the previously unreleased READY-send delay (#467), the workflow target-resolution fix (#568), and the `/dev-issue` skill that were staged on `main` after the 0.29.0 tag but never shipped.
