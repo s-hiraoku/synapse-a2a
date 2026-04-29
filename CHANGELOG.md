@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-04-30
+
 ### Added
 
 - `synapse reply` now accepts `--message-file` / `-F` and `--stdin` flags, matching `synapse send`. This lets long replies (or replies containing backticks / `$()` / `${}` shell metacharacters) be passed via file or pipe instead of as a positional argument that the shell may try to expand. Reply still uses fixed `priority=3` and `silent` response mode — other `send` flags were intentionally not mirrored because they conflict with reply semantics (#673).

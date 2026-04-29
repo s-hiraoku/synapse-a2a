@@ -6,6 +6,10 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ### Unreleased
 
+_No changes yet._
+
+### v0.32.0
+
 Quality-of-life polish on top of the 0.31.0 status-precision wave: `synapse reply` gains the same `--message-file` / `--stdin` flags as `synapse send` so long or shell-unsafe replies no longer have to round-trip through the positional argument (#673). Repository hygiene tightens with a PR template that enforces the `Closes #<num>` keyword convention so issues auto-close on merge (#670), and the `/dev-issue` skill now suggests the right post-implementation skill so the docs/skills/site-sync chain isn't silently dropped after implementation (#665). Internally, `send_to_local()` wait mode is rewritten to resolve a single polling endpoint up front instead of silently skipping when sender polling is unavailable (#515), and the entire `synapse.status` state machine is now greppable through the constants module (no string literals on either the WRITE or READ side). Artifact text formatting strips PTY control bytes before persisting, so raw terminal redraw content no longer leaks into `recent_messages` (#664).
 
 - **Added**: `synapse reply --message-file` / `-F` and `--stdin` (#673) — mirrors the same flags on `synapse send` so long replies or replies containing backticks / `$()` / `${}` shell metacharacters can be passed via file or pipe. Reply still uses fixed `priority=3` and `silent` response mode; other `send` flags were intentionally not mirrored because they conflict with reply semantics.
@@ -13,6 +17,8 @@ Quality-of-life polish on top of the 0.31.0 status-precision wave: `synapse repl
 - **Changed**: `/dev-issue` summary now suggests the appropriate post-implementation skill based on mode: `/post-impl-codex` for default (codex spawn), `/post-impl-claude` or `/post-impl` (target: self) for `--solo`, and none for `--dry-run` (brief only — no post-impl proposed). Surfaces the docs/skills/site-sync chain so it isn't silently dropped after implementation (#665).
 - **Refactored**: `send_to_local()` wait mode now resolves a single polling endpoint before waiting, falling back to target polling instead of silently skipping when sender polling is unavailable (#515).
 - **Refactored**: All status WRITE sites in `synapse/cli.py` and `synapse/controller.py` use the `synapse.status` constants instead of string literals; READ-only comparisons in `synapse/tools/a2a.py`, `synapse/commands/cleanup.py`, and `synapse/commands/list.py` now use the same constants. The status state machine no longer mixes literals and constants — the entire surface is greppable through the constants module.
+- **Refactored**: `_add_message_source_flags` decomposed into narrower text-input, task-file, and attachment helpers while preserving the legacy bundle for callers that need all four flags (#681).
+- **Fixed**: `LongMessageStore.store_message()` now strips PTY control bytes before persisting content, preventing raw ANSI escapes and status-bar fragments from leaking into A2A long-message files. Symmetric to PR #663 (Bug C route A) and PR #668 (Bug C route B); this is route C of the same family (#677).
 - **Fixed**: Artifact text formatting now strips PTY control bytes before persisting or returning A2A output, preventing raw terminal redraw content from leaking into `recent_messages` (#664).
 
 ### v0.31.0
