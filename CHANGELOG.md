@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Refactored
 
+- `send_to_local()` wait mode now resolves a single polling endpoint before waiting, falling back to target polling instead of silently skipping when sender polling is unavailable (#515).
 - All status WRITE sites in `synapse/cli.py` and `synapse/controller.py` now use the `synapse.status` constants instead of string literals (`"PROCESSING"`, `"DONE"`, `"SHUTTING_DOWN"`, `"WAITING"`, `"READY"`). Read-only status comparisons in `tools/a2a.py` and `commands/*.py` are intentionally left as literals; expanding scope there would not improve write-side state machine review.
 
 ### Fixed
