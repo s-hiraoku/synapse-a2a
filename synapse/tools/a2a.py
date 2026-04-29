@@ -295,7 +295,7 @@ def cmd_send(args: argparse.Namespace) -> None:
     # Wait for target to leave PROCESSING unless bypassed.
     if not delay_bypassed:
         status = target_agent.get("status", "")
-        if status == "PROCESSING":
+        if status == PROCESSING:
             display_name = target_agent.get("name") or agent_id
             try:
                 wait_timeout = int(os.environ.get("SYNAPSE_SEND_WAIT_TIMEOUT", "30"))
@@ -304,7 +304,7 @@ def cmd_send(args: argparse.Namespace) -> None:
             wait_timeout = max(wait_timeout, 0)
 
             waited = 0
-            while waited < wait_timeout and status == "PROCESSING":
+            while waited < wait_timeout and status == PROCESSING:
                 print(
                     f"\rWaiting for {display_name} to become READY... ({waited}s)",
                     end="",
@@ -322,7 +322,7 @@ def cmd_send(args: argparse.Namespace) -> None:
 
             if waited > 0:
                 print("", file=sys.stderr)
-            if status == "PROCESSING":
+            if status == PROCESSING:
                 print(
                     f"Warning: Timed out waiting for {display_name} to become READY. Continuing send.",
                     file=sys.stderr,
@@ -330,7 +330,7 @@ def cmd_send(args: argparse.Namespace) -> None:
 
     # Give READY targets a short window to flip to PROCESSING before injecting
     # a message, which avoids interrupting a user who is still typing at prompt.
-    if not delay_bypassed and target_agent.get("status", "") == "READY":
+    if not delay_bypassed and target_agent.get("status", "") == READY:
         try:
             ready_delay = float(os.environ.get("SYNAPSE_SEND_READY_DELAY", "2"))
         except ValueError:
@@ -349,7 +349,7 @@ def cmd_send(args: argparse.Namespace) -> None:
                 refreshed = _refresh_target_agent()
                 if refreshed:
                     target_agent = refreshed
-                    if refreshed.get("status", "") == "PROCESSING":
+                    if refreshed.get("status", "") == PROCESSING:
                         break
                 else:
                     break

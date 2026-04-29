@@ -21,6 +21,7 @@ import time
 from typing import Any
 
 from synapse.registry import AgentRegistry, is_process_running
+from synapse.status import READY
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,7 @@ def opportunistic_cleanup_idle_orphans(
 
     now = time.time()
     for agent_id, info in orphans.items():
-        if info.get("status") != "READY":
+        if info.get("status") != READY:
             continue
         changed_at = info.get("status_changed_at")
         if not isinstance(changed_at, (int, float)):
