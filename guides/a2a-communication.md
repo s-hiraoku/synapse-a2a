@@ -154,7 +154,11 @@ A2A: [From: NAME (SENDER_ID)] [REPLY EXPECTED] <message content>
 
 ```bash
 synapse reply "<your reply>"
+synapse reply --message-file /tmp/reply.md   # ファイルから読み込み（`-` で stdin）
+echo "long reply..." | synapse reply --stdin # 標準入力から読み込み
 ```
+
+> **長文返信 / shell 展開回避**: `--message-file` (`-F`) と `--stdin` は `synapse send` と同じセマンティクスで、バックティックやコードブロックを含む返信を shell 展開警告なしに送れます。`synapse send` の他のフラグ（`--priority`、`--wait` / `--notify` / `--silent`、`--attach`）は意図的にミラーされておらず、返信は常に priority 3 / silent モードで送信されます。
 
 **返信追跡の永続化**: Synapseは返信先（`in_reply_to`）の情報を `~/.a2a/reply/` ディレクトリに永続化します。エージェントが再起動しても、最後に受信したメッセージへの返信が可能です。
 
