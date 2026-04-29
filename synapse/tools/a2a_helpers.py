@@ -12,6 +12,7 @@ from synapse.history import HistoryManager
 from synapse.paths import get_history_db_path
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
+from synapse.status import READY
 
 logger = logging.getLogger(__name__)
 _SELF_TARGET_ERROR = "Cannot send to self (use target: self in workflows)"
@@ -251,7 +252,7 @@ def _pick_best_agent(matches: list[dict]) -> dict:
 
     def _sort_key(a: dict) -> tuple[int, int]:
         status = a.get("status") or ""
-        ready = 0 if status.upper() == "READY" else 1
+        ready = 0 if status.upper() == READY else 1
         port = a.get("port") or 99999
         return (ready, int(port))
 

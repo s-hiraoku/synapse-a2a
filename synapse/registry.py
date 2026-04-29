@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from synapse.status import PROCESSING
 from synapse.utils import is_role_file_reference, resolve_role_value
 
 logger = logging.getLogger(__name__)
@@ -182,7 +183,7 @@ class AgentRegistry:
         agent_id: str,
         agent_type: str,
         port: int,
-        status: str = "PROCESSING",
+        status: str = PROCESSING,
         tty_device: str | None = None,
         name: str | None = None,
         role: str | None = None,

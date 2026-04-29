@@ -10,7 +10,14 @@ from typing import Any
 
 from synapse.config import WAITING_EXPIRY_SECONDS
 from synapse.pty_renderer import PtyRenderer
-from synapse.status import DONE_TIMEOUT_SECONDS
+from synapse.status import (
+    DONE,
+    DONE_TIMEOUT_SECONDS,
+    PROCESSING,
+    READY,
+    SHUTTING_DOWN,
+    WAITING,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -198,27 +205,27 @@ class IdleDetector:
         task_protection_active: bool,
         has_file_locks: bool,
     ) -> StatusDecision:
-        if current_status == "SHUTTING_DOWN":
-            return StatusDecision("SHUTTING_DOWN")
+        if current_status == SHUTTING_DOWN:
+            return StatusDecision(SHUTTING_DOWN)
 
         if is_waiting:
-            base_status = "WAITING"
+            base_status = WAITING
         elif is_idle:
-            base_status = "READY"
+            base_status = READY
         else:
-            base_status = "PROCESSING"
+            base_status = PROCESSING
 
-        if base_status == "READY" and (task_protection_active or has_file_locks):
-            base_status = "PROCESSING"
+        if base_status == READY and (task_protection_active or has_file_locks):
+            base_status = PROCESSING
 
-        if current_status != "DONE":
+        if current_status != DONE:
             return StatusDecision(base_status)
 
         if not is_idle and not is_waiting:
-            return StatusDecision("PROCESSING", clear_done_time=True)
+            return StatusDecision(PROCESSING, clear_done_time=True)
 
         if is_waiting:
-            return StatusDecision("WAITING", clear_done_time=True)
+            return StatusDecision(WAITING, clear_done_time=True)
 
         done_timeout_expired = done_time and (
             time.time() - done_time >= DONE_TIMEOUT_SECONDS
@@ -226,7 +233,7 @@ class IdleDetector:
         if done_timeout_expired:
             return StatusDecision(base_status, clear_done_time=True)
 
-        return StatusDecision("DONE")
+        return StatusDecision(DONE)
 
     def check_waiting_state(
         self,

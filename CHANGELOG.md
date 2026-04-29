@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `send_to_local()` wait mode now resolves a single polling endpoint before waiting, falling back to target polling instead of silently skipping when sender polling is unavailable (#515).
 - All status WRITE sites in `synapse/cli.py` and `synapse/controller.py` now use the `synapse.status` constants instead of string literals (`"PROCESSING"`, `"DONE"`, `"SHUTTING_DOWN"`, `"WAITING"`, `"READY"`).
 - Status READ-only comparisons in `synapse/tools/a2a.py`, `synapse/commands/cleanup.py`, and `synapse/commands/list.py` now use the same `synapse.status` constants. Combined with the WRITE-side migration above, the status state machine no longer mixes literals and constants — the entire surface is greppable through the constants module.
+- Remaining pre-existing status string literals in `synapse/server.py`, `synapse/registry.py` (register() default arg), `synapse/terminal_writer.py`, `synapse/idle_detector.py`, and `synapse/tools/a2a_helpers.py` now use the same `synapse.status` constants. After this PR, the only remaining status literal in `synapse/` is `error_detector.py:35` which uses `RATE_LIMITED` as an error-category label (a separate namespace from agent registry status, intentionally not coupled).
 
 ### Fixed
 
