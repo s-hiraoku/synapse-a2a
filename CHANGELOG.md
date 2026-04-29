@@ -19,12 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Refactored
 
 - `send_to_local()` wait mode now resolves a single polling endpoint before waiting, falling back to target polling instead of silently skipping when sender polling is unavailable (#515).
-- All status WRITE sites in `synapse/cli.py` and `synapse/controller.py` now use the `synapse.status` constants instead of string literals (`"PROCESSING"`, `"DONE"`, `"SHUTTING_DOWN"`, `"WAITING"`, `"READY"`). Read-only status comparisons in `tools/a2a.py` and `commands/*.py` are intentionally left as literals; expanding scope there would not improve write-side state machine review.
 - All status WRITE sites in `synapse/cli.py` and `synapse/controller.py` now use the `synapse.status` constants instead of string literals (`"PROCESSING"`, `"DONE"`, `"SHUTTING_DOWN"`, `"WAITING"`, `"READY"`).
 - Status READ-only comparisons in `synapse/tools/a2a.py`, `synapse/commands/cleanup.py`, and `synapse/commands/list.py` now use the same `synapse.status` constants. Combined with the WRITE-side migration above, the status state machine no longer mixes literals and constants — the entire surface is greppable through the constants module.
 
 ### Fixed
 
+- `LongMessageStore.store_message()` now strips PTY control bytes before persisting content, preventing raw ANSI escapes and status-bar fragments from leaking into A2A long-message files (`/var/folders/.../synapse-a2a/messages/*.txt`). Symmetric to PR #663 (Bug C route A) and PR #668 (Bug C route B); this is route C of the same family (#677).
 - Artifact text formatting now strips PTY control bytes before persisting or returning A2A output, preventing raw terminal redraw content from leaking into `recent_messages` (#664).
 
 ## [0.31.0] - 2026-04-28

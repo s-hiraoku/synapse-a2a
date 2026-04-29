@@ -15,6 +15,7 @@ import tempfile
 import time
 from pathlib import Path
 
+from synapse._pty_sanitize import strip_control_bytes
 from synapse.utils import build_sender_prefix
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,11 @@ class LongMessageStore:
         Uses atomic write (temp file + rename) to ensure file integrity.
         The file is named with the task_id for easy identification.
 
+        Content is passed through ``strip_control_bytes`` before persisting
+        so PTY scrape residue (ANSI escapes, status-bar fragments,
+        partial-render bytes) cannot leak into the long-message file path
+        — symmetric to PR #663/#668 (Bug C routes A/B). See issue #677.
+
         Args:
             task_id: The task ID associated with this message.
             content: The message content to store.
@@ -91,6 +97,8 @@ class LongMessageStore:
         Returns:
             Path to the created file.
         """
+        content = strip_control_bytes(content)
+
         # Generate unique filename using task_id and timestamp
         timestamp = int(time.time() * 1000)
         filename = f"{task_id[:8]}-{timestamp}.txt"
