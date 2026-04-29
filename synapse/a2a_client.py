@@ -32,6 +32,24 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _resolve_polling_endpoint(
+    sender_task_id: str | None,
+    sender_info: dict[str, str] | None,
+    target_endpoint: str,
+    target_uds_path: str | None,
+    target_task_id: str,
+) -> tuple[str, str | None, str]:
+    """Return the endpoint, UDS path, and task ID to poll for wait mode."""
+    if sender_task_id and sender_info:
+        sender_endpoint = sender_info.get("sender_endpoint")
+        sender_uds_path = sender_info.get("sender_uds_path")
+        if sender_endpoint:
+            return sender_endpoint, sender_uds_path, sender_task_id
+
+    return target_endpoint, target_uds_path, target_task_id
+
+
 # ============================================================
 # Data Classes
 # ============================================================
@@ -507,40 +525,28 @@ class A2AClient:
             task = A2ATask.from_dict(task_data)
 
             if wait_for_completion and response_mode == "wait":
-                if sender_task_id:
-                    # Poll SENDER's server for the sender_task_id (where reply will arrive)
-                    # not the target's server
-                    sender_endpoint = (
-                        sender_info.get("sender_endpoint") if sender_info else None
-                    )
-                    sender_uds = (
-                        sender_info.get("sender_uds_path") if sender_info else None
-                    )
-                    if sender_endpoint:
-                        completed_task = self._wait_for_local_completion(
-                            sender_endpoint,
-                            sender_task_id,
-                            timeout,
-                            uds_path=sender_uds if sender_uds else None,
-                        )
-                        if completed_task is not None:
-                            task = completed_task
+                poll_endpoint, poll_uds_path, poll_task_id = _resolve_polling_endpoint(
+                    sender_task_id,
+                    sender_info,
+                    endpoint,
+                    uds_path,
+                    task.id,
+                )
+                completed_task = self._wait_for_local_completion(
+                    poll_endpoint,
+                    poll_task_id,
+                    timeout,
+                    uds_path=poll_uds_path,
+                )
+                if completed_task is not None:
+                    task = completed_task
                 else:
-                    # No sender server (e.g. workflow subprocess).
-                    # Fall back to polling the TARGET's task directly.
-                    logger.debug(
-                        "No sender_task_id; polling target task %s at %s",
-                        task.id,
-                        endpoint,
+                    logger.warning(
+                        "wait_for_completion=True but polling timed out at "
+                        "%s/tasks/%s; returning unfinished task",
+                        poll_endpoint,
+                        poll_task_id,
                     )
-                    completed_task = self._wait_for_local_completion(
-                        endpoint,
-                        task.id,
-                        timeout,
-                        uds_path=uds_path,
-                    )
-                    if completed_task is not None:
-                        task = completed_task
 
             # Clear transport status after communication completes
             _update_transport(None)
