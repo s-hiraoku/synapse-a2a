@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `/dev-issue` summary now suggests the appropriate post-implementation skill based on mode: `/post-impl-codex` for default (codex spawn), `/post-impl-claude` or `/post-impl` (target: self) for `--solo`, and none for `--dry-run` (brief only — no post-impl proposed). Surfaces the docs/skills/site-sync chain so it isn't silently dropped after implementation (#665).
+
+### Refactored
+
+- All status WRITE sites in `synapse/cli.py` and `synapse/controller.py` now use the `synapse.status` constants instead of string literals (`"PROCESSING"`, `"DONE"`, `"SHUTTING_DOWN"`, `"WAITING"`, `"READY"`). Read-only status comparisons in `tools/a2a.py` and `commands/*.py` are intentionally left as literals; expanding scope there would not improve write-side state machine review.
+
 ### Fixed
 
 - Artifact text formatting now strips PTY control bytes before persisting or returning A2A output, preventing raw terminal redraw content from leaking into `recent_messages` (#664).
