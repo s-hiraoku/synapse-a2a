@@ -117,6 +117,7 @@ from synapse.port_manager import (
     is_process_alive,
 )
 from synapse.registry import AgentRegistry, NameConflictError, is_port_open
+from synapse.status import SHUTTING_DOWN
 from synapse.utils import resolve_command_path
 
 # Known profiles (for shortcut detection)
@@ -430,7 +431,7 @@ def cmd_kill(args: argparse.Namespace) -> None:
         escalation_wait = max(remaining - grace_period, 0)
 
         # 1. Set status to SHUTTING_DOWN
-        registry.update_status(agent_id, "SHUTTING_DOWN")
+        registry.update_status(agent_id, SHUTTING_DOWN)
 
         # 2. Send graceful shutdown request via A2A
         logger.info(
