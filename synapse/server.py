@@ -15,6 +15,7 @@ from synapse.a2a_compat import create_a2a_router
 from synapse.controller import TerminalController
 from synapse.logging_config import setup_logging
 from synapse.registry import AgentRegistry, resolve_uds_path
+from synapse.status import PROCESSING
 from synapse.utils import resolve_command_path
 
 # Global controller and registry instances (for standalone mode)
@@ -203,7 +204,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     controller.start()
 
     register_kwargs: dict[str, Any] = {
-        "status": "PROCESSING",
+        "status": PROCESSING,
         "spawned_by": os.environ.get("SYNAPSE_SPAWNED_BY") or None,
     }
     renderer_available = getattr(controller, "renderer_available", None)

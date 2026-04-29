@@ -10,6 +10,8 @@ from collections.abc import Callable
 from re import Pattern
 from typing import Any
 
+from synapse.status import DONE, PROCESSING, READY, WAITING
+
 
 class TerminalWriter:
     """Handle PTY input injection and submit confirmation."""
@@ -262,7 +264,7 @@ class TerminalWriter:
 
         with self._status_lock:
             previous_status = self.owner.status
-            self.owner.status = "PROCESSING"
+            self.owner.status = PROCESSING
 
         with self._write_lock:
             try:
@@ -375,11 +377,11 @@ class TerminalWriter:
             pending = self.owner._has_copilot_pending_placeholder(current_tail)
 
         current_status = self.owner.status
-        if initial_status == "READY" and current_status != "READY":
+        if initial_status == READY and current_status != READY:
             return not pending
-        if current_status in {"PROCESSING", "DONE"}:
+        if current_status in {PROCESSING, DONE}:
             return not pending
-        if current_status == "WAITING" and initial_status != "WAITING":
+        if current_status == WAITING and initial_status != WAITING:
             return not pending
 
         if not markers:
