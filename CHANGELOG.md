@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `.github/PULL_REQUEST_TEMPLATE.md` enforcing the `Closes #<num>` / `Refs #<num>` keyword convention so issues auto-close on merge instead of orphaning. CLAUDE.md gains a "Closing shipped issues" section documenting backlog triage (#670).
+
 ### Changed
 
 - `/dev-issue` summary now suggests the appropriate post-implementation skill based on mode: `/post-impl-codex` for default (codex spawn), `/post-impl-claude` or `/post-impl` (target: self) for `--solo`, and none for `--dry-run` (brief only — no post-impl proposed). Surfaces the docs/skills/site-sync chain so it isn't silently dropped after implementation (#665).
