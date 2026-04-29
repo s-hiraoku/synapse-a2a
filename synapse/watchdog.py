@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from synapse.status import PROCESSING, RATE_LIMITED, READY, SENDING_REPLY
+from synapse.status import PROCESSING, RATE_LIMITED, READY, SENDING_REPLY, WAITING
 
 _THIRTY_MINUTES = 30 * 60
 
@@ -142,7 +142,7 @@ def _evaluate_alarm(
         ):
             return message, None
 
-    if _detect_rate_limit_dialog(pty_tail):
+    if status == WAITING and _detect_rate_limit_dialog(pty_tail):
         return RATE_LIMIT_DIALOG_ALARM, RATE_LIMIT_DIALOG_ALARM_REASON
 
     if (

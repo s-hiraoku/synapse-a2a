@@ -18,6 +18,7 @@ from synapse.history import HistoryManager
 from synapse.paths import get_history_db_path
 from synapse.port_manager import is_process_alive
 from synapse.registry import AgentRegistry
+from synapse.status import WAITING
 from synapse.watchdog import WatchdogReport, evaluate_agent
 
 _PTY_DEBUG_TIMEOUT = 1.5
@@ -114,7 +115,11 @@ def _collect_reports(now: float) -> list[WatchdogReport]:
 
     for agent_id, agent_info in sorted(_live_agents(registry).items()):
         history = _outbound_history_for_agent(history_manager, agent_id)
-        pty_tail = _fetch_debug_pty_tail(agent_info)
+        pty_tail = (
+            _fetch_debug_pty_tail(agent_info)
+            if str(agent_info.get("status")) == WAITING
+            else None
+        )
         reports.append(
             evaluate_agent(
                 agent_info=agent_info,
