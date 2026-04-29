@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `synapse watchdog check` now detects Codex CLI rate-limit model-switch dialogs from PTY debug output and surfaces a `rate_limit_dialog` alarm (#691).
 - `synapse reply` now accepts `--message-file` / `-F` and `--stdin` flags, matching `synapse send`. This lets long replies (or replies containing backticks / `$()` / `${}` shell metacharacters) be passed via file or pipe instead of as a positional argument that the shell may try to expand. Reply still uses fixed `priority=3` and `silent` response mode — other `send` flags were intentionally not mirrored because they conflict with reply semantics (#673).
 - `.github/PULL_REQUEST_TEMPLATE.md` enforcing the `Closes #<num>` / `Refs #<num>` keyword convention so issues auto-close on merge instead of orphaning. CLAUDE.md gains a "Closing shipped issues" section documenting backlog triage (#670).
 
