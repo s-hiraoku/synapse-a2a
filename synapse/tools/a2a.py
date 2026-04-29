@@ -41,8 +41,10 @@ from synapse.status import (
     WAITING_FOR_INPUT,
 )
 from synapse.tools.a2a_helpers import (  # noqa: F401 -- re-export
+    _add_attachments_flag,
     _add_message_source_flags,
     _add_response_mode_flags,
+    _add_text_input_flags,
     _agents_in_current_working_dir,
     _are_worktree_related,
     _artifact_display_text,
@@ -930,7 +932,8 @@ def main() -> None:
     p_send.add_argument(
         "message", nargs="?", default=None, help="Content of the message"
     )
-    _add_message_source_flags(p_send)
+    _add_text_input_flags(p_send)
+    _add_attachments_flag(p_send)
     p_send.add_argument(
         "--force",
         action="store_true",
@@ -966,7 +969,8 @@ def main() -> None:
     p_broadcast.add_argument(
         "message", nargs="?", default=None, help="Content of the message"
     )
-    _add_message_source_flags(p_broadcast)
+    _add_text_input_flags(p_broadcast)
+    _add_attachments_flag(p_broadcast)
 
     # reply command - simplified reply to last message
     p_reply = subparsers.add_parser("reply", help="Reply to the last received message")
@@ -991,18 +995,7 @@ def main() -> None:
         dest="fail",
         help="Send a failed reply with the given reason instead of a normal text reply",
     )
-    p_reply.add_argument(
-        "--message-file",
-        "-F",
-        dest="message_file",
-        help="Read reply message from file (use '-' for stdin)",
-    )
-    p_reply.add_argument(
-        "--stdin",
-        action="store_true",
-        default=False,
-        help="Read reply message from stdin",
-    )
+    _add_text_input_flags(p_reply)
     p_reply.add_argument("message", nargs="?", default="", help="Reply message content")
 
     args = parser.parse_args()

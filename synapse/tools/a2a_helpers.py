@@ -640,8 +640,8 @@ def _add_response_mode_flags(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _add_message_source_flags(parser: argparse.ArgumentParser) -> None:
-    """Add --message-file, --stdin, and --attach flags to a parser."""
+def _add_text_input_flags(parser: argparse.ArgumentParser) -> None:
+    """Add universal text input flags to a parser."""
     parser.add_argument(
         "--message-file",
         "-F",
@@ -649,17 +649,25 @@ def _add_message_source_flags(parser: argparse.ArgumentParser) -> None:
         help="Read message from file (use '-' for stdin)",
     )
     parser.add_argument(
-        "--task-file",
-        "-T",
-        dest="task_file",
-        help="Read message from task file (use '-' for stdin)",
-    )
-    parser.add_argument(
         "--stdin",
         action="store_true",
         default=False,
         help="Read message from stdin",
     )
+
+
+def _add_task_file_flag(parser: argparse.ArgumentParser) -> None:
+    """Add the spawn-only task file input flag to a parser."""
+    parser.add_argument(
+        "--task-file",
+        "-T",
+        dest="task_file",
+        help="Read message from task file (use '-' for stdin)",
+    )
+
+
+def _add_attachments_flag(parser: argparse.ArgumentParser) -> None:
+    """Add the repeatable attachment flag to a parser."""
     parser.add_argument(
         "--attach",
         "-a",
@@ -667,3 +675,10 @@ def _add_message_source_flags(parser: argparse.ArgumentParser) -> None:
         dest="attach",
         help="Attach a file to the message (repeatable)",
     )
+
+
+def _add_message_source_flags(parser: argparse.ArgumentParser) -> None:
+    """Add the legacy bundle of text, task-file, stdin, and attachment flags."""
+    _add_text_input_flags(parser)
+    _add_task_file_flag(parser)
+    _add_attachments_flag(parser)
