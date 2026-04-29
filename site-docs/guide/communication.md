@@ -158,6 +158,17 @@ For sandboxed environments (e.g., Codex):
 synapse reply "Result" --from $SYNAPSE_AGENT_ID
 ```
 
+### Reply from File or Stdin
+
+For long replies, or replies containing backticks / `$()` / `${}` shell metacharacters, mirror the `synapse send` flags (#673):
+
+```bash
+synapse reply --message-file /tmp/findings.md
+echo "long reply" | synapse reply --stdin
+```
+
+Reply still uses fixed `priority=3` and `silent` response mode — other `send` flags were intentionally not mirrored because they conflict with reply semantics.
+
 ## Priority Levels
 
 | Level | Name | Use Case | Behavior |

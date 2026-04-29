@@ -270,8 +270,13 @@ synapse send <target> "<message>" [OPTIONS]
 synapse reply "<message>"                  # Reply to last sender
 synapse reply "<message>" --to <sender>    # Reply to specific sender
 synapse reply "<message>" --from ID        # With explicit sender ID
+synapse reply --message-file PATH          # Read reply body from file (`-` for stdin)
+synapse reply --stdin                      # Read reply body from stdin
 synapse reply --list-targets               # List pending senders
 ```
+
+!!! tip "Long or shell-unsafe replies (#673)"
+    `--message-file` / `-F` and `--stdin` mirror the same flags on `synapse send`, so replies containing backticks, `$()`, or `${}` shell metacharacters can be passed via file or pipe instead of as a positional argument the shell may try to expand. Reply still uses fixed `priority=3` and `silent` response mode — other `send` flags were intentionally not mirrored because they conflict with reply semantics.
 
 ### Broadcast
 

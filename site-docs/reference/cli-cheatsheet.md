@@ -320,6 +320,10 @@ synapse reply "Done" --from $SYNAPSE_AGENT_ID
 
 # Reply to a specific sender
 synapse reply "Done" --to synapse-claude-8100
+
+# Long or shell-unsafe replies — mirror send flags (#673)
+synapse reply --message-file /tmp/findings.md
+echo "long reply" | synapse reply --stdin
 ```
 
 ### Broadcasting

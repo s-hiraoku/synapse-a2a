@@ -117,7 +117,7 @@ from synapse.port_manager import (
     is_process_alive,
 )
 from synapse.registry import AgentRegistry, NameConflictError, is_port_open
-from synapse.status import SHUTTING_DOWN
+from synapse.status import PROCESSING, SHUTTING_DOWN
 from synapse.utils import resolve_command_path
 
 # Known profiles (for shortcut detection)
@@ -2547,7 +2547,7 @@ def cmd_run_interactive(
                 agent_id,
                 profile,
                 port,
-                status="PROCESSING",
+                status=PROCESSING,
                 name=agent_name,
                 role=agent_role,
                 skill_set=selected_skill_set,

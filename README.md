@@ -1163,10 +1163,14 @@ Reply to the last received message:
 
 ```bash
 synapse reply "<message>"
-synapse reply --fail "reason for failure"   # Send a failed reply
+synapse reply --message-file /tmp/reply.md          # Read reply from file ('-' for stdin)
+echo "long reply..." | synapse reply --stdin        # Read reply from stdin
+synapse reply --fail "reason for failure"           # Send a failed reply
 ```
 
 The `--from` flag is only needed in sandboxed environments (like Codex). Without `--from`, Synapse auto-detects the sender. Use `--fail` to indicate the task could not be completed; this sends a failed status with an error instead of a normal text reply.
+
+**Long replies / shell-expandable content:** `--message-file` (`-F`) and `--stdin` mirror the same flags on `synapse send`, letting you supply replies that contain backticks, code fences, or other content that would otherwise be expanded or warned about by the shell. Other `synapse send` flags (`--priority`, `--wait` / `--notify` / `--silent`, `--attach`) are intentionally not mirrored — replies always use priority 3 in silent response mode.
 
 ### Low-Level A2A Tool
 

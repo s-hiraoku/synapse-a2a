@@ -642,8 +642,9 @@ class TerminalController(StatusObserverMixin):
             is_waiting: Whether the agent is showing a selection UI.
 
         Returns:
-            New status string: "READY", "WAITING", "PROCESSING", "DONE",
-            or "SHUTTING_DOWN".
+            New status — one of the constants in ``synapse.status``
+            (``READY``, ``WAITING``, ``PROCESSING``, ``DONE``,
+            ``SHUTTING_DOWN``).
         """
         decision = self._idle_detector.determine_new_status(
             current_status=self.status,
@@ -1208,11 +1209,12 @@ class TerminalController(StatusObserverMixin):
         """Move agent to PROCESSING after an interrupt; the resulting output is in flight."""
         with self.lock:
             old_status = self.status
+            if old_status == PROCESSING:
+                return
             self.status = PROCESSING
             if self.agent_id:
                 self.registry.update_status(self.agent_id, self.status)
-        if old_status != self.status:
-            self._dispatch_status_callbacks(old_status, self.status)
+        self._dispatch_status_callbacks(old_status, self.status)
 
     def interrupt(self) -> None:
         """Send SIGINT to interrupt the controlled process."""

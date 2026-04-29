@@ -820,9 +820,14 @@ synapse send gemini "이것을 분석해줘" --wait
 
 ```bash
 synapse reply "<message>"
+synapse reply --message-file /tmp/reply.md          # 파일에서 응답 읽기 (`-` 는 stdin)
+echo "긴 응답..." | synapse reply --stdin           # stdin 에서 응답 읽기
+synapse reply --fail "실패 사유"                    # 실패 응답 전송
 ```
 
 `--from` 플래그는 샌드박스 환경(Codex 등)에서만 필요합니다. 통상적으로는 프로세스 계통에서 자동 감지됩니다.
+
+**긴 응답 / shell 확장이 우려되는 내용:** `--message-file`(`-F`)과 `--stdin`은 `synapse send`의 동일한 플래그를 그대로 미러링하며, 백틱이나 코드 블록이 포함된 응답을 shell 확장 경고 없이 전송할 수 있습니다. `synapse send`의 다른 플래그(`--priority`, `--wait` / `--notify` / `--silent`, `--attach`)는 의도적으로 미러링하지 않았습니다 — 응답은 항상 priority 3, silent 모드로 전송됩니다.
 
 ### 저수준 A2A 도구
 

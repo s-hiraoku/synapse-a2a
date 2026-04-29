@@ -38,6 +38,33 @@ def _get_send_message_threshold() -> int:
     return 102_400
 
 
+def _message_args_with_spill(message: str) -> list[str]:
+    """Return argv-fragment for message: positional or ``--message-file`` spill.
+
+    Spills to a temp file when the message exceeds the configured threshold so
+    callers (``cmd_send``, ``cmd_broadcast``, ``cmd_reply``) do not hit shell
+    ARG_MAX limits on large payloads.
+    """
+    import tempfile
+
+    threshold = _get_send_message_threshold()
+    if len(message.encode("utf-8")) <= threshold:
+        return [message]
+
+    send_dir = Path(tempfile.gettempdir()) / "synapse-a2a" / "send-messages"
+    send_dir.mkdir(parents=True, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(prefix="send-", suffix=".txt", dir=str(send_dir))
+    try:
+        os.write(fd, message.encode("utf-8"))
+        os.close(fd)
+        os.chmod(tmp_path, 0o600)
+    except Exception:
+        os.close(fd)
+        Path(tmp_path).unlink(missing_ok=True)
+        raise
+    return ["--message-file", tmp_path]
+
+
 def _build_a2a_cmd(
     subcommand: str,
     message: str,
@@ -51,8 +78,6 @@ def _build_a2a_cmd(
     local_only: bool = False,
 ) -> list[str]:
     """Build command arguments for a2a.py subcommand."""
-    import tempfile
-
     cmd = [sys.executable, "-m", "synapse.tools.a2a", subcommand]
 
     if target:
@@ -60,24 +85,7 @@ def _build_a2a_cmd(
     if priority is not None:
         cmd.extend(["--priority", str(priority)])
 
-    threshold = _get_send_message_threshold()
-    if len(message.encode("utf-8")) > threshold:
-        send_dir = Path(tempfile.gettempdir()) / "synapse-a2a" / "send-messages"
-        send_dir.mkdir(parents=True, exist_ok=True)
-        fd, tmp_path = tempfile.mkstemp(
-            prefix="send-", suffix=".txt", dir=str(send_dir)
-        )
-        try:
-            os.write(fd, message.encode("utf-8"))
-            os.close(fd)
-            os.chmod(tmp_path, 0o600)
-        except Exception:
-            os.close(fd)
-            Path(tmp_path).unlink(missing_ok=True)
-            raise
-        cmd.extend(["--message-file", tmp_path])
-    else:
-        cmd.append(message)
+    cmd.extend(_message_args_with_spill(message))
 
     if attachments:
         for path in attachments:
@@ -219,9 +227,11 @@ def cmd_reply(args: argparse.Namespace) -> None:
         cmd.append("--list-targets")
     if message_file:
         cmd.extend(["--message-file", message_file])
-    if use_stdin:
+    elif use_stdin:
         cmd.append("--stdin")
-    if args.message:
-        cmd.append(args.message)
+    elif args.message:
+        # Spill long replies to a temp file so the subprocess argv stays
+        # under ARG_MAX, matching cmd_send / cmd_broadcast behaviour.
+        cmd.extend(_message_args_with_spill(args.message))
 
     _run_a2a_command(cmd, exit_on_error=True)

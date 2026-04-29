@@ -886,9 +886,14 @@ synapse send claude "你好" --from $SYNAPSE_AGENT_ID
 
 ```bash
 synapse reply "<message>"
+synapse reply --message-file /tmp/reply.md          # 从文件读取回复（`-` 表示 stdin）
+echo "长内容..." | synapse reply --stdin            # 从 stdin 读取回复
+synapse reply --fail "失败原因"                     # 发送失败回复
 ```
 
 `--from` 标志仅在沙盒环境（如 Codex）中需要。通常情况下，Synapse 通过进程谱系自动检测发送者。
+
+**长回复 / 含 shell 可展开内容：** `--message-file`（`-F`）与 `--stdin` 与 `synapse send` 上的同名标志一致，可在不触发 shell 展开警告的情况下发送包含反引号或代码块的回复。`synapse send` 的其他标志（`--priority`、`--wait` / `--notify` / `--silent`、`--attach`）有意未在 reply 中镜像 — 回复始终使用 priority 3 与 silent 模式发送。
 
 ### 低级 A2A 工具
 
