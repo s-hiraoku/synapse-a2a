@@ -275,8 +275,8 @@ def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
         "BUSY": "working",
         WAITING: "input_required",
         WAITING_FOR_INPUT: "input_required",
-        "READY": "completed",
-        "DONE": "completed",
+        READY: "completed",
+        DONE: "completed",
         "NOT_STARTED": "submitted",
     }
     return mapping.get(synapse_status, "working")
