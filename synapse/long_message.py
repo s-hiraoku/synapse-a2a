@@ -39,6 +39,10 @@ class LongMessageStore:
         message_dir: Directory for storing message files.
         threshold: Character count threshold for file storage.
         ttl: Time-to-live in seconds for stored files.
+        _last_cleanup_ts: Unix timestamp of the most recent
+            cleanup_expired() invocation; used by maybe_cleanup_expired()
+            to throttle to at most one cleanup per DEFAULT_CLEANUP_INTERVAL
+            seconds.
     """
 
     def __init__(

@@ -1,11 +1,13 @@
-"""PTY context sanitisation helpers for permission notifications.
+"""PTY context sanitisation helpers.
 
-Permission notifications embed a tail of the agent's PTY buffer so the
-sender can decide whether to approve. The raw buffer can contain CSI
-escapes, line-overwrite fragments, C0/C1 control bytes, and
-mid-sequence truncation when `[-512:]` bisects a CSI. See issues #582
-and #586. This module strips those byte classes so downstream renders
-are readable and safe to persist.
+Originally introduced for permission notifications (#582/#586) which
+embed a tail of the agent's PTY buffer. The same sanitisation is now
+also applied at the A2A artifact persistence boundary (#664/PR #668)
+and the long-message file persistence boundary (#677/PR #678) so PTY
+scrape residue (CSI escapes, line-overwrite fragments, C0/C1 control
+bytes, mid-sequence truncation when `[-512:]` bisects a CSI) cannot
+leak into either history or A2A message files. Downstream renders
+remain readable and safe to persist.
 """
 
 from __future__ import annotations

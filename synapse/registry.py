@@ -200,7 +200,8 @@ class AgentRegistry:
             agent_id: Unique agent identifier.
             agent_type: Type of agent (claude, gemini, codex).
             port: Port number for HTTP endpoint.
-            status: Initial status (READY, WAITING, PROCESSING, or DONE).
+            status: Initial status — one of the constants in
+                ``synapse.status`` (defaults to ``PROCESSING``).
             tty_device: TTY device path (e.g., /dev/ttys001) for terminal jump.
             name: Custom name for the agent (optional).
             role: Role description for the agent (optional).
