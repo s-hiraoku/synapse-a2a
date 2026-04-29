@@ -204,10 +204,11 @@ def cmd_broadcast(args: argparse.Namespace) -> None:
 
 def cmd_reply(args: argparse.Namespace) -> None:
     """Reply to the last received A2A message using reply tracking."""
-    message = args.message
     sender = getattr(args, "sender", None)
     to_sender = getattr(args, "to", None)
     list_targets = getattr(args, "list_targets", False)
+    message_file = getattr(args, "message_file", None)
+    use_stdin = getattr(args, "stdin", False)
 
     cmd = [sys.executable, str(_get_a2a_tool_path()), "reply"]
     if sender:
@@ -216,7 +217,11 @@ def cmd_reply(args: argparse.Namespace) -> None:
         cmd.extend(["--to", to_sender])
     if list_targets:
         cmd.append("--list-targets")
-    if message:
-        cmd.append(message)
+    if message_file:
+        cmd.extend(["--message-file", message_file])
+    if use_stdin:
+        cmd.append("--stdin")
+    if args.message:
+        cmd.append(args.message)
 
     _run_a2a_command(cmd, exit_on_error=True)

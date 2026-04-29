@@ -3470,6 +3470,18 @@ Priority levels:
         default=False,
         help="List available reply targets and exit",
     )
+    p_reply.add_argument(
+        "--message-file",
+        "-F",
+        dest="message_file",
+        help="Read reply message from file (use '-' for stdin)",
+    )
+    p_reply.add_argument(
+        "--stdin",
+        action="store_true",
+        default=False,
+        help="Read reply message from stdin",
+    )
     p_reply.add_argument("message", nargs="?", default="", help="Reply message content")
     p_reply.set_defaults(func=cmd_reply)
 

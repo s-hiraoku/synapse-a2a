@@ -16,6 +16,7 @@ from synapse.commands.cleanup import opportunistic_cleanup_idle_orphans
 from synapse.file_safety import FileSafetyManager
 from synapse.port_manager import PORT_RANGES
 from synapse.registry import AgentRegistry
+from synapse.status import PROCESSING
 from synapse.utils import format_renderer_suffix
 
 if TYPE_CHECKING:
@@ -81,7 +82,7 @@ class ListCommand:
 
         # Check 2: Port must be open (agent server responding)
         # Skip port check for PROCESSING agents (server may still be starting)
-        is_starting = info.get("status", "-") == "PROCESSING"
+        is_starting = info.get("status", "-") == PROCESSING
         if is_starting or not port:
             return True
 

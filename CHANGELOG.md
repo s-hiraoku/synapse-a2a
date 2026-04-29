@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `synapse reply` now accepts `--message-file` / `-F` and `--stdin` flags, matching `synapse send`. This lets long replies (or replies containing backticks / `$()` / `${}` shell metacharacters) be passed via file or pipe instead of as a positional argument that the shell may try to expand. Reply still uses fixed `priority=3` and `silent` response mode — other `send` flags were intentionally not mirrored because they conflict with reply semantics (#673).
 - `.github/PULL_REQUEST_TEMPLATE.md` enforcing the `Closes #<num>` / `Refs #<num>` keyword convention so issues auto-close on merge instead of orphaning. CLAUDE.md gains a "Closing shipped issues" section documenting backlog triage (#670).
 
 ### Changed
@@ -19,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `send_to_local()` wait mode now resolves a single polling endpoint before waiting, falling back to target polling instead of silently skipping when sender polling is unavailable (#515).
 - All status WRITE sites in `synapse/cli.py` and `synapse/controller.py` now use the `synapse.status` constants instead of string literals (`"PROCESSING"`, `"DONE"`, `"SHUTTING_DOWN"`, `"WAITING"`, `"READY"`). Read-only status comparisons in `tools/a2a.py` and `commands/*.py` are intentionally left as literals; expanding scope there would not improve write-side state machine review.
+- All status WRITE sites in `synapse/cli.py` and `synapse/controller.py` now use the `synapse.status` constants instead of string literals (`"PROCESSING"`, `"DONE"`, `"SHUTTING_DOWN"`, `"WAITING"`, `"READY"`).
+- Status READ-only comparisons in `synapse/tools/a2a.py`, `synapse/commands/cleanup.py`, and `synapse/commands/list.py` now use the same `synapse.status` constants. Combined with the WRITE-side migration above, the status state machine no longer mixes literals and constants — the entire surface is greppable through the constants module.
 
 ### Fixed
 
