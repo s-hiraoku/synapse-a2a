@@ -118,6 +118,7 @@ from synapse.port_manager import (
 )
 from synapse.registry import AgentRegistry, NameConflictError, is_port_open
 from synapse.status import PROCESSING, SHUTTING_DOWN
+from synapse.tools.a2a_helpers import _add_attachments_flag, _add_text_input_flags
 from synapse.utils import resolve_command_path
 
 # Known profiles (for shortcut detection)
@@ -3343,31 +3344,14 @@ Priority levels:
     )
     p_send.add_argument("target", help="Target agent (claude, codex, gemini)")
     p_send.add_argument("message", nargs="?", default=None, help="Message to send")
-    p_send.add_argument(
-        "--message-file",
-        "-F",
-        dest="message_file",
-        help="Read message from file (use '-' for stdin)",
-    )
-    p_send.add_argument(
-        "--stdin",
-        action="store_true",
-        default=False,
-        help="Read message from stdin",
-    )
+    _add_text_input_flags(p_send)
     p_send.add_argument(
         "--priority", "-p", type=int, default=3, help="Priority level 1-5 (default: 3)"
     )
     p_send.add_argument(
         "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
     )
-    p_send.add_argument(
-        "--attach",
-        "-a",
-        action="append",
-        dest="attach",
-        help="Attach a file to the message (repeatable)",
-    )
+    _add_attachments_flag(p_send)
     _add_response_mode_flags(p_send)
     p_send.add_argument(
         "--force",
@@ -3414,31 +3398,14 @@ Priority levels:
     p_broadcast.add_argument(
         "message", nargs="?", default=None, help="Message to broadcast"
     )
-    p_broadcast.add_argument(
-        "--message-file",
-        "-F",
-        dest="message_file",
-        help="Read message from file (use '-' for stdin)",
-    )
-    p_broadcast.add_argument(
-        "--stdin",
-        action="store_true",
-        default=False,
-        help="Read message from stdin",
-    )
+    _add_text_input_flags(p_broadcast)
     p_broadcast.add_argument(
         "--priority", "-p", type=int, default=1, help="Priority level 1-5 (default: 1)"
     )
     p_broadcast.add_argument(
         "--from", "-f", dest="sender", help="Sender agent ID (for reply identification)"
     )
-    p_broadcast.add_argument(
-        "--attach",
-        "-a",
-        action="append",
-        dest="attach",
-        help="Attach a file to the message (repeatable)",
-    )
+    _add_attachments_flag(p_broadcast)
     _add_response_mode_flags(p_broadcast)
     p_broadcast.set_defaults(func=cmd_broadcast)
 
@@ -3470,18 +3437,7 @@ Priority levels:
         default=False,
         help="List available reply targets and exit",
     )
-    p_reply.add_argument(
-        "--message-file",
-        "-F",
-        dest="message_file",
-        help="Read reply message from file (use '-' for stdin)",
-    )
-    p_reply.add_argument(
-        "--stdin",
-        action="store_true",
-        default=False,
-        help="Read reply message from stdin",
-    )
+    _add_text_input_flags(p_reply)
     p_reply.add_argument("message", nargs="?", default="", help="Reply message content")
     p_reply.set_defaults(func=cmd_reply)
 

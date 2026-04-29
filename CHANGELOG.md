@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Refactored
 
+- Split message source argparse flags into narrow text input, task-file, and attachment helpers while preserving the legacy bundle for callers that need all four flags (#681).
 - `send_to_local()` wait mode now resolves a single polling endpoint before waiting, falling back to target polling instead of silently skipping when sender polling is unavailable (#515).
 - All status WRITE sites in `synapse/cli.py` and `synapse/controller.py` now use the `synapse.status` constants instead of string literals (`"PROCESSING"`, `"DONE"`, `"SHUTTING_DOWN"`, `"WAITING"`, `"READY"`).
 - Status READ-only comparisons in `synapse/tools/a2a.py`, `synapse/commands/cleanup.py`, and `synapse/commands/list.py` now use the same `synapse.status` constants. Combined with the WRITE-side migration above, the status state machine no longer mixes literals and constants — the entire surface is greppable through the constants module.
