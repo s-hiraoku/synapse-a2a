@@ -44,6 +44,7 @@ synapse send gemini "Fix this" --silent        # Fire-and-forget
 synapse send claude --message-file /tmp/msg.txt --silent  # From file
 synapse send claude "Review" --attach src/main.py --wait  # With file
 synapse reply "Result here"                    # Auto-route to sender
+synapse reply --message-file /tmp/reply.md     # Long reply from file (mirrors synapse send -F)
 synapse reply --fail "Could not complete"      # Send a failed reply
 synapse broadcast "Status check"               # All agents in CWD
 synapse interrupt claude "Stop and review"      # Soft interrupt (priority 4)

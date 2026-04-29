@@ -892,9 +892,14 @@ Responder al último mensaje recibido:
 
 ```bash
 synapse reply "<mensaje>"
+synapse reply --message-file /tmp/reply.md          # Leer respuesta desde un archivo (`-` para stdin)
+echo "respuesta larga..." | synapse reply --stdin   # Leer respuesta desde stdin
+synapse reply --fail "motivo del fallo"             # Enviar una respuesta fallida
 ```
 
 La bandera `--from` solo es necesaria en entornos sandbox (como Codex). Sin `--from`, Synapse detecta automaticamente el remitente.
+
+**Respuestas largas / contenido expansible por la shell:** `--message-file` (`-F`) y `--stdin` reflejan las mismas banderas de `synapse send`, permitiendo enviar respuestas con backticks o bloques de código sin disparar las advertencias de expansion de shell. Las demás banderas de `synapse send` (`--priority`, `--wait` / `--notify` / `--silent`, `--attach`) no se reflejan intencionalmente — las respuestas siempre se envian con priority 3 en modo silent.
 
 ### Herramienta A2A de Bajo Nivel
 

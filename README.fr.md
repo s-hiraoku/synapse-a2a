@@ -892,9 +892,14 @@ Répondre au dernier message reçu :
 
 ```bash
 synapse reply "<message>"
+synapse reply --message-file /tmp/reply.md          # Lire la reponse depuis un fichier (`-` pour stdin)
+echo "reponse longue..." | synapse reply --stdin    # Lire la reponse depuis stdin
+synapse reply --fail "raison de l'echec"            # Envoyer une reponse en echec
 ```
 
 Le drapeau `--from` n'est nécessaire que dans les environnements sandboxés (comme Codex). Sans `--from`, Synapse détecte automatiquement l'expéditeur.
+
+**Réponses longues / contenu expansible par le shell :** `--message-file` (`-F`) et `--stdin` reflètent les mêmes drapeaux de `synapse send` et permettent d'envoyer des réponses contenant des backticks ou des blocs de code sans déclencher les avertissements d'expansion shell. Les autres drapeaux de `synapse send` (`--priority`, `--wait` / `--notify` / `--silent`, `--attach`) ne sont volontairement pas reflétés — les réponses sont toujours envoyées avec priority 3 en mode silent.
 
 ### Outil A2A Bas Niveau
 

@@ -646,16 +646,20 @@ synapse interrupt claude "Stop" --force   # 異なるプロジェクトのエー
 最後に受信したA2Aメッセージに返信します。Synapseは返信を期待するメッセージの送信者情報を自動的に追跡します。
 
 ```bash
-synapse reply [message] [--from AGENT_ID] [--to SENDER_ID] [--list-targets] [--fail REASON]
+synapse reply [message|--message-file PATH|--stdin] [--from AGENT_ID] [--to SENDER_ID] [--list-targets] [--fail REASON]
 ```
 
 | 引数 | 必須 | 説明 |
 |------|------|------|
-| `message` | No | 返信メッセージ内容（`--list-targets` 使用時は省略可） |
+| `message` | No | 返信メッセージ内容（`--message-file` / `--stdin` / `--list-targets` 使用時は省略可） |
+| `--message-file`, `-F` | No | ファイルから返信メッセージを読み込み（`-` で stdin）。バックティックやコードブロックを含む長文返信で shell 展開を回避するために使用 |
+| `--stdin` | No | 標準入力から返信メッセージを読み込み |
 | `--from`, `-f` | No | 送信元エージェントID（省略可: 自動検出。サンドボックス環境で必要な場合あり） |
 | `--to` | No | 返信先の sender_id を指定（複数の送信者がいる場合に使用） |
 | `--list-targets` | No | 返信可能なターゲット一覧を表示して終了 |
 | `--fail` | No | 通常のテキスト返信の代わりに失敗返信を送信（理由を指定） |
+
+**Note**: `synapse reply` は `synapse send` と同様に positional / `--message-file` / `--stdin` のいずれか1つでメッセージ本文を指定できます。`synapse send` の他のフラグ（`--priority`、`--wait` / `--notify` / `--silent`、`--attach` 等）は意図的にミラーされておらず、返信は常に priority 3 / silent モードで送信されます。
 
 **例**:
 
@@ -671,6 +675,12 @@ synapse reply --list-targets
 
 # 失敗を返信
 synapse reply --fail "クォータ超過のため処理できませんでした"
+
+# ファイルから長文返信を送信（バックティックやコードブロックを含む場合に推奨）
+synapse reply --message-file /tmp/review-result.md
+
+# 標準入力から返信
+cat ./review.md | synapse reply --stdin
 ```
 
 **動作**:

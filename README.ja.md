@@ -951,9 +951,14 @@ synapse send claude "これをレビューして" --force
 
 ```bash
 synapse reply "<message>"
+synapse reply --message-file /tmp/reply.md          # ファイルから返信（`-` で stdin）
+echo "長文返信..." | synapse reply --stdin          # 標準入力から返信
+synapse reply --fail "失敗理由"                     # 失敗返信を送信
 ```
 
 `--from` フラグはサンドボックス環境（Codex 等）でのみ必要。通常はプロセス系統から自動検出されます。
+
+**長文返信 / shell 展開を避けたいコンテンツ:** `--message-file` (`-F`) と `--stdin` は `synapse send` と同じ仕様で、バックティックやコードブロックを含む返信を shell 展開の警告なしに送信できます。`synapse send` の他のフラグ（`--priority`、`--wait` / `--notify` / `--silent`、`--attach`）は意図的にミラーされていません — 返信は常に priority 3 / silent モードで送信されます。
 
 ### 低レベル A2A ツール
 

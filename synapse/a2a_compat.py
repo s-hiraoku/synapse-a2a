@@ -298,14 +298,19 @@ def _format_artifact_text(artifact: "Artifact", use_markdown: bool = False) -> s
         content = code_data.get("content", str(artifact.data))
         prefix = f"```{language}\n" if use_markdown else f"[Code: {language}]\n"
         suffix = "\n```" if use_markdown else ""
-        return strip_control_bytes(f"{prefix}{content}{suffix}")
-
-    if artifact.type == "text":
+        text = f"{prefix}{content}{suffix}"
+    elif artifact.type == "text":
         if isinstance(artifact.data, str):
-            return strip_control_bytes(artifact.data)
-        return strip_control_bytes(str(artifact.data.get("content", artifact.data)))
+            text = artifact.data
+        else:
+            text = str(artifact.data.get("content", artifact.data))
+    else:
+        text = f"[{artifact.type}] {artifact.data}"
 
-    return strip_control_bytes(f"[{artifact.type}] {artifact.data}")
+    # Sanitize once at the single exit so PTY scrape residue (ANSI escapes,
+    # C0/C1 control bytes) cannot leak into history or A2A output regardless
+    # of artifact type. See PR #668 (#664) and #678 (#677, route C).
+    return strip_control_bytes(text)
 
 
 def _save_task_to_history(
