@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `/dev-issue` summary now suggests the appropriate post-implementation skill based on mode: `/post-impl-codex` for default (codex spawn), `/post-impl-claude` or `/post-impl` (target: self) for `--solo`. Surfaces the docs/skills/site-sync chain so it isn't silently dropped after implementation (#665).
+- `/dev-issue` summary now suggests the appropriate post-implementation skill based on mode: `/post-impl-codex` for default (codex spawn), `/post-impl-claude` or `/post-impl` (target: self) for `--solo`, and none for `--dry-run` (brief only — no post-impl proposed). Surfaces the docs/skills/site-sync chain so it isn't silently dropped after implementation (#665).
 ### Fixed
 
 - Artifact text formatting now strips PTY control bytes before persisting or returning A2A output, preventing raw terminal redraw content from leaking into `recent_messages` (#664).

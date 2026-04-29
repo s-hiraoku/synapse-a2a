@@ -168,7 +168,7 @@ Depending on the flag:
   /dev-issue: branch and brief ready. Begin implementation in this session.
   ```
 
-- **`--dry-run`**: skip branch creation (step 9) and spawn. Print:
+- **`--dry-run`**: skip branch creation (step 9) and skip spawn (step 10). Print:
   ```
   /dev-issue: dry run. Brief written to /tmp/issue<num>-task.md.
   Review and re-run without --dry-run to create the branch and spawn.
