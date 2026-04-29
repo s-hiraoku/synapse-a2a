@@ -45,7 +45,7 @@ from synapse.pty_renderer import PtyRenderer
 from synapse.registry import AgentRegistry
 from synapse.settings import get_settings
 from synapse.skills import load_skill_sets
-from synapse.status import PROCESSING
+from synapse.status import DONE, PROCESSING, READY, SHUTTING_DOWN, WAITING
 from synapse.terminal_writer import TerminalWriter
 from synapse.utils import (
     RoleFileNotFoundError,
@@ -209,7 +209,7 @@ class TerminalController(StatusObserverMixin):
         self._pending_cr = False
         self._max_buffer = OUTPUT_BUFFER_MAX
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
-        self.status = "PROCESSING"
+        self.status = PROCESSING
         self.lock = threading.Lock()
         self._write_lock = threading.RLock()
         self.running = False
@@ -457,7 +457,7 @@ class TerminalController(StatusObserverMixin):
         All mutable state is guarded by _auto_approve_lock.
         """
         with self._auto_approve_lock:
-            if new_status != "WAITING":
+            if new_status != WAITING:
                 return
 
             if self._auto_approve_stopped:
@@ -558,7 +558,7 @@ class TerminalController(StatusObserverMixin):
         self.thread = threading.Thread(target=self._monitor_output)
         self.thread.daemon = True
         self.thread.start()
-        self.status = "PROCESSING"
+        self.status = PROCESSING
 
         # Initialize last output time for timeout-based idle detection
         with self.lock:
@@ -711,9 +711,9 @@ class TerminalController(StatusObserverMixin):
                     self.agent_id,
                     exc_info=True,
                 )
-                if new_data and self.status not in {"PROCESSING", "SHUTTING_DOWN"}:
+                if new_data and self.status not in {PROCESSING, SHUTTING_DOWN}:
                     old_status = self.status
-                    self.status = "PROCESSING"
+                    self.status = PROCESSING
                     if self.agent_id:
                         self.registry.update_status(self.agent_id, self.status)
                     self._dispatch_status_callbacks(old_status, self.status)
@@ -760,7 +760,7 @@ class TerminalController(StatusObserverMixin):
             # Send initial instructions on first READY (agent is idle)
             if (
                 is_idle
-                and self.status == "READY"
+                and self.status == READY
                 and not self._identity_sent
                 and not self._identity_sending
                 and self.agent_id
@@ -1288,10 +1288,10 @@ class TerminalController(StatusObserverMixin):
         """
         with self.lock:
             old_status = self.status
-            self.status = "DONE"
+            self.status = DONE
             self._done_time = time.time()
 
-            logger.debug(f"[{self.agent_id}] Status: {old_status} -> DONE")
+            logger.debug(f"[{self.agent_id}] Status: {old_status} -> {DONE}")
 
             # Sync to registry
             if self.agent_id:
@@ -1308,7 +1308,7 @@ class TerminalController(StatusObserverMixin):
         """
         self.running = False
         with self.lock:
-            self.status = "SHUTTING_DOWN"
+            self.status = SHUTTING_DOWN
 
         proc = self.process
         pgid = getattr(self, "_pgid", None)
