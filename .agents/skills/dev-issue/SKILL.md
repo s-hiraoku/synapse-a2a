@@ -168,7 +168,7 @@ Depending on the flag:
   /dev-issue: branch and brief ready. Begin implementation in this session.
   ```
 
-- **`--dry-run`**: skip branch creation (step 9) and spawn. Print:
+- **`--dry-run`**: skip branch creation (step 9) and skip spawn (step 10). Print:
   ```
   /dev-issue: dry run. Brief written to /tmp/issue<num>-task.md.
   Review and re-run without --dry-run to create the branch and spawn.
@@ -177,16 +177,65 @@ Depending on the flag:
 ### 11. Output a summary
 
 Print a concise summary to stdout (not a synapse send — this is for the
-human user invoking the slash):
+human user invoking the slash). The `Next:` line must point to the
+appropriate **post-implementation skill** so the docs/skills/site-sync
+chain isn't silently dropped after the implementation lands.
+
+**default mode** (codex spawned — implementing agent is codex):
 
 ```
 ✓ /dev-issue <num> ready
   Title:   <issue title>
   Branch:  <prefix>/<slug>-<num>   (created from origin/main @ <sha>)
   Brief:   /tmp/issue<num>-task.md
-  Spawned: <codex agent name>      (omit if --solo or --dry-run)
-  Next:    Wait for codex plan reply, or begin implementation.
+  Spawned: <codex agent name>
+  Next:    Wait for codex plan reply, then approve.
+           After implementation completes, run /post-impl-codex to sync
+           docs/skills/site, commit, create PR, and start pr-guardian.
 ```
+
+**`--solo` mode** (parent implements — implementing agent is the caller):
+
+```
+✓ /dev-issue <num> ready (--solo)
+  Title:   <issue title>
+  Branch:  <prefix>/<slug>-<num>   (created from origin/main @ <sha>)
+  Brief:   /tmp/issue<num>-task.md
+  Next:    Begin implementation in this session.
+           After implementation, run /post-impl-claude (Claude Code) or
+           /post-impl (target: self) to sync docs/skills/site, commit,
+           create PR, and start pr-guardian.
+```
+
+**`--dry-run` mode** (no branch, no implementation, no post-impl needed):
+
+```
+✓ /dev-issue <num> dry-run ready
+  Title:   <issue title>
+  Brief:   /tmp/issue<num>-task.md
+  Next:    Review the brief, then re-run without --dry-run to create
+           the branch and spawn (or pass --solo to implement yourself).
+```
+
+#### Post-impl skill selection by implementing agent
+
+| `/dev-issue` mode | Implementing agent     | Post-impl skill                     |
+|-------------------|------------------------|-------------------------------------|
+| **default**       | spawned codex          | `/post-impl-codex`                  |
+| **`--solo`**      | parent (Claude Code)   | `/post-impl-claude` *or* `/post-impl` (target: self) |
+| **`--dry-run`**   | (none)                 | (not applicable)                    |
+
+`/post-impl-codex` calls the workflow runner with codex-optimized steps
+(`/code-simplifier` as a subagent). `/post-impl-claude` uses the built-in
+`/simplify`. `/post-impl` (target: self) injects the sequence back into
+the caller's PTY so it stays in-process — useful when the caller is itself
+a long-lived agent (claude or codex). Pick `/post-impl-claude` over
+`/post-impl` when the caller is a one-shot Claude Code session and you
+want explicit phase boundaries.
+
+The `Next:` line is **a suggestion, not a guarantee** — `/dev-issue` does
+not invoke the post-impl skill itself. The user (or parent agent) decides
+when implementation is "done enough" to run it.
 
 ## Brief Template
 
