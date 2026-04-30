@@ -66,12 +66,10 @@ def cmd_send_keys(args: argparse.Namespace) -> None:
         sys.exit(2)
 
     text = _decode_data(raw, escape=args.escape)
-    submit_seq = "\r" if args.enter else None
-
     endpoint = _resolve_endpoint(target)
     payload: dict[str, Any] = {"data": text}
-    if submit_seq is not None:
-        payload["submit_seq"] = submit_seq
+    if args.enter:
+        payload["submit_seq"] = "\r"
 
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
