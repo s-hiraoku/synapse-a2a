@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `synapse reply --to <sender_id>` now reports whether the reply stack is empty or contains different sender IDs when the requested sender is missing, while preserving the existing persisted fallback behavior (#690).
+
 ## [0.32.0] - 2026-04-30
 
 ### Added

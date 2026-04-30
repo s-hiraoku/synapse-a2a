@@ -743,14 +743,9 @@ def cmd_reply(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
-    def _load_target_summaries() -> list[dict[str, str]]:
-        try:
-            resp = requests.get(f"{my_endpoint}/reply-stack/list", timeout=5)
-        except requests.RequestException:
+    def _parse_target_summaries(data: object) -> list[dict[str, str]]:
+        if not isinstance(data, dict):
             return []
-        if resp.status_code != 200:
-            return []
-        data = resp.json()
         targets = data.get("targets", [])
         if isinstance(targets, list) and targets:
             return [target for target in targets if isinstance(target, dict)]
@@ -758,6 +753,42 @@ def cmd_reply(args: argparse.Namespace) -> None:
         if isinstance(sender_ids, list):
             return [{"sender_id": sid} for sid in sender_ids if isinstance(sid, str)]
         return []
+
+    def _load_target_summaries() -> list[dict[str, str]]:
+        try:
+            resp = requests.get(f"{my_endpoint}/reply-stack/list", timeout=5)
+        except requests.RequestException:
+            return []
+        if resp.status_code != 200:
+            return []
+        return _parse_target_summaries(resp.json())
+
+    def _missing_target_message(sender_id: str | None) -> str:
+        default = "No reply target. No pending messages to reply to."
+        if not sender_id:
+            return default
+
+        try:
+            resp = requests.get(f"{my_endpoint}/reply-stack/list", timeout=2)
+        except requests.RequestException:
+            return default
+        if resp.status_code != 200:
+            return default
+
+        summaries = _parse_target_summaries(resp.json())
+        sender_ids = sorted(
+            {
+                summary_sender
+                for summary in summaries
+                if isinstance(summary_sender := summary.get("sender_id"), str)
+            }
+        )
+        if sender_ids:
+            return (
+                f"No reply target for sender '{sender_id}'. "
+                f"Stack has: {', '.join(sender_ids)}"
+            )
+        return f"No reply target for sender '{sender_id}'. Reply stack is empty."
 
     to_sender = getattr(args, "to", None)
     if not to_sender:
@@ -798,10 +829,7 @@ def cmd_reply(args: argparse.Namespace) -> None:
             if persisted:
                 target = persisted
         if not target:
-            print(
-                "Error: No reply target. No pending messages to reply to.",
-                file=sys.stderr,
-            )
+            print(f"Error: {_missing_target_message(to_sender)}", file=sys.stderr)
             sys.exit(1)
     elif resp.status_code != 200:
         print(
