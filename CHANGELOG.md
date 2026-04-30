@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Clear stale `current_task_preview` / `task_received_at` metadata when A2A tasks reach completed, failed, or canceled terminal states outside the normal finalization path (#689).
+
 ## [0.32.0] - 2026-04-30
 
 ### Added

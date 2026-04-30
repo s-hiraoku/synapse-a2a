@@ -1107,6 +1107,15 @@ def create_a2a_router(
         ):
             registry.update_status(agent_id, RATE_LIMITED)
 
+    def _clear_terminal_task_preview() -> None:
+        """Clear the current task preview after local task terminal transitions."""
+        if registry is None or agent_id is None:
+            return
+        agent_info = registry.get_agent(agent_id)
+        if agent_info and agent_info.get("status") == SENDING_REPLY:
+            return
+        registry.update_current_task(agent_id, None)
+
     def _finalize_working_task(
         task_id: str, full_context: str, recent_context: str
     ) -> Task | None:
@@ -1171,9 +1180,7 @@ def create_a2a_router(
         if controller:
             controller.clear_task_active()
 
-        # Clear task preview in registry
-        if registry and agent_id:
-            registry.update_current_task(agent_id, None)
+        _clear_terminal_task_preview()
 
         # Save to history
         updated = task_store.get(task_id)
@@ -1530,6 +1537,7 @@ def create_a2a_router(
                     task_store.update_status(full_task_id, "failed")
             else:
                 task_store.update_status(full_task_id, "completed")
+            _clear_terminal_task_preview()
 
             # Write reply to PTY so the agent can see it and continue conversation
             if controller:
@@ -1670,6 +1678,7 @@ def create_a2a_router(
             if not written:
                 controller.clear_task_active()
                 task_store.update_status(task.id, "failed")
+                _clear_terminal_task_preview()
                 raise HTTPException(
                     status_code=500,
                     detail="Failed to send: agent process not running",
@@ -1679,6 +1688,7 @@ def create_a2a_router(
         except Exception as e:
             controller.clear_task_active()  # Release on any preparation/send failure
             task_store.update_status(task.id, "failed")
+            _clear_terminal_task_preview()
             msg = f"Failed to send: {e!s}"
             raise HTTPException(status_code=500, detail=msg) from e
 
@@ -1868,6 +1878,7 @@ def create_a2a_router(
         )
         if not updated:
             raise HTTPException(status_code=404, detail="Task not found")
+        _clear_terminal_task_preview()
         return updated
 
     # --------------------------------------------------------
@@ -2237,6 +2248,7 @@ def create_a2a_router(
                 controller.interrupt()
 
         task_store.update_status(task_id, "canceled")
+        _clear_terminal_task_preview()
 
         # Dispatch webhook for canceled task
         _dispatch_task_event("task.canceled", {"task_id": task_id})
