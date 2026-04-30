@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import time
+import urllib.error
+import urllib.request
 from dataclasses import asdict
 from typing import Any
 
@@ -16,7 +18,10 @@ from synapse.history import HistoryManager
 from synapse.paths import get_history_db_path
 from synapse.port_manager import is_process_alive
 from synapse.registry import AgentRegistry
+from synapse.status import WAITING
 from synapse.watchdog import WatchdogReport, evaluate_agent
+
+_PTY_DEBUG_TIMEOUT = 1.5
 
 
 def _format_duration(seconds: float | None) -> str:
@@ -45,6 +50,13 @@ def _metadata_sender_id(metadata: Any) -> str | None:
     return None
 
 
+def _report_to_dict(report: WatchdogReport) -> dict[str, Any]:
+    data = asdict(report)
+    if data.get("alarm_reason") is None:
+        data.pop("alarm_reason", None)
+    return data
+
+
 def _outbound_history_for_agent(
     history_manager: HistoryManager,
     agent_id: str,
@@ -55,6 +67,35 @@ def _outbound_history_for_agent(
         for observation in observations
         if _metadata_sender_id(observation.get("metadata")) == agent_id
     ]
+
+
+def _endpoint_for(info: dict[str, Any]) -> str | None:
+    endpoint = info.get("endpoint")
+    if isinstance(endpoint, str) and endpoint:
+        return endpoint.rstrip("/")
+    port = info.get("port")
+    if isinstance(port, int):
+        return f"http://localhost:{port}"
+    return None
+
+
+def _fetch_debug_pty_tail(info: dict[str, Any]) -> str | None:
+    endpoint = _endpoint_for(info)
+    if not endpoint:
+        return None
+
+    try:
+        with urllib.request.urlopen(
+            f"{endpoint}/debug/pty", timeout=_PTY_DEBUG_TIMEOUT
+        ) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, TimeoutError, urllib.error.URLError, json.JSONDecodeError):
+        return None
+
+    display = payload.get("display")
+    if not isinstance(display, list):
+        return None
+    return "\n".join(str(line) for line in display)
 
 
 def _live_agents(registry: AgentRegistry) -> dict[str, dict[str, Any]]:
@@ -74,7 +115,19 @@ def _collect_reports(now: float) -> list[WatchdogReport]:
 
     for agent_id, agent_info in sorted(_live_agents(registry).items()):
         history = _outbound_history_for_agent(history_manager, agent_id)
-        reports.append(evaluate_agent(agent_info=agent_info, history=history, now=now))
+        pty_tail = (
+            _fetch_debug_pty_tail(agent_info)
+            if str(agent_info.get("status")) == WAITING
+            else None
+        )
+        reports.append(
+            evaluate_agent(
+                agent_info=agent_info,
+                history=history,
+                now=now,
+                pty_tail=pty_tail,
+            )
+        )
 
     return reports
 
@@ -108,7 +161,7 @@ def cmd_watchdog_check(args: argparse.Namespace) -> None:
         reports = [report for report in reports if report.alarm]
 
     if getattr(args, "json", False):
-        print(json.dumps([asdict(report) for report in reports], indent=2))
+        print(json.dumps([_report_to_dict(report) for report in reports], indent=2))
         return
 
     _print_table(reports)
