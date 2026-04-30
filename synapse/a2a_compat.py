@@ -1721,6 +1721,40 @@ def create_a2a_router(
         snapshot: dict[str, Any] = controller.waiting_debug_snapshot()
         return snapshot
 
+    @router.post("/pty/write")
+    async def pty_write(
+        body: dict[str, Any],
+        _: Any = Depends(require_auth),
+    ) -> dict[str, Any]:
+        """Write raw input bytes into the controlled CLI's PTY.
+
+        Escape hatch for unsticking agents blocked on a TUI dialog the
+        parent cannot otherwise answer (codex CLI edit-confirmation, model
+        picker, rate-limit dialog). See issue #695. The body is
+        ``{"data": "<text>", "submit_seq": "<optional>"}``; ``data`` may
+        contain control characters already decoded (the CLI wrapper
+        ``synapse send-keys`` decodes ``\\r`` etc. before POSTing).
+        """
+        if controller is None:
+            raise HTTPException(status_code=503, detail="controller not available")
+        data = body.get("data")
+        if not isinstance(data, str):
+            raise HTTPException(status_code=400, detail="'data' must be a string")
+        submit_seq = body.get("submit_seq")
+        if submit_seq is not None and not isinstance(submit_seq, str):
+            raise HTTPException(
+                status_code=400, detail="'submit_seq' must be a string when provided"
+            )
+        try:
+            ok = controller.write(data, submit_seq=submit_seq)
+        except Exception as exc:  # pragma: no cover - defensive
+            raise HTTPException(status_code=500, detail=f"write failed: {exc}") from exc
+        return {
+            "ok": bool(ok),
+            "bytes_written": len(data.encode("utf-8")),
+            "submit_seq_sent": submit_seq is not None,
+        }
+
     # --------------------------------------------------------
     # Agent Card (Discovery)
     # --------------------------------------------------------
