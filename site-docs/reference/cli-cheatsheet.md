@@ -45,6 +45,8 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse reply "msg"` | Reply to sender |
 | `synapse broadcast "msg"` | Send to all agents in current directory |
 | `synapse interrupt <target> "msg"` | Soft interrupt (priority 4) |
+| `synapse send-keys <target> a` | Write raw key(s) to the agent's PTY — escape hatch for stuck TUI dialogs (#695) |
+| `synapse send-keys <target> yes --enter` | Same, with a trailing `\r` to submit |
 
 ### Plan Approval
 

@@ -183,6 +183,7 @@ may accidentally accept future tasks intended for other agents.
 | Situation | Action |
 |-----------|--------|
 | Agent stuck PROCESSING >5min | `synapse interrupt <name> "Status?"` |
+| Agent blocked on a CLI/TUI dialog (codex edit-confirmation, model picker, rate-limit prompt) | `synapse send-keys <name> <keys>` — programmatic dialog response that writes to the PTY without `synapse jump` (e.g. `a` for codex "don't ask again", `\r` for Enter) (#695) |
 | Agent in `WAITING_FOR_INPUT` | `synapse reply <task_id> "<answer>"` |
 | Agent in `RATE_LIMITED` | Wait for LLM provider window to reset, then re-send |
 | Check all agents at once | `synapse broadcast "Status check" -p 4` |

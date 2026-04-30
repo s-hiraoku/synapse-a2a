@@ -531,6 +531,41 @@ watch -n 1 'synapse status <agent-name> --json'
 
 ---
 
+### 4.4 TUI ダイアログでスタックした (codex 編集確認 / モデル選択 / レート制限)
+
+**症状**:
+- エージェントが PROCESSING / WAITING のまま反応しない
+- 通常の `synapse send` では返事がない（ダイアログ内に閉じ込められて A2A メッセージを処理する前に CLI 自身の確認入力を待っている）
+- 例: codex CLI の編集確認 (`Apply this edit? [Y/n]`)、モデルピッカー、長時間稼働後のレート制限ダイアログ
+
+**対処法（プログラム的）**:
+
+`synapse jump` で人間がターミナルに入って手動で答える代わりに、`synapse send-keys` で CLI / スクリプトから PTY に直接バイトを書き込めます（[#695](https://github.com/s-hiraoku/synapse-a2a/issues/695)、Refs [#694](https://github.com/s-hiraoku/synapse-a2a/issues/694)）。
+
+```bash
+# codex の編集確認に Yes
+synapse send-keys codex 'y' --enter
+
+# モデルピッカーを ESC で閉じる
+synapse send-keys codex '\x1b'
+
+# Enter のみ送信（プロンプトを進める）
+synapse send-keys claude '' --enter
+
+# 結果を JSON で取得（スクリプトから）
+synapse send-keys codex 'y' --enter --json
+```
+
+内部的には `POST /pty/write` を呼び出します。エンドポイントは `require_auth` で保護されており、`/tasks/{id}/cancel` / `/tasks/{id}/permission/approve` と同じトラストモデルです。詳細は [references.md §1.15.1](references.md) / [§2.3.3](references.md)。
+
+**検知レイヤとの関係**: 「どのダイアログでスタックしているか」を自動検知する仕組みは [#694](https://github.com/s-hiraoku/synapse-a2a/issues/694) で別途進行中です。`send-keys` は検知後の応答（または `synapse jump` の手動操作の代替）として位置づけられます。
+
+**注意**:
+- `synapse send-keys` は PTY に raw バイトを書き込むため、誤った内容を送ると CLI 内部状態を破壊する可能性があります。`synapse status --debug-waiting` や `curl /debug/pty | jq .display` で現在の画面を確認してから送ってください。
+- レート制限ダイアログ等、長時間稼働 codex の典型的なスタック例については `feedback_codex_rate_limit_dialog_stuck` メモリも参照。
+
+---
+
 ## 5. 入力の問題
 
 ### 5.1 @Agent が認識されない
