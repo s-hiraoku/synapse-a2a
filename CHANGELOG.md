@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-04-30
+
 ### Added
 
 - `synapse watchdog check` now detects Codex CLI rate-limit model-switch dialogs from PTY debug output and surfaces a `rate_limit_dialog` alarm (#691). The detection is gated on `status == WAITING` so stale PTY content cannot trip the alarm in `READY` / `PROCESSING`, and the `/debug/pty` fetch is skipped for non-`WAITING` agents to avoid per-tick HTTP overhead.
@@ -3643,7 +3645,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.29.0...v0.31.0
 [0.29.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.3...v0.29.0
 [0.28.3]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.28.2...v0.28.3

@@ -78,6 +78,8 @@ from synapse.webhooks import (
     get_webhook_registry,
 )
 
+from . import __version__
+
 if TYPE_CHECKING:
     from synapse.a2a_client import ExternalAgent
     from synapse.transport import MessageTransport
@@ -275,8 +277,8 @@ def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
         "BUSY": "working",
         WAITING: "input_required",
         WAITING_FOR_INPUT: "input_required",
-        "READY": "completed",
-        "DONE": "completed",
+        READY: "completed",
+        DONE: "completed",
         "NOT_STARTED": "submitted",
     }
     return mapping.get(synapse_status, "working")
@@ -1758,7 +1760,7 @@ def create_a2a_router(
             name=f"Synapse {agent_type.capitalize()}",
             description=f"PTY-wrapped {agent_type} CLI agent with A2A communication",
             url=f"{protocol}://localhost:{port}",
-            version="1.0.0",
+            version=__version__,
             capabilities=AgentCapabilities(
                 streaming=True,  # SSE streaming via /tasks/{id}/subscribe
                 pushNotifications=False,  # Not yet supported
