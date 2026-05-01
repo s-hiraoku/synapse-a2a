@@ -63,7 +63,7 @@ synapse list --json
 
 **Plain Output:** `synapse list --plain` forces single-shot text output without entering the Rich TUI, even when stdout is a TTY. `SYNAPSE_NONINTERACTIVE=1` provides the same behavior for automation wrappers.
 
-**JSON Output:** `synapse list --json` outputs a JSON array of agent objects (fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, optionally `editing_file`, `renderer_available` when the controller reports it, and `input_required_tasks` (#651) — a list of `{task_id, approve_url}` entries for tasks awaiting parent approval; defaults to `null`/`[]` when no tasks are pending).
+**JSON Output:** `synapse list --json` outputs a JSON array of agent objects (fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `uptime_seconds` (#708 — derived from `registered_at`), optionally `editing_file`, `renderer_available` when the controller reports it, and `input_required_tasks` (#651) — a list of `{task_id, approve_url}` entries for tasks awaiting parent approval; defaults to `null`/`[]` when no tasks are pending). The canonical fields shared with `synapse status --json` are `agent_id`, `status`, `current_task_preview`, `task_received_at`, `uptime_seconds`, and `input_required_tasks` (#708).
 
 **Renderer state annotation:** when an agent's `PtyRenderer` failed to initialise (for example pyte import failure), the plain-text STATUS column is annotated as `WAITING (renderer: off)` / `READY (renderer: off)` etc. The JSON `status` value itself is unchanged; `renderer_available: false` in the JSON row is the structured equivalent. A missing renderer degrades WAITING detection for ratatui/alt-screen TUIs like Codex — prefer restarting the agent if this persists.
 
@@ -369,10 +369,12 @@ synapse watchdog check --alarm-only --json
 |---|-----------|-------|
 | 1 | `RATE_LIMITED` for more than 30 min | `Rate-limited > 30m` |
 | 2 | `SENDING_REPLY` for more than 60 sec | `Send stuck > 60s` |
-| 3 | `PROCESSING` for more than 30 min AND no outbound A2A in the last 10 min | `Stuck-on-reply suspected` |
-| 4 | Spawn never reached READY (`registered_at` 60s–5m ago, status ≠ `READY`, `last_status_change_at` missing) | `Spawn never ready` |
+| 3 | `WAITING` and PTY tail contains a codex CLI rate-limit dialog (#691, #692) | `rate_limit_dialog` |
+| 4 | `WAITING` and PTY tail contains a codex CLI edit-confirmation dialog (`Would you like to ...`) (#707) | `edit_confirmation_dialog` |
+| 5 | `PROCESSING` for more than 30 min AND no outbound A2A in the last 10 min | `Stuck-on-reply suspected` |
+| 6 | Spawn never reached READY (`registered_at` 60s–5m ago, status ≠ `READY`, `last_status_change_at` missing) | `Spawn never ready` |
 
-The 5-minute upper bound on heuristic 4 prevents misclassifying long-lived legacy agents that may not have populated `last_status_change_at`. Heuristics 1–3 require `last_status_change_at`, so they are silently skipped on pre-`last_status_change_at` registry entries; heuristic 4 only needs `registered_at` (which has always existed) and remains effective on legacy entries.
+The 5-minute upper bound on the spawn-never-ready heuristic prevents misclassifying long-lived legacy agents that may not have populated `last_status_change_at`. The duration-based heuristics (1, 2, 5) require `last_status_change_at`, so they are silently skipped on pre-`last_status_change_at` registry entries; the spawn-never-ready heuristic only needs `registered_at` (which has always existed) and remains effective on legacy entries. The PTY-dialog heuristics (3, 4) need a PTY tail snapshot and only fire when `status == WAITING`.
 
 **JSON schema** (`--json`): a top-level array; each element is one agent's `WatchdogReport`:
 
@@ -1845,7 +1847,7 @@ uv run --directory /path/to/synapse-a2a python -m synapse.mcp
 
 **Defaults:** `--agent-id` defaults to `$SYNAPSE_AGENT_ID` or `synapse-mcp`. `--agent-type` is auto-extracted from the agent ID if not specified.
 
-**MCP methods supported:** `initialize`, `resources/list`, `resources/read`, `tools/list`, `tools/call` (for `bootstrap_agent`, `list_agents`, and `analyze_task`).
+**MCP methods supported:** `initialize`, `resources/list`, `resources/read`, `tools/list`, `tools/call` (for `bootstrap_agent`, `list_agents`, `analyze_task`, and `canvas_post`).
 
 ### MCP Tool: list_agents
 
@@ -1865,7 +1867,7 @@ List all running Synapse agents with status and connection info. Equivalent to `
 |-----------|------|:--------:|-------------|
 | `status` | string | No | Filter by status (READY, PROCESSING, WAITING, DONE, etc.) |
 
-**Response fields:** `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`.
+**Response fields:** `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `summary`. Note: the CLI `synapse list --json` / `synapse status --json` outputs share a canonical 6-field core (`agent_id`, `status`, `current_task_preview`, `task_received_at`, `uptime_seconds`, `input_required_tasks`) per #708; the MCP `list_agents` tool surfaces the registry-side fields directly without the CLI's derived `uptime_seconds` / `input_required_tasks` projection.
 
 ### MCP Tool: analyze_task
 
@@ -1889,9 +1891,35 @@ Analyze a user prompt and suggest team/task splits when the work is large enough
 
 **Response:** Returns `suggestion` (with recommended agents, tasks, and plan) when triggers match, or `null` with a `reason` when no suggestion is warranted.
 
+### MCP Tool: canvas_post
+
+Post content to Canvas without shell escaping. Equivalent to `synapse canvas post` but skips the shell layer, which makes it safe for body strings that contain quotes, backticks, or other shell-special characters. Body may be a plain string or a JSON string when the format is structured (e.g., `briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan`).
+
+```json
+// JSON-RPC tools/call request
+{
+  "name": "canvas_post",
+  "arguments": {
+    "format": "briefing",
+    "body": "{\"summary\": \"...\", \"sections\": [...]}",
+    "title": "Release notes",
+    "tags": "release,0.33"
+  }
+}
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `format` | string | Yes | Canvas content format (e.g., `markdown`, `briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan`). |
+| `body` | string | Yes | Content body. JSON string when the format is structured; plain string otherwise. |
+| `title` | string | No | Optional card title. |
+| `tags` | string | No | Optional comma-separated tags. |
+
+**Response:** Returns the created card metadata (id, format, title, tags) so callers can link to it directly.
+
 **Minimal PTY bootstrap:** When Synapse detects a Synapse MCP server config entry for Claude Code, Codex, Gemini CLI, OpenCode, or Copilot, full PTY instruction injection is replaced with a minimal bootstrap message (agent ID, port, and pointers to MCP resources). Approval prompts are kept. Non-Synapse MCP entries do not trigger the switch. Copilot MCP config is read from `~/.copilot/mcp-config.json`.
 
-**Copilot MCP support:** Copilot agents can use the `bootstrap_agent` and `analyze_task` MCP tools but cannot consume MCP resources/prompts.
+**Copilot MCP support:** Copilot agents can use the `bootstrap_agent`, `list_agents`, `analyze_task`, and `canvas_post` MCP tools but cannot consume MCP resources/prompts.
 
 **Copilot submit confirmation:** Bracketed paste is disabled for Copilot (the CLI does not enable bracketed paste mode). Input is sent character-by-character through Ink's useInput, with `/` replaced by fullwidth solidus `\uff0f` to prevent slash-command autocomplete. Before sending the submit sequence (`\r`), Synapse disables ICRNL on the PTY master so that CR is not converted to LF (Ink treats these as different events). In interactive mode, writes go through an inject pipe merged into pty._copy's select loop. Submit confirmation uses adaptive nudge timing (0.1 s / 0.2 s for long messages) and the retry loop continues until the visible prompt advances or the injected text disappears, including cases where Copilot reuses the same paste placeholder label across retries.
 

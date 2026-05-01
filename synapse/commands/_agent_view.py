@@ -3,7 +3,16 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+import time as _time
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+from synapse.status import PROCESSING
+
+if TYPE_CHECKING:
+    from synapse.registry import AgentRegistry
+
+ORPHAN_STATUS_SUFFIX = " [ORPHAN]"
 
 CANONICAL_JSON_FIELDS = (
     "agent_id",
@@ -19,7 +28,42 @@ def strip_status_annotations(status: Any) -> Any:
     """Return the machine-readable status without human list annotations."""
     if not isinstance(status, str):
         return status
-    return status.replace(" [ORPHAN]", "")
+    return status.replace(ORPHAN_STATUS_SUFFIX, "")
+
+
+def is_agent_alive(
+    registry: AgentRegistry,
+    agent_id: str,
+    info: dict[str, Any],
+    *,
+    is_process_alive: Callable[[int], bool],
+    is_port_open: Callable[..., bool],
+    time_module: Any = _time,
+) -> bool:
+    """Check if an agent is alive; unregister it if dead.
+
+    Retries port probes once with a brief delay so agents transitioning
+    between states (e.g. PROCESSING -> READY) are not falsely declared
+    dead during the gap between server bind and registry update.
+    """
+    pid = info.get("pid")
+    port = info.get("port")
+
+    if pid and not is_process_alive(pid):
+        registry.unregister(agent_id)
+        return False
+
+    if info.get("status", "-") == PROCESSING or not port:
+        return True
+
+    if is_port_open("localhost", port, timeout=0.5):
+        return True
+    time_module.sleep(0.2)
+    if is_port_open("localhost", port, timeout=1.0):
+        return True
+
+    registry.unregister(agent_id)
+    return False
 
 
 def build_agent_json_view(
@@ -44,10 +88,6 @@ def build_agent_json_view(
                 uptime = now - registered_at
         entry["uptime_seconds"] = uptime
 
-    if "current_task_preview" in include_fields:
-        entry["current_task_preview"] = agent.get("current_task_preview")
-    if "task_received_at" in include_fields:
-        entry["task_received_at"] = agent.get("task_received_at")
     if "input_required_tasks" in include_fields:
         entry["input_required_tasks"] = agent.get("input_required_tasks") or []
 

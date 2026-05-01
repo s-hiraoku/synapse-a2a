@@ -151,7 +151,7 @@ When enabled, the `.synapse/proactive.md` instruction file is injected at startu
 
 Distribute Synapse initial instructions via MCP (Model Context Protocol) resources and tools. MCP-compatible clients (Claude Code, Codex, Gemini CLI, OpenCode) can read instructions as structured resources instead of relying solely on PTY injection.
 
-**Phase 1 (current):** Instruction resources + `bootstrap_agent` tool + minimal PTY bootstrap + `analyze_task` Smart Suggest tool. `bootstrap_agent` returns runtime context and instruction resource URIs for the current agent. When a Synapse MCP server config entry is detected for Claude Code, Codex, Gemini CLI, or OpenCode, Synapse sends a minimal PTY bootstrap message (agent ID, port, and pointers to MCP resources) instead of full instructions — approval prompts are kept. Non-Synapse MCP entries do not trigger the switch. Copilot supports MCP tools only (`bootstrap_agent`, `list_agents`, `analyze_task`) and cannot consume MCP resources/prompts.
+**Phase 1 (current):** Instruction resources + `bootstrap_agent` tool + minimal PTY bootstrap + `analyze_task` Smart Suggest tool + `canvas_post` Canvas-write tool. `bootstrap_agent` returns runtime context and instruction resource URIs for the current agent. `canvas_post` lets MCP clients write Canvas cards without shelling out (safe for bodies containing quotes/backticks). When a Synapse MCP server config entry is detected for Claude Code, Codex, Gemini CLI, or OpenCode, Synapse sends a minimal PTY bootstrap message (agent ID, port, and pointers to MCP resources) instead of full instructions — approval prompts are kept. Non-Synapse MCP entries do not trigger the switch. Copilot supports MCP tools only (`bootstrap_agent`, `list_agents`, `analyze_task`, `canvas_post`) and cannot consume MCP resources/prompts.
 
 **Resources:**
 
@@ -167,6 +167,7 @@ Distribute Synapse initial instructions via MCP (Model Context Protocol) resourc
 - `bootstrap_agent` returns runtime context (agent_id, agent_type, port, working_dir, instruction_resources, available_features).
 - `list_agents` lists running Synapse agents with status and connection info.
 - `analyze_task` analyzes a user prompt and suggests team/task splits when the work is large enough (Smart Suggest).
+- `canvas_post` posts a Canvas card directly through the local store, bypassing shell escaping (`format`, `body`, optional `title`/`tags`).
 
 ```bash
 # Start MCP server (stdio transport; options auto-resolved from $SYNAPSE_AGENT_ID)
@@ -176,7 +177,7 @@ synapse mcp serve
 
 **Client configuration:** Add to `.mcp.json` (Claude Code), `~/.codex/config.toml` (Codex), `~/.gemini/settings.json` (Gemini CLI), or `~/.config/opencode/opencode.json` (OpenCode). Use `uv run --directory <repo> python -m synapse.mcp` as the command to ensure the correct Synapse version is used.
 
-**Copilot MCP support:** GitHub Copilot's coding agent supports MCP tools only and cannot consume MCP resources/prompts. Copilot agents use `bootstrap_agent` to retrieve runtime context and `analyze_task` for smart suggestions; the `synapse://instructions/*` resources are not available to Copilot.
+**Copilot MCP support:** GitHub Copilot's coding agent supports MCP tools only and cannot consume MCP resources/prompts. Copilot agents use `bootstrap_agent` to retrieve runtime context, `analyze_task` for smart suggestions, and `canvas_post` to write Canvas cards; the `synapse://instructions/*` resources are not available to Copilot.
 
 **Settings caching:** The MCP server caches `SynapseSettings` as a lazy singleton for the lifetime of the process, avoiding repeated file reads.
 

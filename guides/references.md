@@ -272,7 +272,7 @@ synapse list              # Rich TUI（デフォルト）
 synapse list --json       # JSON 配列出力（AI/スクリプト向け）
 ```
 
-**`--json` フラグ**: JSON 配列としてエージェント一覧を出力します。各オブジェクトには `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `is_orphan`, `spawned_by`、および任意で `editing_file` が含まれます。
+**`--json` フラグ**: JSON 配列としてエージェント一覧を出力します。各オブジェクトには `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `uptime_seconds`, `input_required_tasks`, `summary`, `is_orphan`, `spawned_by`、および任意で `editing_file` が含まれます。`agent_id` / `status` / `current_task_preview` / `task_received_at` / `uptime_seconds` / `input_required_tasks` の 6 フィールドは共有ビューヘルパー（`synapse/commands/_agent_view.py` の `build_agent_json_view` / `CANONICAL_JSON_FIELDS`）で生成され、`synapse status <target> --json` でも同一の shape と semantics で公開されます（[#708](https://github.com/s-hiraoku/synapse-a2a/pull/708)）。`status` は machine-readable な enum 値で、`synapse list` のテーブル列に付く ` [ORPHAN]` 注釈は JSON では除去されます（オーファン判定には `is_orphan` を参照してください）。
 
 **オーファン注釈**: 親エージェント（`spawned_by`）が消失または PID が生存していない子エージェントは、Rich TUI の STATUS 列に ` [ORPHAN]` サフィックスが付加され、`--json` 出力では `is_orphan: true` と対応する `spawned_by` が返されます。`SYNAPSE_ORPHAN_IDLE_TIMEOUT=<seconds>` を設定すると、`synapse list` 実行時に長時間 READY のオーファンが自動的に reap されます（デフォルト: 無効）。明示的な回収は `synapse cleanup` を使用してください。
 
@@ -2141,8 +2141,12 @@ synapse watchdog check --json        # 各 report を JSON 配列で出力（pro
 |---|------|--------------|
 | 1 | `RATE_LIMITED` が 30 分超 | `Rate-limited > 30m` |
 | 2 | `SENDING_REPLY` が 60 秒超 | `Send stuck > 60s` |
-| 3 | `PROCESSING` が 30 分超で、直近 10 分の outbound A2A 送信が 0 件 | `Stuck-on-reply suspected` |
-| 4 | spawn から 60 秒〜5 分経過しても READY にならない | `Spawn never ready` |
+| 3 | `WAITING` 中に PTY tail に codex CLI のレート制限ダイアログ（"Hide future rate limit reminders about switching models" / "Press enter to confirm ... esc to go back"）が残存 ([#691](https://github.com/s-hiraoku/synapse-a2a/issues/691) / [#692](https://github.com/s-hiraoku/synapse-a2a/pull/692)) | `rate_limit_dialog` |
+| 4 | `WAITING` 中に PTY tail に codex CLI の編集確認ダイアログ（"Would you like to ..."）が残存 ([#707](https://github.com/s-hiraoku/synapse-a2a/pull/707)) | `edit_confirmation_dialog` |
+| 5 | `PROCESSING` が 30 分超で、直近 10 分の outbound A2A 送信が 0 件 | `Stuck-on-reply suspected` |
+| 6 | spawn から 60 秒〜5 分経過しても READY にならない | `Spawn never ready` |
+
+ダイアログ系のアラームは `synapse send-keys <target> '\x1b'`（レート制限ダイアログを ESC で閉じる）または `synapse send-keys <target> 'y' --enter`（編集確認ダイアログを承認）で `synapse jump` せずに解除できます ([#695](https://github.com/s-hiraoku/synapse-a2a/issues/695))。`alarm_reason` フィールドにはダイアログ検知の根拠（"PTY tail contains codex CLI rate-limit reminder dialog" など）が入り、duration ベースの heuristic では `null` です。
 
 **出力カラム**:
 
@@ -2155,7 +2159,7 @@ synapse watchdog check --json        # 各 report を JSON 配列で出力（pro
 | LAST_OUTBOUND | 直近の outbound A2A 送信からの経過時間（`(none)` は履歴なし） |
 | ALARM | ヒューリスティックに該当した場合のメッセージ（該当なしは `-`） |
 
-**JSON 出力**: 各 report は `agent_id` / `status` / `uptime_seconds` / `same_status_seconds` / `last_outbound_seconds_ago` / `alarm` を持つオブジェクト配列です。`alarm` は該当ヒューリスティックなしの場合 `null`。
+**JSON 出力**: 各 report は `agent_id` / `status` / `uptime_seconds` / `same_status_seconds` / `last_outbound_seconds_ago` / `alarm` / `alarm_reason` を持つオブジェクト配列です。`alarm` は該当ヒューリスティックなしの場合 `null`。`alarm_reason` はダイアログ検知系の alarm（`rate_limit_dialog` / `edit_confirmation_dialog`）でのみ詳細メッセージが入り、それ以外では `null`。
 
 **後方互換**: `last_status_change_at` フィールドは本機能で導入されたもので、レジストリの実ステータス遷移時のみ書き込まれます（no-op rewrite では既存値を保持）。古いレジストリエントリ（フィールドが欠落）に対する duration ベースのヒューリスティックは silent に skip されます（false positive 防止）。
 

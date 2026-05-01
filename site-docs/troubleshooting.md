@@ -497,7 +497,7 @@ synapse external add <new_url> --alias <alias>
 - Idle detection timeout may be too short -- increase in profile YAML
 - Send an interrupt: `synapse interrupt <agent> "Status?"`
 - Force kill and restart: `synapse kill <agent> -f`
-- Quickly triage with the watchdog: `synapse watchdog check --alarm-only` flags `PROCESSING` over 30 min with no outbound A2A in the last 10 min as `Stuck-on-reply suspected`, plus `RATE_LIMITED > 30m`, `Send stuck > 60s`, and `Spawn never ready` (#646). See [Agent Management — Stuck-Agent Watchdog](guide/agent-management.md#stuck-agent-watchdog-watchdog-check).
+- Quickly triage with the watchdog: `synapse watchdog check --alarm-only` flags `PROCESSING` over 30 min with no outbound A2A in the last 10 min as `Stuck-on-reply suspected`, plus `RATE_LIMITED > 30m`, `Send stuck > 60s`, and `Spawn never ready` (#646). For `WAITING` agents wedged on a codex CLI dialog, the watchdog additionally fires `rate_limit_dialog` (model-switch reminder, #691) and `edit_confirmation_dialog` ("Would you like to make the following edits?", #707) by inspecting PTY tail content — pair either alarm with `synapse send-keys` (below) to dismiss the dialog programmatically. See [Agent Management — Stuck-Agent Watchdog](guide/agent-management.md#stuck-agent-watchdog-watchdog-check).
 
 #### Programmatic dialog response (#695)
 

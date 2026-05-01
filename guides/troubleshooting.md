@@ -560,7 +560,7 @@ synapse send-keys codex 'y' --enter --json
 
 内部的には `POST /pty/write` を呼び出します。エンドポイントは `require_auth` で保護されており、`/tasks/{id}/cancel` / `/tasks/{id}/permission/approve` と同じトラストモデルです。詳細は [references.md §1.15.1](references.md) / [§2.3.3](references.md)。
 
-**検知レイヤとの関係**: 「どのダイアログでスタックしているか」を自動検知する仕組みは [#694](https://github.com/s-hiraoku/synapse-a2a/issues/694) で別途進行中です。`send-keys` は検知後の応答（または `synapse jump` の手動操作の代替）として位置づけられます。
+**検知レイヤとの関係**: 「どのダイアログでスタックしているか」を自動検知する仕組みは `synapse watchdog check` に組み込まれており、`WAITING` 中の codex CLI レート制限ダイアログを `rate_limit_dialog` ([#691](https://github.com/s-hiraoku/synapse-a2a/issues/691) / [#692](https://github.com/s-hiraoku/synapse-a2a/pull/692))、編集確認ダイアログ "Would you like to ..." を `edit_confirmation_dialog` ([#707](https://github.com/s-hiraoku/synapse-a2a/pull/707)) としてフラグ立てします。`alarm_reason` フィールドに "PTY tail contains codex CLI rate-limit reminder dialog" などの根拠が入ります。`send-keys` は検知後の応答（または `synapse jump` の手動操作の代替）として位置づけられます。検知の全体像は [references.md §1.27](references.md)、`synapse list --watch` 統合等の自動 recovery は [#694](https://github.com/s-hiraoku/synapse-a2a/issues/694) で別途進行中です。
 
 **注意**:
 - `synapse send-keys` は PTY に raw バイトを書き込むため、誤った内容を送ると CLI 内部状態を破壊する可能性があります。`synapse status --debug-waiting` や `curl /debug/pty | jq .display` で現在の画面を確認してから送ってください。
