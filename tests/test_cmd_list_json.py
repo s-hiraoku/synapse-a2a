@@ -129,10 +129,11 @@ class TestListJson:
                 "transport": "UDS→",
                 "current_task_preview": "Review issue #380",
                 "task_received_at": 1710000000.0,
+                "uptime_seconds": None,
                 "summary": None,
                 "is_orphan": None,
                 "spawned_by": None,
-                "input_required_tasks": None,
+                "input_required_tasks": [],
                 "renderer_available": False,
             }
         ]
@@ -256,10 +257,11 @@ class TestListJson:
                 "transport": "-",
                 "current_task_preview": None,
                 "task_received_at": None,
+                "uptime_seconds": None,
                 "summary": None,
                 "is_orphan": None,
                 "spawned_by": None,
-                "input_required_tasks": None,
+                "input_required_tasks": [],
                 "editing_file": "tests/test_cmd_list_json.py",
             }
         ]

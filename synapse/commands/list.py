@@ -12,6 +12,7 @@ from pathlib import Path
 from threading import Event
 from typing import TYPE_CHECKING, Any, Protocol
 
+from synapse.commands._agent_view import build_agent_json_view
 from synapse.commands.cleanup import opportunistic_cleanup_idle_orphans
 from synapse.file_safety import FileSafetyManager
 from synapse.port_manager import PORT_RANGES
@@ -167,6 +168,7 @@ class ListCommand:
                 "working_dir": working_dir_short,
                 "working_dir_full": working_dir_full,
                 "endpoint": info.get("endpoint", "-"),
+                "registered_at": info.get("registered_at"),
                 "tty_device": info.get("tty_device"),
                 "zellij_pane_id": info.get("zellij_pane_id"),
                 "current_task_preview": info.get("current_task_preview"),
@@ -661,6 +663,7 @@ class ListCommand:
         "transport",
         "current_task_preview",
         "task_received_at",
+        "uptime_seconds",
         "summary",
         "is_orphan",
         "spawned_by",
@@ -677,8 +680,13 @@ class ListCommand:
         agents, _stale_locks, show_file_safety = self._get_agent_data(registry)
 
         result = []
+        now = self._time.time()
         for agent in agents:
-            entry = {k: agent.get(k) for k in self._JSON_FIELDS}
+            entry = build_agent_json_view(
+                agent,
+                now=now,
+                include_fields=self._JSON_FIELDS,
+            )
             if "renderer_available" in agent:
                 entry["renderer_available"] = agent.get("renderer_available")
             # Use full path for working_dir in JSON (short name is for TUI only)

@@ -41,8 +41,10 @@ def _make_command(
     mock_registry = MagicMock()
     if agent_info:
         mock_registry.resolve_agent.return_value = agent_info
+        mock_registry.list_agents.return_value = {agent_info["agent_id"]: agent_info}
     else:
         mock_registry.resolve_agent.return_value = None
+        mock_registry.list_agents.return_value = {}
 
     mock_history = MagicMock()
     mock_history.list_observations.return_value = history_items or []
@@ -56,6 +58,8 @@ def _make_command(
         history_manager=mock_history,
         file_safety_manager=mock_file_safety,
         output=output,
+        is_process_alive=lambda pid: True,
+        is_agent_port_open=lambda *args, **kwargs: True,
     )
     return cmd, output
 
