@@ -788,6 +788,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse cleanup` | Kill orphan agents (children whose `spawned_by` parent crashed/cleared). `--dry-run` to preview, `-f` to skip prompt, optional positional agent id to target one. Set `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<sec>` to opt into opportunistic cleanup of long-READY orphans on `synapse list` |
 | `synapse merge <agent>` | Merge worktree branch without killing the agent. `--all` for all agents, `--dry-run` to preview |
 | `synapse jump <target>` | Jump to agent's terminal |
+| `synapse send-keys <target> [data]` | Write raw input bytes into a running agent's PTY. Escape hatch for unsticking agents blocked on a TUI dialog (codex edit-confirmation, model picker, rate-limit dialog) without `synapse jump`. `--enter` appends `\r`, `--no-escape` disables `unicode_escape` decoding, `--json` emits the raw HTTP response. CLI wrapper for `POST /pty/write` (`require_auth`-gated, same trust model as `/tasks/{id}/cancel` / `/permission/approve`). [#695](https://github.com/s-hiraoku/synapse-a2a/issues/695), Refs [#694](https://github.com/s-hiraoku/synapse-a2a/issues/694) |
 | `synapse rename <target>` | Assign name/role to agent |
 | `synapse set-summary <target> [text]` | Set persistent agent summary (120 chars). `--auto` generates from git context, `--clear` removes |
 | `synapse --version` | Show version |

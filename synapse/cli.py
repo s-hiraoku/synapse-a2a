@@ -3213,6 +3213,44 @@ Status meanings:
     )
     p_watchdog_check.set_defaults(func=cmd_watchdog_check)
 
+    # send-keys
+    from synapse.commands.send_keys import cmd_send_keys
+
+    p_send_keys = subparsers.add_parser(
+        "send-keys",
+        help="Write raw input bytes into a running agent's PTY",
+        description=(
+            "Escape hatch for unsticking agents blocked on a TUI dialog "
+            "the parent cannot otherwise answer (codex edit-confirmation, "
+            "model picker, etc). Decodes Python escape sequences in DATA "
+            "by default; pass --no-escape for literal text. "
+            "See issue #695."
+        ),
+    )
+    p_send_keys.add_argument("target", help="Agent ID or name")
+    p_send_keys.add_argument(
+        "data",
+        nargs="?",
+        help="Bytes to write (e.g. 'a', 'y\\r', '\\x1b'). May be empty if --enter is set.",
+    )
+    p_send_keys.add_argument(
+        "--no-escape",
+        dest="escape",
+        action="store_false",
+        help="Pass DATA literally without unicode_escape decoding",
+    )
+    p_send_keys.add_argument(
+        "--enter",
+        action="store_true",
+        help="Append a carriage return (\\r) as the submit sequence",
+    )
+    p_send_keys.add_argument(
+        "--json",
+        action="store_true",
+        help="Output the raw HTTP response as JSON",
+    )
+    p_send_keys.set_defaults(func=cmd_send_keys, escape=True)
+
     # status
     p_status = subparsers.add_parser(
         "status",

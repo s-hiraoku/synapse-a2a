@@ -499,6 +499,20 @@ synapse external add <new_url> --alias <alias>
 - Force kill and restart: `synapse kill <agent> -f`
 - Quickly triage with the watchdog: `synapse watchdog check --alarm-only` flags `PROCESSING` over 30 min with no outbound A2A in the last 10 min as `Stuck-on-reply suspected`, plus `RATE_LIMITED > 30m`, `Send stuck > 60s`, and `Spawn never ready` (#646). See [Agent Management — Stuck-Agent Watchdog](guide/agent-management.md#stuck-agent-watchdog-watchdog-check).
 
+#### Programmatic dialog response (#695)
+
+If the agent is wedged on a TUI dialog that `synapse send` / `interrupt` cannot reach (codex CLI edit-confirmation, model picker, rate-limit dialog), use `synapse send-keys` to write the answer directly into its PTY:
+
+```bash
+# codex edit dialog: pick "don't ask again"
+synapse send-keys synapse-codex-8121 a
+
+# type "yes" and submit
+synapse send-keys synapse-codex-8121 yes --enter
+```
+
+The command POSTs to the agent's `POST /pty/write` endpoint (auth-gated, same as `/tasks/{id}/cancel`). See [`synapse send-keys`](reference/cli.md#send-keys) for flags and [`POST /pty/write`](reference/api.md#write-raw-pty-bytes) for the HTTP shape. Reach for this only after `send` / `interrupt` have failed — it bypasses the readiness gate and history pipeline.
+
 ??? note "Understanding Idle Detection Strategies"
     Synapse supports three idle detection strategies, configured per agent type in YAML profiles:
 

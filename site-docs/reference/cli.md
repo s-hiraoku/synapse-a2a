@@ -294,6 +294,36 @@ synapse interrupt <target> "<message>" [--from ID] [--force]
 
 Shorthand for `synapse send -p 4 --silent`.
 
+### Send-Keys
+
+```bash
+synapse send-keys <target> [DATA] [--enter] [--no-escape] [--json]
+```
+
+Escape hatch that writes raw input bytes directly into a running agent's PTY (#695). Use it to unstick agents blocked on a TUI dialog the parent cannot otherwise answer — codex CLI's edit-confirmation prompt, the model picker, the rate-limit dialog. Unlike `synapse send` / `interrupt`, this bypasses the A2A Task pipeline and the readiness gate; the bytes go straight to the CLI's terminal.
+
+`DATA` is decoded as Python escape sequences by default (so `\r`, `\x1b`, `\t` work), then POSTed to the agent's `/pty/write` endpoint.
+
+| Flag | Description |
+|------|-------------|
+| `--enter` | Append a carriage return (`\r`) as the submit sequence. Use when answering a one-key dialog like codex's `a` ("don't ask again") |
+| `--no-escape` | Pass `DATA` literally without escape decoding |
+| `--json` | Print the raw `/pty/write` response (`{"ok", "bytes_written", "submit_seq_sent"}`) instead of the human summary |
+
+```bash
+# Codex edit dialog: choose "don't ask again"
+synapse send-keys synapse-codex-8121 a
+
+# Send literal Escape (e.g. dismiss a model picker)
+synapse send-keys synapse-codex-8121 '\x1b'
+
+# Type "yes" then submit
+synapse send-keys synapse-codex-8121 yes --enter
+```
+
+!!! warning "Use sparingly"
+    `send-keys` is intentionally low-level and bypasses every safeguard `send` provides (readiness gate, history, priority queue). Reach for `synapse send` / `synapse interrupt` first; only fall back here when an agent is wedged on a CLI dialog and no message-based path will reach it.
+
 ## Team Operations
 
 ### Team Start

@@ -369,6 +369,7 @@ flowchart TB
 | `synapse team start <specs...>` | 1番目=handoff、他=新ペイン。デフォルトで worktree 分離有効（`--no-worktree` でオプトアウト）。`--all-new` で全員新ペイン |
 | `synapse kill <target>` | グレースフルシャットダウン（デフォルト30秒、`-f` で即時終了）。worktree ブランチは自動マージ（`--no-merge` でスキップ） |
 | `synapse jump <target>` | エージェントのターミナルにジャンプ |
+| `synapse send-keys <target> [data]` | 実行中エージェントの PTY に生バイトを書き込む（TUI ダイアログのスタック解除など）。`--enter` で `\r` 付与、`--no-escape` で literal、`--json` で raw HTTP レスポンス。`POST /pty/write` のラッパー（[#695](https://github.com/s-hiraoku/synapse-a2a/issues/695)、Refs [#694](https://github.com/s-hiraoku/synapse-a2a/issues/694)） |
 | `synapse rename <target>` | エージェントに名前・ロールを設定 |
 | `synapse init` | Synapse 設定の初期化（`.synapse/settings.json` 作成） |
 | `synapse reset` | 設定をデフォルトに戻す（`--force` で確認スキップ） |
