@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Clear stale `current_task_preview` / `task_received_at` metadata when A2A tasks reach completed, failed, or canceled terminal states outside the normal finalization path. While the agent is in `SENDING_REPLY` the clear is deferred and applied automatically when the agent next leaves that sub-state, so the preview never persists indefinitely even if the terminal transition lands during outbound reply send (#689).
+
 - `synapse reply --to <sender_id>` now reports whether the reply stack is empty or contains different sender IDs when the requested sender is missing, while preserving the existing persisted fallback behavior (#690).
 ### Added
 
