@@ -278,6 +278,9 @@ synapse reply --list-targets               # List pending senders
 !!! tip "Long or shell-unsafe replies (#673)"
     `--message-file` / `-F` and `--stdin` mirror the same flags on `synapse send`, so replies containing backticks, `$()`, or `${}` shell metacharacters can be passed via file or pipe instead of as a positional argument the shell may try to expand. Reply still uses fixed `priority=3` and `silent` response mode — other `send` flags were intentionally not mirrored because they conflict with reply semantics.
 
+!!! note "`--to` diagnostics on 404 (#690)"
+    When `synapse reply --to <sender>` cannot find a stack entry for the requested sender, the error now distinguishes three cases instead of the generic `No reply target. No pending messages to reply to.`: (1) **sender mismatch** lists the available sender IDs so you can copy the right one; (2) **empty stack** says so explicitly so you know there is nothing to reply to; (3) **`/reply-stack/list` unavailable** falls back to the original message. Use `synapse reply --list-targets` first if you are unsure which senders are pending.
+
 ### Broadcast
 
 ```bash

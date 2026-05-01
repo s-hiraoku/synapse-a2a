@@ -448,6 +448,8 @@ claude
 
 `synapse watchdog check` は `PROCESSING` が 30 分以上続き、直近 10 分の outbound A2A 送信が 0 件のエージェントを `Stuck-on-reply suspected` としてフラグ立てします。`--json` で programmatic に取り出せるので、cron / launchd 経由の定期チェックにも使えます。詳細は [references.md §1.27](references.md)。
 
+**`current_task_preview` の elapsed timer がリセットされない場合** ([#689](https://github.com/s-hiraoku/synapse-a2a/issues/689) / [#699](https://github.com/s-hiraoku/synapse-a2a/pull/699)): 旧バイナリ（v0.32.0 以前）ではタスクが `completed` / `failed` / `canceled` になっても `current_task_preview` と `task_received_at` がクリアされず、`synapse list` / `synapse status --json` の "Current Task" 経過時間が永遠に増え続けるため、本当にスタックしているのか判別不能でした。v0.33.0 以降は終端遷移時に自動クリアされます。ただし `SENDING_REPLY` 中はクリアが意図的に保留され（送信中の作業内容を人間に見せたいため）、`SENDING_REPLY` を抜けた次のステータス変化時に drain されます。古いバージョンのままで動いていたら `pipx upgrade synapse-a2a` / `uv tool upgrade synapse-a2a` を実行してください。
+
 **対処法**:
 
 ```yaml

@@ -628,6 +628,9 @@ synapse send <sender-agent> "Result here" --from $SYNAPSE_AGENT_ID --silent
 !!! note
     The `$SYNAPSE_AGENT_ID` environment variable is automatically set by Synapse when an agent starts.
 
+!!! tip "`--to <sender>` returned a 404? (#690)"
+    `synapse reply --to <sender>` now returns a sharper diagnostic when the target lookup fails: a sender mismatch lists the available sender IDs (so you can copy the correct one), an empty stack says so explicitly, and only when `/reply-stack/list` itself is unavailable does the original generic message surface. Run `synapse reply --list-targets` first to confirm which senders are pending before re-running with `--to`.
+
 ---
 
 ## Terminal-Specific Issues
