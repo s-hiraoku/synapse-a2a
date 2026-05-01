@@ -30,6 +30,8 @@ synapse cleanup                                # Kill all orphans (prompts for c
 synapse cleanup -f                             # Kill all orphans without prompting
 synapse cleanup <agent>                        # Target one orphan (refuses non-orphans)
 synapse jump my-claude                         # Jump to terminal
+synapse send-keys codex 'y' --enter            # PTY escape hatch: unstick TUI dialog (#695)
+synapse send-keys codex '\x1b'                 # ESC out of model picker / rate-limit dialog
 synapse rename claude --name my-claude         # Assign name
 
 # Agent Summary

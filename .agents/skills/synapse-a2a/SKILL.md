@@ -52,6 +52,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Reply to specific | `synapse reply "<response>" --to <sender_id>` |
 | Reply with failure | `synapse reply --fail "<reason>"` |
 | Interrupt (priority 4) | `synapse interrupt <target> "<msg>"` |
+| Send keys to PTY (escape hatch for TUI dialogs; #695) | `synapse send-keys <target> <keys>` (e.g. `a` for codex "don't ask again", `\r` for Enter; bypasses A2A — use when an agent is stuck on an interactive dialog without `synapse jump`) |
 | Spawn agent | `synapse spawn <type> --name <n> --role "<r>" -- <tool-specific-automation-args>` |
 | **Spawn + send first task** (preferred for delegation) | `synapse spawn <type> --name <n> --role "<r>" --task-file <path> --task-timeout 600 --notify` |
 | Spawn with worktree | `synapse spawn <type> --worktree --name <n> --role "<r>" -- <tool-specific-automation-args>` |
@@ -214,6 +215,12 @@ to opt out):
 | `RATE_LIMITED` | Last task failed due to LLM provider rate limit (#561) | Wait for the provider window to reset, then re-send |
 | `DONE` | Task complete; demotes to READY after ~10s | Read result, then proceed |
 | `SHUTTING_DOWN` | Agent is exiting | Do not send |
+
+> **Stuck on a CLI dialog (not A2A `WAITING`)?** When an agent looks idle but is
+> blocked on its own TUI prompt (codex edit-confirmation, model picker,
+> rate-limit dialog), use `synapse send-keys <target> <keys>` to write directly
+> to the PTY without `synapse jump`. Example: `synapse send-keys Impl a` sends
+> the codex "don't ask again" shortcut. (#695)
 
 Killing spawned agents after completion frees ports, memory, and PTY sessions,
 and prevents orphaned agents from accidentally accepting future tasks.
