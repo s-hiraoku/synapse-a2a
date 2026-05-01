@@ -287,6 +287,7 @@ def get_default_remote_branch() -> str:
 
 _WORKTREE_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$")
 _WORKTREE_NAME_MAX_LEN = 100
+MAX_AUTO_NAME_ATTEMPTS = 8
 
 
 def _validate_worktree_name(name: str) -> str:
@@ -308,6 +309,47 @@ def _validate_worktree_name(name: str) -> str:
             "only alphanumerics, hyphens, dots, and underscores are allowed"
         )
     return name
+
+
+def _worktree_name_exhausted_error() -> RuntimeError:
+    return RuntimeError(
+        "Could not allocate a unique worktree name after "
+        f"{MAX_AUTO_NAME_ATTEMPTS} attempts. "
+        "This usually means stale worktree directories or branches have "
+        "accumulated under .synapse/worktrees/. "
+        "Run 'git worktree list' to inspect, then prune stale worktrees with "
+        "'git worktree remove <path>' or 'git worktree prune'."
+    )
+
+
+def _worktree_directory_exists_error(worktree_dir: Path) -> RuntimeError:
+    return RuntimeError(
+        f"Worktree directory already exists: {worktree_dir}. "
+        f"Run 'git worktree remove {worktree_dir}' to clean it up, "
+        "or pass a different --name."
+    )
+
+
+def _allocate_worktree_name(git_root: Path, name: str | None) -> tuple[str, Path, str]:
+    """Return a validated unique worktree name, directory, and branch."""
+    worktrees_dir = git_root / ".synapse" / "worktrees"
+
+    if name is not None:
+        validated_name = _validate_worktree_name(name)
+        worktree_dir = worktrees_dir / validated_name
+        if worktree_dir.exists():
+            raise _worktree_directory_exists_error(worktree_dir)
+        return validated_name, worktree_dir, f"worktree-{validated_name}"
+
+    for _ in range(MAX_AUTO_NAME_ATTEMPTS):
+        candidate = generate_worktree_name()
+        worktree_dir = worktrees_dir / candidate
+        branch_name = f"worktree-{candidate}"
+        if worktree_dir.exists() or _ref_exists(branch_name):
+            continue
+        return candidate, worktree_dir, branch_name
+
+    raise _worktree_name_exhausted_error()
 
 
 def create_worktree(
@@ -344,13 +386,7 @@ def create_worktree(
     else:
         base_branch = get_default_remote_branch()
 
-    name = generate_worktree_name() if name is None else _validate_worktree_name(name)
-
-    worktree_dir = git_root / ".synapse" / "worktrees" / name
-    branch_name = f"worktree-{name}"
-
-    if worktree_dir.exists():
-        raise RuntimeError(f"Worktree directory already exists: {worktree_dir}")
+    name, worktree_dir, branch_name = _allocate_worktree_name(git_root, name)
 
     # Ensure parent directory exists
     worktree_dir.parent.mkdir(parents=True, exist_ok=True)
