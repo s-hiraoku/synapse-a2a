@@ -1107,14 +1107,46 @@ def create_a2a_router(
         ):
             registry.update_status(agent_id, RATE_LIMITED)
 
+    # Holds True when a terminal-task clear was deferred because the agent
+    # was in SENDING_REPLY at the time. Drained by _on_status_change when
+    # the agent leaves SENDING_REPLY so the preview is guaranteed to clear
+    # eventually (CodeRabbit #699).
+    _pending_terminal_preview_clear = [False]
+
     def _clear_terminal_task_preview() -> None:
-        """Clear the current task preview after local task terminal transitions."""
+        """Clear the current task preview after local task terminal transitions.
+
+        While the agent is in ``SENDING_REPLY`` the brief preview is kept
+        intentionally so the human can see what the outbound send is wrapping
+        up (PR #644/#650 design). To prevent the preview from persisting
+        indefinitely if SENDING_REPLY is the last status before READY, we
+        defer the clear by setting a flag that ``_on_status_change`` drains
+        when SENDING_REPLY exits.
+        """
         if registry is None or agent_id is None:
             return
         agent_info = registry.get_agent(agent_id)
         if agent_info and agent_info.get("status") == SENDING_REPLY:
+            _pending_terminal_preview_clear[0] = True
             return
         registry.update_current_task(agent_id, None)
+        _pending_terminal_preview_clear[0] = False
+
+    def _drain_pending_terminal_preview_clear(old: str, new: str) -> None:
+        """If a terminal clear was deferred during SENDING_REPLY, apply it now.
+
+        Called from ``_on_status_change`` whenever the agent transitions out
+        of ``SENDING_REPLY`` (typically to READY after the outbound send
+        completes, or to any other status if interrupted).
+        """
+        if registry is None or agent_id is None:
+            return
+        if old != SENDING_REPLY or new == SENDING_REPLY:
+            return
+        if not _pending_terminal_preview_clear[0]:
+            return
+        registry.update_current_task(agent_id, None)
+        _pending_terminal_preview_clear[0] = False
 
     def _finalize_working_task(
         task_id: str, full_context: str, recent_context: str
@@ -1258,6 +1290,7 @@ def create_a2a_router(
                     registry.update_status(agent_id, READY)
 
         def _on_status_change(old: str, new: str) -> None:
+            _drain_pending_terminal_preview_clear(old, new)
             if new == WAITING:
                 for task in task_store.list_tasks():
                     if task.status != "working":

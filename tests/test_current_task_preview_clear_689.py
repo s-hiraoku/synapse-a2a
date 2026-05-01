@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from synapse.a2a_compat import create_a2a_router, task_store
-from synapse.status import SENDING_REPLY
+from synapse.status import READY, SENDING_REPLY
 
 AGENT_ID = "synapse-codex-8126"
 
@@ -153,6 +153,30 @@ def test_preview_persists_during_sending_reply(
     assert (AGENT_ID, None) not in [
         call.args for call in registry.update_current_task.call_args_list
     ]
+
+
+def test_preview_cleared_after_sending_reply_exits(
+    client: TestClient, controller: MagicMock, registry: MagicMock
+) -> None:
+    """A terminal task during SENDING_REPLY defers preview clear; once the
+    agent leaves SENDING_REPLY (e.g. SENDING_REPLY -> READY) the deferred
+    clear fires so the brief preview never persists indefinitely.
+    Regression for CodeRabbit comment on PR #699.
+    """
+    task_id = _send_task(client, "Reply to sender")
+    registry.get_agent.return_value = {"status": SENDING_REPLY}
+
+    response = client.post(f"/tasks/{task_id}/reply", json={"message": "Done"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "completed"
+    assert (AGENT_ID, None) not in [
+        call.args for call in registry.update_current_task.call_args_list
+    ]
+
+    on_status_change = controller.on_status_change.call_args[0][0]
+    on_status_change(SENDING_REPLY, READY)
+
+    registry.update_current_task.assert_any_call(AGENT_ID, None)
 
 
 def test_task_received_at_cleared_with_preview(
