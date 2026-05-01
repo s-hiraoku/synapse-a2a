@@ -689,6 +689,13 @@ cat ./review.md | synapse reply --stdin
 2. 送信者のエンドポイントに返信を送信
 3. 成功後、送信者情報を削除
 
+**`--to` 指定時の診断メッセージ** ([#690](https://github.com/s-hiraoku/synapse-a2a/issues/690) / [#698](https://github.com/s-hiraoku/synapse-a2a/pull/698)): `--to <sender_id>` が reply スタックに見つからない場合、エラーメッセージは 3 ケースを区別します。
+- 送信者ミスマッチ（スタックは空でないが指定 ID が無い）: `No reply target for sender '<id>'. Stack has: A, B, C`（現在スタックにある送信者を列挙）
+- 空スタック: `No reply target for sender '<id>'. Reply stack is empty.`
+- `/reply-stack/list` が利用不可（旧バイナリ等）: 従来の汎用メッセージ `No reply target. No pending messages to reply to.` にフォールバック
+
+診断は best-effort で、`/reply-stack/list` 自体が timeout / 接続失敗 / 非 200 を返した場合は静かにフォールバックして exit 1 になります。
+
 ---
 
 ### 1.7.1 synapse trace
