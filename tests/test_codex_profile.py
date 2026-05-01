@@ -42,6 +42,15 @@ class TestCodexWaitingDetection:
         )
         assert regex.search(overlay)
 
+    def test_matches_edit_confirmation_dialog_prefix(self, codex_profile: dict) -> None:
+        """Codex asks again before editing protected files such as
+        CHANGELOG.md even when spawned with full-auto style permissions.
+        The stable prefix must be enough to move PROCESSING -> WAITING."""
+        regex = re.compile(codex_profile["waiting_detection"]["regex"])
+        dialog = "Would you like to make the following edits?\n(custom content)"
+
+        assert regex.search(dialog)
+
     def test_matches_model_switch_modal(self, codex_profile: dict) -> None:
         """Rate-limit model-switch modal. Newer codex builds pop this up
         when the session is about to blow the API rate limit. Previously
