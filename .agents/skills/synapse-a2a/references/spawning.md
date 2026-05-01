@@ -159,7 +159,7 @@ need to pass `-- <flags>` manually.
 |-----|-------------------|-------|
 | **Claude Code** | `--permission-mode=auto` | Anthropic's documented successor to the deprecated `--dangerously-skip-permissions`. Safety classifier active. Requires Max/Team/Enterprise/API plan + Sonnet 4.6 / Opus 4.6+. |
 | **Gemini CLI** | `--approval-mode=yolo` | Unified `--approval-mode` form preferred over the legacy `--yolo` / `-y`. |
-| **Codex CLI** | `--full-auto` | `-a on-request -s workspace-write` (sandboxed auto-approve). |
+| **Codex CLI** | `-cdefault_permissions=":workspace"` | Selects the built-in `:workspace` permission profile (workspace-write equivalent of the legacy `--full-auto`). Codex 0.128+ removed `--full-auto`; the legacy flag is still recognised by Synapse as a skip-injection trigger. |
 | **Copilot CLI** | `--allow-all` | `--yolo` is an alias and still recognized. |
 | **OpenCode** | env `OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS=true` | OpenCode has no CLI flag; uses env var. |
 
@@ -235,8 +235,8 @@ Agents can spawn other agents programmatically via `POST /spawn`:
 // Claude with auto permission mode (was --dangerously-skip-permissions)
 {"profile": "claude", "name": "Worker", "tool_args": ["--permission-mode=auto"]}
 
-// Codex with auto-approve
-{"profile": "codex", "name": "Coder", "tool_args": ["--full-auto"]}
+// Codex with auto-approve (Codex 0.128+ replaced --full-auto with the :workspace permission profile)
+{"profile": "codex", "name": "Coder", "tool_args": ["-cdefault_permissions=\":workspace\""]}
 
 // On failure: {"status": "failed", "reason": "..."}
 // On success: {agent_id, port, terminal_used, status, worktree_path, worktree_branch, worktree_base_branch}

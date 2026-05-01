@@ -21,7 +21,7 @@ synapse team start claude gemini --no-auto-approve
 | CLI | 自動承認フラグ | サンドボックス | セッション中切替 | 設定ファイル |
 |-----|--------------|-------------|----------------|------------|
 | Claude Code | `--dangerously-skip-permissions` (= `--permission-mode bypassPermissions`) | なし | `Shift+Tab` | Hooks (PreToolUse) |
-| Codex CLI | `--full-auto` | ワークスペース制限 | なし | `~/.codex/config.toml` |
+| Codex CLI | `-cdefault_permissions=":workspace"` | ワークスペース制限 | なし | `~/.codex/config.toml` |
 | Gemini CLI | `--yolo` | Docker (デフォルト) | `Ctrl+Y` | `~/.gemini/settings.json` |
 | OpenCode | env var | なし | なし | `opencode.json` |
 | Copilot CLI | `--allow-all` | なし | `/allow-all` コマンド | なし |
@@ -48,23 +48,24 @@ synapse team start claude gemini --no-auto-approve
 
 ## Codex CLI
 
-2軸制御: `approval_policy` × `sandbox_mode`
+Codex CLI 0.128+ は組み込みパーミッションプロファイル (`default_permissions`) ベースの制御に移行した（[openai/codex#19900](https://github.com/openai/codex/pull/19900) で導入、[openai/codex#20133](https://github.com/openai/codex/pull/20133) で `--full-auto` 廃止）。
 
-| モード | フラグ | 説明 |
-|--------|-------|------|
-| full-auto | `--full-auto` | ワークスペース内の読み書き・コマンド実行は自動承認 |
-| never | `-a never` | 承認を一切求めない（サンドボックス制限は有効） |
-| yolo | `--dangerously-bypass-approvals-and-sandbox` | 承認とサンドボックスの両方をバイパス |
+| プロファイル | 説明 |
+|------------|------|
+| `:read-only` | 読み取りのみ。すべての書き込み・コマンド実行で承認を要求 |
+| `:workspace` | ワークスペース内の読み書き・コマンド実行は自動承認（旧 `--full-auto` 相当） |
+| `:danger-no-sandbox` | 承認とサンドボックスの両方をバイパス（旧 `--dangerously-bypass-approvals-and-sandbox` 相当） |
 
-**Synapse での動作:** `--full-auto`（サンドボックス付き自動承認）が自動注入される。ただしユーザーが `tool_args` に別系統の承認フラグ（`--dangerously-bypass-approvals-and-sandbox`、`--ask-for-approval`、`-a`、`--sandbox`、`-s`）を渡した場合は `--full-auto` 注入をスキップし、フラグ衝突による起動失敗を防ぐ。WAITING 検知時は `y` + Enter を送信。
+**Synapse での動作:** `-cdefault_permissions=":workspace"` が自動注入される（旧 `--full-auto` のワークスペース書き込み相当）。安全のため `:danger-no-sandbox` は意図的にデフォルトにしていない。ユーザーが `tool_args` に別系統の承認/サンドボックスフラグ（`--full-auto`（レガシー、CLI 側で拒否されるが注入スキップは発火）、`--dangerously-bypass-approvals-and-sandbox`、`--ask-for-approval`、`-a`、`--sandbox`、`-s`、`--profile`、`-p`、または `-c default_permissions=...` 形式の上書き）を渡した場合は注入をスキップし、フラグ衝突による起動失敗を防ぐ。WAITING 検知時は `y` + Enter を送信。
 
 ```bash
-# ユーザー指定フラグを優先（--full-auto は注入されない）
+# ユーザー指定フラグを優先（-cdefault_permissions=":workspace" は注入されない）
+synapse spawn codex -- -cdefault_permissions=":read-only"
 synapse spawn codex -- --dangerously-bypass-approvals-and-sandbox
 synapse spawn codex -- --ask-for-approval never --sandbox workspace-write
 ```
 
-設定: `~/.codex/config.toml` のプロファイルで `approval_policy = "never"` を定義し、`codex --profile <name>` で切替可能。
+設定: `~/.codex/config.toml` のプロファイルで `default_permissions = ":workspace"` を定義し、`codex --profile <name>` で切替可能。
 
 ## Gemini CLI
 
@@ -139,7 +140,7 @@ auto_approve:
 | Profile | cli_flag | alternative_flags |
 |---------|----------|-------------------|
 | Claude Code | `--dangerously-skip-permissions` | （なし） |
-| Codex CLI | `--full-auto` | `--dangerously-bypass-approvals-and-sandbox`, `--ask-for-approval`, `-a`, `--sandbox`, `-s` |
+| Codex CLI | `-cdefault_permissions=":workspace"` | `--full-auto`, `--dangerously-bypass-approvals-and-sandbox`, `--ask-for-approval`, `-a`, `--sandbox`, `-s`, `--profile`, `-p`, `default_permissions` (any `-c default_permissions=...` form) |
 | Gemini CLI | `--yolo` | `-y`, `--approval-mode` |
 | OpenCode | （env var） | （なし） |
 | Copilot CLI | `--allow-all` | `--yolo` |
@@ -158,7 +159,7 @@ SYNAPSE_AUTO_APPROVE=false synapse spawn claude
 synapse spawn claude --no-auto-approve -- --permission-mode auto
 
 # auto-approve は有効のまま別系統の承認フラグへ差し替え（Codex 例）
-# alternative_flags にマッチするため --full-auto は注入されない
+# alternative_flags にマッチするため -cdefault_permissions=":workspace" は注入されない
 synapse spawn codex -- --dangerously-bypass-approvals-and-sandbox
 ```
 

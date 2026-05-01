@@ -171,12 +171,12 @@ Common defaults (Synapse already injects these automatically — pass `--no-auto
 to opt out):
 - Claude Code: `synapse spawn claude --name <n> --role "<r>" -- --permission-mode=auto`
 - Gemini CLI: `synapse spawn gemini --name <n> --role "<r>" -- --approval-mode=yolo`
-- Codex CLI: `synapse spawn codex --name <n> --role "<r>" -- --full-auto`
+- Codex CLI: `synapse spawn codex --name <n> --role "<r>"` (synapse injects `-cdefault_permissions=":workspace"`; Codex 0.128+ removed `--full-auto`)
 - OpenCode: `synapse spawn opencode --name <n> --role "<r>" -- --agent build` (selects the build agent profile; not a skip-approval flag)
 - Copilot CLI: `synapse spawn copilot --name <n> --role "<r>" -- --allow-all`
 - Claude team: `synapse team start claude claude -- --permission-mode=auto`
 - Gemini team: `synapse team start gemini gemini -- --approval-mode=yolo`
-- Codex team: `synapse team start codex codex -- --full-auto`
+- Codex team: `synapse team start codex codex` (synapse injects `-cdefault_permissions=":workspace"`)
 - OpenCode team: `synapse team start opencode opencode -- --agent build` (selects the build agent profile; permission prompts still depend on OpenCode config)
 - Copilot team: `synapse team start copilot copilot -- --allow-all`
 

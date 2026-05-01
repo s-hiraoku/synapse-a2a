@@ -42,17 +42,33 @@ waiting_detection:
   waiting_expiry: 30                           # Auto-clear WAITING after 30s to give the parent a realistic window to intervene
 
 # Auto-approve configuration
-# --full-auto = -a on-request -s workspace-write (sandboxed auto-approve)
+# Codex CLI 0.128+ deprecated --full-auto and reorganized auto-approve around
+# permission profiles selected via `default_permissions` in ~/.codex/config.toml.
+# We inject `:workspace` (workspace-write equivalent of the old --full-auto)
+# inline with `-c default_permissions=":workspace"` so the choice is per-spawn
+# and does not rely on the user's global config.
+# Built-in profiles available in 0.128+: ":read-only", ":workspace",
+# ":danger-no-sandbox" (intentionally not used here — too dangerous for default).
+# References: openai/codex PR #19900 (built-in profiles), PR #20133 (--full-auto deprecation).
 auto_approve:
-  cli_flag: "--full-auto"
+  cli_flag: '-cdefault_permissions=":workspace"'
   # Mutually-exclusive approval / sandbox flags Codex CLI also accepts.
-  # If the user passes any of these, skip --full-auto injection to avoid
+  # If the user passes any of these, skip cli_flag injection to avoid
   # conflicts that cause the agent to fail to start.
+  # Order matters: alternative_flags[0] is what `synapse team start` injects
+  # for unattended workflow auto-spawn (see workflow._workflow_spawn_tool_args).
+  # The most-permissive bypass flag must stay first so workflows keep the
+  # deterministic behavior assumed by tests/test_codex_profile.py.
   alternative_flags:
     - "--dangerously-bypass-approvals-and-sandbox"
+    - "--full-auto"  # legacy (rejected by 0.128+ but still skip-injection trigger)
     - "--ask-for-approval"
     - "-a"
     - "--sandbox"
     - "-s"
+    - "--profile"
+    - "-p"
+    - "-cdefault_permissions"  # compact form: -cdefault_permissions=":..."
+    - "default_permissions"    # split form:   -c default_permissions=":..."
   runtime_response: "y\r"
   deny_response: "\x1b"

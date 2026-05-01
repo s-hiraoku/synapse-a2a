@@ -117,7 +117,7 @@ synapse spawn claude --name Tester --role "test writer"
 synapse spawn claude --worktree feature-auth
 synapse spawn codex --branch renovate/major-eslint-monorepo   # --branch auto-enables --worktree
 synapse spawn claude --no-auto-approve             # Disable auto-approve
-synapse spawn codex -- --dangerously-bypass-approvals-and-sandbox  # User-supplied approval flag; --full-auto injection is skipped
+synapse spawn codex -- --dangerously-bypass-approvals-and-sandbox  # User-supplied approval flag; default `-cdefault_permissions=":workspace"` injection is skipped
 synapse spawn gemini --task "Write tests for auth" --notify    # Spawn + auto-send task
 synapse spawn claude --task-file /tmp/instructions.md --wait   # Task from file
 synapse merge my-agent                             # Merge worktree branch (agent stays running)
