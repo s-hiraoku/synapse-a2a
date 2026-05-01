@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `synapse reply --to <sender_id>` now reports whether the reply stack is empty or contains different sender IDs when the requested sender is missing, while preserving the existing persisted fallback behavior (#690).
 ### Added
 
 - `synapse send-keys <agent> <data>` CLI and `POST /pty/write` HTTP endpoint for writing raw input bytes into a controlled CLI's PTY. Minimal escape hatch for unsticking agents blocked on a TUI dialog the parent cannot otherwise answer (codex edit-confirmation, model picker). Decodes Python escape sequences (`\r`, `\x1b`, …) by default; `--no-escape` keeps text literal; `--enter` appends a carriage return as the submit sequence. Endpoint is gated by the same `require_auth` dependency as `/tasks/{id}/cancel` and `/tasks/{id}/permission/approve` (#695).
