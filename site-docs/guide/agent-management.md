@@ -440,7 +440,7 @@ Heuristics 3 and 4 are PTY-content checks: the watchdog only fetches `/debug/pty
     There is no background daemon yet. Run `synapse watchdog check --alarm-only` manually when an agent feels stuck, or schedule it from cron / launchd alongside `synapse waiting-debug collect`. Stage 2-4 (background daemon, `synapse list --watch` integration, A2A push notifications, automatic recovery) ship in follow-up PRs.
 
 !!! note "Duration heuristics need `last_status_change_at`"
-    Heuristics 1-3 read `last_status_change_at` (added in #646), which is written only on real status transitions. Pre-existing registry entries that lack the field are skipped rather than counted from epoch — restart older agents (`synapse kill <id>` then respawn) to include them.
+    Heuristics 1, 2, 5 read `last_status_change_at` (added in #646), which is written only on real status transitions. Pre-existing registry entries that lack the field are skipped rather than counted from epoch — restart older agents (`synapse kill <id>` then respawn) to include them.
 
 See [CLI Reference — Watchdog](../reference/cli.md#watchdog-stuck-agent-detection) for the full flag and JSON schema.
 

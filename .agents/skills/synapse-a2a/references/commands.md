@@ -398,7 +398,7 @@ The 5-minute upper bound on the spawn-never-ready heuristic prevents misclassify
 **Use cases:**
 - Quickly scanning every live agent for a known stuck pattern without inspecting them one-by-one with `synapse status`.
 - Wiring stuck-agent detection into shell scripts, CI safety nets, or external monitors via `--json --alarm-only`.
-- Debugging spawn-never-ready regressions (heuristic 4) on freshly spawned agents.
+- Debugging spawn-never-ready regressions (heuristic 6) on freshly spawned agents.
 
 ### Saved Agent Definitions
 
