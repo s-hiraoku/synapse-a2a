@@ -504,7 +504,11 @@ class TestProfileAutoApproveConfig:
             # consistency with the unified --approval-mode parameter
             # (default / auto_edit / yolo).
             ("gemini", "--approval-mode=yolo"),
-            ("codex", "--full-auto"),
+            # Codex: switched from --full-auto to the inline override
+            # `-cdefault_permissions=":workspace"` because Codex CLI 0.128+
+            # removed --full-auto in favor of the new permission-profile
+            # mechanism. See PR #706 / openai/codex PR #20133.
+            ("codex", '-cdefault_permissions=":workspace"'),
             ("copilot", "--allow-all"),
         ],
     )
