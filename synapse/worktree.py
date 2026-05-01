@@ -330,6 +330,30 @@ def _worktree_directory_exists_error(worktree_dir: Path) -> RuntimeError:
     )
 
 
+def _worktree_branch_exists_error(branch_name: str) -> RuntimeError:
+    return RuntimeError(
+        f"Worktree branch already exists: {branch_name}. "
+        f"Run 'git branch -D {branch_name}' to delete it, "
+        "or pass a different --name."
+    )
+
+
+# Substrings git emits in stderr when `git worktree add` fails because the
+# target path or branch ref is already in use. These map to the same
+# collision conditions _allocate_worktree_name pre-checks against, so
+# encountering them after a successful pre-check signals a TOCTOU race
+# (e.g. a parallel spawn raced ahead between the check and the add).
+_WORKTREE_ADD_COLLISION_MARKERS = (
+    "already exists",  # "fatal: '<path>' already exists"
+    "already checked out",  # "fatal: '<branch>' is already checked out"
+    "already used by worktree",  # "fatal: '<branch>' is already used by worktree"
+)
+
+
+def _is_worktree_add_collision(stderr: str) -> bool:
+    return any(marker in stderr for marker in _WORKTREE_ADD_COLLISION_MARKERS)
+
+
 def _allocate_worktree_name(git_root: Path, name: str | None) -> tuple[str, Path, str]:
     """Return a validated unique worktree name, directory, and branch."""
     worktrees_dir = git_root / ".synapse" / "worktrees"
@@ -337,9 +361,12 @@ def _allocate_worktree_name(git_root: Path, name: str | None) -> tuple[str, Path
     if name is not None:
         validated_name = _validate_worktree_name(name)
         worktree_dir = worktrees_dir / validated_name
+        branch_name = f"worktree-{validated_name}"
         if worktree_dir.exists():
             raise _worktree_directory_exists_error(worktree_dir)
-        return validated_name, worktree_dir, f"worktree-{validated_name}"
+        if _ref_exists(branch_name):
+            raise _worktree_branch_exists_error(branch_name)
+        return validated_name, worktree_dir, branch_name
 
     for _ in range(MAX_AUTO_NAME_ATTEMPTS):
         candidate = generate_worktree_name()
@@ -386,17 +413,45 @@ def create_worktree(
     else:
         base_branch = get_default_remote_branch()
 
+    requested_name = name
     name, worktree_dir, branch_name = _allocate_worktree_name(git_root, name)
 
     # Ensure parent directory exists
     worktree_dir.parent.mkdir(parents=True, exist_ok=True)
 
-    result = subprocess.run(
-        ["git", "worktree", "add", str(worktree_dir), "-b", branch_name, base_branch],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
+    # When name is auto-generated, the pre-checks in _allocate_worktree_name
+    # are advisory only — a parallel `synapse spawn --worktree` can still
+    # race in between the check and `git worktree add`. Retry the full
+    # allocate-then-add cycle when git fails with a collision marker so
+    # one losing racer falls back to a fresh candidate instead of dying.
+    # User-specified names propagate the failure as before; the caller
+    # picked a specific name and we do not silently substitute another.
+    auto_attempts_left = MAX_AUTO_NAME_ATTEMPTS - 1 if requested_name is None else 0
+    while True:
+        result = subprocess.run(
+            [
+                "git",
+                "worktree",
+                "add",
+                str(worktree_dir),
+                "-b",
+                branch_name,
+                base_branch,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            break
+        if (
+            requested_name is None
+            and auto_attempts_left > 0
+            and _is_worktree_add_collision(result.stderr)
+        ):
+            auto_attempts_left -= 1
+            name, worktree_dir, branch_name = _allocate_worktree_name(git_root, None)
+            worktree_dir.parent.mkdir(parents=True, exist_ok=True)
+            continue
         raise RuntimeError(
             f"Failed to create worktree '{name}': {result.stderr.strip()}"
         )
