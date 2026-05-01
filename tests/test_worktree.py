@@ -214,12 +214,14 @@ class TestGenerateWorktreeName:
 class TestCreateWorktree:
     @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
     @patch("synapse.worktree.get_main_repo_root", return_value=Path("/repo"))
+    @patch("synapse.worktree._ref_exists", return_value=False)
     @patch("subprocess.run")
     @patch("pathlib.Path.mkdir")
     def test_create_worktree_auto_name(
         self,
         mock_mkdir: MagicMock,
         mock_run: MagicMock,
+        mock_ref_exists: MagicMock,
         mock_main_root: MagicMock,
         mock_remote: MagicMock,
     ) -> None:
@@ -243,12 +245,14 @@ class TestCreateWorktree:
 
     @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
     @patch("synapse.worktree.get_main_repo_root", return_value=Path("/repo"))
+    @patch("synapse.worktree._ref_exists", return_value=False)
     @patch("subprocess.run")
     @patch("pathlib.Path.mkdir")
     def test_create_worktree_with_name(
         self,
         mock_mkdir: MagicMock,
         mock_run: MagicMock,
+        mock_ref_exists: MagicMock,
         mock_main_root: MagicMock,
         mock_remote: MagicMock,
     ) -> None:
@@ -262,12 +266,14 @@ class TestCreateWorktree:
         assert info.path == Path("/repo/.synapse/worktrees/feature-auth")
 
     @patch("synapse.worktree.get_main_repo_root", return_value=Path("/repo"))
+    @patch("synapse.worktree._ref_exists", return_value=False)
     @patch("subprocess.run")
     @patch("pathlib.Path.mkdir")
     def test_create_worktree_with_custom_base_branch(
         self,
         mock_mkdir: MagicMock,
         mock_run: MagicMock,
+        mock_ref_exists: MagicMock,
         mock_main_root: MagicMock,
     ) -> None:
         """When base_branch is provided, it should be used instead of get_default_remote_branch."""
@@ -287,12 +293,14 @@ class TestCreateWorktree:
 
     @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
     @patch("synapse.worktree.get_main_repo_root", return_value=Path("/repo"))
+    @patch("synapse.worktree._ref_exists", return_value=False)
     @patch("subprocess.run")
     @patch("pathlib.Path.mkdir")
     def test_create_worktree_base_branch_none_uses_default(
         self,
         mock_mkdir: MagicMock,
         mock_run: MagicMock,
+        mock_ref_exists: MagicMock,
         mock_main_root: MagicMock,
         mock_remote: MagicMock,
     ) -> None:
@@ -339,6 +347,235 @@ class TestCreateWorktree:
                 create_worktree(name="existing-wt")
 
     @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_main_repo_root")
+    @patch("subprocess.run")
+    def test_auto_generated_name_retries_on_directory_collision(
+        self,
+        mock_run: MagicMock,
+        mock_main_root: MagicMock,
+        mock_remote: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        repo = tmp_path / "repo"
+        (repo / ".synapse" / "worktrees" / "bold-fox").mkdir(parents=True)
+        mock_main_root.return_value = repo
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch(
+            "synapse.worktree.generate_worktree_name",
+            side_effect=["bold-fox", "calm-owl"],
+        ):
+            with patch("synapse.worktree._ref_exists", return_value=False):
+                info = create_worktree()
+
+        assert info.name == "calm-owl"
+        assert info.path == repo / ".synapse" / "worktrees" / "calm-owl"
+        assert info.branch == "worktree-calm-owl"
+        assert mock_run.call_args[0][0] == [
+            "git",
+            "worktree",
+            "add",
+            str(repo / ".synapse" / "worktrees" / "calm-owl"),
+            "-b",
+            "worktree-calm-owl",
+            "origin/main",
+        ]
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_main_repo_root")
+    @patch("subprocess.run")
+    def test_auto_generated_name_exhaustion_raises_actionable(
+        self,
+        mock_run: MagicMock,
+        mock_main_root: MagicMock,
+        mock_remote: MagicMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        repo = tmp_path / "repo"
+        for name in ["bold-fox", "calm-owl", "safe-goat"]:
+            (repo / ".synapse" / "worktrees" / name).mkdir(parents=True)
+        mock_main_root.return_value = repo
+        monkeypatch.setattr("synapse.worktree.MAX_AUTO_NAME_ATTEMPTS", 3, raising=False)
+
+        with patch(
+            "synapse.worktree.generate_worktree_name",
+            side_effect=["bold-fox", "calm-owl", "safe-goat"],
+        ):
+            with patch("synapse.worktree._ref_exists", return_value=False):
+                with pytest.raises(RuntimeError) as exc_info:
+                    create_worktree()
+
+        message = str(exc_info.value)
+        assert "Could not allocate a unique worktree name after 3 attempts" in message
+        assert "git worktree list" in message
+        assert "git worktree prune" in message
+        mock_run.assert_not_called()
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_main_repo_root")
+    def test_user_specified_name_collision_raises_actionable(
+        self,
+        mock_main_root: MagicMock,
+        mock_remote: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        repo = tmp_path / "repo"
+        worktree_dir = repo / ".synapse" / "worktrees" / "existing-wt"
+        worktree_dir.mkdir(parents=True)
+        mock_main_root.return_value = repo
+
+        with pytest.raises(RuntimeError) as exc_info:
+            create_worktree(name="existing-wt")
+
+        message = str(exc_info.value)
+        assert f"Worktree directory already exists: {worktree_dir}" in message
+        assert f"git worktree remove {worktree_dir}" in message
+        assert "pass a different --name" in message
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_main_repo_root")
+    @patch("subprocess.run")
+    def test_auto_generated_name_retries_on_branch_collision(
+        self,
+        mock_run: MagicMock,
+        mock_main_root: MagicMock,
+        mock_remote: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        repo = tmp_path / "repo"
+        mock_main_root.return_value = repo
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch(
+            "synapse.worktree.generate_worktree_name",
+            side_effect=["bold-fox", "calm-owl"],
+        ):
+            with patch("synapse.worktree._ref_exists", side_effect=[True, False]):
+                info = create_worktree()
+
+        assert info.name == "calm-owl"
+        assert info.branch == "worktree-calm-owl"
+        assert mock_run.call_args[0][0][5] == "worktree-calm-owl"
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_main_repo_root")
+    def test_user_specified_branch_collision_raises_actionable(
+        self,
+        mock_main_root: MagicMock,
+        mock_remote: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        # Pre-checks should reject an explicit --name whose branch already
+        # exists, so the caller gets the same actionable hint as the
+        # directory-collision path instead of a generic git failure.
+        repo = tmp_path / "repo"
+        mock_main_root.return_value = repo
+
+        with patch("synapse.worktree._ref_exists", return_value=True):
+            with pytest.raises(RuntimeError) as exc_info:
+                create_worktree(name="taken-branch")
+
+        message = str(exc_info.value)
+        assert "Worktree branch already exists: worktree-taken-branch" in message
+        assert "git branch -D worktree-taken-branch" in message
+        assert "pass a different --name" in message
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_main_repo_root")
+    @patch("subprocess.run")
+    def test_auto_generated_name_retries_on_git_add_collision(
+        self,
+        mock_run: MagicMock,
+        mock_main_root: MagicMock,
+        mock_remote: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        # TOCTOU: a parallel spawn races between pre-checks and `git
+        # worktree add`. The losing racer must fall back to a fresh
+        # candidate when git reports a path/branch collision, not die.
+        repo = tmp_path / "repo"
+        mock_main_root.return_value = repo
+        mock_run.side_effect = [
+            MagicMock(
+                returncode=128,
+                stdout="",
+                stderr="fatal: '.synapse/worktrees/bold-fox' already exists",
+            ),
+            MagicMock(returncode=0, stdout="", stderr=""),
+        ]
+
+        with patch(
+            "synapse.worktree.generate_worktree_name",
+            side_effect=["bold-fox", "calm-owl"],
+        ):
+            with patch("synapse.worktree._ref_exists", return_value=False):
+                info = create_worktree()
+
+        assert info.name == "calm-owl"
+        assert info.branch == "worktree-calm-owl"
+        assert mock_run.call_count == 2
+        assert mock_run.call_args_list[1][0][0][5] == "worktree-calm-owl"
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_main_repo_root")
+    @patch("subprocess.run")
+    def test_user_specified_name_does_not_retry_on_git_add_collision(
+        self,
+        mock_run: MagicMock,
+        mock_main_root: MagicMock,
+        mock_remote: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        # Explicit --name must not be silently swapped for another name on
+        # post-precheck collision; the caller picked it deliberately.
+        repo = tmp_path / "repo"
+        mock_main_root.return_value = repo
+        mock_run.return_value = MagicMock(
+            returncode=128,
+            stdout="",
+            stderr="fatal: '.synapse/worktrees/explicit-name' already exists",
+        )
+
+        with patch("synapse.worktree._ref_exists", return_value=False):
+            with pytest.raises(RuntimeError, match="Failed to create worktree"):
+                create_worktree(name="explicit-name")
+
+        assert mock_run.call_count == 1
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
+    @patch("synapse.worktree.get_main_repo_root")
+    @patch("subprocess.run")
+    def test_auto_generated_git_add_retry_exhausts(
+        self,
+        mock_run: MagicMock,
+        mock_main_root: MagicMock,
+        mock_remote: MagicMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Every retry races and loses. After MAX_AUTO_NAME_ATTEMPTS we
+        # surface the last git failure rather than spinning forever.
+        repo = tmp_path / "repo"
+        mock_main_root.return_value = repo
+        monkeypatch.setattr("synapse.worktree.MAX_AUTO_NAME_ATTEMPTS", 3, raising=False)
+        mock_run.return_value = MagicMock(
+            returncode=128,
+            stdout="",
+            stderr="fatal: 'worktree-x' is already used by worktree at /tmp/x",
+        )
+
+        with patch(
+            "synapse.worktree.generate_worktree_name",
+            side_effect=["a", "b", "c"],
+        ):
+            with patch("synapse.worktree._ref_exists", return_value=False):
+                with pytest.raises(RuntimeError, match="Failed to create worktree"):
+                    create_worktree()
+
+        assert mock_run.call_count == 3
+
+    @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
     @patch("synapse.worktree.get_main_repo_root", return_value=Path("/repo"))
     @patch("subprocess.run")
     @patch("pathlib.Path.mkdir")
@@ -360,12 +597,14 @@ class TestCreateWorktree:
 
     @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
     @patch("synapse.worktree.get_main_repo_root", return_value=Path("/repo"))
+    @patch("synapse.worktree._ref_exists", return_value=False)
     @patch("subprocess.run")
     @patch("pathlib.Path.mkdir")
     def test_nested_worktree_resolves_to_main_repo_root(
         self,
         mock_mkdir: MagicMock,
         mock_run: MagicMock,
+        mock_ref_exists: MagicMock,
         mock_main_root: MagicMock,
         mock_remote: MagicMock,
     ) -> None:
@@ -393,12 +632,14 @@ class TestCreateWorktree:
 
     @patch("synapse.worktree.get_default_remote_branch", return_value="origin/main")
     @patch("synapse.worktree.get_main_repo_root", return_value=Path("/repo"))
+    @patch("synapse.worktree._ref_exists", return_value=False)
     @patch("subprocess.run")
     @patch("pathlib.Path.mkdir")
     def test_worktree_creation_from_repo_root_is_unchanged(
         self,
         mock_mkdir: MagicMock,
         mock_run: MagicMock,
+        mock_ref_exists: MagicMock,
         mock_main_root: MagicMock,
         mock_remote: MagicMock,
     ) -> None:
