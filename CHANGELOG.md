@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `synapse send-keys <agent> <data>` CLI and `POST /pty/write` HTTP endpoint for writing raw input bytes into a controlled CLI's PTY. Minimal escape hatch for unsticking agents blocked on a TUI dialog the parent cannot otherwise answer (codex edit-confirmation, model picker). Decodes Python escape sequences (`\r`, `\x1b`, …) by default; `--no-escape` keeps text literal; `--enter` appends a carriage return as the submit sequence. Endpoint is gated by the same `require_auth` dependency as `/tasks/{id}/cancel` and `/tasks/{id}/permission/approve` (#695).
+
 ## [0.32.0] - 2026-04-30
 
 ### Added

@@ -36,6 +36,7 @@ curl "http://localhost:8100/tasks?api_key=your-key"
 | `GET /tasks/{id}` | API Key |
 | `GET /tasks` | API Key |
 | `POST /tasks/{id}/cancel` | API Key |
+| `POST /pty/write` | API Key |
 | `GET /tasks/{id}/subscribe` | API Key |
 | Memory endpoints | API Key |
 | Spawn / Team endpoints | API Key |
@@ -266,6 +267,55 @@ curl -X POST "http://localhost:8100/tasks/550e8400-.../cancel?mode=pty&repeat=2"
 | 400 | `mode` is not one of `auto`, `pty`, or `signal` |
 | 400 | Task is not in a cancelable state (must be `submitted` or `working`) — message: `Cannot cancel task in <state> state` |
 | 404 | Task ID does not exist |
+
+### Write Raw PTY Bytes
+
+Escape hatch for unsticking agents wedged on a TUI dialog that the A2A Task pipeline cannot answer (codex CLI edit-confirmation, model picker, rate-limit dialog). Bytes are written straight to the controlled CLI's PTY, bypassing the readiness gate and history. Backs the [`synapse send-keys`](cli.md#send-keys) CLI (#695).
+
+```bash
+curl -X POST http://localhost:8100/pty/write \
+  -H "Content-Type: application/json" \
+  -d '{"data": "a"}'
+
+# Type "yes" and submit
+curl -X POST http://localhost:8100/pty/write \
+  -H "Content-Type: application/json" \
+  -d '{"data": "yes", "submit_seq": "\r"}'
+```
+
+**Request body:**
+
+| Field | Type | Required | Description |
+|-------|------|:--------:|-------------|
+| `data` | string | Yes | Bytes to write. Control characters (`\r`, `\x1b`, …) must already be decoded by the caller |
+| `submit_seq` | string | No | Optional submit sequence appended after `data` (e.g. `"\r"`). Omit for a one-key answer |
+
+**Response:**
+
+```json
+{
+  "ok": true,
+  "bytes_written": 3,
+  "submit_seq_sent": true
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ok` | bool | Whether the underlying `controller.write()` call succeeded |
+| `bytes_written` | int | UTF-8 byte length of `data` (excludes `submit_seq`) |
+| `submit_seq_sent` | bool | `true` when `submit_seq` was provided in the request |
+
+**Errors:**
+
+| Status | Condition |
+|:------:|-----------|
+| 400 | `data` is missing or not a string; `submit_seq` is provided but not a string |
+| 500 | Underlying PTY write raised — message: `write failed: <reason>` |
+| 503 | Agent has no PTY controller attached |
+
+!!! warning "Auth-gated, low-level"
+    `POST /pty/write` is protected by `require_auth` (same gate as `/tasks/{id}/cancel` and `/tasks/{id}/permission/approve`). It bypasses every safeguard the Task pipeline provides — use it only when no message-based path will reach the stuck CLI.
 
 ## History Update (Completion Callback)
 
