@@ -86,7 +86,7 @@ For machine-readable output (JSON array of all running agents):
 synapse list --json
 ```
 
-The `--json` flag skips the TUI and prints a JSON array with fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `spawned_by`, `is_orphan` (plus `editing_file` when File Safety is enabled).
+The `--json` flag skips the TUI and prints a JSON array with fields: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `uptime_seconds` (#708), `summary`, `is_orphan`, `spawned_by`, `input_required_tasks` (#651) (plus `editing_file` when File Safety is enabled). The six fields shared with `synapse status <target> --json` (`agent_id`, `status`, `current_task_preview`, `task_received_at`, `uptime_seconds`, `input_required_tasks`) are rendered through the unified `synapse/commands/_agent_view.py` helper so AI/programmatic callers can rely on identical shapes regardless of which command they query (#708).
 
 Displays a live table with:
 
@@ -413,7 +413,7 @@ crontab -e
 
 ### Stuck-Agent Watchdog (`watchdog check`)
 
-`synapse watchdog check` (added in #646, Stage 1 MVP) is a complementary observability layer focused on **stuck-state detection** rather than the WAITING-detection sampling that `--debug-waiting` and `waiting-debug` provide. It scans every live registry entry once and flags agents that match one of four duration- or outbound-history-based heuristics.
+`synapse watchdog check` (added in #646, Stage 1 MVP) is a complementary observability layer focused on **stuck-state detection** rather than the WAITING-detection sampling that `--debug-waiting` and `waiting-debug` provide. It scans every live registry entry once and flags agents that match one of six duration-, outbound-history-, or PTY-content-based heuristics.
 
 ```bash
 synapse watchdog check                 # Heuristic table for every live agent
@@ -427,16 +427,20 @@ The table shows `ID`, `STATUS`, `UPTIME`, `SAME_STATUS_FOR`, `LAST_OUTBOUND`, an
 |---|---------|-------|
 | 1 | `RATE_LIMITED` for more than 30 min | `Rate-limited > 30m` |
 | 2 | `SENDING_REPLY` for more than 60 s | `Send stuck > 60s` |
-| 3 | `PROCESSING` for more than 30 min **and** no outbound A2A send in the last 10 min | `Stuck-on-reply suspected` |
-| 4 | Spawn never reached `READY` (uptime 60 s–5 min, no `last_status_change_at`) | `Spawn never ready` |
+| 3 | `WAITING` **and** PTY tail contains the codex rate-limit model-switch dialog (#691) | `rate_limit_dialog` |
+| 4 | `WAITING` **and** PTY tail contains the codex edit-confirmation dialog ("Would you like to make the following edits?") (#707) | `edit_confirmation_dialog` |
+| 5 | `PROCESSING` for more than 30 min **and** no outbound A2A send in the last 10 min | `Stuck-on-reply suspected` |
+| 6 | Spawn never reached `READY` (uptime 60 s–5 min, no `last_status_change_at`) | `Spawn never ready` |
 
-Heuristic 3 cross-references the same `HistoryManager` that backs `synapse history`, filtered to outbound rows whose `metadata.sender_id` matches the agent — so a `PROCESSING` agent that is still actively replying to peers is **not** flagged.
+Heuristic 5 cross-references the same `HistoryManager` that backs `synapse history`, filtered to outbound rows whose `metadata.sender_id` matches the agent — so a `PROCESSING` agent that is still actively replying to peers is **not** flagged.
+
+Heuristics 3 and 4 are PTY-content checks: the watchdog only fetches `/debug/pty` for agents whose registry status is already `WAITING`, so stale model-switch or edit-confirmation text from earlier in the session cannot trip the alarm while the agent is `READY` or `PROCESSING`. Both alarms include an `alarm_reason` field in the JSON output explaining the matched dialog. Recovery: pair with [`synapse send-keys`](../reference/cli.md#send-keys) to dismiss the dialog programmatically without `synapse jump`.
 
 !!! tip "Stage 1 is operator-driven"
     There is no background daemon yet. Run `synapse watchdog check --alarm-only` manually when an agent feels stuck, or schedule it from cron / launchd alongside `synapse waiting-debug collect`. Stage 2-4 (background daemon, `synapse list --watch` integration, A2A push notifications, automatic recovery) ship in follow-up PRs.
 
 !!! note "Duration heuristics need `last_status_change_at`"
-    Heuristics 1-3 read `last_status_change_at` (added in #646), which is written only on real status transitions. Pre-existing registry entries that lack the field are skipped rather than counted from epoch — restart older agents (`synapse kill <id>` then respawn) to include them.
+    Heuristics 1, 2, 5 read `last_status_change_at` (added in #646), which is written only on real status transitions. Pre-existing registry entries that lack the field are skipped rather than counted from epoch — restart older agents (`synapse kill <id>` then respawn) to include them.
 
 See [CLI Reference — Watchdog](../reference/cli.md#watchdog-stuck-agent-detection) for the full flag and JSON schema.
 

@@ -821,7 +821,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse file-safety debug` | Show debug info |
 | `synapse waiting-debug collect` | Append `/debug/waiting` snapshots from every running agent to `~/.synapse/waiting_debug.jsonl` (Phase 1.5 collection pipeline). `--out <path>` overrides the destination, `--agent <id>` filters to one agent, `--include-empty` records empty attempts, `--timeout <seconds>` sets the per-agent HTTP timeout (default 5.0, v0.28.2). See [`docs/phase15-collection.md`](docs/phase15-collection.md) |
 | `synapse waiting-debug report` | Summarise a `waiting_debug.jsonl` file: per-profile / `pattern_source` / `path_used` counts, confidence distribution, `idle_gate_drops`, `renderer_unavailable_agents`. Accepts `--since <iso>`, `--agent <id>`, `--json`, `--out <path>` (write JSON to file; stdout stays empty, safe for cron) |
-| `synapse watchdog check` | One-shot stuck-agent detection across all live agents (Stage 1 MVP, [#646](https://github.com/s-hiraoku/synapse-a2a/issues/646)). Prints a table with ID / STATUS / UPTIME / SAME_STATUS_FOR / LAST_OUTBOUND / ALARM. Heuristics: `RATE_LIMITED > 30m`, `SENDING_REPLY > 60s`, `PROCESSING > 30m` with no outbound A2A in the last 10m, and "spawn never ready" (registered > 60s ago, < 5m, status != READY). `--alarm-only` filters to alarm rows; `--json` emits an array of reports for programmatic consumers. Stage 2-4 (background daemon, push notifications, multi-watchdog locking, automatic recovery) are future work |
+| `synapse watchdog check` | One-shot stuck-agent detection across all live agents (Stage 1 MVP, [#646](https://github.com/s-hiraoku/synapse-a2a/issues/646)). Prints a table with ID / STATUS / UPTIME / SAME_STATUS_FOR / LAST_OUTBOUND / ALARM. Heuristics: `RATE_LIMITED > 30m`, `SENDING_REPLY > 60s`, codex CLI rate-limit dialog visible while `WAITING` (alarm `rate_limit_dialog`, [#691](https://github.com/s-hiraoku/synapse-a2a/issues/691)), codex CLI edit-confirmation dialog visible while `WAITING` (alarm `edit_confirmation_dialog`, [#707](https://github.com/s-hiraoku/synapse-a2a/pull/707)), `PROCESSING > 30m` with no outbound A2A in the last 10m, and "spawn never ready" (registered > 60s ago, < 5m, status != READY). `--alarm-only` filters to alarm rows; `--json` emits an array of reports for programmatic consumers. Stage 2-4 (background daemon, push notifications, multi-watchdog locking, automatic recovery) are future work |
 | `synapse skills` | Skill Manager (interactive TUI) |
 | `synapse skills list` | List discovered skills |
 | `synapse skills show <name>` | Show skill details |
@@ -1643,7 +1643,7 @@ The display automatically updates when agent status changes (via file watcher) w
 
 ### JSON Output
 
-`synapse list --json` outputs a JSON array of agent objects for AI and scripting use. Each object includes: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `summary`, and optionally `editing_file`.
+`synapse list --json` outputs a JSON array of agent objects for AI and scripting use. Each object includes: `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `uptime_seconds`, `input_required_tasks`, `summary`, `is_orphan`, `spawned_by`, and optionally `editing_file`. The six canonical fields `agent_id`, `status`, `current_task_preview`, `task_received_at`, `uptime_seconds`, and `input_required_tasks` are produced by a shared view helper so `synapse status <target> --json` exposes them with identical shape and semantics ([#708](https://github.com/s-hiraoku/synapse-a2a/pull/708)). The `status` field is the machine-readable enum value (the ` [ORPHAN]` annotation that decorates the human `synapse list` table is stripped from JSON; use `is_orphan` instead).
 
 If automation is attached to a TTY, use `synapse list --json`, `synapse list --plain`, or set `SYNAPSE_NONINTERACTIVE=1`. Bare `synapse list` is intended for human-operated interactive terminals.
 
@@ -1703,8 +1703,12 @@ Heuristics (priority order):
 
 1. `RATE_LIMITED` for more than 30 minutes
 2. `SENDING_REPLY` for more than 60 seconds
-3. `PROCESSING` for more than 30 minutes with no outbound A2A send/reply in the last 10 minutes
-4. Spawn never ready: registered more than 60s ago (and within 5 minutes), status still not READY
+3. `WAITING` with the codex CLI rate-limit reminder dialog visible in the PTY tail (alarm: `rate_limit_dialog`, [#691](https://github.com/s-hiraoku/synapse-a2a/issues/691) / [#692](https://github.com/s-hiraoku/synapse-a2a/pull/692))
+4. `WAITING` with the codex CLI edit-confirmation dialog ("Would you like to make the following edits?") visible in the PTY tail (alarm: `edit_confirmation_dialog`, [#707](https://github.com/s-hiraoku/synapse-a2a/pull/707))
+5. `PROCESSING` for more than 30 minutes with no outbound A2A send/reply in the last 10 minutes
+6. Spawn never ready: registered more than 60s ago (and within 5 minutes), status still not READY
+
+Use `synapse send-keys <target> '\x1b'` to ESC out of the rate-limit dialog, or `synapse send-keys <target> 'y' --enter` to approve the edit-confirmation dialog without `synapse jump`.
 
 Each row reports `ID`, `STATUS`, `UPTIME`, `SAME_STATUS_FOR`, `LAST_OUTBOUND`, and `ALARM`. The `same_status_seconds` field is computed from `last_status_change_at`, which is written only on real registry status transitions; legacy registry entries that pre-date the field skip duration-based heuristics gracefully. Stage 2-4 (background daemon, A2A push notifications, multi-watchdog locking, `synapse list --watch` integration, automatic recovery) are future work.
 

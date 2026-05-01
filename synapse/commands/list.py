@@ -12,12 +12,15 @@ from pathlib import Path
 from threading import Event
 from typing import TYPE_CHECKING, Any, Protocol
 
-from synapse.commands._agent_view import build_agent_json_view
+from synapse.commands._agent_view import (
+    ORPHAN_STATUS_SUFFIX,
+    build_agent_json_view,
+    is_agent_alive,
+)
 from synapse.commands.cleanup import opportunistic_cleanup_idle_orphans
 from synapse.file_safety import FileSafetyManager
 from synapse.port_manager import PORT_RANGES
 from synapse.registry import AgentRegistry
-from synapse.status import PROCESSING
 from synapse.utils import format_renderer_suffix
 
 if TYPE_CHECKING:
@@ -60,47 +63,14 @@ class ListCommand:
     def _is_agent_alive(
         self, registry: AgentRegistry, agent_id: str, info: dict[str, Any]
     ) -> bool:
-        """Check if an agent is alive and unregister if dead.
-
-        Uses retry logic to handle race conditions when agents are
-        transitioning between states (e.g., PROCESSING -> READY).
-
-        Args:
-            registry: AgentRegistry instance for cleanup.
-            agent_id: Agent identifier.
-            info: Agent info dictionary.
-
-        Returns:
-            True if agent is alive, False if dead (and unregistered).
-        """
-        pid = info.get("pid")
-        port = info.get("port")
-
-        # Check 1: PID must be alive
-        if pid and not self._is_process_alive(pid):
-            registry.unregister(agent_id)
-            return False
-
-        # Check 2: Port must be open (agent server responding)
-        # Skip port check for PROCESSING agents (server may still be starting)
-        is_starting = info.get("status", "-") == PROCESSING
-        if is_starting or not port:
-            return True
-
-        # First port check with short timeout
-        if self._is_port_open("localhost", port, timeout=0.5):
-            return True
-
-        # Port check failed - retry once with longer timeout
-        # This handles race conditions during status transitions
-        self._time.sleep(0.2)  # Brief delay before retry
-
-        if self._is_port_open("localhost", port, timeout=1.0):
-            return True
-
-        # Both checks failed - agent is truly dead
-        registry.unregister(agent_id)
-        return False
+        return is_agent_alive(
+            registry,
+            agent_id,
+            info,
+            is_process_alive=self._is_process_alive,
+            is_port_open=self._is_port_open,
+            time_module=self._time,
+        )
 
     def _get_agent_data(
         self,
@@ -153,7 +123,7 @@ class ListCommand:
                 # Annotate status column with [ORPHAN] so it surfaces in
                 # the default `synapse list` output without changing the
                 # column shape. `synapse cleanup` is the explicit recovery.
-                status_display = f"{status_display} [ORPHAN]"
+                status_display = f"{status_display}{ORPHAN_STATUS_SUFFIX}"
             agent_data: dict[str, Any] = {
                 "agent_id": agent_id,
                 "agent_type": info.get("agent_type", "unknown"),

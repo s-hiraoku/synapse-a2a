@@ -13,12 +13,12 @@ from typing import IO, TYPE_CHECKING, Any
 from synapse.commands._agent_view import (
     CANONICAL_JSON_FIELDS,
     build_agent_json_view,
+    is_agent_alive,
     resolve_agent_from_snapshot,
 )
 from synapse.commands.renderers.rich_renderer import format_elapsed
 from synapse.commands.waiting_debug import _format_counter, _http_get_json
 from synapse.registry import is_port_open, is_process_running
-from synapse.status import PROCESSING
 from synapse.utils import format_renderer_suffix
 
 if TYPE_CHECKING:
@@ -103,18 +103,6 @@ class StatusCommand:
                 *CANONICAL_JSON_FIELDS[1:],
             ),
         )
-        data.update(
-            {
-                "agent_id": info.get("agent_id"),
-                "agent_type": info.get("agent_type"),
-                "name": info.get("name"),
-                "role": info.get("role"),
-                "port": info.get("port"),
-                "pid": info.get("pid"),
-                "working_dir": info.get("working_dir"),
-                "endpoint": info.get("endpoint"),
-            }
-        )
         if "renderer_available" in info:
             data["renderer_available"] = info.get("renderer_available")
 
@@ -141,29 +129,16 @@ class StatusCommand:
         """Resolve an agent from the same live/list snapshot used by list JSON."""
         agents = []
         for agent_id, info in self._registry.list_agents().items():
-            if self._is_agent_alive(agent_id, info):
+            if is_agent_alive(
+                self._registry,
+                agent_id,
+                info,
+                is_process_alive=self._is_process_alive,
+                is_port_open=self._is_port_open,
+                time_module=self._time,
+            ):
                 agents.append(dict(info, agent_id=info.get("agent_id") or agent_id))
         return resolve_agent_from_snapshot(agents, target)
-
-    def _is_agent_alive(self, agent_id: str, info: dict[str, Any]) -> bool:
-        pid = info.get("pid")
-        port = info.get("port")
-
-        if pid and not self._is_process_alive(pid):
-            self._registry.unregister(agent_id)
-            return False
-
-        if info.get("status", "-") == PROCESSING or not port:
-            return True
-
-        if self._is_port_open("localhost", port, timeout=0.5):
-            return True
-        self._time.sleep(0.2)
-        if self._is_port_open("localhost", port, timeout=1.0):
-            return True
-
-        self._registry.unregister(agent_id)
-        return False
 
     def _render_text(self, info: dict[str, Any]) -> None:
         """Render agent status as formatted text."""

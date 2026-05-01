@@ -892,7 +892,7 @@ synapse list --json               # JSON 配列出力（AI/スクリプト向け
 
 **JSON 出力モード**:
 
-`synapse list --json` は、エージェント一覧を JSON 配列として出力します。AI やスクリプトからのプログラム的な消費に適しています。各オブジェクトには `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`、および任意で `editing_file` が含まれます。
+`synapse list --json` は、エージェント一覧を JSON 配列として出力します。AI やスクリプトからのプログラム的な消費に適しています。各オブジェクトには `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `uptime_seconds`, `input_required_tasks`, `summary`, `is_orphan`, `spawned_by`、および任意で `editing_file` が含まれます。`agent_id` / `status` / `current_task_preview` / `task_received_at` / `uptime_seconds` / `input_required_tasks` の 6 フィールドは共有ビューヘルパー（`synapse/commands/_agent_view.py`）で生成され、`synapse status <target> --json` でも同一の shape と semantics で公開されます（[#708](https://github.com/s-hiraoku/synapse-a2a/pull/708)）。`status` は machine-readable な enum 値で、`synapse list` のテーブル列に付く ` [ORPHAN]` 注釈は JSON では除去されます（オーファン判定には `is_orphan` を参照してください）。
 
 **Note**: **TRANSPORT 列**は通信状態をリアルタイム表示します。
 - `UDS→` / `TCP→`: エージェントが UDS/TCP で送信中
@@ -1816,7 +1816,7 @@ synapse send codex "進捗を報告して" --priority 1
 synapse send codex "状況を報告して" --priority 5
 ```
 
-`synapse watchdog check` は `RATE_LIMITED > 30m` / `SENDING_REPLY > 60s` / `PROCESSING > 30m` で直近 10 分の outbound A2A 0 件 / spawn から 60s〜5m 経過しても READY 未到達、の 4 ヒューリスティックで stuck を判定します。詳細は [references.md §1.27](references.md)。Stage 2-4（バックグラウンドデーモン、push 通知、自動 recovery）は future work です。
+`synapse watchdog check` は `RATE_LIMITED > 30m` / `SENDING_REPLY > 60s` / `WAITING` 中に codex CLI レート制限ダイアログが PTY tail に残存（alarm `rate_limit_dialog`、[#691](https://github.com/s-hiraoku/synapse-a2a/issues/691)）/ `WAITING` 中に codex CLI 編集確認ダイアログ "Would you like to make the following edits?" が PTY tail に残存（alarm `edit_confirmation_dialog`、[#707](https://github.com/s-hiraoku/synapse-a2a/pull/707)）/ `PROCESSING > 30m` で直近 10 分の outbound A2A 0 件 / spawn から 60s〜5m 経過しても READY 未到達、の 6 ヒューリスティックで stuck を判定します。ダイアログ系の alarm は `synapse send-keys <target> '\x1b'`（ESC）/ `synapse send-keys <target> 'y' --enter`（編集承認）で `synapse jump` せずに解除できます。詳細は [references.md §1.27](references.md)。Stage 2-4（バックグラウンドデーモン、push 通知、自動 recovery）は future work です。
 
 ---
 

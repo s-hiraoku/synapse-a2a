@@ -82,9 +82,12 @@ Interactive TUI with real-time updates. See [Agent Management](../guide/agent-ma
 | `--json` | Output agent list as a JSON array for AI/programmatic consumption (no TUI) |
 | `--plain` | Force one-shot plain-text output without entering the Rich TUI |
 
-The `--json` output includes `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `last_status_change_at` (#646), `input_required_tasks` (#651), `summary`, `is_orphan`, `spawned_by`, and optionally `editing_file`.
+The `--json` output includes `agent_id`, `agent_type`, `name`, `role`, `skill_set`, `port`, `status`, `pid`, `working_dir`, `endpoint`, `transport`, `current_task_preview`, `task_received_at`, `uptime_seconds` (#708), `last_status_change_at` (#646), `input_required_tasks` (#651), `summary`, `is_orphan`, `spawned_by`, and optionally `editing_file`.
 
 For AI-controlled terminals, do not use bare `synapse list`. Use `synapse list --json`, `synapse list --plain`, `synapse status <target> --json`, or the MCP `list_agents` tool.
+
+!!! note "Unified canonical fields with `synapse status --json` (#708)"
+    `synapse list --json` and `synapse status <target> --json` share six canonical fields rendered by `synapse/commands/_agent_view.py`: `agent_id`, `status`, `current_task_preview`, `task_received_at`, `uptime_seconds`, and `input_required_tasks`. Both commands compute these the same way (e.g., `uptime_seconds` falls back to `now - registered_at` when the agent did not provide it, and human annotations like `[ORPHAN]` are stripped from the machine-readable `status`). AI/programmatic callers can therefore rely on identical field shapes regardless of whether they query the list snapshot or a single-agent status.
 
 !!! note "Orphan annotations"
     Child agents (spawned with `SYNAPSE_SPAWNED_BY`) whose parent has been removed from the registry, or whose parent PID is no longer alive, are flagged as orphans. The Rich TUI appends ` [ORPHAN]` to the STATUS column for these rows, and the `--json` output reports `is_orphan: true` with the original `spawned_by` value. Set `SYNAPSE_ORPHAN_IDLE_TIMEOUT=<seconds>` to let `synapse list` sweep long-`READY` orphans opportunistically. Explicit reaping uses [`synapse cleanup`](#cleanup).
@@ -1042,7 +1045,7 @@ synapse watchdog check --alarm-only    # Only rows with an alarm
 synapse watchdog check --json          # Machine-readable JSON
 ```
 
-Stage 1 MVP one-shot scan that flags potentially stuck agents using duration- and outbound-history-based heuristics. The table renders one row per live agent with `ID`, `STATUS`, `UPTIME`, `SAME_STATUS_FOR`, `LAST_OUTBOUND`, and an `ALARM` column (e.g., `⚠ Stuck-on-reply suspected`) or `-` when no heuristic fires. JSON output mirrors the `WatchdogReport` dataclass (`agent_id`, `status`, `uptime_seconds`, `same_status_seconds`, `last_outbound_seconds_ago`, `alarm`).
+Stage 1 MVP one-shot scan that flags potentially stuck agents using duration-, outbound-history-, and PTY-content-based heuristics. The table renders one row per live agent with `ID`, `STATUS`, `UPTIME`, `SAME_STATUS_FOR`, `LAST_OUTBOUND`, and an `ALARM` column (e.g., `⚠ Stuck-on-reply suspected`, `⚠ rate_limit_dialog`, `⚠ edit_confirmation_dialog`) or `-` when no heuristic fires. JSON output mirrors the `WatchdogReport` dataclass (`agent_id`, `status`, `uptime_seconds`, `same_status_seconds`, `last_outbound_seconds_ago`, `alarm`, `alarm_reason`). The PTY-content alarms (`rate_limit_dialog` from #691, `edit_confirmation_dialog` from #707) are gated on `status == WAITING` and include a non-null `alarm_reason` describing the matched codex dialog.
 
 | Flag | Description |
 |------|-------------|
@@ -1055,13 +1058,15 @@ Stage 1 MVP one-shot scan that flags potentially stuck agents using duration- an
 |---|---------|-------|
 | 1 | `RATE_LIMITED` for more than 30 min | `Rate-limited > 30m` |
 | 2 | `SENDING_REPLY` for more than 60 s | `Send stuck > 60s` |
-| 3 | `PROCESSING` for more than 30 min **and** no outbound A2A send in the last 10 min | `Stuck-on-reply suspected` |
-| 4 | Spawn never reached `READY` (uptime 60 s–5 min, no `last_status_change_at`) | `Spawn never ready` |
+| 3 | `WAITING` **and** PTY tail contains the codex rate-limit model-switch dialog (#691) | `rate_limit_dialog` |
+| 4 | `WAITING` **and** PTY tail contains the codex edit-confirmation dialog ("Would you like to make the following edits?") (#707) | `edit_confirmation_dialog` |
+| 5 | `PROCESSING` for more than 30 min **and** no outbound A2A send in the last 10 min | `Stuck-on-reply suspected` |
+| 6 | Spawn never reached `READY` (uptime 60 s–5 min, no `last_status_change_at`) | `Spawn never ready` |
 
-The first matching rule wins. `last_outbound_seconds_ago` reads recent outbound entries from the same `HistoryManager` that backs `synapse history`, filtered to rows where the metadata `sender_id` matches the agent.
+The first matching rule wins. `last_outbound_seconds_ago` reads recent outbound entries from the same `HistoryManager` that backs `synapse history`, filtered to rows where the metadata `sender_id` matches the agent. Heuristics 3 and 4 fetch `/debug/pty` only when registry status is already `WAITING`, so stale dialog text cannot trip an alarm in `READY` / `PROCESSING`.
 
 !!! note "`last_status_change_at` is required for duration heuristics"
-    Heuristics 1-3 need `last_status_change_at` (#646) to compute `same_status_seconds`. Registry entries from agents started before this field was introduced are skipped by those heuristics rather than counted from epoch. Restart older agents to include them.
+    Heuristics 1, 2, and 5 need `last_status_change_at` (#646) to compute `same_status_seconds`. Registry entries from agents started before this field was introduced are skipped by those heuristics rather than counted from epoch. Restart older agents to include them.
 
 !!! info "Stage 2-4 (future)"
     The background daemon, `synapse list --watch` integration, A2A push notifications, multi-watchdog locking, and automatic recovery (e.g., auto-cancel + interrupt for stuck `SENDING_REPLY`) land in follow-up PRs. The Stage 1 MVP is operator-driven only — run it manually or from cron when you want a snapshot.
