@@ -1111,7 +1111,7 @@ def create_a2a_router(
     # was in SENDING_REPLY at the time. Drained by _on_status_change when
     # the agent leaves SENDING_REPLY so the preview is guaranteed to clear
     # eventually (CodeRabbit #699).
-    _pending_terminal_preview_clear = [False]
+    _pending_terminal_preview_clear: bool = False
 
     def _clear_terminal_task_preview() -> None:
         """Clear the current task preview after local task terminal transitions.
@@ -1123,14 +1123,15 @@ def create_a2a_router(
         defer the clear by setting a flag that ``_on_status_change`` drains
         when SENDING_REPLY exits.
         """
+        nonlocal _pending_terminal_preview_clear
         if registry is None or agent_id is None:
             return
         agent_info = registry.get_agent(agent_id)
         if agent_info and agent_info.get("status") == SENDING_REPLY:
-            _pending_terminal_preview_clear[0] = True
+            _pending_terminal_preview_clear = True
             return
         registry.update_current_task(agent_id, None)
-        _pending_terminal_preview_clear[0] = False
+        _pending_terminal_preview_clear = False
 
     def _drain_pending_terminal_preview_clear(old: str, new: str) -> None:
         """If a terminal clear was deferred during SENDING_REPLY, apply it now.
@@ -1139,14 +1140,15 @@ def create_a2a_router(
         of ``SENDING_REPLY`` (typically to READY after the outbound send
         completes, or to any other status if interrupted).
         """
+        nonlocal _pending_terminal_preview_clear
         if registry is None or agent_id is None:
             return
         if old != SENDING_REPLY or new == SENDING_REPLY:
             return
-        if not _pending_terminal_preview_clear[0]:
+        if not _pending_terminal_preview_clear:
             return
         registry.update_current_task(agent_id, None)
-        _pending_terminal_preview_clear[0] = False
+        _pending_terminal_preview_clear = False
 
     def _finalize_working_task(
         task_id: str, full_context: str, recent_context: str
