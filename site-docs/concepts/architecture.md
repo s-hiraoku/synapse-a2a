@@ -155,6 +155,8 @@ Agents use the following registry-level status model:
 
 `WAITING` is reserved for permission-style PTY prompts; `WAITING_FOR_INPUT` is set when an A2A task transitions to `input_required` for a non-permission reason (e.g. a child asking the parent a follow-up). `SENDING_REPLY` restores the prior status after the POST completes and never overwrites `DONE`, `SHUTTING_DOWN`, or `RATE_LIMITED`. See [Agent Management — Status](../guide/agent-management.md#detailed-status) for operator-facing detail.
 
+The `current_task_preview` field shown in `synapse list` / `synapse status` is cleared on every terminal task transition (completed / failed / canceled / send-failure), so the elapsed-time counter no longer ticks forever after a task ends (#689). The clear is intentionally deferred while the agent is in `SENDING_REPLY` — the preview is retained so an operator can see what the agent is finishing up — and happens after the outbound reply completes via the regular terminal path.
+
 **Transitions:**
 
 ```mermaid
