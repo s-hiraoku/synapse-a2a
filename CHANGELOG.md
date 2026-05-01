@@ -7,14 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [0.33.0] - 2026-05-01
 
-- Clear stale `current_task_preview` / `task_received_at` metadata when A2A tasks reach completed, failed, or canceled terminal states outside the normal finalization path. While the agent is in `SENDING_REPLY` the clear is deferred and applied automatically when the agent next leaves that sub-state, so the preview never persists indefinitely even if the terminal transition lands during outbound reply send (#689).
-
-- `synapse reply --to <sender_id>` now reports whether the reply stack is empty or contains different sender IDs when the requested sender is missing, while preserving the existing persisted fallback behavior (#690).
 ### Added
 
 - `synapse send-keys <agent> <data>` CLI and `POST /pty/write` HTTP endpoint for writing raw input bytes into a controlled CLI's PTY. Minimal escape hatch for unsticking agents blocked on a TUI dialog the parent cannot otherwise answer (codex edit-confirmation, model picker). Decodes Python escape sequences (`\r`, `\x1b`, …) by default; `--no-escape` keeps text literal; `--enter` appends a carriage return as the submit sequence. Endpoint is gated by the same `require_auth` dependency as `/tasks/{id}/cancel` and `/tasks/{id}/permission/approve` (#695).
+
+### Fixed
+
+- Clear stale `current_task_preview` / `task_received_at` metadata when A2A tasks reach completed, failed, or canceled terminal states outside the normal finalization path. While the agent is in `SENDING_REPLY` the clear is deferred and applied automatically when the agent next leaves that sub-state, so the preview never persists indefinitely even if the terminal transition lands during outbound reply send (#689).
+- `synapse reply --to <sender_id>` now reports whether the reply stack is empty or contains different sender IDs when the requested sender is missing, while preserving the existing persisted fallback behavior (#690).
+
+### Refactored
+
+- `_pending_terminal_preview_clear` in the A2A router uses a `nonlocal` bool instead of a list-as-mutable-bool wrapper. Equivalent behavior with clearer Python idiom (#700).
 
 ## [0.32.0] - 2026-04-30
 
