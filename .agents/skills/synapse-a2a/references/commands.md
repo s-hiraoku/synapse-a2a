@@ -168,7 +168,7 @@ synapse spawn codex --name Coder --worktree                                 # Co
 # Pass tool-specific arguments after '--' (permission skip flags per CLI)
 synapse spawn claude -- --dangerously-skip-permissions   # Claude: skip all prompts
 synapse spawn gemini -- -y                               # Gemini: yolo mode
-synapse spawn codex -- --full-auto                       # Codex: sandboxed auto-approve
+synapse spawn codex                                      # Codex: synapse injects -cdefault_permissions=":workspace" (0.128+ replaces --full-auto)
 synapse spawn copilot -- --allow-all-tools               # Copilot: allow all tools
 
 # Combine worktree + tool args (worktree before '--', tool args after '--')
@@ -1226,11 +1226,11 @@ synapse team start claude gemini --all-new
 # Horizontal layout
 synapse team start claude gemini --layout horizontal
 
-# Pass tool-specific arguments after '--' (automation args: unattended/permission-skip args such as --dangerously-skip-permissions, --approval-mode=yolo, --full-auto)
+# Pass tool-specific arguments after '--' (automation args: unattended/permission-skip args such as --dangerously-skip-permissions, --approval-mode=yolo, -cdefault_permissions=":workspace")
 # Keep teams homogeneous when forwarding CLI-specific args to all agents.
 synapse team start claude claude -- --dangerously-skip-permissions
 synapse team start gemini gemini -- --approval-mode=yolo
-synapse team start codex codex -- --full-auto
+synapse team start codex codex                              # synapse injects -cdefault_permissions=":workspace" (Codex 0.128+ replaces --full-auto)
 synapse team start copilot copilot -- --allow-all-tools
 
 # Worktree isolation (Synapse-level flag, before '--'; creates per-agent worktrees for ALL agent types)
@@ -1254,7 +1254,7 @@ curl -X POST http://localhost:8100/team/start \
   -H "Content-Type: application/json" \
   -d '{"agents": ["gemini", "gemini"], "tool_args": ["--approval-mode=yolo"]}'
 # Note: tool_args are passed to ALL agents. Keep teams homogeneous when using CLI-specific args:
-# Claude: ["--dangerously-skip-permissions"], Gemini: ["--approval-mode=yolo"], Codex: ["--full-auto"], Copilot: ["--allow-all-tools"]
+# Claude: ["--dangerously-skip-permissions"], Gemini: ["--approval-mode=yolo"], Codex: ["-cdefault_permissions=\":workspace\""], Copilot: ["--allow-all-tools"]
 ```
 
 ### Spawn via A2A API
@@ -1271,7 +1271,7 @@ curl -X POST http://localhost:8100/spawn \
 curl -X POST http://localhost:8100/spawn \
   -H "Content-Type: application/json" \
   -d '{"profile": "gemini", "skill_set": "dev-set", "tool_args": ["--approval-mode=yolo"]}'
-# Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Gemini ["--approval-mode=yolo"], Codex ["--full-auto"], Copilot ["--allow-all-tools"]
+# Per-CLI tool_args: Claude ["--dangerously-skip-permissions"], Gemini ["--approval-mode=yolo"], Codex ["-cdefault_permissions=\":workspace\""], Copilot ["--allow-all-tools"]
 
 # With worktree isolation (works for all agent types)
 curl -X POST http://localhost:8100/spawn \

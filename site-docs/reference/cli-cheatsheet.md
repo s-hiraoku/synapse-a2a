@@ -622,7 +622,7 @@ When spawning agents with full autonomy, pass the appropriate flag after `--`:
 |----------|------|---------|
 | Claude Code | `--dangerously-skip-permissions` | `synapse spawn claude -- --dangerously-skip-permissions` |
 | Gemini CLI | `-y` | `synapse spawn gemini -- -y` |
-| Codex CLI | `--full-auto` | `synapse spawn codex -- --full-auto` |
+| Codex CLI | `-cdefault_permissions=":workspace"` (auto-injected by profile on Codex CLI 0.128+) | `synapse spawn codex` |
 | Copilot CLI | `--allow-all` | `synapse spawn copilot -- --allow-all` |
 
 ---

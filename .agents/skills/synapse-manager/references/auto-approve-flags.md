@@ -13,7 +13,7 @@ Use `--no-auto-approve` to disable this behavior.
 |-------|------|---------|
 | **Claude Code** | `--permission-mode=auto` (was `--dangerously-skip-permissions`) | `synapse spawn claude -- --permission-mode=auto` |
 | **Gemini CLI** | `--approval-mode=yolo` (was `--yolo` / `-y`) | `synapse spawn gemini -- --approval-mode=yolo` |
-| **Codex CLI** | `--full-auto` | `synapse spawn codex -- --full-auto` |
+| **Codex CLI** | `-cdefault_permissions=":workspace"` (the `:workspace` permission profile; supersedes `--full-auto` for Codex 0.128+) | `synapse spawn codex` (synapse injects the flag automatically) |
 | **GitHub Copilot CLI** | `--allow-all` (alias `--yolo`) | `synapse spawn copilot -- --allow-all` |
 | **OpenCode** | env: `OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS=true` | Config: `opencode.json` に `"permission": "allow"` |
 
@@ -49,7 +49,8 @@ Two-axis control: `approval_policy` × `sandbox_mode`.
 
 | Flag | Behavior |
 |------|----------|
-| `--full-auto` | `-a on-request -s workspace-write` — sandboxed auto-approve (read/write in workspace) |
+| `-cdefault_permissions=":workspace"` | Selects the `:workspace` permission profile (workspace-write equivalent of the legacy `--full-auto`). Synapse default for Codex 0.128+. |
+| `--full-auto` | Legacy: `-a on-request -s workspace-write` — sandboxed auto-approve. **Removed in Codex 0.128+**; replaced by the `:workspace` permission profile above. |
 | `-a never` | Never ask for approval (sandbox restrictions still apply) |
 | `--dangerously-bypass-approvals-and-sandbox` (`--yolo`) | Bypass both approval and sandbox — isolated runners only |
 

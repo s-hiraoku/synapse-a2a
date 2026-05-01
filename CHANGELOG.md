@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `synapse spawn codex` no longer fails to start on Codex CLI 0.128+. The codex profile's `auto_approve.cli_flag` now injects `-cdefault_permissions=":workspace"` instead of the deprecated `--full-auto` flag (Codex CLI 0.128 reorganized auto-approve around built-in permission profiles selected via `default_permissions` — see [openai/codex#19900](https://github.com/openai/codex/pull/19900) which introduced the built-in profiles `:read-only` / `:workspace` / `:danger-no-sandbox`, and [openai/codex#20133](https://github.com/openai/codex/pull/20133) which deprecated `--full-auto`). Behavior is preserved: `:workspace` is the workspace-write equivalent of the old `--full-auto`. `--full-auto` is retained in `alternative_flags` so that explicit user-supplied legacy flags still trigger injection skip (and surface the underlying CLI error rather than a silent flag conflict). `--profile` / `-p` and any inline `-c default_permissions=...` form are also added as alternative flags so user overrides are respected. Closes #705.
+
 ## [0.33.0] - 2026-05-01
 
 ### Added
