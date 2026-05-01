@@ -10,8 +10,15 @@ from collections.abc import Callable
 from io import StringIO
 from typing import IO, TYPE_CHECKING, Any
 
+from synapse.commands._agent_view import (
+    CANONICAL_JSON_FIELDS,
+    build_agent_json_view,
+    resolve_agent_from_snapshot,
+)
 from synapse.commands.renderers.rich_renderer import format_elapsed
 from synapse.commands.waiting_debug import _format_counter, _http_get_json
+from synapse.registry import is_port_open, is_process_running
+from synapse.status import PROCESSING
 from synapse.utils import format_renderer_suffix
 
 if TYPE_CHECKING:
@@ -30,12 +37,18 @@ class StatusCommand:
         file_safety_manager: FileSafetyManager | None = None,
         output: IO[str] | None = None,
         debug_waiting_fetcher: Callable[..., dict[str, Any]] | None = None,
+        is_process_alive: Callable[[int], bool] = is_process_running,
+        is_agent_port_open: Callable[..., bool] = is_port_open,
+        time_module: Any = time,
     ) -> None:
         self._registry = registry
         self._history_manager = history_manager
         self._file_safety_manager = file_safety_manager
         self._output = output or StringIO()
         self._debug_waiting_fetcher = debug_waiting_fetcher or _http_get_json
+        self._is_process_alive = is_process_alive
+        self._is_port_open = is_agent_port_open
+        self._time = time_module
 
     def _write(self, text: str) -> None:
         self._output.write(text)
@@ -52,7 +65,11 @@ class StatusCommand:
             target: Agent name, ID, type-port, or type to resolve.
             json_output: If True, output as JSON.
         """
-        info = self._registry.resolve_agent(target)
+        info = (
+            self._resolve_json_agent(target)
+            if json_output
+            else self._registry.resolve_agent(target)
+        )
 
         if info is None:
             if json_output:
@@ -70,24 +87,36 @@ class StatusCommand:
 
     def _render_json(self, info: dict[str, Any]) -> None:
         """Render agent status as JSON."""
-        data: dict[str, Any] = {
-            "agent_id": info.get("agent_id"),
-            "agent_type": info.get("agent_type"),
-            "name": info.get("name"),
-            "role": info.get("role"),
-            "port": info.get("port"),
-            "status": info.get("status"),
-            "pid": info.get("pid"),
-            "working_dir": info.get("working_dir"),
-            "endpoint": info.get("endpoint"),
-        }
+        data: dict[str, Any] = build_agent_json_view(
+            info,
+            now=self._time.time(),
+            include_fields=(
+                "agent_id",
+                "agent_type",
+                "name",
+                "role",
+                "port",
+                "status",
+                "pid",
+                "working_dir",
+                "endpoint",
+                *CANONICAL_JSON_FIELDS[1:],
+            ),
+        )
+        data.update(
+            {
+                "agent_id": info.get("agent_id"),
+                "agent_type": info.get("agent_type"),
+                "name": info.get("name"),
+                "role": info.get("role"),
+                "port": info.get("port"),
+                "pid": info.get("pid"),
+                "working_dir": info.get("working_dir"),
+                "endpoint": info.get("endpoint"),
+            }
+        )
         if "renderer_available" in info:
             data["renderer_available"] = info.get("renderer_available")
-
-        # Uptime
-        registered_at = info.get("registered_at")
-        if registered_at:
-            data["uptime_seconds"] = time.time() - registered_at
 
         # Current task
         preview = info.get("current_task_preview")
@@ -95,7 +124,9 @@ class StatusCommand:
         if preview:
             data["current_task"] = {
                 "preview": preview,
-                "elapsed_seconds": (time.time() - received_at) if received_at else None,
+                "elapsed_seconds": (
+                    self._time.time() - received_at if received_at else None
+                ),
             }
 
         # History
@@ -104,10 +135,35 @@ class StatusCommand:
         # File locks
         data["file_locks"] = self._get_file_locks(info)
 
-        # input_required tasks awaiting parent approval (#651)
-        data["input_required_tasks"] = info.get("input_required_tasks") or []
-
         self._writeln(json.dumps(data, indent=2))
+
+    def _resolve_json_agent(self, target: str) -> dict[str, Any] | None:
+        """Resolve an agent from the same live/list snapshot used by list JSON."""
+        agents = []
+        for agent_id, info in self._registry.list_agents().items():
+            if self._is_agent_alive(agent_id, info):
+                agents.append(dict(info, agent_id=info.get("agent_id") or agent_id))
+        return resolve_agent_from_snapshot(agents, target)
+
+    def _is_agent_alive(self, agent_id: str, info: dict[str, Any]) -> bool:
+        pid = info.get("pid")
+        port = info.get("port")
+
+        if pid and not self._is_process_alive(pid):
+            self._registry.unregister(agent_id)
+            return False
+
+        if info.get("status", "-") == PROCESSING or not port:
+            return True
+
+        if self._is_port_open("localhost", port, timeout=0.5):
+            return True
+        self._time.sleep(0.2)
+        if self._is_port_open("localhost", port, timeout=1.0):
+            return True
+
+        self._registry.unregister(agent_id)
+        return False
 
     def _render_text(self, info: dict[str, Any]) -> None:
         """Render agent status as formatted text."""
