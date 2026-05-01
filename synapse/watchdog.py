@@ -26,6 +26,14 @@ RATE_LIMIT_DIALOG_PATTERN = re.compile(
     r"|(?:Press enter to confirm.*?esc to go back)",
     re.IGNORECASE | re.DOTALL,
 )
+EDIT_CONFIRMATION_DIALOG_ALARM = "edit_confirmation_dialog"
+EDIT_CONFIRMATION_DIALOG_ALARM_REASON = (
+    "PTY tail contains codex CLI edit-confirmation dialog"
+)
+EDIT_CONFIRMATION_DIALOG_PATTERN = re.compile(
+    r"\bWould you like to\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -87,6 +95,13 @@ def _detect_rate_limit_dialog(pty_tail: str | None) -> bool:
     return bool(RATE_LIMIT_DIALOG_PATTERN.search(pty_tail))
 
 
+def _detect_edit_confirmation_dialog(pty_tail: str | None) -> bool:
+    """Return True when PTY tail contains the codex edit-confirmation dialog."""
+    if not pty_tail:
+        return False
+    return bool(EDIT_CONFIRMATION_DIALOG_PATTERN.search(pty_tail))
+
+
 _DURATION_RULES: tuple[tuple[str, float, str], ...] = (
     (RATE_LIMITED, RATE_LIMITED_ALARM_SECONDS, "Rate-limited > 30m"),
     (SENDING_REPLY, SENDING_REPLY_ALARM_SECONDS, "Send stuck > 60s"),
@@ -144,6 +159,9 @@ def _evaluate_alarm(
 
     if status == WAITING and _detect_rate_limit_dialog(pty_tail):
         return RATE_LIMIT_DIALOG_ALARM, RATE_LIMIT_DIALOG_ALARM_REASON
+
+    if status == WAITING and _detect_edit_confirmation_dialog(pty_tail):
+        return EDIT_CONFIRMATION_DIALOG_ALARM, EDIT_CONFIRMATION_DIALOG_ALARM_REASON
 
     if (
         status == PROCESSING

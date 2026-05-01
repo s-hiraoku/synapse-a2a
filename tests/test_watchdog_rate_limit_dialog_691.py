@@ -15,6 +15,16 @@ OBSERVED_PTY_TAIL = (
     "Press enter to confirm or esc to go back"
 )
 
+OBSERVED_EDIT_CONFIRMATION_TAIL = (
+    "Would you like to make the following edits?\n"
+    "\n"
+    "› 1. Yes, proceed (y)\n"
+    "  2. Yes, and don't ask again for these files (a)\n"
+    "  3. No, and tell Codex what to do differently (esc)\n"
+    "\n"
+    "  Press enter to confirm or esc to cancel"
+)
+
 
 def test_detect_rate_limit_dialog_matches_observed_pty_tail() -> None:
     from synapse.watchdog import _detect_rate_limit_dialog
@@ -34,6 +44,38 @@ def test_detect_rate_limit_dialog_handles_none_or_empty() -> None:
 
     assert _detect_rate_limit_dialog(None) is False
     assert _detect_rate_limit_dialog("") is False
+
+
+def test_detect_edit_confirmation_dialog_matches_observed_pty_tail() -> None:
+    from synapse.watchdog import _detect_edit_confirmation_dialog
+
+    assert _detect_edit_confirmation_dialog(OBSERVED_EDIT_CONFIRMATION_TAIL) is True
+
+
+def test_detect_edit_confirmation_dialog_uses_stable_prefix_only() -> None:
+    from synapse.watchdog import _detect_edit_confirmation_dialog
+
+    future_codex_tail = (
+        "Would you like to make the following edits?\n"
+        "  1. Apply all changes\n"
+        "  2. Review diff first\n"
+    )
+
+    assert _detect_edit_confirmation_dialog(future_codex_tail) is True
+
+
+def test_detect_edit_confirmation_dialog_ignores_normal_codex_prompt() -> None:
+    from synapse.watchdog import _detect_edit_confirmation_dialog
+
+    normal_tail = "> Edit CHANGELOG.md\n  gpt-5.4 medium"
+    assert _detect_edit_confirmation_dialog(normal_tail) is False
+
+
+def test_detect_edit_confirmation_dialog_handles_none_or_empty() -> None:
+    from synapse.watchdog import _detect_edit_confirmation_dialog
+
+    assert _detect_edit_confirmation_dialog(None) is False
+    assert _detect_edit_confirmation_dialog("") is False
 
 
 def test_evaluate_agent_returns_rate_limit_dialog_alarm() -> None:
@@ -57,6 +99,25 @@ def test_evaluate_agent_returns_rate_limit_dialog_alarm() -> None:
     )
 
 
+def test_evaluate_agent_returns_edit_confirmation_dialog_alarm() -> None:
+    from synapse.watchdog import evaluate_agent
+
+    report = evaluate_agent(
+        agent_info={
+            "agent_id": "synapse-codex-8124",
+            "status": WAITING,
+            "registered_at": 1_776_800_000.0,
+            "last_status_change_at": 1_776_800_000.0,
+        },
+        history=[],
+        now=1_776_800_000.0,
+        pty_tail=OBSERVED_EDIT_CONFIRMATION_TAIL,
+    )
+
+    assert report.alarm == "edit_confirmation_dialog"
+    assert report.alarm_reason == "PTY tail contains codex CLI edit-confirmation dialog"
+
+
 def test_evaluate_agent_skips_rate_limit_dialog_alarm_when_not_waiting() -> None:
     from synapse.watchdog import evaluate_agent
 
@@ -71,6 +132,26 @@ def test_evaluate_agent_skips_rate_limit_dialog_alarm_when_not_waiting() -> None
             history=[],
             now=1_776_800_000.0,
             pty_tail=OBSERVED_PTY_TAIL,
+        )
+
+        assert report.alarm is None
+        assert report.alarm_reason is None
+
+
+def test_evaluate_agent_skips_edit_confirmation_dialog_alarm_when_not_waiting() -> None:
+    from synapse.watchdog import evaluate_agent
+
+    for non_waiting_status in (READY, PROCESSING):
+        report = evaluate_agent(
+            agent_info={
+                "agent_id": "synapse-codex-8124",
+                "status": non_waiting_status,
+                "registered_at": 1_776_800_000.0,
+                "last_status_change_at": 1_776_800_000.0,
+            },
+            history=[],
+            now=1_776_800_000.0,
+            pty_tail=OBSERVED_EDIT_CONFIRMATION_TAIL,
         )
 
         assert report.alarm is None
