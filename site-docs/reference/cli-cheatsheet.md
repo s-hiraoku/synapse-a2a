@@ -616,7 +616,7 @@ synapse auth generate-key -n 3 -e   # Generate 3 keys in export format
 
 ## Permission Skip Flags
 
-When spawning agents with full autonomy, pass the appropriate flag after `--`:
+When spawning agents with full autonomy, use the profile-appropriate permission mode. Most CLIs require passing the flag after `--`; Codex auto-injects its flag via the profile (Codex CLI 0.128+) so no `--` is needed:
 
 | CLI Tool | Flag | Example |
 |----------|------|---------|

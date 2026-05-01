@@ -29,10 +29,13 @@ from synapse.terminal_jump import (
 
 
 def _tool_args_contains_flag(tool_args: list[str], flag: str) -> bool:
-    # Matches `--flag` and `--flag=value`; the `=` form is only checked for
-    # dash-prefixed flags so that positional tokens can't masquerade as one.
-    if not flag or not flag.startswith("-"):
-        return flag in tool_args if flag else False
+    # Matches `flag` and `flag=value`. The `=` form must be honored even for
+    # non-dash flags because Codex-style `-c key=value` overrides arrive as a
+    # split pair (`-c`, `default_permissions=":workspace"`); the second token
+    # has no dash but still needs to count as the flag being present so we
+    # don't double-inject our own `cli_flag`.
+    if not flag:
+        return False
     prefix = f"{flag}="
     return any(arg == flag or arg.startswith(prefix) for arg in tool_args)
 

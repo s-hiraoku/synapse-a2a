@@ -55,15 +55,20 @@ auto_approve:
   # Mutually-exclusive approval / sandbox flags Codex CLI also accepts.
   # If the user passes any of these, skip cli_flag injection to avoid
   # conflicts that cause the agent to fail to start.
+  # Order matters: alternative_flags[0] is what `synapse team start` injects
+  # for unattended workflow auto-spawn (see workflow._workflow_spawn_tool_args).
+  # The most-permissive bypass flag must stay first so workflows keep the
+  # deterministic behavior assumed by tests/test_codex_profile.py.
   alternative_flags:
-    - "--full-auto"  # legacy (rejected by 0.128+ but still skip-injection trigger)
     - "--dangerously-bypass-approvals-and-sandbox"
+    - "--full-auto"  # legacy (rejected by 0.128+ but still skip-injection trigger)
     - "--ask-for-approval"
     - "-a"
     - "--sandbox"
     - "-s"
     - "--profile"
     - "-p"
-    - "default_permissions"  # any -c default_permissions=... form
+    - "-cdefault_permissions"  # compact form: -cdefault_permissions=":..."
+    - "default_permissions"    # split form:   -c default_permissions=":..."
   runtime_response: "y\r"
   deny_response: "\x1b"

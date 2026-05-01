@@ -121,3 +121,24 @@ class TestCodexWaitingDetection:
         alternatives = codex_profile["auto_approve"]["alternative_flags"]
         assert isinstance(alternatives, list)
         assert alternatives[0] == "--dangerously-bypass-approvals-and-sandbox"
+
+    def test_auto_approve_alternative_flags_cover_default_permissions(
+        self, codex_profile: dict
+    ) -> None:
+        """Both ``-cdefault_permissions=...`` (compact, single token) and
+        ``-c default_permissions=...`` (split, two tokens) are valid Codex
+        override forms. The skip-injection list must cover both so that a
+        user-supplied override isn't duplicated by our own ``cli_flag``."""
+        from synapse.spawn import _tool_args_contains_flag
+
+        alternatives = codex_profile["auto_approve"]["alternative_flags"]
+        assert "-cdefault_permissions" in alternatives
+        assert "default_permissions" in alternatives
+
+        # Compact form: single token like `-cdefault_permissions=":danger-no-sandbox"`.
+        compact = ['-cdefault_permissions=":danger-no-sandbox"']
+        assert _tool_args_contains_flag(compact, "-cdefault_permissions")
+
+        # Split form: two tokens, second is `default_permissions=":danger-no-sandbox"`.
+        split = ["-c", 'default_permissions=":danger-no-sandbox"']
+        assert _tool_args_contains_flag(split, "default_permissions")
