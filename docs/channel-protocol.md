@@ -15,7 +15,7 @@ This document covers two features:
 
 ### What It Is
 
-Each agent can have a **summary** — a persistent description of what it's working on (up to 120 characters). Unlike `current_task_preview` (30 chars, cleared automatically when a task completes), summary persists until explicitly changed or cleared.
+Each agent can have a **summary** — a persistent description of what it's working on (up to 120 characters). Unlike `current_task_preview` (30 chars, cleared automatically on terminal task transitions — completed / failed / canceled — per [#689](https://github.com/s-hiraoku/synapse-a2a/issues/689) / [#699](https://github.com/s-hiraoku/synapse-a2a/pull/699); the clear is intentionally deferred while the agent is in `SENDING_REPLY` so the human can still see what is being finished up, then drains automatically on the next status change), summary persists until explicitly changed or cleared.
 
 ### User Guide
 
