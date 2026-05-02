@@ -450,7 +450,7 @@ def test_atomic_updates_use_registry_write_lock(registry):
         entered += 1
         yield
 
-    registry._registry_write_lock = fake_lock  # type: ignore[method-assign]
+    registry.registry_write_lock = fake_lock  # type: ignore[method-assign]
 
     assert registry.update_status(agent_id, "READY") is True
     assert registry.update_transport(agent_id, "UDS→") is True

@@ -1,15 +1,28 @@
 """Port management for Synapse A2A multi-instance support."""
 
 import logging
+import os
 import socket
+import time
 from typing import TYPE_CHECKING
 
-from synapse.registry import is_process_running
+from synapse.registry import is_process_running, resolve_uds_path
+from synapse.status import PROCESSING
 
 if TYPE_CHECKING:
     from synapse.registry import AgentRegistry
 
 logger = logging.getLogger(__name__)
+
+
+class PortExhaustionError(RuntimeError):
+    """Raised when no free port is available in an agent type's port range.
+
+    Distinguished from a generic registry write error so callers (cli.py
+    spawn path) can present the existing exhaustion-help text without
+    catching unrelated runtime errors.
+    """
+
 
 # Port range definitions (agent_type -> (start, end) inclusive)
 PORT_RANGES: dict[str, tuple[int, int]] = {
@@ -137,6 +150,120 @@ class PortManager:
 
             return port
 
+        return None
+
+    def allocate_and_register(
+        self,
+        agent_type: str,
+        *,
+        name: str | None = None,
+        pid: int | None = None,
+    ) -> tuple[int, str]:
+        """Atomically reserve a free port and write a placeholder registry entry.
+
+        Holds ``AgentRegistry.registry_write_lock`` (a cross-process flock)
+        for both free-port discovery AND the placeholder write, eliminating
+        the issue #715 race window in which two parallel spawns could both
+        receive the same free port from ``get_available_port`` and then race
+        to overwrite each other's registry file.
+
+        The placeholder is committed with ``status=PROCESSING`` and the
+        caller's pid (defaults to ``os.getpid()``). The full register call
+        with worktree metadata, role, etc. happens later via
+        ``AgentRegistry.update_*`` once setup completes.
+
+        Args:
+            agent_type: Agent type whose port range to draw from.
+            name: Optional custom name (validated for collisions inside the lock).
+            pid: PID to record (defaults to current process). Pre-set for tests.
+
+        Returns:
+            Tuple of (allocated_port, agent_id).
+
+        Raises:
+            PortExhaustionError: All ports in range are taken or have orphan listeners.
+            NameConflictError: ``name`` collides with an existing entry.
+        """
+        if pid is None:
+            pid = os.getpid()
+        start_port, end_port = get_port_range(agent_type)
+
+        with self.registry.registry_write_lock():
+            agents = self.registry.list_agents()
+            free_port = self._find_free_port_locked(
+                agent_type, start_port, end_port, agents
+            )
+            if free_port is None:
+                raise PortExhaustionError(
+                    f"All ports in range {start_port}-{end_port} are in use "
+                    f"for '{agent_type}'."
+                )
+
+            agent_id = self.registry.get_agent_id(agent_type, free_port)
+            now = time.time()
+            data: dict = {
+                "agent_id": agent_id,
+                "agent_type": agent_type,
+                "port": free_port,
+                "status": PROCESSING,
+                "status_updated_at": now,
+                "last_status_change_at": now,
+                "registered_at": now,
+                "pid": pid,
+                "working_dir": os.getcwd(),
+                "endpoint": f"http://localhost:{free_port}",
+                "uds_path": str(resolve_uds_path(agent_id)),
+            }
+            if name:
+                data["name"] = name
+
+            self.registry._register_locked(agent_id, data, name=name)
+            return free_port, agent_id
+
+    def _find_free_port_locked(
+        self,
+        agent_type: str,
+        start_port: int,
+        end_port: int,
+        agents: dict[str, dict],
+    ) -> int | None:
+        """Find the first port in [start_port, end_port] that is not held by a
+        live registered agent and not held by an orphan listener.
+
+        MUST be called with ``registry.registry_write_lock`` held — otherwise
+        the snapshot of ``agents`` becomes stale before the caller writes.
+
+        Mirrors the policy of ``get_available_port`` (skip live, clean dead,
+        skip orphan listener, take the first remaining), but operates on a
+        caller-supplied agents snapshot so the entire decision is consistent
+        with the lock-held registry view.
+        """
+        del agent_type  # only used by callers for range derivation
+        for port in range(start_port, end_port + 1):
+            registered = [
+                (agent_id, info)
+                for agent_id, info in agents.items()
+                if info.get("port") == port
+            ]
+            live_registered = False
+            for agent_id, info in registered:
+                pid = info.get("pid")
+                if pid and is_process_alive(pid):
+                    live_registered = True
+                    break
+                self.registry.unregister(agent_id)
+                agents.pop(agent_id, None)
+            if live_registered:
+                continue
+            if not is_port_available(port):
+                logger.warning(
+                    "Detected orphan listener on port %s with no live registry "
+                    "entry. Run 'synapse doctor --clean' to inspect and clean "
+                    "up orphan processes.",
+                    port,
+                )
+                continue
+            return port
         return None
 
     def get_running_instances(self, agent_type: str) -> list[dict]:

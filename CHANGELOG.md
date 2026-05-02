@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Parallel `synapse spawn` no longer races on port allocation. Two simultaneous spawns of the same profile (e.g. `synapse spawn claude --worktree` × 2 in parallel) could both receive the same free port from `PortManager.get_available_port` because port discovery and registry write were not in the same critical section — the second spawn then overwrote the first's `synapse-{type}-{port}.json` registry entry, leaving the first agent visible as `READY` in some views but mis-labeled with the second agent's name and worktree, and leaving the first worktree as a physical orphan on disk. The new `PortManager.allocate_and_register` API performs free-port discovery and a placeholder registry write inside a single `AgentRegistry.registry_write_lock` (cross-process `fcntl.flock`) critical section, so parallel spawns serialize at the lock and observe each other's reservations. The `cli.py` spawn path now reserves the placeholder before worktree creation and rolls it back if worktree creation fails. The legacy `register()` signature is preserved (it is now a thin wrapper around the lock-aware `_register_locked`) and `get_available_port` is unchanged for backward compatibility. Closes #715.
+
 ## [0.34.0] - 2026-05-02
 
 This release closes a cluster of issues exposed during real multi-agent dogfooding: the Codex CLI 0.128 deprecation that broke `synapse spawn codex` (#705), a watchdog blind spot for codex's edit-confirmation dialog (#694/#707), divergence between `synapse status --json` and `synapse list --json` (#696/#708), and a worktree name-collision crash on auto-generated names (#704/#711).

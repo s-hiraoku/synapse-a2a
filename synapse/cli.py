@@ -113,6 +113,7 @@ from synapse.controller import TerminalController
 from synapse.logging_config import setup_logging
 from synapse.port_manager import (
     PORT_RANGES,
+    PortExhaustionError,
     PortManager,
     is_process_alive,
 )
@@ -2720,20 +2721,31 @@ def main() -> None:
             skill_set_arg = skill_set_arg or saved.skill_set
 
         explicit_port = port is not None
+        placeholder_agent_id: str | None = None
 
-        # Auto-select available port if not specified
+        # Auto-select available port if not specified. allocate_and_register
+        # holds registry_write_lock across free-port discovery + placeholder
+        # write so two parallel spawns can't both pick the same free port
+        # (issue #715).
         if port is None:
             registry = AgentRegistry()
             port_manager = PortManager(registry)
-            port = port_manager.get_available_port(profile)
-
-            if port is None:
+            try:
+                port, placeholder_agent_id = port_manager.allocate_and_register(
+                    profile, name=name
+                )
+            except PortExhaustionError:
                 print(port_manager.format_exhaustion_error(profile))
+                sys.exit(1)
+            except NameConflictError as e:
+                print(f"Error: {e}", file=sys.stderr)
                 sys.exit(1)
 
         assert port is not None  # Type narrowing for mypy/ty
 
-        # Create worktree if requested and set env vars
+        # Create worktree if requested and set env vars. If worktree creation
+        # fails after we reserved a port, drop the placeholder so the port
+        # isn't held by a dead reservation.
         if worktree_arg:
             from synapse.worktree import create_worktree as _create_wt
 
@@ -2741,6 +2753,8 @@ def main() -> None:
             try:
                 wt_info = _create_wt(name=wt_name)
             except (RuntimeError, ValueError) as e:
+                if placeholder_agent_id is not None:
+                    AgentRegistry().unregister(placeholder_agent_id)
                 print(f"Error creating worktree: {e}", file=sys.stderr)
                 sys.exit(1)
             os.chdir(wt_info.path)
@@ -2770,10 +2784,20 @@ def main() -> None:
                 if explicit_port or e.errno != errno.EADDRINUSE:
                     raise
 
+                # The port we held is unusable (orphan listener appeared after
+                # our placeholder write). Drop the stale placeholder and
+                # atomically reserve a fresh one.
                 registry = AgentRegistry()
                 port_manager = PortManager(registry)
-                next_port = port_manager.get_available_port(profile)
-                if next_port is None or next_port == port:
+                if placeholder_agent_id is not None:
+                    registry.unregister(placeholder_agent_id)
+                try:
+                    next_port, placeholder_agent_id = (
+                        port_manager.allocate_and_register(profile, name=name)
+                    )
+                except (PortExhaustionError, NameConflictError):
+                    raise e from None
+                if next_port == port:
                     raise
                 port = next_port
         return
