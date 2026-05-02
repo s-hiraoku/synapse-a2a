@@ -11,6 +11,7 @@ branch named ``worktree-<name>``.
 from __future__ import annotations
 
 import filecmp
+import json
 import logging
 import random
 import re
@@ -19,6 +20,8 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
+
+_GH_PR_LIST_TIMEOUT_SECS = 5
 
 logger = logging.getLogger(__name__)
 
@@ -584,6 +587,59 @@ def has_worktree_changes(info: WorktreeInfo) -> bool:
     )
 
 
+def _branch_has_open_pr(branch: str) -> int | None:
+    """Return the number of an open GitHub PR whose head is ``branch``, else None.
+
+    Uses ``gh pr list --head <branch> --state open --json number`` so we can
+    skip local auto-merge for branches already managed by a PR (issue #714).
+
+    Fail-open contract: any failure mode (gh missing, timeout, non-zero exit,
+    malformed JSON) returns ``None`` so that callers fall back to the existing
+    merge behaviour rather than blocking ``synapse kill`` on a remote check.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--head",
+                branch,
+                "--state",
+                "open",
+                "--json",
+                "number",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=_GH_PR_LIST_TIMEOUT_SECS,
+        )
+        if result.returncode != 0:
+            logger.debug(
+                "gh pr list returncode=%d for %s: %s",
+                result.returncode,
+                branch,
+                result.stderr.strip(),
+            )
+            return None
+        prs = json.loads(result.stdout)
+        number = prs[0]["number"]
+        if not isinstance(number, int):
+            return None
+        return number
+    except (
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+        OSError,
+        json.JSONDecodeError,
+        KeyError,
+        IndexError,
+        TypeError,
+    ):
+        logger.debug("gh pr list unavailable for %s", branch, exc_info=True)
+        return None
+
+
 def merge_worktree(
     info: WorktreeInfo,
     auto_commit_wip: bool = True,
@@ -650,6 +706,21 @@ def merge_worktree(
         commits = True
 
     if not commits:
+        return True
+
+    pr_number = _branch_has_open_pr(info.branch)
+    if pr_number is not None:
+        print(
+            f"[Synapse] Skipping local merge for {info.branch} "
+            f"(managed by PR #{pr_number})."
+        )
+        print(f"  Merge will happen via GitHub when PR #{pr_number} is approved.")
+        print("  Branch preserved locally for reference.")
+        logger.info(
+            "event=worktree_merge_skipped branch=%s pr=%d",
+            info.branch,
+            pr_number,
+        )
         return True
 
     git_root = get_git_root()
