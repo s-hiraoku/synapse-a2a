@@ -43,6 +43,10 @@ venv/
 .synapse/*.db-wal
 .synapse/waiting_debug.jsonl
 .synapse/waiting_debug.*
+.synapse/tasks/
+.synapse/wiki/
+.synapse/wiki.md
+.synapse/worktrees/
 
 # OS
 .DS_Store
@@ -61,3 +65,4 @@ mcp-*.png
 
 # Synapse runtime artifacts
 .claude/scheduled_tasks.lock
+.claude/worktrees/
