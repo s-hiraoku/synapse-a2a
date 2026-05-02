@@ -1233,12 +1233,14 @@ class TestMergeWorktree:
             created_at=1000.0,
         )
 
+    @patch("synapse.worktree._branch_has_open_pr", return_value=None)
     @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
     @patch("subprocess.run")
     def test_merge_success(
         self,
         mock_run: MagicMock,
         mock_git_root: MagicMock,
+        mock_pr_check: MagicMock,
     ) -> None:
         """Successful merge should return True."""
         info = self._make_info()
@@ -1252,12 +1254,14 @@ class TestMergeWorktree:
         assert "--no-edit" in call_args[0][0]
         assert call_args[1].get("cwd") == str(Path("/repo"))
 
+    @patch("synapse.worktree._branch_has_open_pr", return_value=None)
     @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
     @patch("subprocess.run")
     def test_merge_auto_commit_wip(
         self,
         mock_run: MagicMock,
         mock_git_root: MagicMock,
+        mock_pr_check: MagicMock,
     ) -> None:
         """Should auto-commit uncommitted changes before merging."""
         info = self._make_info()
@@ -1273,12 +1277,14 @@ class TestMergeWorktree:
         assert "-u" in first_call[0][0]
         assert first_call[1].get("cwd") == str(info.path)
 
+    @patch("synapse.worktree._branch_has_open_pr", return_value=None)
     @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
     @patch("subprocess.run")
     def test_merge_skip_wip_when_disabled(
         self,
         mock_run: MagicMock,
         mock_git_root: MagicMock,
+        mock_pr_check: MagicMock,
     ) -> None:
         """Should not auto-commit when auto_commit_wip=False."""
         info = self._make_info()
@@ -1291,12 +1297,14 @@ class TestMergeWorktree:
         assert mock_run.call_count == 1
         assert "merge" in mock_run.call_args[0][0]
 
+    @patch("synapse.worktree._branch_has_open_pr", return_value=None)
     @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
     @patch("subprocess.run")
     def test_merge_conflict(
         self,
         mock_run: MagicMock,
         mock_git_root: MagicMock,
+        mock_pr_check: MagicMock,
     ) -> None:
         """On conflict, should abort merge and return False."""
         info = self._make_info()
@@ -1319,6 +1327,127 @@ class TestMergeWorktree:
         info = self._make_info()
         result = merge_worktree(info, _has_uncommitted=False, _has_commits=False)
         assert result is True
+
+    @patch("synapse.worktree._branch_has_open_pr", return_value=711)
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_cleanup_skips_merge_when_open_pr_exists(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+        mock_pr_check: MagicMock,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """If the worktree branch is the head of an open PR, skip auto-merge.
+
+        Issue #714: ``synapse kill`` should not try to merge branches that are
+        already managed by a PR — they will be merged via GitHub. Reporting
+        a local merge conflict in that case misleads the user.
+        """
+        info = self._make_info()
+        result = merge_worktree(info, _has_uncommitted=False, _has_commits=True)
+        assert result is True
+        mock_run.assert_not_called()
+        mock_pr_check.assert_called_once_with(info.branch)
+        captured = capsys.readouterr()
+        assert "Skipping local merge" in captured.out
+        assert info.branch in captured.out
+        assert "PR #711" in captured.out
+
+    @patch("synapse.worktree._branch_has_open_pr", return_value=None)
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_cleanup_attempts_merge_when_no_pr_exists(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+        mock_pr_check: MagicMock,
+    ) -> None:
+        """No open PR ⇒ existing auto-merge behaviour must run unchanged."""
+        info = self._make_info()
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = merge_worktree(info, _has_uncommitted=False, _has_commits=True)
+        assert result is True
+        mock_run.assert_called_once()
+        assert "merge" in mock_run.call_args[0][0]
+        mock_pr_check.assert_called_once_with(info.branch)
+
+    @patch("synapse.worktree._branch_has_open_pr", return_value=None)
+    @patch("synapse.worktree.get_git_root", return_value=Path("/repo"))
+    @patch("subprocess.run")
+    def test_cleanup_attempts_merge_when_gh_unavailable(
+        self,
+        mock_run: MagicMock,
+        mock_git_root: MagicMock,
+        mock_pr_check: MagicMock,
+    ) -> None:
+        """gh missing/timeout/error ⇒ fail-open: fall back to current merge logic.
+
+        ``_branch_has_open_pr`` is responsible for swallowing ``FileNotFoundError``
+        and ``subprocess.TimeoutExpired`` and returning ``None`` so that ``kill``
+        never hangs or crashes when ``gh`` is unavailable.
+        """
+        info = self._make_info()
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        result = merge_worktree(info, _has_uncommitted=False, _has_commits=True)
+        assert result is True
+        mock_run.assert_called_once()
+
+
+class TestBranchHasOpenPr:
+    """Tests for the gh-backed PR detection helper."""
+
+    def test_returns_pr_number_when_open_pr_exists(self) -> None:
+        from synapse.worktree import _branch_has_open_pr
+
+        completed = MagicMock(returncode=0, stdout='[{"number": 711}]', stderr="")
+        with patch("subprocess.run", return_value=completed) as mock_run:
+            assert _branch_has_open_pr("worktree-safe-goat") == 711
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "gh"
+        assert "pr" in cmd and "list" in cmd
+        assert "--head" in cmd
+        assert "worktree-safe-goat" in cmd
+        assert "--state" in cmd
+        assert "open" in cmd
+
+    def test_returns_none_when_no_open_pr(self) -> None:
+        from synapse.worktree import _branch_has_open_pr
+
+        completed = MagicMock(returncode=0, stdout="[]", stderr="")
+        with patch("subprocess.run", return_value=completed):
+            assert _branch_has_open_pr("worktree-foo") is None
+
+    def test_returns_none_when_gh_missing(self) -> None:
+        from synapse.worktree import _branch_has_open_pr
+
+        with patch("subprocess.run", side_effect=FileNotFoundError("gh")):
+            assert _branch_has_open_pr("worktree-foo") is None
+
+    def test_returns_none_on_timeout(self) -> None:
+        import subprocess as sp
+
+        from synapse.worktree import _branch_has_open_pr
+
+        with patch(
+            "subprocess.run",
+            side_effect=sp.TimeoutExpired(cmd="gh", timeout=5),
+        ):
+            assert _branch_has_open_pr("worktree-foo") is None
+
+    def test_returns_none_on_nonzero_exit(self) -> None:
+        from synapse.worktree import _branch_has_open_pr
+
+        completed = MagicMock(returncode=1, stdout="", stderr="not authenticated")
+        with patch("subprocess.run", return_value=completed):
+            assert _branch_has_open_pr("worktree-foo") is None
+
+    def test_returns_none_on_malformed_json(self) -> None:
+        from synapse.worktree import _branch_has_open_pr
+
+        completed = MagicMock(returncode=0, stdout="not json", stderr="")
+        with patch("subprocess.run", return_value=completed):
+            assert _branch_has_open_pr("worktree-foo") is None
 
 
 # ============================================================
