@@ -37,7 +37,7 @@ def _run_main(monkeypatch: pytest.MonkeyPatch, argv: list[str]) -> MagicMock:
 
     mock_run = MagicMock()
     mock_port_mgr = MagicMock()
-    mock_port_mgr.get_available_port.return_value = 8100
+    mock_port_mgr.allocate_and_register.return_value = (8100, "synapse-claude-8100")
 
     with (
         patch("synapse.cli.cmd_run_interactive", mock_run),
@@ -157,7 +157,10 @@ def test_auto_selected_port_retries_on_bind_conflict(
         ]
     )
     mock_port_mgr = MagicMock()
-    mock_port_mgr.get_available_port.side_effect = [8100, 8101]
+    mock_port_mgr.allocate_and_register.side_effect = [
+        (8100, "synapse-claude-8100"),
+        (8101, "synapse-claude-8101"),
+    ]
 
     with (
         patch("synapse.cli.cmd_run_interactive", mock_run),

@@ -43,7 +43,7 @@ class TestCliMain:
     ):
         """synapse claude should trigger interactive mode."""
         mock_pm_inst = mock_pm.return_value
-        mock_pm_inst.get_available_port.return_value = 8100
+        mock_pm_inst.allocate_and_register.return_value = (8100, "synapse-claude-8100")
 
         with patch.object(sys, "argv", ["synapse", "claude"]):
             main()
@@ -96,7 +96,7 @@ class TestCliMain:
     ):
         """synapse claude -- --model opus should pass tool args."""
         mock_pm_inst = mock_pm.return_value
-        mock_pm_inst.get_available_port.return_value = 8100
+        mock_pm_inst.allocate_and_register.return_value = (8100, "synapse-claude-8100")
 
         with patch.object(sys, "argv", ["synapse", "claude", "--", "--model", "opus"]):
             main()
@@ -538,7 +538,7 @@ class TestCliMain:
     ):
         """synapse claude --name my-claude --role reviewer should pass name/role."""
         mock_pm_inst = mock_pm.return_value
-        mock_pm_inst.get_available_port.return_value = 8100
+        mock_pm_inst.allocate_and_register.return_value = (8100, "synapse-claude-8100")
 
         with patch.object(
             sys,
@@ -569,7 +569,7 @@ class TestCliMain:
     ):
         """synapse claude --no-setup should skip interactive setup."""
         mock_pm_inst = mock_pm.return_value
-        mock_pm_inst.get_available_port.return_value = 8100
+        mock_pm_inst.allocate_and_register.return_value = (8100, "synapse-claude-8100")
 
         with patch.object(sys, "argv", ["synapse", "claude", "--no-setup"]):
             main()
@@ -633,7 +633,7 @@ class TestCliMain:
     ):
         """--agent should resolve saved agent defaults for shortcut mode."""
         mock_pm_inst = mock_pm.return_value
-        mock_pm_inst.get_available_port.return_value = 8100
+        mock_pm_inst.allocate_and_register.return_value = (8100, "synapse-claude-8100")
         mock_store = mock_store_cls.return_value
         mock_store.resolve.return_value = SimpleNamespace(
             profile="claude",

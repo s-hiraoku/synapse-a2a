@@ -88,8 +88,17 @@ class AgentRegistry:
         self._lock_file = self.registry_dir / ".registry.lock"
 
     @contextmanager
-    def _registry_write_lock(self) -> Iterator[None]:
-        """Cross-process lock for registry-wide write operations."""
+    def registry_write_lock(self) -> Iterator[None]:
+        """Cross-process lock (fcntl.flock) for registry-wide write operations.
+
+        Public so port allocation (PortManager.allocate_and_register) can
+        synchronize free-port discovery and placeholder registration as a
+        single atomic step — preventing the parallel-spawn race in #715.
+
+        The flock is per-fd and not re-entrant via re-acquisition on the same
+        path: callers that already hold this lock must use ``_register_locked``
+        instead of ``register``.
+        """
         self.registry_dir.mkdir(parents=True, exist_ok=True)
         with open(self._lock_file, "a+") as lock_file:
             try:
@@ -263,12 +272,26 @@ class AgentRegistry:
         if renderer_available is not None:
             data["renderer_available"] = renderer_available
 
+        with self.registry_write_lock():
+            return self._register_locked(agent_id, data, name=name)
+
+    def _register_locked(
+        self,
+        agent_id: str,
+        data: dict,
+        *,
+        name: str | None = None,
+    ) -> Path:
+        """Write a fully-built registry entry assuming the caller already holds
+        ``registry_write_lock``. Used by ``register`` and by
+        ``PortManager.allocate_and_register`` to atomically combine free-port
+        discovery and placeholder registration in a single critical section.
+        """
         file_path = self.registry_dir / f"{agent_id}.json"
-        with self._registry_write_lock():
-            if name and self._is_name_taken_locked(name, exclude_agent_id=agent_id):
-                raise NameConflictError(f"name '{name}' is already taken")
-            self._write_json_atomic(file_path, data)
-            self._verify_registered_file(file_path, agent_id)
+        if name and self._is_name_taken_locked(name, exclude_agent_id=agent_id):
+            raise NameConflictError(f"name '{name}' is already taken")
+        self._write_json_atomic(file_path, data)
+        self._verify_registered_file(file_path, agent_id)
 
         self._register_atexit_cleanup(agent_id)
 
@@ -353,7 +376,7 @@ class AgentRegistry:
         """
         file_path = self.registry_dir / f"{agent_id}.json"
         try:
-            with self._registry_write_lock():
+            with self.registry_write_lock():
                 if not file_path.exists():
                     return False
 
