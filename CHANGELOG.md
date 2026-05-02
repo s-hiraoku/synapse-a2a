@@ -7,9 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-05-02
+
+This release closes a cluster of issues exposed during real multi-agent dogfooding: the Codex CLI 0.128 deprecation that broke `synapse spawn codex` (#705), a watchdog blind spot for codex's edit-confirmation dialog (#694/#707), divergence between `synapse status --json` and `synapse list --json` (#696/#708), and a worktree name-collision crash on auto-generated names (#704/#711).
+
+### Added
+
+- `synapse watchdog check` now detects Codex CLI **edit-confirmation dialogs** ("Would you like to make the following edits?") from PTY debug output and surfaces an `edit_confirmation_dialog` alarm. Detection is gated on `status == WAITING` so stale PTY content cannot trip the alarm in `READY` / `PROCESSING`, mirroring the existing `rate_limit_dialog` heuristic from #691. Combined with the `synapse send-keys` escape hatch from #695 (shipped in 0.33.0), parents can both detect and respond to a stuck child without manual intervention. Closes #694.
+
 ### Fixed
 
 - `synapse spawn codex` no longer fails to start on Codex CLI 0.128+. The codex profile's `auto_approve.cli_flag` now injects `-cdefault_permissions=":workspace"` instead of the deprecated `--full-auto` flag (Codex CLI 0.128 reorganized auto-approve around built-in permission profiles selected via `default_permissions` — see [openai/codex#19900](https://github.com/openai/codex/pull/19900) which introduced the built-in profiles `:read-only` / `:workspace` / `:danger-no-sandbox`, and [openai/codex#20133](https://github.com/openai/codex/pull/20133) which deprecated `--full-auto`). Behavior is preserved: `:workspace` is the workspace-write equivalent of the old `--full-auto`. `--full-auto` is retained in `alternative_flags` so that explicit user-supplied legacy flags still trigger injection skip (and surface the underlying CLI error rather than a silent flag conflict). `--profile` / `-p` and any inline `-c default_permissions=...` form are also added as alternative flags so user overrides are respected. Closes #705.
+- `synapse status <agent> --json` and `synapse list --json` now expose the same six canonical fields (`agent_id`, `status`, `current_task_preview`, `task_received_at`, `uptime_seconds`, `input_required_tasks`) and resolve from the same live snapshot. Both views are produced via the new shared module `synapse/commands/_agent_view.py`, so AI clients reading either endpoint get identical shapes for the same agent. The JSON `status` strips the human-only `[ORPHAN]` annotation (still shown in the table view) and `synapse status --json` no longer keeps stale registry entries that the table view would purge. Closes #696.
+- `synapse spawn --worktree` no longer dies with `RuntimeError: Worktree directory already exists` when an auto-generated name collides with a stale `.synapse/worktrees/<name>/` directory or a leftover `worktree-<name>` branch. The auto-name path now retries up to `MAX_AUTO_NAME_ATTEMPTS` (8) candidates, treating both directory and branch existence as collisions; if every attempt collides, the exhaustion error points the user at `git worktree list` / `git worktree prune` for cleanup. The auto-name path also retries when `git worktree add` itself fails with a path/branch collision marker (TOCTOU window between pre-checks and the actual add, which a parallel `synapse spawn` can race through). Explicit `--name <foo>` collisions still fail immediately so the caller's chosen name is never silently swapped, but the error now includes a `git worktree remove <path>` (or `git branch -D <branch>`) cleanup hint. Closes #704.
+
+### Refactored
+
+- Consolidate the duplicated `_is_agent_alive` PID + port-probe + retry-with-sleep ladder that lived in both `synapse/commands/list.py` and `synapse/commands/status.py` into `synapse.commands._agent_view.is_agent_alive`. Both commands now share one liveness implementation, so future tuning (timeouts, race-handling) lands in one place. Drops a dead `data.update({...})` block in `StatusCommand._render_json` that was overwriting fields `build_agent_json_view` had already populated, removes no-op per-field branches in the view helper, and introduces a shared `ORPHAN_STATUS_SUFFIX` constant so the writer (`list.py`) and stripper (`_agent_view.strip_status_annotations`) cannot drift on the literal annotation. Pure refactor — full pytest passes (4445 / 30 skipped).
+
+### Documentation
+
+- README, `docs/synapse-reference.md`, `guides/usage.md`, `guides/references.md`, and `guides/troubleshooting.md` now document the six canonical JSON fields shared between `synapse list --json` and `synapse status --json`, and list both `rate_limit_dialog` and `edit_confirmation_dialog` in the watchdog heuristic enumeration (was 4 alarms, now 6).
+- GitHub Pages site (`site-docs/`) gains the same updates: `reference/cli.md` watchdog table grew from 4 to 6 rows, `guide/agent-management.md` corrects "four heuristics" → "six heuristics" and adds the unified-canonical-fields note, `troubleshooting.md` cross-references the new alarm, and `changelog.md` carries the 0.34.0 entry.
+- `synapse-a2a` skill (canonical at `plugins/synapse-a2a/skills/synapse-a2a/`, mirrored to `.agents/skills/` and `.claude/skills/`) now surfaces the **`canvas_post` MCP tool** that `synapse/mcp/server.py` already exposed but the skill had not advertised — AI agents reading the skill could not have known to use it. SKILL.md, `references/commands.md`, and `references/features.md` updated; mirrors verified byte-identical.
 
 ## [0.33.0] - 2026-05-01
 
@@ -3664,7 +3684,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.33.0...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.34.0...HEAD
+[0.34.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.29.0...v0.31.0
