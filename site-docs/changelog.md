@@ -4,6 +4,14 @@ For the complete changelog, see [CHANGELOG.md on GitHub](https://github.com/s-hi
 
 ## Recent Highlights
 
+### v0.35.0
+
+The 0.35.0 release fixes a cluster of multi-agent dogfooding bugs surfaced while shipping 0.34.0: a port-allocation race that silently lost one of two parallel spawns (#715), a misleading `synapse kill` recovery hint when the worktree branch already had an open PR (#714), and runtime artifacts under `.synapse/` and `.claude/worktrees/` that polluted `git status` (#713).
+
+- **Changed**: `.gitignore` now ignores the runtime-only paths that synapse-a2a / claude-code create during normal use (`.synapse/tasks/`, `.synapse/wiki/`, `.synapse/wiki.md`, `.synapse/worktrees/`, `.claude/worktrees/`) so they no longer appear as `??` entries in `git status` (#713). Pre-existing committed files under `.synapse/` and the existing `.claude/worktrees/elastic-black` gitlink remain visible because gitignore patterns do not hide already-tracked paths.
+- **Fixed**: Parallel `synapse spawn` no longer races on port allocation (#715). Two simultaneous spawns of the same profile could both receive the same free port from `PortManager.get_available_port` because port discovery and registry write ran outside the same critical section — the second spawn then overwrote the first's registry entry, leaving the first agent's worktree as a physical orphan. The new `PortManager.allocate_and_register` performs free-port discovery and a placeholder registry write inside a single `AgentRegistry.registry_write_lock` (cross-process `fcntl.flock`) critical section, so parallel spawns serialize at the lock. The `cli.py` spawn path also rolls the placeholder back if worktree creation fails downstream. Legacy `register()` and `get_available_port` are unchanged for backward compatibility.
+- **Fixed**: `synapse kill <agent>` no longer attempts a local auto-merge when the worktree branch already has an open PR (#714). A new `_branch_has_open_pr` pre-check (fail-open on missing `gh` / timeout / non-zero exit / malformed JSON) skips the merge and surfaces an informational message pointing at the PR. The previous misleading `Resolve manually: git merge <branch>` recovery hint no longer fires when the PR is the canonical merge path.
+
 ### v0.34.0
 
 The 0.34.0 release closes a cluster of issues exposed during real multi-agent dogfooding: the Codex CLI 0.128 deprecation that broke `synapse spawn codex` (#705), a watchdog blind spot for codex's edit-confirmation dialog (#694/#707), divergence between `synapse status --json` and `synapse list --json` (#696/#708), and a worktree name-collision crash on auto-generated names that surfaced when `.synapse/worktrees/` had accumulated stale entries (#704/#711).
