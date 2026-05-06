@@ -591,6 +591,96 @@ class TestOptionalInstructions:
                     os.environ["SYNAPSE_FILE_SAFETY_ENABLED"] = original_env
 
 
+class TestSettingsResolutionHelpers:
+    """Test pure settings resolution helpers."""
+
+    def test_env_false_takes_priority_over_settings_true(self, monkeypatch):
+        """Explicit environment false disables a flag enabled in settings env."""
+        settings = SynapseSettings(
+            env={"SYNAPSE_FILE_SAFETY_ENABLED": "true"},
+            instructions={},
+        )
+
+        monkeypatch.setenv("SYNAPSE_FILE_SAFETY_ENABLED", "false")
+
+        assert settings._is_file_safety_enabled() is False
+
+    def test_enabled_optional_instruction_files_order(self, monkeypatch):
+        """Enabled optional instruction files keep the append/read order."""
+        for key in (
+            "SYNAPSE_FILE_SAFETY_ENABLED",
+            "SYNAPSE_WIKI_ENABLED",
+            "SYNAPSE_LEARNING_MODE_ENABLED",
+            "SYNAPSE_LEARNING_MODE_TRANSLATION",
+            "SYNAPSE_SHARED_MEMORY_ENABLED",
+            "SYNAPSE_PROACTIVE_MODE_ENABLED",
+        ):
+            monkeypatch.delenv(key, raising=False)
+
+        settings = SynapseSettings(
+            env={
+                "SYNAPSE_FILE_SAFETY_ENABLED": "true",
+                "SYNAPSE_WIKI_ENABLED": "true",
+                "SYNAPSE_LEARNING_MODE_ENABLED": "true",
+                "SYNAPSE_SHARED_MEMORY_ENABLED": "true",
+                "SYNAPSE_PROACTIVE_MODE_ENABLED": "true",
+            },
+            instructions={},
+        )
+
+        assert settings._enabled_optional_instruction_files() == [
+            "file-safety.md",
+            "wiki.md",
+            "learning.md",
+            "shared-memory.md",
+            "proactive.md",
+        ]
+
+    def test_wiki_top_level_disabled_removes_optional_wiki(self, monkeypatch):
+        """Top-level wiki.enabled=false disables optional wiki.md injection."""
+        monkeypatch.delenv("SYNAPSE_WIKI_ENABLED", raising=False)
+        settings = SynapseSettings(
+            env={},
+            instructions={},
+            wiki_config={"enabled": False},
+        )
+
+        assert "wiki.md" not in settings._enabled_optional_instruction_files()
+
+    def test_loaded_wiki_disabled_prevents_instruction_injection(self, monkeypatch):
+        """Merged wiki.enabled=false is honored by get_instruction()."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            synapse_dir = Path(tmpdir) / ".synapse"
+            synapse_dir.mkdir()
+            (synapse_dir / "wiki.md").write_text("WIKI INSTRUCTIONS")
+            (synapse_dir / "settings.json").write_text(
+                json.dumps(
+                    {
+                        "instructions": {"default": "Base instruction"},
+                        "env": {
+                            "SYNAPSE_FILE_SAFETY_ENABLED": "false",
+                            "SYNAPSE_SHARED_MEMORY_ENABLED": "false",
+                            "SYNAPSE_PROACTIVE_MODE_ENABLED": "false",
+                        },
+                        "wiki": {"enabled": False},
+                    }
+                )
+            )
+
+            monkeypatch.chdir(tmpdir)
+            monkeypatch.delenv("SYNAPSE_WIKI_ENABLED", raising=False)
+
+            settings = SynapseSettings.load(
+                user_path=synapse_dir / "missing-user.json",
+                project_path=synapse_dir / "settings.json",
+                local_path=synapse_dir / "missing-local.json",
+            )
+
+            result = settings.get_instruction("claude", "agent", 8100)
+
+        assert result == "Base instruction"
+
+
 class TestSkillInstallation:
     """Test skill installation functionality.
 
