@@ -1395,7 +1395,10 @@ The Canvas server exposes workflow management endpoints for the [Workflow View](
 | Method | Endpoint | Description |
 |:------:|----------|-------------|
 | GET | `/api/workflow` | List all workflows with steps |
+| POST | `/api/workflow` | Create a project workflow |
 | GET | `/api/workflow/{name}` | Get single workflow detail |
+| PUT | `/api/workflow/{name}` | Update a project workflow |
+| DELETE | `/api/workflow/{name}` | Delete a project workflow |
 | POST | `/api/workflow/run/{name}` | Start async workflow execution |
 | GET | `/api/workflow/runs` | List active and recent runs |
 | GET | `/api/workflow/runs/{run_id}` | Get individual run status |
@@ -1423,9 +1426,27 @@ Returns a single workflow by name, including its full step list and metadata.
 curl http://localhost:3000/api/workflow/deploy-pipeline
 ```
 
+### POST /api/workflow -- Create Workflow
+
+Creates a project-scoped workflow from JSON. `steps` accepts the same fields as workflow YAML, including `id`, `depends_on`, and `condition`.
+
+```bash
+curl -X POST http://localhost:3000/api/workflow \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"review","steps":[{"id":"review","target":"claude","message":"Review"}]}'
+```
+
+### PUT /api/workflow/{name} -- Update Workflow
+
+Replaces a project-scoped workflow definition.
+
+### DELETE /api/workflow/{name} -- Delete Workflow
+
+Deletes a project-scoped workflow definition.
+
 ### POST /api/workflow/run/{name} -- Run Workflow
 
-Start async background execution of a workflow. Steps are executed sequentially and progress is broadcast via SSE `workflow_update` events.
+Start async background execution of a workflow. Linear workflows execute sequentially; workflows with `depends_on` run as DAGs and execute ready steps in parallel. Progress is broadcast via SSE `workflow_update` events.
 
 Canvas sends each workflow step directly to the target agent's A2A endpoint with sender metadata:
 

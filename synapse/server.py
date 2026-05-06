@@ -15,7 +15,7 @@ from synapse.a2a_compat import create_a2a_router
 from synapse.controller import TerminalController
 from synapse.logging_config import setup_logging
 from synapse.registry import AgentRegistry, resolve_uds_path
-from synapse.status import PROCESSING
+from synapse.status import PROCESSING, evaluate_readiness
 from synapse.utils import resolve_command_path
 
 # Global controller and registry instances (for standalone mode)
@@ -230,6 +230,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     app.include_router(a2a_router)
 
+    grpc_server = None
+    if os.environ.get("SYNAPSE_GRPC_ENABLED", "").lower() == "true":
+        from synapse.grpc_server import create_grpc_server
+
+        raw_grpc_port = os.environ.get("SYNAPSE_GRPC_PORT")
+        grpc_port = int(raw_grpc_port) if raw_grpc_port else None
+        grpc_server, _ = create_grpc_server(
+            controller,
+            profile_name,
+            agent_port,
+            grpc_port=grpc_port,
+            submit_seq=submit_sequence,
+            agent_id=current_agent_id,
+        )
+        if grpc_server:
+            grpc_server.start()
+            print(f"gRPC server available at: localhost:{grpc_port or agent_port + 1}")
+
     print(f"Started agent: {profile['command']}")
     print(f"Registered Agent ID: {current_agent_id}")
     print(f"Submit sequence: {repr(submit_sequence)}")
@@ -243,6 +261,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield  # Application runs here
 
     # Shutdown
+    if grpc_server:
+        grpc_server.stop(grace=0)
     if controller:
         controller.stop()
     if registry and current_agent_id:
@@ -280,7 +300,14 @@ def create_app(
         """Get agent status (Synapse original API)"""
         if not ctrl:
             return {"status": "NOT_STARTED", "context": ""}
-        return {"status": ctrl.status, "context": ctrl.get_context()[-2000:]}
+        readiness = evaluate_readiness(ctrl.status)
+        return {
+            "status": ctrl.status,
+            "lifecycle": readiness.lifecycle.value,
+            "ready": readiness.ready,
+            "readiness_reason": readiness.reason,
+            "context": ctrl.get_context()[-2000:],
+        }
 
     a2a_router = create_a2a_router(
         ctrl,
@@ -303,8 +330,12 @@ async def get_status() -> dict:
     if not controller:
         return {"status": "NOT_STARTED", "context": ""}
 
+    readiness = evaluate_readiness(controller.status)
     return {
         "status": controller.status,
+        "lifecycle": readiness.lifecycle.value,
+        "ready": readiness.ready,
+        "readiness_reason": readiness.reason,
         "context": controller.get_context()[-2000:],  # Return last 2000 chars
     }
 
@@ -365,11 +396,26 @@ if __name__ == "__main__":
     )
     parser.add_argument("--ssl-cert", default=None, help="SSL certificate file path")
     parser.add_argument("--ssl-key", default=None, help="SSL private key file path")
+    parser.add_argument(
+        "--grpc",
+        action="store_true",
+        help="Start optional gRPC server alongside REST",
+    )
+    parser.add_argument(
+        "--grpc-port",
+        type=int,
+        default=None,
+        help="gRPC server port (default: REST port + 1)",
+    )
     args = parser.parse_args()
 
     # Set environment variables for startup_event
     os.environ["SYNAPSE_PROFILE"] = args.profile
     os.environ["SYNAPSE_PORT"] = str(args.port)
+    if args.grpc:
+        os.environ["SYNAPSE_GRPC_ENABLED"] = "true"
+        if args.grpc_port is not None:
+            os.environ["SYNAPSE_GRPC_PORT"] = str(args.grpc_port)
 
     # Resolve agent_id for UDS path
     registry = AgentRegistry()

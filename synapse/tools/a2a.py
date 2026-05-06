@@ -74,6 +74,8 @@ from synapse.tools.a2a_helpers import (  # noqa: F401 -- re-export
     is_descendant_of,
 )
 
+_sleep = time.sleep
+
 _SENDING_REPLY_SOURCE_STATUSES = frozenset(
     {READY, PROCESSING, WAITING, WAITING_FOR_INPUT}
 )
@@ -188,11 +190,11 @@ def _wait_for_parent_intervention(
                 http_resp.raise_for_status()
                 data = http_resp.json()
         except Exception:  # broad: transient HTTP errors shouldn't abort the watch
-            time.sleep(TASK_POLL_INTERVAL)
+            _sleep(TASK_POLL_INTERVAL)
             continue
 
         if data is None:
-            time.sleep(TASK_POLL_INTERVAL)
+            _sleep(TASK_POLL_INTERVAL)
             continue
 
         task = A2ATask.from_dict(data, fallback_id=task_id)
@@ -205,7 +207,7 @@ def _wait_for_parent_intervention(
             last_task_status = status
         if status in COMPLETED_TASK_STATES:
             return task
-        time.sleep(TASK_POLL_INTERVAL)
+        _sleep(TASK_POLL_INTERVAL)
 
     return None
 
@@ -312,7 +314,7 @@ def cmd_send(args: argparse.Namespace) -> None:
                     end="",
                     file=sys.stderr,
                 )
-                time.sleep(1)
+                _sleep(1)
                 waited += 1
 
                 refreshed = _refresh_target_agent()
@@ -345,7 +347,7 @@ def cmd_send(args: argparse.Namespace) -> None:
             poll_interval = 0.25
             elapsed = 0.0
             while elapsed < ready_delay:
-                time.sleep(poll_interval)
+                _sleep(poll_interval)
                 elapsed += poll_interval
 
                 refreshed = _refresh_target_agent()

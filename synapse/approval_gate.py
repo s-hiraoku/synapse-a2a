@@ -198,6 +198,24 @@ class ApprovalRequest:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+class PolicyEngine:
+    """Formal policy engine facade for approval-gate decisions."""
+
+    def decide(self, request: ApprovalRequest) -> ApprovalDecision:
+        """Return the configured decision for an approval request."""
+        return decide(request)
+
+    def apply(self, request: ApprovalRequest, decision: ApprovalDecision) -> bool:
+        """Apply a decision using the gate's shared dispatch path."""
+        return apply(request, decision)
+
+    def decide_and_apply(
+        self, request: ApprovalRequest
+    ) -> tuple[ApprovalDecision, bool]:
+        """Decide and apply in one call."""
+        return decide_and_apply(request)
+
+
 def _load_policy() -> dict[str, Any]:
     """Read approval_gate policy from :mod:`synapse.settings`.
 

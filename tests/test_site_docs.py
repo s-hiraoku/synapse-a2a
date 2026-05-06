@@ -249,14 +249,17 @@ def test_cli_reference_documents_plan_approval_commands() -> None:
     assert "synapse reject <task_id> [reason]" in cheatsheet
 
 
-def test_self_learning_docs_warn_commands_are_not_yet_available() -> None:
+def test_self_learning_docs_describe_available_commands() -> None:
     cheatsheet = _read("site-docs/reference/cli-cheatsheet.md")
     guide = _read("site-docs/guide/self-learning.md")
 
-    assert '!!! warning "Not yet available"' in cheatsheet
-    assert "planned but not yet accessible via the CLI" in cheatsheet
-    assert '!!! warning "Not yet available"' in guide
-    assert "planned but not yet accessible via the CLI" in guide
+    assert '!!! warning "Not yet available"' not in cheatsheet
+    assert "planned but not yet accessible via the CLI" not in cheatsheet
+    assert '!!! warning "Not yet available"' not in guide
+    assert "planned but not yet accessible via the CLI" not in guide
+    assert "| `synapse learn` |" in cheatsheet
+    assert "synapse instinct status" in guide
+    assert "synapse evolve --generate" in guide
 
 
 def test_communication_guide_does_not_document_missing_reply_fail_flag() -> None:

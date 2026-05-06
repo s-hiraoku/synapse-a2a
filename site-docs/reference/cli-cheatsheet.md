@@ -47,6 +47,8 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse interrupt <target> "msg"` | Soft interrupt (priority 4) |
 | `synapse send-keys <target> a` | Write raw key(s) to the agent's PTY — escape hatch for stuck TUI dialogs (#695) |
 | `synapse send-keys <target> yes --enter` | Same, with a trailing `\r` to submit |
+| `synapse dialog-respond <target> --confirm` | Submit a common approve response to a stuck TUI dialog |
+| `synapse dialog-respond <target> --choice 2` | Submit a numeric menu choice to a stuck TUI dialog |
 
 ### Plan Approval
 
@@ -138,9 +140,6 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 
 ### Self-Learning
 
-!!! warning "Not yet available"
-    These commands are planned but not yet accessible via the CLI in the current release. See issue `#540` for tracking.
-
 | Command | Description |
 |---------|-------------|
 | `synapse learn` | Extract instincts from PTY observations |
@@ -149,6 +148,20 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse instinct promote <id>` | Promote instinct to global scope |
 | `synapse evolve` | Discover skill candidates from instincts |
 | `synapse evolve --generate` | Auto-generate skill files |
+
+### Harnesses
+
+| Command | Description |
+|---------|-------------|
+| `synapse harness install owner/repo[@ref]` | Install a harness package from GitHub |
+| `synapse harness list` | List installed harnesses |
+| `synapse harness use base overlay` | Set active harness layers in order |
+| `synapse harness enable <name>` | Enable an installed harness |
+| `synapse harness disable <name>` | Disable an installed harness |
+| `synapse harness remove <name>` | Remove a harness and its managed files |
+| `synapse harness status` | Show active harness status |
+| `synapse harness diff <name>` | Check for missing managed files |
+| `synapse harness create <name>` | Create a harness template |
 
 ### Configuration
 

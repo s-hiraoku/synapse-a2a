@@ -68,7 +68,7 @@ class TestSendProcessingWait:
             patch("synapse.tools.a2a.is_port_open", return_value=True),
             patch("synapse.tools.a2a.build_sender_info", return_value={}),
             patch("synapse.tools.a2a._record_sent_message"),
-            patch("synapse.tools.a2a.time.sleep") as mock_sleep,
+            patch("synapse.tools.a2a._sleep") as mock_sleep,
             patch("os.getcwd", return_value="/tmp/project"),
         ):
             mock_client_cls.return_value.send_to_local.return_value = task
@@ -106,7 +106,7 @@ class TestSendProcessingWait:
             patch("synapse.tools.a2a.is_port_open", return_value=True),
             patch("synapse.tools.a2a.build_sender_info", return_value={}),
             patch("synapse.tools.a2a._record_sent_message"),
-            patch("synapse.tools.a2a.time.sleep") as mock_sleep,
+            patch("synapse.tools.a2a._sleep") as mock_sleep,
             patch("os.getcwd", return_value="/tmp/project"),
         ):
             mock_client_cls.return_value.send_to_local.return_value = task
@@ -140,7 +140,7 @@ class TestSendProcessingWait:
             patch("synapse.tools.a2a.is_port_open", return_value=True),
             patch("synapse.tools.a2a.build_sender_info", return_value={}),
             patch("synapse.tools.a2a._record_sent_message"),
-            patch("synapse.tools.a2a.time.sleep"),
+            patch("synapse.tools.a2a._sleep"),
             patch("os.getcwd", return_value="/tmp/project"),
         ):
             mock_client_cls.return_value.send_to_local.return_value = task
@@ -169,7 +169,7 @@ class TestSendProcessingWait:
             patch("synapse.tools.a2a.is_port_open", return_value=True),
             patch("synapse.tools.a2a.build_sender_info", return_value={}),
             patch("synapse.tools.a2a._record_sent_message"),
-            patch("synapse.tools.a2a.time.sleep") as mock_sleep,
+            patch("synapse.tools.a2a._sleep") as mock_sleep,
             patch("os.getcwd", return_value="/tmp/project"),
         ):
             mock_client_cls.return_value.send_to_local.return_value = task
@@ -196,7 +196,7 @@ class TestSendProcessingWait:
             patch("synapse.tools.a2a.is_port_open", return_value=True),
             patch("synapse.tools.a2a.build_sender_info", return_value={}),
             patch("synapse.tools.a2a._record_sent_message"),
-            patch("synapse.tools.a2a.time.sleep") as mock_sleep,
+            patch("synapse.tools.a2a._sleep") as mock_sleep,
             patch("os.getcwd", return_value="/tmp/project"),
         ):
             mock_client_cls.return_value.send_to_local.return_value = task
@@ -223,7 +223,7 @@ class TestSendProcessingWait:
             patch("synapse.tools.a2a.is_port_open", return_value=True),
             patch("synapse.tools.a2a.build_sender_info", return_value={}),
             patch("synapse.tools.a2a._record_sent_message"),
-            patch("synapse.tools.a2a.time.sleep") as mock_sleep,
+            patch("synapse.tools.a2a._sleep") as mock_sleep,
             patch("os.getcwd", return_value="/tmp/project"),
         ):
             mock_client_cls.return_value.send_to_local.return_value = task

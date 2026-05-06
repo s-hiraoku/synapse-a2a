@@ -127,3 +127,56 @@ def test_cmd_send_keys_reports_failure_when_endpoint_returns_not_ok(
 
     err = capsys.readouterr().err
     assert "PTY write reported failure" in err
+
+
+def test_cmd_dialog_respond_confirm_sends_a_with_enter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """dialog-respond --confirm should map to the common approve key."""
+    captured: dict[str, object] = {}
+
+    def fake_send_keys(args: argparse.Namespace) -> None:
+        captured["data"] = args.data
+        captured["enter"] = args.enter
+        captured["target"] = args.target
+
+    monkeypatch.setattr(send_keys, "cmd_send_keys", fake_send_keys)
+
+    send_keys.cmd_dialog_respond(
+        argparse.Namespace(
+            target="agent-1",
+            choice=None,
+            confirm=True,
+            deny=False,
+            text=None,
+            json=False,
+        )
+    )
+
+    assert captured == {"target": "agent-1", "data": "a", "enter": True}
+
+
+def test_cmd_dialog_respond_choice_sends_number_with_enter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """dialog-respond --choice should submit the selected number."""
+    captured: dict[str, object] = {}
+
+    def fake_send_keys(args: argparse.Namespace) -> None:
+        captured["data"] = args.data
+        captured["enter"] = args.enter
+
+    monkeypatch.setattr(send_keys, "cmd_send_keys", fake_send_keys)
+
+    send_keys.cmd_dialog_respond(
+        argparse.Namespace(
+            target="agent-1",
+            choice=2,
+            confirm=False,
+            deny=False,
+            text=None,
+            json=False,
+        )
+    )
+
+    assert captured == {"data": "2", "enter": True}

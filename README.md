@@ -655,6 +655,24 @@ Each agent is:
 | MultiagentCmd | `synapse/commands/multiagent.py` | CLI handlers for `synapse multiagent` / `synapse map` |
 | MCP Server | `synapse/mcp/` | MCP bootstrap resource server (instructions, settings, agent card) |
 
+### Responsibility Boundaries
+
+Synapse keeps the runtime split into four dependency layers. Lower layers do not import higher layers.
+
+```mermaid
+flowchart TB
+    Core["Core: A2A protocol, task lifecycle, status"]
+    Adapters["Adapters: claude/codex/gemini profiles and HTTP wrappers"]
+    Runtime["Runtime: CLI, PTY controller, registry, worktrees"]
+    Extensions["Extensions: Canvas, skills, hooks, workflows, self-learning"]
+
+    Extensions --> Runtime
+    Runtime --> Adapters
+    Adapters --> Core
+```
+
+The practical rule is: protocol/task code stays in `a2a_*`, `task_store.py`, `status.py`, and `transport.py`; provider-specific behavior lives in profile/adaptor modules; PTY and process orchestration stay in runtime modules; optional capabilities build on top through `synapse/commands/`, `synapse/canvas/`, workflow, hooks, and skills.
+
 ### Startup Sequence
 
 ```mermaid

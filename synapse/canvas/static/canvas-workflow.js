@@ -96,11 +96,25 @@
       var mermaidSrc = "graph TD\n";
       wf.steps.forEach(function (s, i) {
         var msg = s.message.length > 30 ? s.message.substring(0, 30) + "…" : s.message;
-        var label = "Step " + (i + 1) + ": " + mermaidEscape(s.target) + "<br/>" + mermaidEscape(msg);
+        var nodeId = s.id || ("S" + i);
+        var label = (s.id || ("Step " + (i + 1))) + ": " + mermaidEscape(s.target) + "<br/>" + mermaidEscape(msg);
         mermaidSrc += '  S' + i + '["' + label + '"]\n';
-        if (i > 0) {
+        if (Array.isArray(s.depends_on) && s.depends_on.length) {
+          s.depends_on.forEach(function (dep) {
+            var depIndex = wf.steps.findIndex(function (candidate, candidateIndex) {
+              return (candidate.id || ("S" + candidateIndex)) === dep;
+            });
+            if (depIndex >= 0) {
+              var condition = s.condition || "all_success";
+              mermaidSrc += "  S" + depIndex + " -->|" + condition + "| S" + i + "\n";
+            }
+          });
+        } else if (i > 0 && !nodeId) {
           var mode = s.response_mode || "notify";
           mermaidSrc += "  S" + (i - 1) + " -->|" + mode + "| S" + i + "\n";
+        } else if (i > 0 && !wf.steps.some(function (step) { return Array.isArray(step.depends_on) && step.depends_on.length; })) {
+          var linearMode = s.response_mode || "notify";
+          mermaidSrc += "  S" + (i - 1) + " -->|" + linearMode + "| S" + i + "\n";
         }
       });
       var flowDiv = document.createElement("div");

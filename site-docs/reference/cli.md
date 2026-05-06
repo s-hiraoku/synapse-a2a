@@ -330,6 +330,20 @@ synapse send-keys synapse-codex-8121 yes --enter
 !!! warning "Use sparingly"
     `send-keys` is intentionally low-level and bypasses every safeguard `send` provides (readiness gate, history, priority queue). Reach for `synapse send` / `synapse interrupt` first; only fall back here when an agent is wedged on a CLI dialog and no message-based path will reach it.
 
+### Dialog Respond
+
+```bash
+synapse dialog-respond <target> (--choice N | --confirm | --deny | --text TEXT)
+```
+
+High-level wrapper around `send-keys` for common TUI dialogs. The response is submitted with Enter.
+
+```bash
+synapse dialog-respond synapse-codex-8121 --confirm
+synapse dialog-respond synapse-codex-8121 --choice 2
+synapse dialog-respond synapse-codex-8121 --text yes
+```
+
 ## Team Operations
 
 ### Team Start
@@ -953,9 +967,6 @@ Initializes the wiki directory structure (`pages/`, `sources/`, `schema.md`, `in
 See [LLM Wiki Design](../design/llm-wiki.md) for the full design document.
 
 ## Self-Learning Pipeline
-
-!!! warning "Not yet available"
-    `synapse learn`, `synapse instinct`, and `synapse evolve` are planned commands but are not yet accessible via the CLI in the current release. See issue `#540` for tracking.
 
 ### Learn
 

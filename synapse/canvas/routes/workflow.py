@@ -20,14 +20,51 @@ def _workflow_to_dict(wf: Any) -> dict[str, Any]:
         "step_count": wf.step_count,
         "steps": [
             {
+                "id": step.id,
+                "kind": step.kind,
                 "target": step.target,
                 "message": step.message,
                 "priority": step.priority,
                 "response_mode": step.response_mode,
+                "workflow": step.workflow,
+                "depends_on": step.depends_on,
+                "condition": step.condition,
             }
             for step in wf.steps
         ],
     }
+
+
+def _workflow_from_body(
+    body: dict[str, Any], *, fallback_name: str | None = None
+) -> Any:
+    from synapse.workflow import Workflow, WorkflowStep
+
+    name = str(body.get("name") or fallback_name or "")
+    steps = []
+    for item in body.get("steps", []):
+        steps.append(
+            WorkflowStep(
+                id=str(item.get("id", "")),
+                kind=str(item.get("kind", "send")),
+                workflow=str(item.get("workflow", "")),
+                target=str(item.get("target", "")),
+                message=str(item.get("message", "")),
+                priority=item.get("priority", 3),
+                response_mode=str(item.get("response_mode", "notify")),
+                auto_spawn=bool(item.get("auto_spawn", False)),
+                depends_on=item.get("depends_on", []),
+                condition=str(item.get("condition", "all_success")),
+            )
+        )
+    return Workflow(
+        name=name,
+        description=str(body.get("description", "")),
+        trigger=str(body.get("trigger", "")),
+        auto_spawn=bool(body.get("auto_spawn", False)),
+        steps=steps,
+        scope="project",
+    )
 
 
 @workflow_router.get("/api/workflow")
@@ -73,6 +110,59 @@ async def workflow_run(name: str, request: Request) -> dict[str, Any]:
         sender_info=sender_info,
     )
     return {"run_id": run_id, "status": "running"}
+
+
+@workflow_router.post("/api/workflow")
+async def workflow_create(request: Request) -> dict[str, Any]:
+    """Create a project-scoped workflow from Canvas."""
+    from synapse.workflow import WorkflowError, WorkflowStore
+
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Workflow body must be an object")
+    try:
+        workflow = _workflow_from_body(body)
+        store = WorkflowStore()
+        if store.exists(workflow.name, scope="project"):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Workflow '{workflow.name}' already exists",
+            )
+        store.save(workflow)
+    except WorkflowError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"workflow": _workflow_to_dict(workflow)}
+
+
+@workflow_router.put("/api/workflow/{name}")
+async def workflow_update(name: str, request: Request) -> dict[str, Any]:
+    """Update a project-scoped workflow from Canvas."""
+    from synapse.workflow import WorkflowError, WorkflowStore
+
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Workflow body must be an object")
+    try:
+        workflow = _workflow_from_body(body, fallback_name=name)
+        workflow.name = name
+        WorkflowStore().save(workflow)
+    except WorkflowError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"workflow": _workflow_to_dict(workflow)}
+
+
+@workflow_router.delete("/api/workflow/{name}")
+async def workflow_delete(name: str) -> dict[str, Any]:
+    """Delete a workflow from Canvas."""
+    from synapse.workflow import WorkflowError, WorkflowStore
+
+    try:
+        deleted = WorkflowStore().delete(name, scope="project")
+    except WorkflowError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
+    return {"deleted": True, "name": name}
 
 
 @workflow_router.get("/api/workflow/runs")
