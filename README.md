@@ -810,7 +810,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse rename <target>` | Assign name/role to agent |
 | `synapse set-summary <target> [text]` | Set persistent agent summary (120 chars). `--auto` generates from git context, `--clear` removes |
 | `synapse --version` | Show version |
-| `synapse list` | List running agents (Rich TUI in alternate screen with auto-refresh and terminal jump) |
+| `synapse list` | List running agents (Rich TUI in alternate screen with auto-refresh, `↑↓`/`1-9` selection, `Enter`/`j` terminal jump, and `k` kill confirmation) |
 | `synapse list --plain` | Force one-shot plain-text output without entering the TUI |
 | `synapse list --json` | Output agent list as JSON array (for AI/programmatic consumption) |
 | `synapse status <target>` | Show detailed agent status (info, current task, history, file locks). Supports `--json` |

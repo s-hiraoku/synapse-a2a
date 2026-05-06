@@ -111,7 +111,7 @@ Optional columns (`list.columns`): `TYPE`, `ROLE`, `SKILL_SET`.
 | ++up++ / ++down++ | Select agent row |
 | `1`-`9` | Jump to row number |
 | ++enter++ / `j` | Jump to agent's terminal |
-| `K` | Kill agent (with confirmation) |
+| `k` | Kill agent (with confirmation) |
 | `/` | Filter by TYPE, NAME, or WORKING_DIR |
 | ++escape++ | Clear filter |
 | `q` | Quit |

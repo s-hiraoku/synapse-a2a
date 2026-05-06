@@ -75,7 +75,7 @@ synapse list --plain         # One-shot plain text (no TUI)
 synapse list --json          # Output agent list as JSON array
 ```
 
-Interactive TUI with real-time updates. See [Agent Management](../guide/agent-management.md) for controls.
+Interactive TUI with real-time updates. Use `↑↓` or `1`-`9` to select rows, `Enter` or `j` to jump to the selected terminal, and `k` to kill the selected agent after confirmation. See [Agent Management](../guide/agent-management.md) for full controls.
 
 | Flag | Description |
 |------|-------------|

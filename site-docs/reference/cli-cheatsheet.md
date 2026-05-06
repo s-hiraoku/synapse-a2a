@@ -13,7 +13,7 @@ Quick reference for the most commonly used Synapse A2A commands. For full detail
 | `synapse codex` | Start Codex CLI interactively |
 | `synapse opencode` | Start OpenCode interactively |
 | `synapse copilot` | Start GitHub Copilot CLI interactively |
-| `synapse list` | Live TUI showing all running agents |
+| `synapse list` | Live TUI showing all running agents (`↑↓`/`1-9` select, `Enter`/`j` jump, `k` kill) |
 | `synapse list --json` | Output agent list as JSON array |
 | `synapse status <target>` | Detailed status for a single agent |
 | `synapse status <target> --debug-waiting` | Dump the in-memory WAITING-detection ring |
