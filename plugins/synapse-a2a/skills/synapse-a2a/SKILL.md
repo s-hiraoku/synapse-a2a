@@ -258,7 +258,7 @@ Choose based on whether you need the result:
 When you receive a task from a manager:
 
 ### On Task Receipt
-1. Start work immediately (`[REPLY EXPECTED]` requires a reply; otherwise no reply needed)
+1. Start work immediately (`[REPLY EXPECTED]` requires `synapse reply`; user-pasted `A2A:` text has no reply target, so respond with `synapse send` instead)
 2. Check shared knowledge: `synapse memory search "<task topic>"`
 3. Lock files before editing (**skip if SYNAPSE_WORKTREE_PATH is set**): `synapse file-safety lock <file> $SYNAPSE_AGENT_ID`
 
