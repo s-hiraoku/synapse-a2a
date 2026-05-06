@@ -106,9 +106,9 @@ class RichRenderer:
     DEFAULT_COLUMNS = [
         "ID",
         "NAME",
-        "STATUS",
-        "CURRENT",
         "TRANSPORT",
+        "CURRENT",
+        "STATUS",
         "WORKING_DIR",
         "EDITING_FILE",
     ]
