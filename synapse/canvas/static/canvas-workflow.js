@@ -31,8 +31,12 @@
 
   function renderWorkflowList(workflows) {
     if (!workflowListPanel) return;
+    var existingToolbar = workflowListPanel.querySelector(".workflow-toolbar");
+    if (existingToolbar) existingToolbar.remove();
     var existingWrap = workflowListPanel.querySelector(".workflow-list-table-wrap");
     if (existingWrap) existingWrap.remove();
+
+    workflowListPanel.appendChild(buildWorkflowToolbar());
 
     var wrap = document.createElement("div");
     wrap.className = "workflow-list-table-wrap";
@@ -73,18 +77,44 @@
     workflowListPanel.appendChild(wrap);
   }
 
+  function buildWorkflowToolbar() {
+    var toolbar = document.createElement("div");
+    toolbar.className = "workflow-toolbar";
+
+    var createBtn = document.createElement("button");
+    createBtn.className = "workflow-run-btn workflow-create-btn";
+    createBtn.innerHTML = '<i class="ph ph-plus"></i> New';
+    createBtn.addEventListener("click", function () {
+      showWorkflowEditor(null);
+    });
+    toolbar.appendChild(createBtn);
+
+    var importBtn = document.createElement("button");
+    importBtn.className = "workflow-run-btn workflow-import-btn";
+    importBtn.innerHTML = '<i class="ph ph-upload-simple"></i> Import YAML';
+    importBtn.addEventListener("click", function () {
+      showWorkflowImportEditor();
+    });
+    toolbar.appendChild(importBtn);
+
+    return toolbar;
+  }
+
   function renderWorkflowDetail(wf) {
     if (!workflowDetailContent || !workflowDetailEmpty) return;
     workflowDetailEmpty.classList.add("view-hidden");
     workflowDetailContent.classList.remove("view-hidden");
     workflowDetailContent.innerHTML = "";
 
-    // Header
     var header = document.createElement("div");
+    header.className = "workflow-detail-header";
     header.style.marginBottom = "var(--sp-3)";
-    header.innerHTML =
+    var titleWrap = document.createElement("div");
+    titleWrap.innerHTML =
       "<h3 style='margin:0 0 var(--sp-1) 0;'>" + escapeHtml(wf.name) + "</h3>" +
       (wf.description ? "<p style='margin:0; color:var(--color-text-muted); font-size:var(--text-sm);'>" + escapeHtml(wf.description) + "</p>" : "");
+    header.appendChild(titleWrap);
+    header.appendChild(buildWorkflowDetailActions(wf));
     workflowDetailContent.appendChild(header);
 
     // Mermaid DAG
@@ -227,6 +257,303 @@
       });
       workflowDetailContent.appendChild(histDiv);
     }
+  }
+
+  function buildWorkflowDetailActions(wf) {
+    var actions = document.createElement("div");
+    actions.className = "workflow-detail-actions";
+
+    var editBtn = document.createElement("button");
+    editBtn.className = "workflow-run-btn workflow-edit-btn";
+    editBtn.innerHTML = '<i class="ph ph-pencil-simple"></i> Edit';
+    editBtn.addEventListener("click", function () {
+      showWorkflowEditor(wf);
+    });
+    actions.appendChild(editBtn);
+
+    var exportBtn = document.createElement("button");
+    exportBtn.className = "workflow-run-btn workflow-export-btn";
+    exportBtn.innerHTML = '<i class="ph ph-download-simple"></i> Export YAML';
+    exportBtn.addEventListener("click", function () {
+      downloadWorkflowYaml(wf);
+    });
+    actions.appendChild(exportBtn);
+
+    var deleteBtn = document.createElement("button");
+    deleteBtn.className = "workflow-run-btn workflow-delete-btn";
+    deleteBtn.innerHTML = '<i class="ph ph-trash"></i> Delete';
+    deleteBtn.addEventListener("click", async function () {
+      if (!confirm("Delete workflow '" + wf.name + "'?")) return;
+      var resp = await fetch("/api/workflow/" + encodeURIComponent(wf.name), {
+        method: "DELETE",
+      });
+      if (resp.ok) {
+        ns._selectedWorkflow = null;
+        if (workflowDetailContent) workflowDetailContent.classList.add("view-hidden");
+        if (workflowDetailEmpty) workflowDetailEmpty.classList.remove("view-hidden");
+        showToast("Workflow deleted", wf.name);
+        await loadWorkflows();
+      }
+    });
+    actions.appendChild(deleteBtn);
+
+    return actions;
+  }
+
+  function showWorkflowEditor(wf) {
+    if (!workflowDetailContent || !workflowDetailEmpty) return;
+    workflowDetailEmpty.classList.add("view-hidden");
+    workflowDetailContent.classList.remove("view-hidden");
+    workflowDetailContent.innerHTML = "";
+
+    var isEdit = !!wf;
+    var editor = document.createElement("div");
+    editor.className = "workflow-editor";
+
+    var heading = document.createElement("h3");
+    heading.textContent = isEdit ? "Edit Workflow" : "New Workflow";
+    editor.appendChild(heading);
+
+    var nameLabel = document.createElement("label");
+    nameLabel.className = "workflow-editor-field";
+    nameLabel.textContent = "Name";
+    var nameInput = document.createElement("input");
+    nameInput.className = "workflow-editor-name";
+    nameInput.value = wf ? wf.name : "";
+    nameInput.disabled = isEdit;
+    nameLabel.appendChild(nameInput);
+    editor.appendChild(nameLabel);
+
+    var descLabel = document.createElement("label");
+    descLabel.className = "workflow-editor-field";
+    descLabel.textContent = "Description";
+    var descInput = document.createElement("textarea");
+    descInput.className = "workflow-editor-description";
+    descInput.value = wf ? (wf.description || "") : "";
+    descLabel.appendChild(descInput);
+    editor.appendChild(descLabel);
+
+    var stepsContainer = document.createElement("div");
+    stepsContainer.className = "workflow-step-editor-list";
+    var steps = wf && wf.steps && wf.steps.length ? wf.steps : [{ response_mode: "notify" }];
+    steps.forEach(function (step) {
+      addWorkflowStepEditorRow(stepsContainer, step);
+    });
+    editor.appendChild(stepsContainer);
+
+    var addStepBtn = document.createElement("button");
+    addStepBtn.className = "workflow-run-btn workflow-add-step-btn";
+    addStepBtn.innerHTML = '<i class="ph ph-plus"></i> Add step';
+    addStepBtn.addEventListener("click", function () {
+      addWorkflowStepEditorRow(stepsContainer, { response_mode: "notify" });
+    });
+    editor.appendChild(addStepBtn);
+
+    var actions = document.createElement("div");
+    actions.className = "workflow-editor-actions";
+    var saveBtn = document.createElement("button");
+    saveBtn.className = "workflow-run-btn workflow-save-btn";
+    saveBtn.innerHTML = '<i class="ph ph-floppy-disk"></i> Save';
+    saveBtn.addEventListener("click", async function () {
+      var payload = collectWorkflowEditorPayload(editor);
+      if (!payload.name || !payload.steps.length) {
+        showToast("Workflow requires a name and at least one step", "");
+        return;
+      }
+      var url = isEdit ? "/api/workflow/" + encodeURIComponent(wf.name) : "/api/workflow";
+      var method = isEdit ? "PUT" : "POST";
+      var resp = await fetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (resp.ok) {
+        var data = await resp.json();
+        ns._selectedWorkflow = data.workflow || payload;
+        showToast(isEdit ? "Workflow updated" : "Workflow created", payload.name);
+        await loadWorkflows();
+        renderWorkflowDetail(ns._selectedWorkflow);
+      }
+    });
+    actions.appendChild(saveBtn);
+
+    var cancelBtn = document.createElement("button");
+    cancelBtn.className = "workflow-run-btn workflow-cancel-btn";
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.addEventListener("click", function () {
+      if (wf) renderWorkflowDetail(wf);
+      else {
+        workflowDetailContent.classList.add("view-hidden");
+        workflowDetailEmpty.classList.remove("view-hidden");
+      }
+    });
+    actions.appendChild(cancelBtn);
+    editor.appendChild(actions);
+
+    workflowDetailContent.appendChild(editor);
+  }
+
+  function addWorkflowStepEditorRow(container, step) {
+    var row = document.createElement("div");
+    row.className = "workflow-step-editor-row";
+
+    var idInput = document.createElement("input");
+    idInput.className = "workflow-step-id-input";
+    idInput.placeholder = "id";
+    idInput.value = step.id || "";
+    row.appendChild(idInput);
+
+    var targetInput = document.createElement("input");
+    targetInput.className = "workflow-step-target-input";
+    targetInput.placeholder = "target";
+    targetInput.value = step.target || "";
+    row.appendChild(targetInput);
+
+    var messageInput = document.createElement("textarea");
+    messageInput.className = "workflow-step-message-input";
+    messageInput.placeholder = "message";
+    messageInput.value = step.message || "";
+    row.appendChild(messageInput);
+
+    var modeInput = document.createElement("select");
+    modeInput.className = "workflow-step-mode-input";
+    ["notify", "wait", "silent"].forEach(function (mode) {
+      var opt = document.createElement("option");
+      opt.value = mode;
+      opt.textContent = mode;
+      if ((step.response_mode || "notify") === mode) opt.selected = true;
+      modeInput.appendChild(opt);
+    });
+    modeInput.value = step.response_mode || "notify";
+    row.appendChild(modeInput);
+
+    var dependsInput = document.createElement("input");
+    dependsInput.className = "workflow-step-depends-input";
+    dependsInput.placeholder = "depends_on";
+    dependsInput.value = Array.isArray(step.depends_on) ? step.depends_on.join(",") : "";
+    row.appendChild(dependsInput);
+
+    var removeBtn = document.createElement("button");
+    removeBtn.className = "workflow-run-btn workflow-remove-step-btn";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", function () {
+      if (container.children.length > 1) row.remove();
+    });
+    row.appendChild(removeBtn);
+
+    container.appendChild(row);
+  }
+
+  function collectWorkflowEditorPayload(editor) {
+    var rows = editor.querySelectorAll(".workflow-step-editor-row");
+    var steps = [];
+    rows.forEach(function (row) {
+      var target = row.querySelector(".workflow-step-target-input").value.trim();
+      var message = row.querySelector(".workflow-step-message-input").value.trim();
+      var step = {
+        id: row.querySelector(".workflow-step-id-input").value.trim(),
+        target: target,
+        message: message,
+        response_mode: row.querySelector(".workflow-step-mode-input").value || "notify",
+        depends_on: row.querySelector(".workflow-step-depends-input").value
+          .split(",")
+          .map(function (v) { return v.trim(); })
+          .filter(Boolean),
+      };
+      if (target || message) steps.push(step);
+    });
+    return {
+      name: editor.querySelector(".workflow-editor-name").value.trim(),
+      description: editor.querySelector(".workflow-editor-description").value.trim(),
+      steps: steps,
+    };
+  }
+
+  function showWorkflowImportEditor() {
+    if (!workflowDetailContent || !workflowDetailEmpty) return;
+    workflowDetailEmpty.classList.add("view-hidden");
+    workflowDetailContent.classList.remove("view-hidden");
+    workflowDetailContent.innerHTML = "";
+
+    var editor = document.createElement("div");
+    editor.className = "workflow-editor workflow-import-editor";
+    var title = document.createElement("h3");
+    title.textContent = "Import Workflow YAML";
+    editor.appendChild(title);
+    var textarea = document.createElement("textarea");
+    textarea.className = "workflow-import-yaml";
+    textarea.placeholder = "name: review\nsteps:\n  - target: claude\n    message: Review the patch";
+    editor.appendChild(textarea);
+    var saveBtn = document.createElement("button");
+    saveBtn.className = "workflow-run-btn workflow-import-save-btn";
+    saveBtn.textContent = "Import";
+    saveBtn.addEventListener("click", async function () {
+      var payload = parseWorkflowText(textarea.value);
+      var resp = await fetch("/api/workflow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (resp.ok) {
+        var data = await resp.json();
+        ns._selectedWorkflow = data.workflow || payload;
+        showToast("Workflow imported", payload.name);
+        await loadWorkflows();
+        renderWorkflowDetail(ns._selectedWorkflow);
+      }
+    });
+    editor.appendChild(saveBtn);
+    workflowDetailContent.appendChild(editor);
+  }
+
+  function parseWorkflowText(text) {
+    var trimmed = String(text || "").trim();
+    if (trimmed.charAt(0) === "{") return JSON.parse(trimmed);
+    var payload = { name: "", description: "", steps: [] };
+    var currentStep = null;
+    trimmed.split(/\r?\n/).forEach(function (line) {
+      var m;
+      if ((m = line.match(/^name:\s*(.*)$/))) payload.name = unquoteYaml(m[1]);
+      else if ((m = line.match(/^description:\s*(.*)$/))) payload.description = unquoteYaml(m[1]);
+      else if ((m = line.match(/^\s*-\s*target:\s*(.*)$/))) {
+        currentStep = { target: unquoteYaml(m[1]), message: "", response_mode: "notify" };
+        payload.steps.push(currentStep);
+      } else if (currentStep && (m = line.match(/^\s*message:\s*(.*)$/))) currentStep.message = unquoteYaml(m[1]);
+      else if (currentStep && (m = line.match(/^\s*response_mode:\s*(.*)$/))) currentStep.response_mode = unquoteYaml(m[1]);
+      else if (currentStep && (m = line.match(/^\s*id:\s*(.*)$/))) currentStep.id = unquoteYaml(m[1]);
+    });
+    return payload;
+  }
+
+  function unquoteYaml(value) {
+    return String(value || "").trim().replace(/^['"]|['"]$/g, "");
+  }
+
+  function workflowToYaml(wf) {
+    var lines = ["name: " + wf.name];
+    if (wf.description) lines.push("description: " + wf.description);
+    lines.push("steps:");
+    (wf.steps || []).forEach(function (step) {
+      if (step.id) lines.push("  - id: " + step.id);
+      else lines.push("  - target: " + (step.target || ""));
+      if (step.id) lines.push("    target: " + (step.target || ""));
+      lines.push("    message: " + (step.message || ""));
+      lines.push("    response_mode: " + (step.response_mode || "notify"));
+      if (Array.isArray(step.depends_on) && step.depends_on.length) {
+        lines.push("    depends_on: [" + step.depends_on.join(", ") + "]");
+      }
+    });
+    return lines.join("\n") + "\n";
+  }
+
+  function downloadWorkflowYaml(wf) {
+    var blob = new Blob([workflowToYaml(wf)], { type: "text/yaml" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = wf.name + ".yaml";
+    if (a.click) a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function runWorkflow(name) {

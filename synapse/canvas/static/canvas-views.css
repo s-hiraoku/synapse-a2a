@@ -131,6 +131,21 @@
   flex: 1;
   min-height: 0;
 }
+.workflow-toolbar,
+.workflow-detail-actions,
+.workflow-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+}
+.workflow-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
 #workflow-list-panel.splitter-resized {
   max-height: none;
 }
@@ -302,10 +317,51 @@
 .workflow-row-selected td {
   color: var(--text-primary);
 }
+.workflow-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.workflow-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.workflow-editor input,
+.workflow-editor textarea,
+.workflow-editor select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--glass-stroke);
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  color: var(--color-text);
+  padding: var(--sp-2);
+  font: inherit;
+}
+.workflow-editor textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+.workflow-step-editor-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.workflow-step-editor-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.8fr) minmax(120px, 1fr) minmax(180px, 2fr) minmax(90px, 0.8fr) minmax(120px, 1fr) auto;
+  gap: var(--sp-2);
+  align-items: start;
+}
 @media (max-width: 768px) {
   #workflow-container { gap: var(--sp-2); }
   #workflow-list-panel { max-height: 180px; }
   #workflow-splitter { display: none; }
+  .workflow-detail-header { flex-direction: column; }
+  .workflow-step-editor-row { grid-template-columns: 1fr; }
 }
 
 /* -- Admin View -- */

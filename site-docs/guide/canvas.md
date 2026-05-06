@@ -727,7 +727,7 @@ The Workflow view provides a split-panel interface for browsing and executing [W
 
 **Left panel — Workflow list**: A table of all available workflows showing name, step count, scope, and description. Click a row to select a workflow.
 
-**Right panel — Workflow detail**: Displays the selected workflow's steps, a Mermaid DAG visualization of the execution graph (with message preview and `response_mode` labels on edges), and a **Run** button to trigger execution. The project directory is displayed next to the Run button for context.
+**Right panel — Workflow detail**: Displays the selected workflow's steps, a Mermaid DAG visualization of the execution graph (with message preview and `response_mode` labels on edges), and a **Run** button to trigger execution. The project directory is displayed next to the Run button for context. Use **New** / **Edit** to open the form-based step builder, **Delete** to remove a workflow after confirmation, and **Export YAML** / **Import YAML** to move definitions in and out of the browser UI.
 
 **Execution**: Clicking Run sends `POST /api/workflow/run/{name}` to start async background execution. Each step is sent directly from Canvas to the target agent over A2A HTTP using sender metadata `canvas-workflow` / `Workflow` and a Canvas `sender_endpoint`, so the target can reply back to Canvas with `synapse reply`. Real-time progress is streamed via SSE `workflow_update` events, updating step status icons as each step completes:
 

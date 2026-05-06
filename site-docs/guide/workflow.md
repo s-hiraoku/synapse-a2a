@@ -263,7 +263,7 @@ When nested workflows are used, `--continue-on-error` applies to child steps too
 
 ## Run from Canvas
 
-Workflows can also be executed from the Canvas browser UI at `#/workflow`. Select a workflow from the list and click **Run**.
+Workflows can also be created, edited, deleted, imported/exported as YAML, and executed from the Canvas browser UI at `#/workflow`. Use **New** to open the step builder, select an existing workflow for **Edit**, **Delete**, **Export YAML**, or **Run**.
 
 Both CLI and Canvas workflow execution send A2A requests directly to target agents over HTTP, with `response_mode: wait` polling for task completion. Canvas sets sender metadata `sender_id=canvas-workflow`, `sender_name=Workflow`, and `sender_endpoint=http://localhost:<canvas-port>`, so agents can reply back to Canvas with `synapse reply`. Key differences from CLI execution:
 
