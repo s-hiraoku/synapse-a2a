@@ -1,0 +1,29 @@
+{
+  "name": "synapse-a2a",
+  "version": "0.35.0",
+  "description": "Complete plugin for Synapse A2A multi-agent framework including inter-agent communication, file safety, and history management",
+  "author": {
+    "name": "s-hiraoku",
+    "email": "s.hiraoku@gmail.com"
+  },
+  "homepage": "https://github.com/s-hiraoku/synapse-a2a",
+  "repository": "https://github.com/s-hiraoku/synapse-a2a",
+  "license": "MIT",
+  "keywords": ["multi-agent", "a2a", "collaboration"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Synapse A2A",
+    "shortDescription": "Multi-agent communication workflows for Codex.",
+    "longDescription": "Synapse A2A provides skills for coordinating agents, managing file safety, and using Synapse messaging workflows from Codex.",
+    "developerName": "s-hiraoku",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/s-hiraoku/synapse-a2a",
+    "defaultPrompt": [
+      "Send a Synapse message to another agent.",
+      "Coordinate a multi-agent implementation.",
+      "Check Synapse file-safety status."
+    ],
+    "brandColor": "#2563EB"
+  }
+}
