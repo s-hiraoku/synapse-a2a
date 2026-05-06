@@ -641,13 +641,20 @@ class SynapseSettings:
             """Check if value is a string ending with .md (filename only, no existence check)."""
             return isinstance(value, str) and value.endswith(".md")
 
-        def add_if_exists(filename: str) -> None:
+        def add_if_exists(filename: str, *, include_ambient_user: bool = True) -> None:
             """Add file to paths if it exists in project or user directory."""
             project_path = Path.cwd() / ".synapse" / filename
             user_path = home / ".synapse" / filename
-            if not (project_path.exists() or user_path.exists()):
+            include_user_path = user_dir is not None or include_ambient_user
+            if not (
+                project_path.exists() or (include_user_path and user_path.exists())
+            ):
                 return
-            display_path = self._get_file_display_path(filename, user_dir)
+            display_path = self._get_file_display_path(
+                filename,
+                user_dir,
+                include_user=include_user_path,
+            )
             if display_path:
                 paths.append(display_path)
 
@@ -664,27 +671,31 @@ class SynapseSettings:
 
         # File safety
         if self._is_file_safety_enabled():
-            add_if_exists("file-safety.md")
+            add_if_exists("file-safety.md", include_ambient_user=False)
 
         if self._is_wiki_enabled():
-            add_if_exists("wiki.md")
+            add_if_exists("wiki.md", include_ambient_user=False)
 
         # Learning mode (either flag enables learning.md injection)
         if self._is_any_learning_enabled():
-            add_if_exists("learning.md")
+            add_if_exists("learning.md", include_ambient_user=False)
 
         # Shared memory
         if self._is_shared_memory_enabled():
-            add_if_exists("shared-memory.md")
+            add_if_exists("shared-memory.md", include_ambient_user=False)
 
         # Proactive mode
         if self._is_proactive_mode_enabled():
-            add_if_exists("proactive.md")
+            add_if_exists("proactive.md", include_ambient_user=False)
 
         return paths
 
     def _get_file_display_path(
-        self, filename: str, user_dir: Path | None = None
+        self,
+        filename: str,
+        user_dir: Path | None = None,
+        *,
+        include_user: bool = True,
     ) -> str | None:
         """
         Get the display path for an instruction file.
@@ -701,10 +712,9 @@ class SynapseSettings:
             or None if file doesn't exist in either location.
         """
         home = user_dir or Path.home()
-        locations = [
-            (Path.cwd() / ".synapse" / filename, f".synapse/{filename}"),
-            (home / ".synapse" / filename, f"~/.synapse/{filename}"),
-        ]
+        locations = [(Path.cwd() / ".synapse" / filename, f".synapse/{filename}")]
+        if include_user:
+            locations.append((home / ".synapse" / filename, f"~/.synapse/{filename}"))
 
         for path, display in locations:
             if path.exists():
@@ -790,22 +800,34 @@ class SynapseSettings:
             Instruction with optional content appended.
         """
         if self._is_file_safety_enabled():
-            file_safety_content = self._load_instruction_file("file-safety.md")
+            file_safety_content = self._load_instruction_file(
+                "file-safety.md",
+                include_user=False,
+            )
             if file_safety_content:
                 instruction = instruction + "\n\n" + file_safety_content
 
         if self._is_any_learning_enabled():
-            learning_content = self._load_instruction_file("learning.md")
+            learning_content = self._load_instruction_file(
+                "learning.md",
+                include_user=False,
+            )
             if learning_content:
                 instruction = instruction + "\n\n" + learning_content
 
         if self._is_shared_memory_enabled():
-            memory_content = self._load_instruction_file("shared-memory.md")
+            memory_content = self._load_instruction_file(
+                "shared-memory.md",
+                include_user=False,
+            )
             if memory_content:
                 instruction = instruction + "\n\n" + memory_content
 
         if self._is_proactive_mode_enabled():
-            proactive_content = self._load_instruction_file("proactive.md")
+            proactive_content = self._load_instruction_file(
+                "proactive.md",
+                include_user=False,
+            )
             if proactive_content:
                 instruction = instruction + "\n\n" + proactive_content
 
@@ -849,7 +871,11 @@ class SynapseSettings:
         return text
 
     def _load_instruction_file(
-        self, filename: str, *, user_dir: Path | None = None
+        self,
+        filename: str,
+        *,
+        user_dir: Path | None = None,
+        include_user: bool = True,
     ) -> str:
         """
         Load instruction content from a file in .synapse directory.
@@ -866,10 +892,9 @@ class SynapseSettings:
             File content if found, empty string otherwise.
         """
         home = user_dir if user_dir is not None else Path.home()
-        search_paths = [
-            Path.cwd() / ".synapse" / filename,
-            home / ".synapse" / filename,
-        ]
+        search_paths = [Path.cwd() / ".synapse" / filename]
+        if include_user:
+            search_paths.append(home / ".synapse" / filename)
 
         for path in search_paths:
             if path.exists():
