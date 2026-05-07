@@ -107,6 +107,31 @@ def test_synapse_a2a_skill_covers_current_backlog_features() -> None:
             assert token in text, f"{relative_path} missing token: {token!r}"
 
 
+def test_synapse_a2a_skill_self_learning_cli_docs_are_current() -> None:
+    stale_markers = (
+        "Not yet available",
+        "Not yet available in CLI",
+        "not yet wired into the CLI",
+        "no argparser registration is present",
+    )
+
+    for relative_path in (
+        "plugins/synapse-a2a/skills/synapse-a2a/references/commands.md",
+        "plugins/synapse-a2a/skills/synapse-a2a/references/features.md",
+        ".agents/skills/synapse-a2a/references/commands.md",
+        ".agents/skills/synapse-a2a/references/features.md",
+        ".claude/skills/synapse-a2a/references/commands.md",
+        ".claude/skills/synapse-a2a/references/features.md",
+    ):
+        text = _read(relative_path)
+        for marker in stale_markers:
+            assert marker not in text, (
+                f"{relative_path} contains stale marker {marker!r}"
+            )
+        for command in ("synapse learn", "synapse instinct", "synapse evolve"):
+            assert command in text, f"{relative_path} missing {command!r}"
+
+
 def test_worker_guide_waits_for_helper_completion_before_kill() -> None:
     text = _read(
         "plugins/synapse-a2a/skills/synapse-manager/references/worker-guide.md"

@@ -227,7 +227,7 @@ Cards can be downloaded as files via the browser download button or the API endp
 
 ## Self-Learning Pipeline (ECC)
 
-> **Not yet available in CLI** — The architecture and backing modules below are implemented, but the CLI commands (`synapse learn`, `synapse instinct`, `synapse evolve`) are not yet wired into the argparser. See issue #540 for tracking. The observation layer runs automatically; only the explicit CLI commands are missing.
+The observation layer runs automatically when enabled, and the explicit CLI commands are available: `synapse learn` extracts instincts, `synapse instinct` lists or promotes them, and `synapse evolve` discovers or generates skill candidates.
 
 Observe agent behavior, learn patterns, and evolve reusable skills automatically. The pipeline has four stages:
 
