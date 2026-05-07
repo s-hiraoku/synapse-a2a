@@ -63,7 +63,7 @@ class StepResult:
     step_index: int
     target: str
     message: str
-    status: str = "pending"  # pending | running | completed | failed
+    status: str = "pending"  # pending | running | completed | failed | skipped
     started_at: float | None = None
     completed_at: float | None = None
     output: str | None = None
@@ -883,6 +883,32 @@ async def _execute_workflow(
     has_failure = False
     helper: _WorkflowHelper | None = None
 
+    if _workflow_uses_dag(workflow):
+        try:
+            has_failure = await _execute_dag_workflow(
+                run,
+                workflow,
+                on_update,
+                sender_info,
+            )
+        except Exception:
+            logger.exception(
+                "Workflow '%s' DAG execution crashed unexpectedly", workflow.name
+            )
+            has_failure = True
+        run.status = "failed" if has_failure else "completed"
+        run.completed_at = time.time()
+        _notify(on_update)
+        try:
+            _get_db().save_run(run.to_db_dict())
+        except (OSError, sqlite3.Error):
+            logger.debug(
+                "Failed to persist completed run %s to DB",
+                run.run_id,
+                exc_info=True,
+            )
+        return
+
     try:
         for i, wf_step in enumerate(workflow.steps):
             step = run.steps[i]
@@ -948,3 +974,157 @@ async def _execute_workflow(
         logger.debug(
             "Failed to persist completed run %s to DB", run.run_id, exc_info=True
         )
+
+
+def _workflow_uses_dag(workflow: Workflow) -> bool:
+    return any(getattr(step, "depends_on", []) for step in workflow.steps)
+
+
+def _step_key(index: int, wf_step: Any) -> str:
+    return wf_step.id or str(index)
+
+
+def _dependency_results(
+    workflow: Workflow,
+    run: WorkflowRun,
+    wf_step: Any,
+) -> list[StepResult]:
+    if not getattr(wf_step, "depends_on", []):
+        return []
+    by_id = {_step_key(i, step): run.steps[i] for i, step in enumerate(workflow.steps)}
+    return [by_id[dep] for dep in wf_step.depends_on]
+
+
+def _dependencies_are_terminal(
+    workflow: Workflow,
+    run: WorkflowRun,
+    wf_step: Any,
+) -> bool:
+    return all(
+        result.status in {"completed", "failed", "skipped"}
+        for result in _dependency_results(workflow, run, wf_step)
+    )
+
+
+def _condition_allows_step(
+    workflow: Workflow,
+    run: WorkflowRun,
+    wf_step: Any,
+) -> bool:
+    results = _dependency_results(workflow, run, wf_step)
+    if not results:
+        return True
+    condition = getattr(wf_step, "condition", "all_success")
+    if condition == "always":
+        return True
+    successes = [result for result in results if result.status == "completed"]
+    if condition == "any_success":
+        return bool(successes)
+    return len(successes) == len(results)
+
+
+async def _run_one_ready_step(
+    run: WorkflowRun,
+    workflow: Workflow,
+    index: int,
+    on_update: Callable[[], None] | None,
+    sender_info: dict[str, str] | None,
+    helper: _WorkflowHelper | None,
+) -> None:
+    wf_step = workflow.steps[index]
+    step = run.steps[index]
+    step.status = "running"
+    step.started_at = time.time()
+    _notify(on_update)
+
+    await _execute_step(
+        wf_step,
+        step,
+        workflow_auto_spawn=workflow.auto_spawn,
+        sender_info=sender_info,
+        helper=helper,
+    )
+    _notify(on_update)
+
+
+async def _execute_dag_workflow(
+    run: WorkflowRun,
+    workflow: Workflow,
+    on_update: Callable[[], None] | None,
+    sender_info: dict[str, str] | None,
+) -> bool:
+    """Execute workflow steps as a dependency DAG.
+
+    Returns True when any step failed. Skipped steps are terminal but do not
+    make the overall run fail on their own.
+    """
+    helper: _WorkflowHelper | None = None
+    has_failure = False
+    remaining = set(range(len(workflow.steps)))
+
+    try:
+        while remaining:
+            ready: list[int] = []
+            skipped_this_round = False
+            for index in sorted(remaining):
+                wf_step = workflow.steps[index]
+                if not _dependencies_are_terminal(workflow, run, wf_step):
+                    continue
+                step = run.steps[index]
+                if not _condition_allows_step(workflow, run, wf_step):
+                    step.status = "skipped"
+                    step.completed_at = time.time()
+                    step.error = f"Skipped by condition '{wf_step.condition}'"
+                    remaining.remove(index)
+                    skipped_this_round = True
+                    _notify(on_update)
+                    continue
+                ready.append(index)
+
+            if not ready:
+                if skipped_this_round:
+                    continue
+                for index in remaining:
+                    run.steps[index].status = "failed"
+                    run.steps[index].error = "Workflow dependency cycle or blocked DAG"
+                    run.steps[index].completed_at = time.time()
+                return True
+
+            for index in ready:
+                wf_step = workflow.steps[index]
+                if (
+                    _is_self_target(wf_step.target, sender_info)
+                    and helper is None
+                    and await _resolve_self_target_endpoint(sender_info) is None
+                ):
+                    helper = _WorkflowHelper(workflow.name, sender_info)
+
+            await asyncio.gather(
+                *(
+                    _run_one_ready_step(
+                        run,
+                        workflow,
+                        index,
+                        on_update,
+                        sender_info,
+                        helper,
+                    )
+                    for index in ready
+                )
+            )
+            for index in ready:
+                remaining.remove(index)
+                if run.steps[index].status == "failed":
+                    has_failure = True
+    finally:
+        if helper is not None:
+            try:
+                helper.kill()
+            except (OSError, subprocess.SubprocessError):
+                logger.warning(
+                    "Workflow helper cleanup failed for %s",
+                    workflow.name,
+                    exc_info=True,
+                )
+
+    return has_failure

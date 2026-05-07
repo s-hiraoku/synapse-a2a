@@ -39,6 +39,7 @@ from synapse.config import (
 )
 from synapse.controller_status import StatusObserverMixin
 from synapse.idle_detector import IdleDetector
+from synapse.learnings import format_project_learnings_section
 from synapse.long_message import format_file_reference, get_long_message_store
 from synapse.mcp.server import MCP_INSTRUCTIONS_DEFAULT_URI
 from synapse.pty_renderer import PtyRenderer
@@ -139,6 +140,7 @@ class TerminalController(StatusObserverMixin):
         long_submit_confirm_retries: int | None = None,
         auto_approve: dict | None = None,
         interrupt_config: dict | None = None,
+        agent_definition_id: str | None = None,
     ):
         # Support multi-token command strings (e.g. "python3 -u dummy_agent.py").
         # shlex.split is byte-identical for single-token input: shlex.split("codex") == ["codex"].
@@ -243,6 +245,7 @@ class TerminalController(StatusObserverMixin):
         self.name = name
         self.role = role
         self.skill_set = skill_set
+        self.agent_definition_id = agent_definition_id
         if write_delay is not None:
             try:
                 write_delay = float(write_delay)
@@ -927,6 +930,9 @@ class TerminalController(StatusObserverMixin):
                     )
             except Exception as e:
                 logger.error(f"Failed to load skill set info: {e}")
+
+        if self.agent_definition_id:
+            message += format_project_learnings_section(self.agent_definition_id)
 
         message += (
             f"\nIMPORTANT: Read your full instructions from these files:\n"

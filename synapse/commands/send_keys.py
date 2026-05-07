@@ -97,3 +97,38 @@ def cmd_send_keys(args: argparse.Namespace) -> None:
     else:
         bytes_written = response.get("bytes_written", len(text))
         print(f"ok: wrote {bytes_written} bytes to {target}")
+
+
+def cmd_dialog_respond(args: argparse.Namespace) -> None:
+    """High-level wrapper for answering common TUI dialogs."""
+    choices = [
+        args.choice is not None,
+        bool(args.confirm),
+        bool(args.deny),
+        args.text is not None,
+    ]
+    if sum(choices) != 1:
+        print(
+            "Error: provide exactly one of --choice, --confirm, --deny, or --text",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    if args.choice is not None:
+        data = str(args.choice)
+    elif args.confirm:
+        data = "a"
+    elif args.deny:
+        data = "n"
+    else:
+        data = str(args.text)
+
+    cmd_send_keys(
+        argparse.Namespace(
+            target=args.target,
+            data=data,
+            escape=False,
+            enter=True,
+            json=args.json,
+        )
+    )

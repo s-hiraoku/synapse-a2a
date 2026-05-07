@@ -79,6 +79,34 @@ def test_synapse_a2a_skill_shows_cleanup_verification() -> None:
     assert "retry" in text.lower()
 
 
+def test_synapse_a2a_skill_covers_current_backlog_features() -> None:
+    expected_tokens = [
+        "synapse agents set",
+        "synapse agents unset",
+        "synapse agents roles",
+        "synapse session publish",
+        "synapse session import",
+        "SYNAPSE_SHARED_SESSION_DIR",
+        "agent_definition_id",
+        "project-adaptive learnings",
+        "Probabilistic Recall",
+        "depends_on",
+        "condition",
+        "#/workflow",
+        "create/edit/delete/import/export",
+        "canvas_post",
+    ]
+
+    for relative_path in (
+        "plugins/synapse-a2a/skills/synapse-a2a/SKILL.md",
+        ".agents/skills/synapse-a2a/SKILL.md",
+        ".claude/skills/synapse-a2a/SKILL.md",
+    ):
+        text = _read(relative_path)
+        for token in expected_tokens:
+            assert token in text, f"{relative_path} missing token: {token!r}"
+
+
 def test_worker_guide_waits_for_helper_completion_before_kill() -> None:
     text = _read(
         "plugins/synapse-a2a/skills/synapse-manager/references/worker-guide.md"

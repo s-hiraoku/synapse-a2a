@@ -105,6 +105,41 @@ def test_save_with_all_agent_fields(store) -> None:
     assert a.worktree is True
 
 
+def test_publish_and_import_shared_session(
+    session_dirs: tuple[Path, Path],
+    tmp_path: Path,
+) -> None:
+    """Sessions should round-trip through a team shared storage directory."""
+    from synapse.session import Session, SessionAgent, SessionStore
+
+    project_dir, user_dir = session_dirs
+    shared_dir = tmp_path / "shared-sessions"
+    store = SessionStore(
+        project_dir=project_dir,
+        user_dir=user_dir,
+        shared_dir=shared_dir,
+    )
+    store.save(
+        Session(
+            session_name="review-team",
+            agents=[SessionAgent(profile="claude", name="Reviewer")],
+            working_dir="/project",
+            created_at=1700000000.0,
+            scope="project",
+        )
+    )
+
+    published = store.publish("review-team")
+    store.delete("review-team", scope="project")
+    imported = store.import_shared("review-team", scope="project")
+
+    assert published == shared_dir / "review-team.json"
+    assert imported == project_dir / "review-team.json"
+    loaded = store.load("review-team", scope="project")
+    assert loaded is not None
+    assert loaded.agents[0].name == "Reviewer"
+
+
 # ── upsert (overwrite same name) ────────────────────────────
 
 

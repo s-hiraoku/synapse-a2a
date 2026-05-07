@@ -289,6 +289,35 @@ When Smart Suggest is enabled, the default instruction resource automatically in
 !!! tip "From Suggestion to Plan Card"
     When `analyze_task` returns a suggestion, the agent can post it as a Canvas Plan Card (`synapse canvas plan`). See [Canvas -- Plan Template](canvas.md#plan).
 
+### canvas_post
+
+Posts content to Canvas through MCP without shell escaping. Use this when an MCP client wants to publish a card that contains quotes, backticks, JSON, Mermaid, or other text that would be awkward to pass through a shell command.
+
+**Input schema:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `format` | string | Yes | Canvas content format, such as `markdown`, `mermaid`, `json`, `code`, or `html` |
+| `body` | string | Yes | Card body. For structured formats, pass the JSON payload as a string |
+| `title` | string | No | Optional card title |
+| `tags` | string or array | No | Optional comma-separated tags or tag list |
+
+**Example call** (JSON-RPC `tools/call`):
+
+```json
+{
+  "name": "canvas_post",
+  "arguments": {
+    "format": "markdown",
+    "title": "Implementation Summary",
+    "body": "## Done\n- Tests added\n- Docs updated",
+    "tags": "handoff,docs"
+  }
+}
+```
+
+The response includes the created card metadata, including the card ID. This is the MCP equivalent of `synapse canvas post <format> "<body>" --title "<title>"`, but avoids shell quoting problems.
+
 ## Verification
 
 After configuring, restart the agent and check that the MCP server connects:

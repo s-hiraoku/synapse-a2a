@@ -108,6 +108,30 @@ Without scope flags, session commands use project scope in the current repositor
 !!! tip "Sharing sessions"
     Project-scope session files live in `.synapse/sessions/` and can be committed to version control. This lets team members share reusable team presets.
 
+## Shared Session Handoff
+
+For team handoff without committing session files, set `SYNAPSE_SHARED_SESSION_DIR` to a team-accessible directory such as a shared volume or synced folder.
+
+```bash
+export SYNAPSE_SHARED_SESSION_DIR=/path/to/team/sessions
+
+# Publish an existing local saved session to the shared directory
+synapse session publish review-team
+
+# Import the shared snapshot into the current project scope
+synapse session import review-team
+```
+
+`publish` copies the selected saved session JSON to the shared directory. `import` copies it back into the selected local session store, where it behaves like a normal `session save` snapshot and can be restored with `synapse session restore`.
+
+Both commands accept the same scope selectors as other session commands:
+
+```bash
+synapse session publish review-team --user
+synapse session import review-team --project
+synapse session import review-team --workdir /path/to/project
+```
+
 ## Worktree Support
 
 You can restore directly into isolated worktrees:

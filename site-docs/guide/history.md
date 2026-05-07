@@ -32,6 +32,19 @@ synapse history search "OAuth JWT" --logic AND    # Both terms
 synapse history search "OAuth JWT" --logic OR     # Either term
 ```
 
+## Probabilistic Recall
+
+Agents can use saved task history as a lightweight memory source. `HistoryManager.recall_observations` scores past observations with a probabilistic recall model instead of returning every matching row.
+
+The selector balances:
+
+- **recency** — newer observations are easier to recall
+- **importance** — high-signal events are favored over routine noise
+- **keyword overlap** — prompts sharing terms with prior observations rank higher
+- **bounded randomness** — similar candidates are sampled so agents do not repeat the exact same memory block every time
+
+This powers project-adaptive context without turning history into an unbounded prompt dump. The recall output is a compact memory block that can be added to an agent's startup or task context when a caller explicitly asks for related past observations.
+
 ## Statistics
 
 ```bash

@@ -369,7 +369,7 @@ class TestKillConfirmFooter:
     """Tests for kill confirmation footer in Rich TUI."""
 
     def test_footer_shows_kill_hint_when_selected(self):
-        """Test footer shows 'K:kill' when agent is selected."""
+        """Test footer shows 'k:kill' when agent is selected."""
         from synapse.commands.renderers.rich_renderer import RichRenderer
 
         renderer = RichRenderer()
@@ -382,7 +382,7 @@ class TestKillConfirmFooter:
         )
 
         footer_str = str(footer)
-        assert "K" in footer_str
+        assert "k" in footer_str
         assert "kill" in footer_str
 
     def test_footer_shows_kill_confirmation(self):
@@ -410,7 +410,7 @@ class TestKillConfirmFooter:
         assert "n" in footer_str
 
     def test_footer_no_kill_hint_without_selection(self):
-        """Test footer does not show 'K:kill' when no agent selected."""
+        """Test footer does not show 'k:kill' when no agent selected."""
         from synapse.commands.renderers.rich_renderer import RichRenderer
 
         renderer = RichRenderer()
@@ -424,10 +424,10 @@ class TestKillConfirmFooter:
 
         footer_str = str(footer)
         # Should not show kill when nothing is selected
-        assert "K:kill" not in footer_str
+        assert "k:kill" not in footer_str
 
-    def test_footer_shows_hjkl_navigation_hint(self):
-        """Test footer shows hjkl navigation hint in interactive mode."""
+    def test_footer_shows_arrow_navigation_hint(self):
+        """Test footer shows arrow navigation hint in interactive mode."""
         from synapse.commands.renderers.rich_renderer import RichRenderer
 
         renderer = RichRenderer()
@@ -440,7 +440,8 @@ class TestKillConfirmFooter:
         )
 
         footer_str = str(footer)
-        assert "hjkl" in footer_str
+        assert "↑↓" in footer_str
+        assert "hjkl" not in footer_str
 
 
 class TestFilterModeFooter:

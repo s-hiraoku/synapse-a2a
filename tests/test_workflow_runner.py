@@ -92,6 +92,116 @@ async def test_run_workflow_all_steps_succeed(monkeypatch):
     assert run.completed_at is not None
 
 
+@pytest.mark.asyncio
+async def test_run_workflow_executes_ready_dag_steps_in_parallel(monkeypatch):
+    """Steps whose dependencies are satisfied should run concurrently."""
+    started: list[str] = []
+    release = asyncio.Event()
+
+    async def _mock_send(endpoint, wf_step, sender_info):
+        started.append(wf_step.id)
+        if wf_step.id in {"test", "lint"}:
+            if len([s for s in started if s in {"test", "lint"}]) == 2:
+                release.set()
+            await asyncio.wait_for(release.wait(), timeout=1)
+        return 0, wf_step.id, "", f"task-{wf_step.id}"
+
+    _patch_workflow_send(monkeypatch, _mock_send)
+
+    wf = Workflow(
+        name="dag",
+        steps=[
+            WorkflowStep(id="review", target="agent1", message="review"),
+            WorkflowStep(
+                id="test",
+                target="agent2",
+                message="test",
+                depends_on=["review"],
+            ),
+            WorkflowStep(
+                id="lint",
+                target="agent3",
+                message="lint",
+                depends_on=["review"],
+            ),
+            WorkflowStep(
+                id="deploy",
+                target="agent4",
+                message="deploy",
+                depends_on=["test", "lint"],
+            ),
+        ],
+        scope="project",
+    )
+
+    run_id = await run_workflow(wf)
+    await asyncio.sleep(0.2)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "completed"
+    assert started.index("review") < started.index("test")
+    assert started.index("review") < started.index("lint")
+    assert started.index("deploy") > started.index("test")
+    assert started.index("deploy") > started.index("lint")
+
+
+@pytest.mark.asyncio
+async def test_run_workflow_skips_all_success_step_after_failed_dependency(
+    monkeypatch,
+):
+    """A dependent all_success step should be skipped after a failed dependency."""
+
+    async def _mock_send(endpoint, wf_step, sender_info):
+        if wf_step.id == "test":
+            return 1, "", "boom", ""
+        return 0, wf_step.id, "", f"task-{wf_step.id}"
+
+    _patch_workflow_send(monkeypatch, _mock_send)
+
+    wf = Workflow(
+        name="conditional",
+        steps=[
+            WorkflowStep(id="review", target="agent1", message="review"),
+            WorkflowStep(
+                id="test",
+                target="agent2",
+                message="test",
+                depends_on=["review"],
+            ),
+            WorkflowStep(
+                id="cleanup",
+                target="agent3",
+                message="cleanup",
+                depends_on=["test"],
+                condition="always",
+            ),
+            WorkflowStep(
+                id="deploy",
+                target="agent4",
+                message="deploy",
+                depends_on=["test"],
+                condition="all_success",
+            ),
+        ],
+        scope="project",
+    )
+
+    run_id = await run_workflow(wf, continue_on_error=True)
+    await asyncio.sleep(0.2)
+
+    run = get_run(run_id)
+    assert run is not None
+    by_id = {
+        workflow_step.id: result
+        for workflow_step, result in zip(wf.steps, run.steps, strict=True)
+    }
+    assert run.status == "failed"
+    assert by_id["test"].status == "failed"
+    assert by_id["cleanup"].status == "completed"
+    assert by_id["deploy"].status == "skipped"
+
+
 # ---------------------------------------------------------------------------
 # 2. Step fails -> run stops (default behaviour)
 # ---------------------------------------------------------------------------

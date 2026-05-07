@@ -45,6 +45,8 @@ synapse codex -- resume <sessionId>
     ```
     The saved agent's profile must match the shortcut profile (e.g., a `gemini` saved agent cannot be used with `synapse claude`). See [Saved Agent Definitions](../guide/agent-teams.md#saved-agent-definitions) for details.
 
+    Saved-agent petnames are also stored on the live registry as `agent_definition_id` and can be used as stable target aliases for commands such as `synapse send`, `synapse status`, `synapse jump`, and `synapse kill`.
+
 ### Background Start
 
 ```bash
@@ -75,7 +77,7 @@ synapse list --plain         # One-shot plain text (no TUI)
 synapse list --json          # Output agent list as JSON array
 ```
 
-Interactive TUI with real-time updates. See [Agent Management](../guide/agent-management.md) for controls.
+Interactive TUI with real-time updates. Use `↑↓` or `1`-`9` to select rows, `Enter` or `j` to jump to the selected terminal, and `k` to kill the selected agent after confirmation. See [Agent Management](../guide/agent-management.md) for full controls.
 
 | Flag | Description |
 |------|-------------|
@@ -210,6 +212,24 @@ synapse agents add <id> --name NAME --profile PROFILE [OPTIONS]
 | `--skill-set SET` / `-S SET` | Skill set name |
 | `--scope SCOPE` | `project` (default) or `user` |
 
+### Set Profile Defaults
+
+```bash
+synapse agents set <profile> --name NAME [--role ROLE] [--skill-set SET] [--scope project|user]
+synapse agents unset <profile> [--scope project|user]
+```
+
+`agents set` writes the issue #302 `agents.json` format under `.synapse/` or `~/.synapse/`. These defaults apply automatically when starting the matching shortcut, for example `synapse claude`, and CLI flags override individual fields.
+
+### Role Templates
+
+```bash
+synapse agents roles
+synapse agents roles create <name> [--content MARKDOWN | --file PATH] [--scope project|user]
+```
+
+Role templates are Markdown files under `.synapse/roles/` or `~/.synapse/roles/`. Use them from defaults or CLI flags as `@./roles/<name>.md`.
+
 ### Delete Saved Agent
 
 ```bash
@@ -278,6 +298,8 @@ synapse reply --stdin                      # Read reply body from stdin
 synapse reply --list-targets               # List pending senders
 ```
 
+Use `synapse reply` only for a Synapse-tracked incoming message, such as `[REPLY EXPECTED]` or a response path created by `synapse send --wait`. For user-pasted A2A text, Synapse has no reply target; use `synapse send` to continue the conversation instead.
+
 !!! tip "Long or shell-unsafe replies (#673)"
     `--message-file` / `-F` and `--stdin` mirror the same flags on `synapse send`, so replies containing backticks, `$()`, or `${}` shell metacharacters can be passed via file or pipe instead of as a positional argument the shell may try to expand. Reply still uses fixed `priority=3` and `silent` response mode — other `send` flags were intentionally not mirrored because they conflict with reply semantics.
 
@@ -329,6 +351,20 @@ synapse send-keys synapse-codex-8121 yes --enter
 
 !!! warning "Use sparingly"
     `send-keys` is intentionally low-level and bypasses every safeguard `send` provides (readiness gate, history, priority queue). Reach for `synapse send` / `synapse interrupt` first; only fall back here when an agent is wedged on a CLI dialog and no message-based path will reach it.
+
+### Dialog Respond
+
+```bash
+synapse dialog-respond <target> (--choice N | --confirm | --deny | --text TEXT)
+```
+
+High-level wrapper around `send-keys` for common TUI dialogs. The response is submitted with Enter.
+
+```bash
+synapse dialog-respond synapse-codex-8121 --confirm
+synapse dialog-respond synapse-codex-8121 --choice 2
+synapse dialog-respond synapse-codex-8121 --text yes
+```
 
 ## Team Operations
 
@@ -404,6 +440,15 @@ Saves running agents in the current working directory as a named snapshot.
 ```bash
 synapse session list [--project | --user | --workdir DIR]
 ```
+
+### Share Sessions
+
+```bash
+synapse session publish <name> [--project | --user | --workdir DIR]
+synapse session import <name> [--project | --user | --workdir DIR]
+```
+
+Set `SYNAPSE_SHARED_SESSION_DIR` to a team-accessible directory. `publish` copies the selected saved session JSON there; `import` copies it back into the selected local scope. The snapshot format is the same as ordinary `session save`, so imported sessions can be restored with `synapse session restore`.
 
 ### Show Session
 
@@ -522,6 +567,7 @@ synapse skills deploy <name> --agent <types> [--scope SCOPE]
 synapse skills import <name> [--from SCOPE]
 synapse skills add <repo>
 synapse skills create [name]                   # Create new skill template
+synapse skills create [name] --launch-agent    # Spawn an agent to finish it with anthropic-skill-creator
 synapse skills set list
 synapse skills set show <name>
 synapse skills apply <target> <set_name> [--dry-run]
@@ -953,9 +999,6 @@ Initializes the wiki directory structure (`pages/`, `sources/`, `schema.md`, `in
 See [LLM Wiki Design](../design/llm-wiki.md) for the full design document.
 
 ## Self-Learning Pipeline
-
-!!! warning "Not yet available"
-    `synapse learn`, `synapse instinct`, and `synapse evolve` are planned commands but are not yet accessible via the CLI in the current release. See issue `#540` for tracking.
 
 ### Learn
 

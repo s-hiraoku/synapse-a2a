@@ -204,6 +204,47 @@ class TestCliMain:
         assert args.id == "silent-snake"
         assert args.name == "Alice"
 
+    @patch("synapse.cli.cmd_agents_set")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_agents_set(self, mock_install, mock_cmd_agents_set):
+        """synapse agents set should configure an agents.json profile default."""
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "synapse",
+                "agents",
+                "set",
+                "claude",
+                "--name",
+                "Alice",
+                "--role",
+                "@./roles/architect.md",
+                "--scope",
+                "project",
+            ],
+        ):
+            main()
+
+        mock_cmd_agents_set.assert_called_once()
+        args = mock_cmd_agents_set.call_args[0][0]
+        assert args.command == "agents"
+        assert args.agents_command == "set"
+        assert args.profile == "claude"
+        assert args.name == "Alice"
+
+    @patch("synapse.cli.cmd_agents_roles")
+    @patch("synapse.cli.install_skills")
+    def test_main_command_agents_roles(self, mock_install, mock_cmd_agents_roles):
+        """synapse agents roles should list role templates."""
+        with patch.object(sys, "argv", ["synapse", "agents", "roles"]):
+            main()
+
+        mock_cmd_agents_roles.assert_called_once()
+        args = mock_cmd_agents_roles.call_args[0][0]
+        assert args.command == "agents"
+        assert args.agents_command == "roles"
+
     @patch("synapse.cli.cmd_history_list")
     @patch("synapse.cli.install_skills")
     def test_main_command_history_list(self, mock_install, mock_cmd_history_list):
@@ -628,6 +669,47 @@ class TestCliMain:
     @patch("synapse.cli.AgentRegistry")
     @patch("synapse.cli.AgentProfileStore")
     @patch("synapse.cli.install_skills")
+    def test_main_shortcut_uses_agents_json_defaults(
+        self,
+        mock_install,
+        mock_store_cls,
+        mock_registry,
+        mock_pm,
+        mock_run_interactive,
+    ):
+        """Profile defaults from agents.json should apply before setup prompts."""
+        mock_pm_inst = mock_pm.return_value
+        mock_pm_inst.allocate_and_register.return_value = (8100, "synapse-claude-8100")
+        mock_store = mock_store_cls.return_value
+        mock_store.get_default_profile.return_value = SimpleNamespace(
+            name="default-name",
+            role="default-role",
+            skill_set="default-set",
+        )
+
+        with patch.object(sys, "argv", ["synapse", "claude"]):
+            main()
+
+        mock_store.get_default_profile.assert_called_once_with("claude")
+        mock_run_interactive.assert_called_once_with(
+            "claude",
+            8100,
+            [],
+            name="default-name",
+            role="default-role",
+            no_setup=False,
+            delegate_mode=False,
+            skill_set="default-set",
+            headless=False,
+            profile_store=mock_store,
+            agent_definition_id="claude",
+        )
+
+    @patch("synapse.cli.cmd_run_interactive")
+    @patch("synapse.cli.PortManager")
+    @patch("synapse.cli.AgentRegistry")
+    @patch("synapse.cli.AgentProfileStore")
+    @patch("synapse.cli.install_skills")
     def test_main_shortcut_with_agent_resolves_saved_definition(
         self, mock_install, mock_store_cls, mock_registry, mock_pm, mock_run_interactive
     ):
@@ -658,6 +740,7 @@ class TestCliMain:
             skill_set="saved-set",
             headless=False,
             profile_store=mock_store,
+            agent_definition_id="silent-snake",
         )
 
     @patch("synapse.cli.PortManager")

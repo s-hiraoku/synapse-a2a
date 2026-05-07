@@ -209,6 +209,68 @@ def test_save_workdir_uses_workdir_project_store(tmp_path: Path) -> None:
     MockStore.assert_called_once_with(project_dir=target_dir / ".synapse" / "sessions")
 
 
+def test_publish_uses_shared_session_store(
+    session_dirs: tuple[Path, Path],
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    """publish should copy a local session to shared storage."""
+    from synapse.commands.session import cmd_session_publish
+    from synapse.session import Session, SessionAgent
+
+    project_dir, user_dir = session_dirs
+    shared_dir = tmp_path / "shared"
+    store = _make_store(project_dir, user_dir, shared_dir=shared_dir)
+    store.save(
+        Session(
+            session_name="team",
+            agents=[SessionAgent(profile="claude")],
+            working_dir="/p",
+            created_at=time.time(),
+            scope="project",
+        )
+    )
+
+    with patch("synapse.commands.session._get_session_store", return_value=store):
+        cmd_session_publish(_make_args(session_name="team"))
+
+    assert (shared_dir / "team.json").exists()
+    assert "published" in capsys.readouterr().out
+
+
+def test_import_shared_uses_shared_session_store(
+    session_dirs: tuple[Path, Path],
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture,
+) -> None:
+    """import should copy a shared session into the selected local scope."""
+    from synapse.commands.session import cmd_session_import
+    from synapse.session import Session, SessionAgent
+
+    project_dir, user_dir = session_dirs
+    shared_dir = tmp_path / "shared"
+    source_store = _make_store(project_dir, user_dir, shared_dir=shared_dir)
+    source_store.save(
+        Session(
+            session_name="team",
+            agents=[SessionAgent(profile="claude")],
+            working_dir="/p",
+            created_at=time.time(),
+            scope="project",
+        )
+    )
+    source_store.publish("team")
+    source_store.delete("team", scope="project")
+
+    with patch(
+        "synapse.commands.session._get_session_store", return_value=source_store
+    ):
+        cmd_session_import(_make_args(session_name="team"))
+
+    assert (project_dir / "team.json").exists()
+    assert "imported" in capsys.readouterr().out
+
+
 # ── cmd_session_list ─────────────────────────────────────────
 
 
@@ -619,11 +681,13 @@ def test_restore_exits_nonzero_on_spawn_failure(
 # ── helpers ──────────────────────────────────────────────────
 
 
-def _make_store(project_dir: Path, user_dir: Path):
+def _make_store(project_dir: Path, user_dir: Path, *, shared_dir: Path | None = None):
     """Create a SessionStore with custom directories."""
     from synapse.session import SessionStore
 
-    return SessionStore(project_dir=project_dir, user_dir=user_dir)
+    return SessionStore(
+        project_dir=project_dir, user_dir=user_dir, shared_dir=shared_dir
+    )
 
 
 # ── cmd_session_restore with --resume ────────────────────

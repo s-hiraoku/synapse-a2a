@@ -144,7 +144,7 @@ flowchart LR
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. Defaults to `--worktree` isolation (opt out with `--no-worktree`). `--all-new` to start all in new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij) |
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --silent` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
-| **Saved Agent Definitions** | `synapse agents add/list/show/delete` — Save reusable agent templates (profile + name + role + skill set) with persistent **Agent IDs**. `synapse spawn` accepts Agent IDs/names in addition to profile names |
+| **Saved Agent Definitions** | `synapse agents add/list/show/delete` plus `agents set/unset/roles` — Save reusable agent templates or profile defaults (profile + name + role + skill set). `synapse spawn` accepts Agent IDs/names, `synapse <profile>` can load `.synapse/agents.json` defaults, and running agents expose the saved petname as `agent_definition_id` so commands can target the stable ID instead of the port-based runtime ID |
 | **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. **Auto-tiles (tmux)**: when a second or subsequent agent is spawned, `tmux select-layout tiled` is automatically applied for even pane distribution (no flags needed). Use `--worktree` / `-w` for Synapse-native git worktree isolation (all agents, `.synapse/worktrees/`). `--branch` / `-b` auto-enables `--worktree` and sets the base branch (defaults to `origin/main`). Use `--no-worktree` to opt out. `--task "message"` / `--task-file path` auto-sends a task after the agent becomes READY (with `--task-timeout`, `--wait`/`--notify`/`--silent`). **Recommended pattern**: `synapse spawn <profile> --task-file <path> --task-timeout 600 --notify`. Legacy `-- --worktree` also supported for Claude Code only |
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 | **Issue Bootstrap** | `/dev-issue <number>` slash command bootstraps issue implementation in one step — fetches the issue from GitHub, generates a task brief, creates a feature branch (`feat/<slug>-<number>`), and spawns a Codex agent on it ([#643](https://github.com/s-hiraoku/synapse-a2a/pull/643)) |
@@ -152,7 +152,7 @@ flowchart LR
 | **Proactive Mode** | `SYNAPSE_PROACTIVE_MODE_ENABLED=true` guides agents to use Synapse features (shared memory, canvas, file safety, delegation, broadcast) based on a task-size x feature matrix. Small tasks skip most features; medium tasks use them selectively; large tasks require full coordination. Per-feature skip conditions prevent unnecessary overhead. Follows the learning_mode pattern: env var activation + `.synapse/proactive.md` instruction file appended at startup. Off by default |
 | **Shared Memory** | **Deprecated** — superseded by LLM Wiki (see below). User-global SQLite knowledge base (`~/.synapse/memory.db`) for cross-agent knowledge sharing. Agents save, search, and retrieve learned knowledge across sessions (`synapse memory save/list/search/show/delete/stats`). API endpoints at `/memory/*`. Enabled by default (`SYNAPSE_SHARED_MEMORY_ENABLED=true`). New knowledge should use `synapse wiki` instead. See [Shared Memory vs LLM Wiki](docs/synapse-reference.md#shared-memory-vs-llm-wiki) |
 | **LLM Wiki** | Knowledge accumulation layer inspired by Karpathy's LLM Wiki pattern. Agents build and maintain a structured, interlinked Markdown knowledge base with frontmatter metadata, `[[wikilink]]` cross-references, and confidence scores. Two scopes: `.synapse/wiki/` (project) and `~/.synapse/wiki/` (global). CLI: `synapse wiki ingest/query/lint/status/refresh/init`. **Living Docs**: pages track `source_files` and `source_commit` in frontmatter; `lint`/`status` detect stale pages when tracked files change; `refresh --apply` updates commit SHAs. Page types: entity, concept, decision, comparison, synthesis, learning. Canvas Knowledge view at `#/knowledge`; `GET /api/wiki/graph` returns a Mermaid diagram of page links. MCP instruction `synapse://instructions/wiki`. Config: `wiki.enabled` (default `true`). See [LLM Wiki Design](docs/design/llm-wiki.md) |
-| **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete/sessions`). Each agent's CLI conversation `session_id` is automatically captured and stored in the registry at startup. Restoring with `--resume` uses the saved `session_id` to resume each agent's conversation history, with an automatic 10-second timeout fallback if resume fails (see the Resume Mode section in the guide for details) |
+| **Session Save/Restore** | Save running team configurations as named snapshots and restore them later (`synapse session save/list/show/restore/delete/sessions`). `session publish/import` syncs snapshots through `SYNAPSE_SHARED_SESSION_DIR` for team handoff. Each agent's CLI conversation `session_id` is automatically captured and stored in the registry at startup. Restoring with `--resume` uses the saved `session_id` to resume each agent's conversation history, with an automatic 10-second timeout fallback if resume fails (see the Resume Mode section in the guide for details) |
 | **Workflow** | Define reusable YAML-based message sequences and execute them with `synapse workflow run`. Each workflow is a named list of steps (target, message, priority, response_mode). Supports `--dry-run` to preview, `--continue-on-error` for resilient execution, `--auto-spawn` for automatic agent spawning, and `--async` for background execution (returns `run_id`; check progress with `synapse workflow status <run_id>`). **`target: self`**: steps can target the calling agent itself; a helper agent is auto-spawned to avoid deadlock (nested workflow execution from helpers is forbidden, max depth 1). **Bare-type targets respect caller CWD**: `target: claude` resolves only to agents in the workflow runner's working directory, so it never dispatches to a same-type agent in a different project; combine with `auto_spawn` to start a fresh one when none exists ([#568](https://github.com/s-hiraoku/synapse-a2a/issues/568) / [#645](https://github.com/s-hiraoku/synapse-a2a/pull/645)). **Persistent execution history**: completed runs are stored in SQLite (`.synapse/workflow_runs.db`) and survive server restarts; active runs are cached in memory with DB fallback. Workflow-level `trigger` and `auto_spawn` fields enable skill auto-generation: creating or syncing a workflow produces a SKILL.md (marked `<!-- synapse-workflow-autogen -->`) in `.claude/skills/` and `.agents/skills/`, making workflows discoverable as slash-command skills. Use `synapse workflow sync` to regenerate all skills and remove orphans. Stored in `.synapse/workflows/` (project) or `~/.synapse/workflows/` (user). See [Workflow Self-Target](docs/synapse-reference.md#workflow-target-self-helper-agent) |
 | **Canvas** | Shared visual output surface for agents. Renders diagrams (Mermaid with theme-synced palettes), tables, charts, code, diffs, and 25 content formats in a browser UI. Enhanced markdown rendering with tables, blockquotes, ordered lists, and inline formatting via a built-in state-machine parser. Includes `progress`, `terminal`, `dependency-graph`, and `cost` card types. Supports 6 layout templates: `briefing`, `comparison`, `dashboard`, `steps`, `slides`, `plan` for structured multi-block cards. **Plan Card** template visualizes task plans with Mermaid DAG + step list, status tracking (proposed/active/completed/cancelled). Task card expand/collapse state persists across dashboard polling updates. **HTML Artifact Support**: `format: "html"` sandboxed iframes with parent-iframe theme sync (CSS variables `--bg`, `--fg`, `--border` via postMessage), auto-resize (ResizeObserver), dark mode CSS, and full document normalization (extracts head/body from `<!doctype html>` documents). CLI shortcuts: `synapse canvas mermaid/markdown/table/chart/briefing/plan/...`. Server: `synapse canvas serve` (port 3000). **Agent Control**: interactive Agent Control tab (formerly "Admin") for sending messages to agents, viewing responses, and managing the fleet from the browser. Agent selection via clickable table rows (double-click to jump to agent's terminal, right-click context menu with Kill Agent action and confirm modal), multi-line textarea with Cmd+Enter, IME support, multi-artifact response extraction, terminal junk stripping. **Card Download**: export any card via `GET /api/cards/{card_id}/download?format={format}` — all 25 content formats map to optimal download formats (Markdown, JSON, CSV, HTML, native); 6 templates export as Markdown/JSON. Download buttons in card grid headers and Spotlight title bar. **Clipboard Copy**: copy any card as Markdown to the clipboard via the copy button (reuses the download endpoint with `?format=md`); available in both card grid headers and Spotlight view. **Spotlight navigation**: keyboard shortcuts (ArrowLeft/Right to navigate cards, Escape to exit manual navigation and return to live/latest mode), spotlight-swap animations, template badge in title bar, minimal info bar mode, and mobile-responsive layout. **DB Browser**: sidebar tree + paginated table view for inspecting Synapse SQLite databases (`/api/db/list`, `/api/db/{db}/{table}` endpoints; `task_board.db` is excluded). **Dashboard**: responsive auto-fit grid layout. **Accessibility**: agent panel uses `role=button`, `tabindex`, `aria-expanded`, and `focus-visible` styling. **Sidebar menu**: Canvas, History, Dashboard, Agent Control, Workflow, Database, Harnesses (landing) / Skills (tree-table of discovered skills at `#/harnesses/skills`; two-level hierarchy: **User Global** (subdivided by agent harness: Claude Code `.claude/skills/**` vs shared `.agents/skills/**`) → **Projects** (per-directory, further split by agent bucket when applicable) → **Synapse Central Store**; columns NAME / DESCRIPTION / LOCATION; collapsible with incremental name filter) / MCP Servers (tree-table of configured MCP servers at `#/harnesses/mcp`; two-level hierarchy: **User Global** (subdivided per agent: Claude Code `~/.claude.json`, Codex `~/.codex/config.toml` TOML, Gemini `~/.gemini/settings.json`, OpenCode `~/.config/opencode/opencode.json`, Claude Desktop) → **Projects** (per `.mcp.json`; projects without one render as a dashed-folder "no .mcp.json" row so scanned-but-unconfigured is distinguished from not-seen); columns NAME / COMMAND / DETAILS where DETAILS shows transport `type` and `env:KEY` chips — env values are never sent to the browser), System. See [Canvas Design](docs/design/canvas.md), [Admin Command Center](docs/admin-command-center.md) |
 | **Smart Suggest** | `analyze_task` MCP tool analyzes user prompts and returns a `delegation_strategy` (`self`, `subagent`, or `spawn`) along with rich context (`diff_stats`, `file_conflicts`, `dependencies`, `parallelizable`) and a `recommended_worktree` field (`true` when spawn strategy or high file conflicts detected). Accepts optional `files` and `agent_type` params. When collaboration would be beneficial, suggests team/task splits displayed as Plan Cards on Canvas. Trigger conditions (file count, multi-directory changes, missing tests, prompt complexity, keywords) are configurable via `.synapse/suggest.yaml`. See [Smart Suggest Design (Japanese)](docs/design/smart-suggest-plan-canvas.md) |
@@ -545,7 +545,8 @@ synapse skills move <name> --to <scope>
 synapse skills import <name>                 # Import from agent dirs to ~/.synapse/skills/
 synapse skills deploy <name> --agent claude,codex --scope user
 synapse skills add <repo>                    # Install from repo (legacy wrapper; prefer `gh skill install`)
-synapse skills create                        # Show guided skill creation steps
+synapse skills create [name]                 # Create a skill template
+synapse skills create [name] --launch-agent  # Spawn an agent to finish it with anthropic-skill-creator
 
 # Skill sets (named groups)
 synapse skills set list
@@ -656,6 +657,24 @@ Each agent is:
 | Patterns | `synapse/patterns/` | Multi-agent coordination patterns (base, store, runner) |
 | MultiagentCmd | `synapse/commands/multiagent.py` | CLI handlers for `synapse multiagent` / `synapse map` |
 | MCP Server | `synapse/mcp/` | MCP bootstrap resource server (instructions, settings, agent card) |
+
+### Responsibility Boundaries
+
+Synapse keeps the runtime split into four dependency layers. Lower layers do not import higher layers.
+
+```mermaid
+flowchart TB
+    Core["Core: A2A protocol, task lifecycle, status"]
+    Adapters["Adapters: claude/codex/gemini profiles and HTTP wrappers"]
+    Runtime["Runtime: CLI, PTY controller, registry, worktrees"]
+    Extensions["Extensions: Canvas, skills, hooks, workflows, self-learning"]
+
+    Extensions --> Runtime
+    Runtime --> Adapters
+    Adapters --> Core
+```
+
+The practical rule is: protocol/task code stays in `a2a_*`, `task_store.py`, `status.py`, and `transport.py`; provider-specific behavior lives in profile/adaptor modules; PTY and process orchestration stay in runtime modules; optional capabilities build on top through `synapse/commands/`, `synapse/canvas/`, workflow, hooks, and skills.
 
 ### Startup Sequence
 
@@ -794,7 +813,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse rename <target>` | Assign name/role to agent |
 | `synapse set-summary <target> [text]` | Set persistent agent summary (120 chars). `--auto` generates from git context, `--clear` removes |
 | `synapse --version` | Show version |
-| `synapse list` | List running agents (Rich TUI in alternate screen with auto-refresh and terminal jump) |
+| `synapse list` | List running agents (Rich TUI in alternate screen with auto-refresh, `↑↓`/`1-9` selection, `Enter`/`j` terminal jump, and `k` kill confirmation) |
 | `synapse list --plain` | Force one-shot plain-text output without entering the TUI |
 | `synapse list --json` | Output agent list as JSON array (for AI/programmatic consumption) |
 | `synapse status <target>` | Show detailed agent status (info, current task, history, file locks). Supports `--json` |
@@ -832,7 +851,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse skills deploy <name>` | Deploy skill from central store to agent dirs |
 | `synapse skills import <name>` | Import skill to central store (~/.synapse/skills/) |
 | `synapse skills add <repo>` | Install skill from repository (legacy wrapper; prefer `gh skill install <repo> <skill>`) |
-| `synapse skills create [name]` | Create new skill template |
+| `synapse skills create [name]` | Create new skill template. Add `--launch-agent [--agent claude|codex|gemini]` to deploy `anthropic-skill-creator` and spawn an agent with the right starter task |
 | `synapse skills set list` | List skill sets |
 | `synapse skills set show <name>` | Show skill set details |
 | `synapse skills apply <target> <set_name>` | Apply skill set to running agent (`--dry-run` to preview) |
@@ -850,10 +869,15 @@ Save this agent definition for reuse? [y/N]:
 | `synapse agents list` | List saved agent definitions |
 | `synapse agents show <id_or_name>` | Show details for a saved agent |
 | `synapse agents add <id>` | Add or update a saved agent definition (requires `--name`, `--profile`) |
+| `synapse agents set <profile>` | Set `.synapse/agents.json` defaults for `synapse <profile>` startup |
+| `synapse agents unset <profile>` | Remove an `agents.json` profile default |
+| `synapse agents roles` | List Markdown role templates from `.synapse/roles` and `~/.synapse/roles` |
 | `synapse agents delete <id_or_name>` | Delete a saved agent by ID or name |
 | `synapse session save <name>` | Save running agents as a named session snapshot (captures `session_id` for resume) |
 | `synapse session list` | List saved sessions |
 | `synapse session show <name>` | Show session details (includes `session_id` per agent) |
+| `synapse session publish <name>` | Publish a saved session JSON to `SYNAPSE_SHARED_SESSION_DIR` for team handoff |
+| `synapse session import <name>` | Import a shared session JSON into the local project/user session store |
 | `synapse session restore <name>` | Restore a saved session (spawns agents). Use `--resume` to resume each agent's CLI conversation |
 | `synapse session delete <name>` | Delete a saved session |
 | `synapse workflow create <name>` | Create a workflow template YAML |
@@ -1172,6 +1196,8 @@ synapse reply --fail "reason for failure"           # Send a failed reply
 ```
 
 The `--from` flag is only needed in sandboxed environments (like Codex). Without `--from`, Synapse auto-detects the sender. Use `--fail` to indicate the task could not be completed; this sends a failed status with an error instead of a normal text reply.
+
+Use `synapse reply` only for a Synapse-tracked incoming message, such as one marked `[REPLY EXPECTED]` or created by `synapse send --wait`. For user-pasted A2A text, Synapse has no reply target; use `synapse send` to continue the conversation instead.
 
 **Long replies / shell-expandable content:** `--message-file` (`-F`) and `--stdin` mirror the same flags on `synapse send`, letting you supply replies that contain backticks, code fences, or other content that would otherwise be expanded or warned about by the shell. Other `synapse send` flags (`--priority`, `--wait` / `--notify` / `--silent`, `--attach`) are intentionally not mirrored — replies always use priority 3 in silent response mode.
 

@@ -98,6 +98,31 @@ def cmd_session_save(args: argparse.Namespace) -> None:
     print(f"Session '{name}' saved ({len(agents)} agents) → {path}")
 
 
+def cmd_session_publish(args: argparse.Namespace) -> None:
+    """Publish a local session snapshot to shared session storage."""
+    scope, workdir = resolve_scope_filter(args)
+    store = _get_session_store(workdir)
+    try:
+        path = store.publish(args.session_name, scope=scope)
+    except SessionError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Session '{args.session_name}' published → {path}")
+
+
+def cmd_session_import(args: argparse.Namespace) -> None:
+    """Import a shared session snapshot into a local scope."""
+    scope, workdir = resolve_scope_filter(args)
+    target_scope = scope or "project"
+    store = _get_session_store(workdir)
+    try:
+        path = store.import_shared(args.session_name, scope=target_scope)
+    except SessionError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Session '{args.session_name}' imported → {path}")
+
+
 # ── list ─────────────────────────────────────────────────────
 
 

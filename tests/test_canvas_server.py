@@ -1536,6 +1536,60 @@ class TestWorkflowAPI:
         assert resp.status_code == 200
         assert resp.json()["workflows"] == []
 
+    def test_workflow_crud_api_saves_updates_and_deletes_workflow(
+        self, tmp_path, monkeypatch
+    ):
+        """Canvas workflow API should support browser-driven CRUD."""
+        from synapse.canvas.server import create_app
+
+        monkeypatch.chdir(tmp_path)
+        client = TestClient(create_app(db_path=str(tmp_path / "canvas.db")))
+
+        create_resp = client.post(
+            "/api/workflow",
+            json={
+                "name": "browser-wf",
+                "description": "Created from Canvas",
+                "steps": [
+                    {
+                        "id": "review",
+                        "target": "claude",
+                        "message": "Review",
+                    }
+                ],
+            },
+        )
+
+        assert create_resp.status_code == 200
+        assert create_resp.json()["workflow"]["name"] == "browser-wf"
+
+        update_resp = client.put(
+            "/api/workflow/browser-wf",
+            json={
+                "description": "Updated",
+                "steps": [
+                    {"id": "review", "target": "claude", "message": "Review"},
+                    {
+                        "id": "test",
+                        "target": "codex",
+                        "message": "Test",
+                        "depends_on": ["review"],
+                        "condition": "all_success",
+                    },
+                ],
+            },
+        )
+
+        assert update_resp.status_code == 200
+        detail = client.get("/api/workflow/browser-wf").json()
+        assert detail["description"] == "Updated"
+        assert detail["steps"][1]["depends_on"] == ["review"]
+
+        delete_resp = client.delete("/api/workflow/browser-wf")
+
+        assert delete_resp.status_code == 200
+        assert client.get("/api/workflow/browser-wf").status_code == 404
+
 
 class TestDatabaseAPI:
     """Tests for Canvas database browsing endpoints."""

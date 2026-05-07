@@ -43,7 +43,16 @@ class RichRenderer:
         Args:
             console: Rich console instance. If None, creates a new one.
         """
-        self._console = console or Console()
+        self._console = console if console is not None else Console()
+        forced_width = getattr(self._console, "_width", None)
+        if forced_width:
+            environ = dict(getattr(self._console, "_environ", {}) or {})
+            if environ.get("TERM") == "dumb":
+                environ["TERM"] = "xterm-256color"
+            else:
+                environ.setdefault("TERM", "xterm-256color")
+            environ["COLUMNS"] = str(forced_width)
+            self._console._environ = environ
 
     @property
     def console(self) -> Console:
@@ -387,16 +396,14 @@ class RichRenderer:
             footer.append(f"1-{display_max}", style="bold cyan")
             footer.append("/", style="dim")
             footer.append("↑↓", style="bold cyan")
-            footer.append("/", style="dim")
-            footer.append("hjkl", style="bold cyan")
             footer.append(":select ", style="dim")
 
             # Show action hints when row is selected
             if has_selection:
                 if jump_available:
-                    footer.append("Enter", style="bold green")
+                    footer.append("Enter/j", style="bold green")
                     footer.append(":jump ", style="dim")
-                footer.append("K", style="bold red")
+                footer.append("k", style="bold red")
                 footer.append(":kill ", style="dim")
 
         footer.append("/", style="bold yellow")

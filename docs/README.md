@@ -24,6 +24,7 @@ For user guides, see the [`/guides`](../guides/) directory.
 | `design/generative-ui-landscape.md` | Generative UI landscape analysis |
 | `design/mcp-bootstrap.md` | MCP bootstrap design |
 | `design/mcp-startup-approval-notes.md` | MCP startup approval notes |
+| `design/open-issue-decisions.md` | Decision notes for research/RFC/open-ended backlog issues |
 | `design/smart-suggest-plan-canvas.md` | Smart Suggest + Plan Canvas design |
 
 ## Operational Notes
@@ -33,6 +34,11 @@ For user guides, see the [`/guides`](../guides/) directory.
 - Displayed only for interactive `synapse <profile>` exits with a configured name.
 - Not displayed in `--headless`, non-TTY sessions, or when stopping via
   `synapse stop ...` / `synapse kill ...`.
+- Multilingual README structure can be generated from `docs/readme-template.md`
+  and `docs/translations/*.yaml`:
+  `python docs/generate_readmes.py --check` verifies generated files are current,
+  and running without `--check` writes the configured outputs. Existing
+  hand-maintained README files can be migrated section by section.
 
 ### プロジェクト哲学
 

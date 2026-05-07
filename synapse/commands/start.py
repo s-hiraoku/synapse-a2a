@@ -26,6 +26,8 @@ class StartCommand:
         foreground = args.foreground
         ssl_cert = getattr(args, "ssl_cert", None)
         ssl_key = getattr(args, "ssl_key", None)
+        grpc_enabled = bool(getattr(args, "grpc", False))
+        grpc_port = getattr(args, "grpc_port", None)
 
         # Validate SSL options
         if (ssl_cert and not ssl_key) or (ssl_key and not ssl_cert):
@@ -58,6 +60,10 @@ class StartCommand:
         # Add SSL options if provided
         if ssl_cert and ssl_key:
             cmd.extend(["--ssl-cert", ssl_cert, "--ssl-key", ssl_key])
+        if grpc_enabled:
+            cmd.append("--grpc")
+            if grpc_port is not None:
+                cmd.extend(["--grpc-port", str(grpc_port)])
 
         # Set up environment with tool args (JSON-encoded for safe parsing)
         env = os.environ.copy()
@@ -70,6 +76,9 @@ class StartCommand:
         print(f"Starting {profile} on port {port} ({mode}, {protocol.upper()})...")
         if ssl_cert:
             print(f"SSL: {ssl_cert}")
+        if grpc_enabled:
+            display_grpc_port = grpc_port or (port + 1)
+            print(f"gRPC: {display_grpc_port}")
         if tool_args:
             print(f"Tool args: {' '.join(tool_args)}")
 

@@ -151,6 +151,73 @@ def cmd_trace(args: argparse.Namespace) -> None:
             print(f"  File: {path}")
 
 
+def _graph_edge_from_observation(observation: dict[str, Any]) -> tuple[str, str] | None:
+    """Return sender/recipient edge for a history observation, if available."""
+    metadata = observation.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+
+    sender = metadata.get("sender_id")
+    recipient = metadata.get("recipient_id") or metadata.get("recipient_agent_id")
+
+    sender_obj = metadata.get("sender")
+    if not sender and isinstance(sender_obj, dict):
+        sender = sender_obj.get("sender_id")
+
+    recipient_obj = metadata.get("recipient")
+    if not recipient and isinstance(recipient_obj, dict):
+        recipient = recipient_obj.get("recipient_id") or recipient_obj.get("agent_id")
+
+    target_obj = metadata.get("target")
+    if not recipient and isinstance(target_obj, dict):
+        recipient = target_obj.get("target_agent_id") or target_obj.get("agent_id")
+
+    if isinstance(sender, str) and isinstance(recipient, str):
+        return sender, recipient
+    return None
+
+
+def _mermaid_label(value: str) -> str:
+    return json.dumps(value)
+
+
+def cmd_graph(args: argparse.Namespace) -> None:
+    """Visualize A2A task flow from task history."""
+    manager = _get_history_manager()
+
+    if not manager.enabled:
+        print(HISTORY_DISABLED_MSG)
+        return
+
+    observations = manager.list_observations(limit=args.limit)
+    edges: list[tuple[str, str, str]] = []
+    for observation in observations:
+        edge = _graph_edge_from_observation(observation)
+        if edge is None:
+            continue
+        sender, recipient = edge
+        edges.append((sender, recipient, str(observation.get("task_id", ""))))
+
+    if args.format == "json":
+        print(
+            json.dumps(
+                [
+                    {"from": sender, "to": recipient, "task_id": task_id}
+                    for sender, recipient, task_id in edges
+                ],
+                indent=2,
+            )
+        )
+        return
+
+    print("graph TD")
+    if not edges:
+        return
+    for sender, recipient, task_id in edges:
+        print(f"  {_mermaid_label(sender)} --> {_mermaid_label(recipient)}")
+        print(f"  %% task_id: {task_id}")
+
+
 def cmd_history_search(args: argparse.Namespace) -> None:
     """Search task history by keywords."""
     manager = _get_history_manager()

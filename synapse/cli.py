@@ -33,6 +33,12 @@ from synapse.commands import messaging as messaging_commands
 from synapse.commands import skill_install as skill_install_commands
 from synapse.commands.cleanup import cmd_cleanup
 from synapse.commands.doctor import cmd_doctor
+from synapse.commands.evolve_cmd import (
+    cmd_evolve,
+    cmd_instinct_promote,
+    cmd_instinct_status,
+    cmd_learn,
+)
 from synapse.commands.external import (
     cmd_external_add,
     cmd_external_info,
@@ -52,7 +58,19 @@ from synapse.commands.file_safety_cmd import (
     cmd_file_safety_status,
     cmd_file_safety_unlock,
 )
+from synapse.commands.harness_cmd import (
+    cmd_harness_create,
+    cmd_harness_diff,
+    cmd_harness_disable,
+    cmd_harness_enable,
+    cmd_harness_install,
+    cmd_harness_list,
+    cmd_harness_remove,
+    cmd_harness_status,
+    cmd_harness_use,
+)
 from synapse.commands.history import (
+    cmd_graph,
     cmd_history_cleanup,
     cmd_history_export,
     cmd_history_list,
@@ -86,7 +104,9 @@ from synapse.commands.multiagent import (
 )
 from synapse.commands.session import (
     cmd_session_delete,
+    cmd_session_import,
     cmd_session_list,
+    cmd_session_publish,
     cmd_session_restore,
     cmd_session_save,
     cmd_session_sessions,
@@ -798,6 +818,42 @@ def cmd_agents_add(args: argparse.Namespace) -> None:
     )
 
 
+def cmd_agents_set(args: argparse.Namespace) -> None:
+    """Set the default name/role/skill-set for a CLI profile in agents.json."""
+    if args.profile not in KNOWN_PROFILES:
+        print(
+            f"Unknown profile '{args.profile}'. "
+            f"Choose from: {', '.join(sorted(KNOWN_PROFILES))}"
+        )
+        sys.exit(1)
+
+    store = AgentProfileStore()
+    try:
+        item = store.set_default_profile(
+            profile=args.profile,
+            name=args.name,
+            role=args.role,
+            skill_set=args.skill_set,
+            scope=args.scope,
+        )
+    except AgentProfileError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+    print(
+        f"Set default for profile '{item.profile}' ({item.name}) in {item.scope} scope."
+    )
+
+
+def cmd_agents_unset(args: argparse.Namespace) -> None:
+    """Unset a profile default from agents.json."""
+    store = AgentProfileStore()
+    if not store.unset_default_profile(args.profile, scope=args.scope):
+        print(f"No default profile found for '{args.profile}' in {args.scope} scope.")
+        sys.exit(1)
+    print(f"Unset default profile: {args.profile} ({args.scope})")
+
+
 def cmd_agents_delete(args: argparse.Namespace) -> None:
     """Delete a saved agent definition."""
     store = AgentProfileStore()
@@ -810,6 +866,34 @@ def cmd_agents_delete(args: argparse.Namespace) -> None:
         print(f"Saved agent not found: {args.id_or_name}")
         sys.exit(1)
     print(f"Deleted saved agent: {args.id_or_name}")
+
+
+def cmd_agents_roles(args: argparse.Namespace) -> None:
+    """List or create role templates under .synapse/roles."""
+    store = AgentProfileStore()
+    if getattr(args, "roles_command", None) == "create":
+        root = (
+            store.project_roles_dir if args.scope == "project" else store.user_roles_dir
+        )
+        root.mkdir(parents=True, exist_ok=True)
+        path = root / f"{args.name}.md"
+        if path.exists() and not args.force:
+            print(f"Role template already exists: {path}")
+            sys.exit(1)
+        if args.file:
+            content = Path(args.file).read_text(encoding="utf-8")
+        else:
+            content = args.content or ""
+        path.write_text(content, encoding="utf-8")
+        print(f"Created role template: {path}")
+        return
+
+    roles = store.list_roles()
+    if not roles:
+        print("No role templates found. Add Markdown files under .synapse/roles/.")
+        return
+    for role in roles:
+        print(f"{role.name}\t{role.scope}\t{role.path}")
 
 
 def _input_with_default(
@@ -1452,7 +1536,11 @@ def cmd_skills_create(args: argparse.Namespace) -> None:
     from synapse.commands.skill_manager import cmd_skills_create as _create
 
     name = getattr(args, "name", None)
-    _create(name=name)
+    _create(
+        name=name,
+        launch_agent=getattr(args, "launch_agent", False),
+        agent=getattr(args, "agent", "claude"),
+    )
 
 
 def cmd_skills_set(args: argparse.Namespace) -> None:
@@ -2140,6 +2228,7 @@ def cmd_run_interactive(
     skill_set: str | None = None,
     headless: bool = False,
     profile_store: AgentProfileStore | None = None,
+    agent_definition_id: str | None = None,
 ) -> None:
     """Run an agent in interactive mode with A2A server.
 
@@ -2378,6 +2467,7 @@ def cmd_run_interactive(
         role=agent_role,
         delegate_mode=delegate_mode,
         skill_set=selected_skill_set,
+        agent_definition_id=agent_definition_id,
         write_delay=write_delay,
         submit_retry_delay=submit_retry_delay,
         bracketed_paste=bracketed_paste,
@@ -2466,6 +2556,7 @@ def cmd_run_interactive(
                 worktree_base_branch=worktree_base_branch,
                 spawned_by=spawned_by,
                 renderer_available=controller.renderer_available,
+                agent_definition_id=agent_definition_id,
             )
         except NameConflictError as e:
             print(f"Error: {e}")
@@ -2598,6 +2689,7 @@ def main() -> None:
         has_agent_flag = "--agent" in synapse_args or "-A" in synapse_args
         agent_arg = parse_arg("--agent") or parse_arg("-A")
         startup_store: AgentProfileStore | None = None
+        agent_definition_id: str | None = None
         if has_agent_flag and not agent_arg:
             print("Error: --agent/-A requires a value.", file=sys.stderr)
             sys.exit(1)
@@ -2627,6 +2719,18 @@ def main() -> None:
             name = name or saved.name
             role = role or saved.role
             skill_set_arg = skill_set_arg or saved.skill_set
+            agent_definition_id = getattr(saved, "profile_id", None) or agent_arg
+        else:
+            store = AgentProfileStore()
+            default_profile = store.get_default_profile(profile)
+            if default_profile is not None:
+                startup_store = store
+                name = name or default_profile.name
+                role = role or default_profile.role
+                skill_set_arg = skill_set_arg or default_profile.skill_set
+                agent_definition_id = (
+                    getattr(default_profile, "profile_id", None) or profile
+                )
 
         explicit_port = port is not None
         placeholder_agent_id: str | None = None
@@ -2675,18 +2779,33 @@ def main() -> None:
 
         while True:
             try:
-                cmd_run_interactive(
-                    profile,
-                    port,
-                    tool_args,
-                    name=name,
-                    role=role,
-                    no_setup=no_setup,
-                    delegate_mode=delegate_mode,
-                    skill_set=skill_set_arg,
-                    headless=headless,
-                    profile_store=startup_store,
-                )
+                if agent_definition_id is not None:
+                    cmd_run_interactive(
+                        profile,
+                        port,
+                        tool_args,
+                        name=name,
+                        role=role,
+                        no_setup=no_setup,
+                        delegate_mode=delegate_mode,
+                        skill_set=skill_set_arg,
+                        headless=headless,
+                        profile_store=startup_store,
+                        agent_definition_id=agent_definition_id,
+                    )
+                else:
+                    cmd_run_interactive(
+                        profile,
+                        port,
+                        tool_args,
+                        name=name,
+                        role=role,
+                        no_setup=no_setup,
+                        delegate_mode=delegate_mode,
+                        skill_set=skill_set_arg,
+                        headless=headless,
+                        profile_store=startup_store,
+                    )
                 break
             except OSError as e:
                 if explicit_port or e.errno != errno.EADDRINUSE:
@@ -2818,6 +2937,17 @@ Documentation: https://github.com/s-hiraoku/synapse-a2a""",
     )
     p_start.add_argument("--ssl-cert", help="SSL certificate file for HTTPS")
     p_start.add_argument("--ssl-key", help="SSL private key file for HTTPS")
+    p_start.add_argument(
+        "--grpc",
+        action="store_true",
+        help="Start the optional gRPC A2A server alongside REST",
+    )
+    p_start.add_argument(
+        "--grpc-port",
+        type=int,
+        default=None,
+        help="gRPC server port (default: REST port + 1)",
+    )
     # tool_args are extracted from sys.argv before parse_args() —
     # see the _extract_tool_args_from_argv() call in main().
     p_start.set_defaults(func=cmd_start)
@@ -3146,7 +3276,7 @@ Status meanings:
     p_watchdog_check.set_defaults(func=cmd_watchdog_check)
 
     # send-keys
-    from synapse.commands.send_keys import cmd_send_keys
+    from synapse.commands.send_keys import cmd_dialog_respond, cmd_send_keys
 
     p_send_keys = subparsers.add_parser(
         "send-keys",
@@ -3182,6 +3312,27 @@ Status meanings:
         help="Output the raw HTTP response as JSON",
     )
     p_send_keys.set_defaults(func=cmd_send_keys, escape=True)
+
+    p_dialog = subparsers.add_parser(
+        "dialog-respond",
+        help="Answer a stuck agent TUI dialog through its PTY",
+        description=(
+            "High-level wrapper around send-keys for common confirmation "
+            "dialogs. It submits the selected response with Enter."
+        ),
+    )
+    p_dialog.add_argument("target", help="Agent ID or name")
+    group = p_dialog.add_mutually_exclusive_group(required=True)
+    group.add_argument("--choice", type=int, help="Submit a numeric menu choice")
+    group.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Submit the common approve/don't-ask-again key ('a')",
+    )
+    group.add_argument("--deny", action="store_true", help="Submit 'n'")
+    group.add_argument("--text", help="Submit custom text")
+    p_dialog.add_argument("--json", action="store_true", help="Output JSON response")
+    p_dialog.set_defaults(func=cmd_dialog_respond)
 
     # status
     p_status = subparsers.add_parser(
@@ -3419,6 +3570,202 @@ Priority levels:
     )
     p_trace.add_argument("task_id", help="Task ID to trace")
     p_trace.set_defaults(func=cmd_trace)
+
+    # graph - Visualize task flow across history metadata
+    p_graph = subparsers.add_parser(
+        "graph",
+        help="Visualize A2A task flow",
+        description="Visualize A2A task flow from task history sender/recipient metadata.",
+    )
+    p_graph.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        default=100,
+        help="Maximum number of history entries to inspect (default: 100)",
+    )
+    p_graph.add_argument(
+        "--format",
+        choices=["mermaid", "json"],
+        default="mermaid",
+        help="Output format (default: mermaid)",
+    )
+    p_graph.set_defaults(func=cmd_graph)
+
+    # learn - Self-learning observation analysis
+    p_learn = subparsers.add_parser(
+        "learn",
+        help="Analyze observations and extract instincts",
+        description="Analyze observations and extract instincts.",
+    )
+    p_learn.add_argument(
+        "--observation-db-path",
+        default=None,
+        help="Observation database path (default: SYNAPSE_OBSERVATION_DB_PATH)",
+    )
+    p_learn.add_argument(
+        "--db-path",
+        default=None,
+        help="Instinct database path (default: SYNAPSE_INSTINCT_DB_PATH)",
+    )
+    p_learn.add_argument(
+        "--project-hash",
+        default=None,
+        help="Project hash filter for learned instincts",
+    )
+    p_learn.set_defaults(func=cmd_learn)
+
+    # evolve - Self-learning skill candidate discovery
+    p_evolve = subparsers.add_parser(
+        "evolve",
+        help="Discover skill candidates from instincts",
+        description="Discover skill candidates from instincts.",
+    )
+    p_evolve.add_argument(
+        "--generate",
+        action="store_true",
+        help="Generate skill files for discovered candidates",
+    )
+    p_evolve.add_argument(
+        "--output-dir",
+        default=None,
+        help="Directory for generated skill files",
+    )
+    p_evolve.add_argument(
+        "--db-path",
+        default=None,
+        help="Instinct database path (default: SYNAPSE_INSTINCT_DB_PATH)",
+    )
+    p_evolve.set_defaults(func=cmd_evolve)
+
+    # instinct - Self-learning instinct inspection and promotion
+    p_instinct = subparsers.add_parser(
+        "instinct",
+        help="Inspect and manage learned instincts",
+        description="Inspect and manage learned instincts.",
+    )
+    instinct_subparsers = p_instinct.add_subparsers(
+        dest="instinct_command", metavar="SUBCOMMAND"
+    )
+    p_instinct_status = instinct_subparsers.add_parser(
+        "status",
+        help="Show instincts ordered by confidence",
+        description="Show instincts ordered by confidence.",
+    )
+    p_instinct_list = instinct_subparsers.add_parser(
+        "list",
+        help="List instincts",
+        description="List instincts.",
+    )
+    for p_inst in (p_instinct_status, p_instinct_list):
+        p_inst.add_argument("--scope", choices=["project", "global"], default=None)
+        p_inst.add_argument("--domain", default=None, help="Filter by domain")
+        p_inst.add_argument(
+            "--min-confidence",
+            type=float,
+            default=None,
+            help="Minimum confidence threshold",
+        )
+        p_inst.add_argument(
+            "--project-hash",
+            default=None,
+            help="Project hash filter",
+        )
+        p_inst.add_argument(
+            "--limit",
+            type=int,
+            default=50,
+            help="Maximum number of instincts (default: 50)",
+        )
+        p_inst.add_argument(
+            "--db-path",
+            default=None,
+            help="Instinct database path (default: SYNAPSE_INSTINCT_DB_PATH)",
+        )
+        p_inst.set_defaults(func=cmd_instinct_status)
+
+    p_instinct_promote = instinct_subparsers.add_parser(
+        "promote",
+        help="Promote an instinct to global scope",
+        description="Promote an instinct to global scope.",
+    )
+    p_instinct_promote.add_argument("instinct_id", help="Instinct ID to promote")
+    p_instinct_promote.add_argument(
+        "--db-path",
+        default=None,
+        help="Instinct database path (default: SYNAPSE_INSTINCT_DB_PATH)",
+    )
+    p_instinct_promote.set_defaults(func=cmd_instinct_promote)
+
+    # harness - Harness package manager
+    p_harness = subparsers.add_parser(
+        "harness",
+        help="Manage harness packages",
+        description="Manage harness packages.",
+    )
+    harness_subparsers = p_harness.add_subparsers(
+        dest="harness_command", metavar="SUBCOMMAND"
+    )
+    p_harness_install = harness_subparsers.add_parser(
+        "install", help="Install a harness from GitHub"
+    )
+    p_harness_install.add_argument("source", help="GitHub source, e.g. owner/repo@tag")
+    p_harness_install.set_defaults(func=cmd_harness_install)
+
+    p_harness_list = harness_subparsers.add_parser(
+        "list", help="List installed harnesses"
+    )
+    p_harness_list.set_defaults(func=cmd_harness_list)
+
+    p_harness_use = harness_subparsers.add_parser(
+        "use", help="Switch active harness layers"
+    )
+    p_harness_use.add_argument("names", nargs="*", help="Harness names in layer order")
+    p_harness_use.set_defaults(func=cmd_harness_use)
+
+    p_harness_enable = harness_subparsers.add_parser(
+        "enable", help="Enable an installed harness"
+    )
+    p_harness_enable.add_argument("name", help="Harness name")
+    p_harness_enable.set_defaults(func=cmd_harness_enable)
+
+    p_harness_disable = harness_subparsers.add_parser(
+        "disable", help="Disable an installed harness"
+    )
+    p_harness_disable.add_argument("name", help="Harness name")
+    p_harness_disable.set_defaults(func=cmd_harness_disable)
+
+    p_harness_remove = harness_subparsers.add_parser(
+        "remove", help="Remove an installed harness"
+    )
+    p_harness_remove.add_argument("name", help="Harness name")
+    p_harness_remove.add_argument(
+        "--keep-files",
+        action="store_true",
+        help="Remove only the lockfile entry and keep managed files",
+    )
+    p_harness_remove.set_defaults(func=cmd_harness_remove)
+
+    p_harness_status = harness_subparsers.add_parser(
+        "status", help="Show active harness status"
+    )
+    p_harness_status.add_argument("--json", action="store_true", help="Output JSON")
+    p_harness_status.add_argument(
+        "--verbose", action="store_true", help="Show detailed status"
+    )
+    p_harness_status.set_defaults(func=cmd_harness_status)
+
+    p_harness_diff = harness_subparsers.add_parser(
+        "diff", help="Check a harness for local drift"
+    )
+    p_harness_diff.add_argument("name", help="Harness name")
+    p_harness_diff.set_defaults(func=cmd_harness_diff)
+
+    p_harness_create = harness_subparsers.add_parser(
+        "create", help="Create a harness template"
+    )
+    p_harness_create.add_argument("name", help="Harness name")
+    p_harness_create.set_defaults(func=cmd_harness_create)
 
     # instructions - Manage and send initial instructions
     p_instructions = subparsers.add_parser(
@@ -4232,6 +4579,24 @@ Run 'synapse session <subcommand> --help' for detailed usage.""",
     _add_scope_filter_args(p_session_save)
     p_session_save.set_defaults(func=cmd_session_save)
 
+    # session publish
+    p_session_publish = session_subparsers.add_parser(
+        "publish",
+        help="Publish a saved session to shared storage",
+    )
+    p_session_publish.add_argument("session_name", help="Session name")
+    _add_scope_filter_args(p_session_publish)
+    p_session_publish.set_defaults(func=cmd_session_publish)
+
+    # session import
+    p_session_import = session_subparsers.add_parser(
+        "import",
+        help="Import a session from shared storage",
+    )
+    p_session_import.add_argument("session_name", help="Session name")
+    _add_scope_filter_args(p_session_import)
+    p_session_import.set_defaults(func=cmd_session_import)
+
     # session list
     p_session_list = session_subparsers.add_parser(
         "list",
@@ -4642,6 +5007,60 @@ IDs must use petname format, e.g. `silent-snake`.""",
     )
     p_agents_add.set_defaults(func=cmd_agents_add)
 
+    p_agents_set = agents_subparsers.add_parser(
+        "set", help="Set agents.json defaults for a profile"
+    )
+    p_agents_set.add_argument(
+        "profile",
+        help="Agent profile (claude, codex, gemini, opencode, copilot)",
+    )
+    p_agents_set.add_argument("--name", required=True, help="Display name")
+    p_agents_set.add_argument("--role", help="Role description or @role-file")
+    p_agents_set.add_argument("--skill-set", "-S", dest="skill_set", help="Skill set")
+    p_agents_set.add_argument(
+        "--scope",
+        choices=["project", "user"],
+        default="project",
+        help="Storage scope (default: project)",
+    )
+    p_agents_set.set_defaults(func=cmd_agents_set)
+
+    p_agents_unset = agents_subparsers.add_parser(
+        "unset", help="Unset agents.json defaults for a profile"
+    )
+    p_agents_unset.add_argument("profile", help="Agent profile to unset")
+    p_agents_unset.add_argument(
+        "--scope",
+        choices=["project", "user"],
+        default="project",
+        help="Storage scope (default: project)",
+    )
+    p_agents_unset.set_defaults(func=cmd_agents_unset)
+
+    p_agents_roles = agents_subparsers.add_parser(
+        "roles", help="List or create role templates"
+    )
+    roles_subparsers = p_agents_roles.add_subparsers(
+        dest="roles_command", metavar="SUBCOMMAND"
+    )
+    p_agents_roles.set_defaults(func=cmd_agents_roles)
+    p_agents_roles_create = roles_subparsers.add_parser(
+        "create", help="Create a role template"
+    )
+    p_agents_roles_create.add_argument("name", help="Role template name")
+    p_agents_roles_create.add_argument("--content", help="Markdown role content")
+    p_agents_roles_create.add_argument("--file", help="Read role content from file")
+    p_agents_roles_create.add_argument(
+        "--scope",
+        choices=["project", "user"],
+        default="project",
+        help="Storage scope (default: project)",
+    )
+    p_agents_roles_create.add_argument(
+        "--force", action="store_true", help="Overwrite an existing template"
+    )
+    p_agents_roles_create.set_defaults(func=cmd_agents_roles)
+
     p_agents_delete = agents_subparsers.add_parser(
         "delete", help="Delete a saved agent by ID or name"
     )
@@ -4787,6 +5206,16 @@ Scopes:
         "create", help="Create a new skill in ~/.synapse/skills/"
     )
     p_sk_create.add_argument("name", nargs="?", default=None, help="Skill name")
+    p_sk_create.add_argument(
+        "--launch-agent",
+        action="store_true",
+        help="Deploy anthropic-skill-creator and spawn an agent to finish the skill",
+    )
+    p_sk_create.add_argument(
+        "--agent",
+        default="claude",
+        help="Agent profile to launch with --launch-agent (default: claude)",
+    )
     p_sk_create.set_defaults(func=cmd_skills_create)
 
     # skills set (skill set management)
@@ -5091,6 +5520,8 @@ Scopes:
         "multiagent": ("multiagent_command", p_multiagent),
         "map": ("multiagent_command", p_multiagent),
         "ma": ("multiagent_command", p_multiagent),
+        "instinct": ("instinct_command", p_instinct),
+        "harness": ("harness_command", p_harness),
         "agents": ("agents_command", p_agents),
         "canvas": ("canvas_command", p_canvas),
         "worktree": ("worktree_command", p_worktree),

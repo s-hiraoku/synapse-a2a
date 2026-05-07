@@ -202,6 +202,7 @@ class AgentRegistry:
         worktree_base_branch: str | None = None,
         spawned_by: str | None = None,
         renderer_available: bool | None = None,
+        agent_definition_id: str | None = None,
     ) -> Path:
         """Writes connection info to registry file.
 
@@ -218,6 +219,7 @@ class AgentRegistry:
             worktree_path: Path to the agent's worktree directory (optional).
             worktree_branch: Branch name of the agent's worktree (optional).
             worktree_base_branch: Base branch the worktree was created from (optional).
+            agent_definition_id: Stable saved-agent petname alias (optional).
 
         Returns:
             Path to the created registry file.
@@ -271,6 +273,8 @@ class AgentRegistry:
             data["spawned_by"] = spawned_by
         if renderer_available is not None:
             data["renderer_available"] = renderer_available
+        if agent_definition_id:
+            data["agent_definition_id"] = agent_definition_id
 
         with self.registry_write_lock():
             return self._register_locked(agent_id, data, name=name)
@@ -610,9 +614,10 @@ class AgentRegistry:
 
         Resolution priority (highest to lowest):
         1. Custom name (exact match)
-        2. Full agent ID (exact match)
-        3. Type-port shorthand (e.g., "claude-8100")
-        4. Type (only if single agent of that type)
+        2. Saved agent definition ID / petname (exact match)
+        3. Full agent ID (exact match)
+        4. Type-port shorthand (e.g., "claude-8100")
+        5. Type (only if single agent of that type)
 
         Args:
             target: The target string to resolve.
@@ -631,11 +636,16 @@ class AgentRegistry:
             if info.get("name") == target:
                 return info
 
-        # Priority 2: Full agent ID (exact match)
+        # Priority 2: Saved agent definition ID / petname (exact match)
+        for info in agents.values():
+            if info.get("agent_definition_id") == target:
+                return info
+
+        # Priority 3: Full agent ID (exact match)
         if target in agents:
             return agents[target]
 
-        # Priority 3: Type-port shorthand (e.g., "claude-8100")
+        # Priority 4: Type-port shorthand (e.g., "claude-8100")
         if match := re.match(r"^([\w-]+)-(\d+)$", target):
             agent_type, port_str = match.groups()
             port = int(port_str)
@@ -643,7 +653,7 @@ class AgentRegistry:
                 if info.get("agent_type") == agent_type and info.get("port") == port:
                     return info
 
-        # Priority 4: Type (only if single agent of that type)
+        # Priority 5: Type (only if single agent of that type)
         type_matches = [
             info for info in agents.values() if info.get("agent_type") == target
         ]

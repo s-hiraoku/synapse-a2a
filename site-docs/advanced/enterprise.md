@@ -447,9 +447,6 @@ Synapse includes a token parser registry that extracts token usage and cost info
 
 ## gRPC Support
 
-!!! warning "Development Status"
-    gRPC support is currently under development. Proto definitions and the server skeleton exist, but full functionality is not yet operational. Track progress at [Issue #22](https://github.com/s-hiraoku/synapse-a2a/issues/22).
-
 ### Overview
 
 gRPC provides an HTTP/2-based high-performance RPC framework. It is suitable for scenarios requiring high throughput or low latency.
@@ -469,6 +466,13 @@ uv pip install synapse-a2a[grpc]
 
 # pip
 pip install synapse-a2a[grpc]
+```
+
+Start an agent with the gRPC listener enabled:
+
+```bash
+synapse start claude --port 8100 --grpc
+synapse start codex --port 8120 --grpc --grpc-port 9120
 ```
 
 ### Service Definition

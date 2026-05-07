@@ -25,6 +25,7 @@ Scope = Literal["project", "user"]
 _NAME_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$")
 _VALID_RESPONSE_MODES = {"wait", "notify", "silent"}
 _VALID_STEP_KINDS = {"send", "subworkflow"}
+_VALID_CONDITIONS = {"all_success", "any_success", "always"}
 
 
 class WorkflowError(ValueError):
@@ -35,6 +36,7 @@ class WorkflowError(ValueError):
 class WorkflowStep:
     """A single step in a workflow sequence."""
 
+    id: str = ""
     target: str = ""
     message: str = ""
     priority: int = 3
@@ -42,11 +44,28 @@ class WorkflowStep:
     auto_spawn: bool = False
     kind: str = "send"
     workflow: str = ""
+    depends_on: list[str] = field(default_factory=list)
+    condition: str = "all_success"
 
     def __post_init__(self) -> None:
+        if self.id and not _NAME_PATTERN.fullmatch(self.id):
+            raise WorkflowError(
+                f"Invalid step id '{self.id}'. "
+                "Must start with alphanumeric and contain only "
+                "alphanumeric, dots, hyphens, or underscores."
+            )
         if self.kind not in _VALID_STEP_KINDS:
             raise WorkflowError(
                 f"Step kind must be one of {_VALID_STEP_KINDS}, got '{self.kind}'."
+            )
+        if not isinstance(self.depends_on, list) or any(
+            not isinstance(dep, str) or not dep for dep in self.depends_on
+        ):
+            raise WorkflowError("Step depends_on must be a list of step IDs.")
+        if self.condition not in _VALID_CONDITIONS:
+            raise WorkflowError(
+                f"Step condition must be one of {_VALID_CONDITIONS}, "
+                f"got '{self.condition}'."
             )
         if not isinstance(self.workflow, str):
             raise WorkflowError("Step workflow must be a string.")
@@ -95,6 +114,16 @@ class Workflow:
     def __post_init__(self) -> None:
         if not self.steps:
             raise WorkflowError("Workflow must have at least one step.")
+        step_ids = [step.id for step in self.steps if step.id]
+        if len(step_ids) != len(set(step_ids)):
+            raise WorkflowError("Workflow step IDs must be unique.")
+        known_ids = set(step_ids)
+        for step in self.steps:
+            for dep in step.depends_on:
+                if dep not in known_ids:
+                    raise WorkflowError(
+                        f"Step dependency '{dep}' does not match any step id."
+                    )
         self.step_count = len(self.steps)
 
 
@@ -125,16 +154,30 @@ class WorkflowStore:
             "steps": [
                 (
                     {
+                        **({"id": s.id} if s.id else {}),
                         "kind": "subworkflow",
                         "workflow": s.workflow,
+                        **({"depends_on": s.depends_on} if s.depends_on else {}),
+                        **(
+                            {"condition": s.condition}
+                            if s.condition != "all_success"
+                            else {}
+                        ),
                     }
                     if s.kind == "subworkflow"
                     else {
+                        **({"id": s.id} if s.id else {}),
                         "target": s.target,
                         "message": s.message,
                         "priority": s.priority,
                         "response_mode": s.response_mode,
                         **({"auto_spawn": True} if s.auto_spawn else {}),
+                        **({"depends_on": s.depends_on} if s.depends_on else {}),
+                        **(
+                            {"condition": s.condition}
+                            if s.condition != "all_success"
+                            else {}
+                        ),
                     }
                 )
                 for s in workflow.steps
@@ -290,8 +333,10 @@ class WorkflowStore:
                 raise ValueError(
                     f"Step auto_spawn must be a boolean, got {type(step_auto_spawn).__name__}"
                 )
+            depends_on = s.get("depends_on", [])
             steps.append(
                 WorkflowStep(
+                    id=s.get("id", ""),
                     kind=kind,
                     workflow=s.get("workflow", ""),
                     target=s.get("target", ""),
@@ -299,6 +344,8 @@ class WorkflowStore:
                     priority=s.get("priority", 3),
                     response_mode=s.get("response_mode", "notify"),
                     auto_spawn=bool(step_auto_spawn),
+                    depends_on=depends_on,
+                    condition=s.get("condition", "all_success"),
                 )
             )
         raw_auto_spawn = raw.get("auto_spawn", False)

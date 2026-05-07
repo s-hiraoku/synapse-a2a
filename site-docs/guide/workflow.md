@@ -45,7 +45,7 @@ Each workflow file has these top-level fields:
 |-------|:--------:|-------------|
 | `name` | Yes | Workflow identifier (matches the filename) |
 | `description` | No | Human-readable description |
-| `steps` | Yes | Ordered list of message steps |
+| `steps` | Yes | Ordered list of message steps, or DAG nodes when dependencies are declared |
 | `trigger` | No | Natural-language trigger condition for skill auto-matching (e.g., `"when CI fails"`) |
 | `auto_spawn` | No | If `true`, automatically spawn agents that are not running when executing steps |
 
@@ -54,12 +54,15 @@ Each step supports the following fields:
 | Field | Required | Default | Description |
 |-------|:--------:|:-------:|-------------|
 | `kind` | No | `send` | Step type: `send` or `subworkflow` |
+| `id` | No | -- | Stable step ID for DAG dependencies |
 | `target` | Yes | -- | Agent name, ID, type-port, type, or `self` |
 | `message` | Yes | -- | Message content to send |
 | `priority` | No | `3` | Priority level 1-5 |
 | `response_mode` | No | `notify` | `wait`, `notify`, or `silent` |
 | `auto_spawn` | No | `false` | If `true`, auto-spawn the target agent if not running (step-level override) |
 | `workflow` | Yes for `subworkflow` | -- | Child workflow name to execute |
+| `depends_on` | No | `[]` | Step IDs that must reach a terminal state before this step is considered |
+| `condition` | No | `all_success` | `all_success`, `any_success`, or `always` |
 
 For `kind: send`, use the regular `target` and `message` fields.
 
@@ -213,12 +216,20 @@ synapse workflow status <run_id>
 
 This is useful for long-running pipelines where you don't want to block the terminal.
 
-### Sequential Execution
+### Execution Order
 
-Steps execute sequentially. Each step sends an A2A request directly to the target agent over HTTP with the configured target, message, priority, and response mode.
+Without `depends_on`, steps execute sequentially. When any step declares `depends_on`, Synapse treats the workflow as a DAG: all ready steps run in parallel, and dependent steps run after their dependencies reach terminal states.
 If a step uses `kind: subworkflow`, Synapse loads the child workflow and executes its send steps inline before continuing.
 
 When a step uses `response_mode: wait`, the runner polls the target agent's task endpoint until the task reaches a terminal state (`completed`, `failed`, or `canceled`). This ensures that subsequent steps only run after the previous step's agent has finished processing. The poll timeout is 10 minutes per step; if exceeded, the step is treated as completed (best-effort).
+
+DAG conditions control whether a ready step runs:
+
+| Condition | Behavior |
+|-----------|----------|
+| `all_success` | Run only when every dependency completed |
+| `any_success` | Run when at least one dependency completed |
+| `always` | Run after dependencies finish, even if they failed |
 
 ### Dry Run
 
@@ -252,7 +263,7 @@ When nested workflows are used, `--continue-on-error` applies to child steps too
 
 ## Run from Canvas
 
-Workflows can also be executed from the Canvas browser UI at `#/workflow`. Select a workflow from the list and click **Run**.
+Workflows can also be created, edited, deleted, imported/exported as YAML, and executed from the Canvas browser UI at `#/workflow`. Use **New** to open the step builder, select an existing workflow for **Edit**, **Delete**, **Export YAML**, or **Run**.
 
 Both CLI and Canvas workflow execution send A2A requests directly to target agents over HTTP, with `response_mode: wait` polling for task completion. Canvas sets sender metadata `sender_id=canvas-workflow`, `sender_name=Workflow`, and `sender_endpoint=http://localhost:<canvas-port>`, so agents can reply back to Canvas with `synapse reply`. Key differences from CLI execution:
 

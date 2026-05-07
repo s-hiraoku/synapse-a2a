@@ -119,9 +119,11 @@ synapse skills add <repo-url>
 
 ```bash
 synapse skills create [name]
+synapse skills create [name] --launch-agent --agent codex
 ```
 
 Creates a new skill template in the central store (`~/.synapse/skills/`). If no name is provided, you will be prompted for one.
+With `--launch-agent`, Synapse deploys `anthropic-skill-creator` to the selected agent profile and runs `synapse spawn <agent> --task ... --notify` so the agent can interview you and complete `SKILL.md`.
 
 The command creates a standard skill structure:
 

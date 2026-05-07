@@ -33,6 +33,28 @@ synapse claude --agent calm-lead --role "temporary override"  # CLI flags overri
 
 The saved agent's profile must match the profile shortcut (e.g., a `gemini` saved agent cannot be used with `synapse claude`).
 
+When a saved definition is used, its petname is stored as `agent_definition_id` in the live registry. Commands that resolve agent targets can use that stable petname alias, so `synapse send wise-strategist "..."` keeps working even when the runtime ID changes from `synapse-claude-8100` to another port on the next launch.
+
+### With agents.json Defaults
+
+For project-wide defaults, configure `.synapse/agents.json` through `synapse agents set`:
+
+```bash
+synapse agents set claude --name "Project Claude" --role "@./roles/architect.md" --skill-set architect
+synapse claude
+```
+
+When a profile has an `agents.json` default, `synapse <profile>` applies the configured name, role, and skill set before interactive setup. CLI flags still win, so `synapse claude --role "temporary reviewer"` overrides only the role for that launch.
+
+Role templates are ordinary Markdown files under `.synapse/roles/` or `~/.synapse/roles/`:
+
+```bash
+synapse agents roles
+synapse agents roles create reviewer --content "Review code and tests before merge."
+```
+
+Saved agent definitions can also carry project-adaptive learnings. Add concise Markdown bullets to `.synapse/learnings/<agent-definition-id>.md`; when that saved definition starts, Synapse includes the file in the initial identity instructions. This keeps repeated project guidance tied to a stable petname ID instead of a changing runtime port.
+
 ### Skip Interactive Setup
 
 ```bash
@@ -111,7 +133,7 @@ Optional columns (`list.columns`): `TYPE`, `ROLE`, `SKILL_SET`.
 | ++up++ / ++down++ | Select agent row |
 | `1`-`9` | Jump to row number |
 | ++enter++ / `j` | Jump to agent's terminal |
-| `K` | Kill agent (with confirmation) |
+| `k` | Kill agent (with confirmation) |
 | `/` | Filter by TYPE, NAME, or WORKING_DIR |
 | ++escape++ | Clear filter |
 | `q` | Quit |

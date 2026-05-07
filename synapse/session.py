@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import shutil
 import tempfile
 from argparse import Namespace
 from dataclasses import dataclass, field
@@ -65,9 +67,12 @@ class SessionStore:
         *,
         project_dir: Path | None = None,
         user_dir: Path | None = None,
+        shared_dir: Path | None = None,
     ) -> None:
         self.project_dir = project_dir or (Path.cwd() / ".synapse" / "sessions")
         self.user_dir = user_dir or (Path.home() / ".synapse" / "sessions")
+        env_shared = os.environ.get("SYNAPSE_SHARED_SESSION_DIR")
+        self.shared_dir = shared_dir or (Path(env_shared) if env_shared else None)
 
     # ── public API ───────────────────────────────────────────
 
@@ -164,6 +169,36 @@ class SessionStore:
                 path.unlink()
                 return True
         return False
+
+    def publish(self, name: str, *, scope: Scope | None = None) -> Path:
+        """Copy a local session snapshot to shared session storage."""
+        if self.shared_dir is None:
+            raise SessionError(
+                "shared session storage is not configured; set "
+                "SYNAPSE_SHARED_SESSION_DIR or pass shared_dir"
+            )
+        session = self.load(name, scope=scope)
+        if session is None or session.path is None:
+            raise SessionError(f"Session '{name}' not found")
+        self.shared_dir.mkdir(parents=True, exist_ok=True)
+        target = self.shared_dir / f"{name}.json"
+        shutil.copyfile(session.path, target)
+        return target
+
+    def import_shared(self, name: str, *, scope: Scope = "project") -> Path:
+        """Import a session snapshot from shared storage into a local scope."""
+        if self.shared_dir is None:
+            raise SessionError(
+                "shared session storage is not configured; set "
+                "SYNAPSE_SHARED_SESSION_DIR or pass shared_dir"
+            )
+        self._validate_session_name(name)
+        source = self.shared_dir / f"{name}.json"
+        if not source.is_file():
+            raise SessionError(f"Shared session '{name}' not found")
+        session = self._parse_file(source, scope)
+        session.scope = scope
+        return self.save(session)
 
     # ── validation ───────────────────────────────────────────
 

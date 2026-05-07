@@ -19,6 +19,10 @@ Statuses:
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
+from enum import Enum
+
 # Status constants
 READY = "READY"
 WAITING = "WAITING"
@@ -28,6 +32,25 @@ DONE = "DONE"
 RATE_LIMITED = "RATE_LIMITED"
 SENDING_REPLY = "SENDING_REPLY"
 SHUTTING_DOWN = "SHUTTING_DOWN"
+
+
+class AgentLifecycleState(str, Enum):
+    """Normalized lifecycle states used by readiness gates."""
+
+    IDLE = "IDLE"
+    RUNNING = "RUNNING"
+    WAITING_INPUT = "WAITING_INPUT"
+    FAILED = "FAILED"
+
+
+@dataclass(frozen=True)
+class Readiness:
+    """Result of evaluating whether an agent can accept new work."""
+
+    ready: bool
+    lifecycle: AgentLifecycleState
+    reason: str
+
 
 # All valid statuses
 ALL_STATUSES = frozenset(
@@ -81,3 +104,41 @@ def get_status_style(status: str) -> str:
         Rich style string, or empty string for unknown status.
     """
     return STATUS_STYLES.get(status, "")
+
+
+def normalize_lifecycle_state(
+    status: str,
+    *,
+    input_required_tasks: Sequence[object] | None = None,
+) -> AgentLifecycleState:
+    """Normalize legacy display statuses into lifecycle states."""
+    if input_required_tasks:
+        return AgentLifecycleState.WAITING_INPUT
+    if status in {READY, DONE}:
+        return AgentLifecycleState.IDLE
+    if status in {WAITING, WAITING_FOR_INPUT}:
+        return AgentLifecycleState.WAITING_INPUT
+    if status == SHUTTING_DOWN:
+        return AgentLifecycleState.FAILED
+    return AgentLifecycleState.RUNNING
+
+
+def evaluate_readiness(
+    status: str,
+    *,
+    input_required_tasks: Sequence[object] | None = None,
+) -> Readiness:
+    """Evaluate the centralized readiness gate for task dispatch."""
+    lifecycle = normalize_lifecycle_state(
+        status,
+        input_required_tasks=input_required_tasks,
+    )
+    if lifecycle == AgentLifecycleState.IDLE:
+        return Readiness(True, lifecycle, "ready")
+    if lifecycle == AgentLifecycleState.WAITING_INPUT:
+        reason = "input_required" if input_required_tasks else "waiting_for_input"
+    elif lifecycle == AgentLifecycleState.FAILED:
+        reason = "agent_failed"
+    else:
+        reason = "agent_running"
+    return Readiness(False, lifecycle, reason)

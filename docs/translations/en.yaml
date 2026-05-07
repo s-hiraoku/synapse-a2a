@@ -1,0 +1,7 @@
+output: README.generated.md
+title: Synapse A2A
+summary: Generated README seed used to migrate shared structure across languages.
+install_heading: Installation
+install_body: See README.md for the current full installation guide.
+usage_heading: Usage
+usage_body: Run `synapse --help` for the full command list.

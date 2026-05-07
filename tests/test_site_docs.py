@@ -184,6 +184,49 @@ def test_mcp_bootstrap_doc_includes_manual_test_flow() -> None:
     assert "pytest tests/test_mcp_bootstrap.py -q" in text
 
 
+def test_mcp_setup_guide_documents_current_tool_surface() -> None:
+    text = _read("site-docs/guide/mcp-setup.md")
+
+    for tool_name in ("bootstrap_agent", "list_agents", "analyze_task", "canvas_post"):
+        assert f"### {tool_name}" in text
+
+    assert "`format`" in text
+    assert "`body`" in text
+    assert "`title`" in text
+    assert "`tags`" in text
+    assert "without shell escaping" in text
+
+
+def test_project_mcp_config_is_portable() -> None:
+    text = _read(".mcp.json")
+
+    assert "/Volumes/" not in text
+    assert "/Users/" not in text
+    assert "synapse-channel" not in text
+    assert '"command": "uv"' in text
+    assert '"-m"' in text
+    assert '"synapse.mcp"' in text
+
+
+def test_session_guide_documents_shared_handoff_commands() -> None:
+    text = _read("site-docs/guide/session.md")
+
+    assert "synapse session publish review-team" in text
+    assert "synapse session import review-team" in text
+    assert "SYNAPSE_SHARED_SESSION_DIR" in text
+    assert "team-accessible" in text
+
+
+def test_history_guide_documents_probabilistic_recall() -> None:
+    text = _read("site-docs/guide/history.md")
+
+    assert "Probabilistic Recall" in text
+    assert "recency" in text
+    assert "importance" in text
+    assert "keyword overlap" in text
+    assert "HistoryManager.recall_observations" in text
+
+
 def test_synapse_reference_mentions_synapse_mcp_serve() -> None:
     """Check that synapse mcp serve is documented in the reference."""
     text = _read("docs/synapse-reference.md")
@@ -249,14 +292,17 @@ def test_cli_reference_documents_plan_approval_commands() -> None:
     assert "synapse reject <task_id> [reason]" in cheatsheet
 
 
-def test_self_learning_docs_warn_commands_are_not_yet_available() -> None:
+def test_self_learning_docs_describe_available_commands() -> None:
     cheatsheet = _read("site-docs/reference/cli-cheatsheet.md")
     guide = _read("site-docs/guide/self-learning.md")
 
-    assert '!!! warning "Not yet available"' in cheatsheet
-    assert "planned but not yet accessible via the CLI" in cheatsheet
-    assert '!!! warning "Not yet available"' in guide
-    assert "planned but not yet accessible via the CLI" in guide
+    assert '!!! warning "Not yet available"' not in cheatsheet
+    assert "planned but not yet accessible via the CLI" not in cheatsheet
+    assert '!!! warning "Not yet available"' not in guide
+    assert "planned but not yet accessible via the CLI" not in guide
+    assert "| `synapse learn` |" in cheatsheet
+    assert "synapse instinct status" in guide
+    assert "synapse evolve --generate" in guide
 
 
 def test_communication_guide_does_not_document_missing_reply_fail_flag() -> None:

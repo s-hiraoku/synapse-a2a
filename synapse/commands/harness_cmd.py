@@ -86,17 +86,39 @@ def cmd_harness_list(args: Any) -> None:
 
 def cmd_harness_use(args: Any) -> None:
     """Switch active harness layers."""
-    raise NotImplementedError("harness use is not implemented in Phase 2 tests")
+    names = list(getattr(args, "names", []) or [])
+    lock = HarnessLock()
+    data = lock.load()
+    harnesses = data.setdefault("harnesses", {})
+    missing = [name for name in names if name not in harnesses]
+    if missing:
+        print(f"Harness not found: {', '.join(missing)}")
+        return
+
+    selected = set(names)
+    for harness in harnesses.values():
+        harness["enabled"] = harness.get("name") in selected
+    for layer, name in enumerate(names, start=1):
+        harnesses[name]["layer"] = layer
+        harnesses[name]["enabled"] = True
+    lock.save(data)
+    print(f"Active harness layers: {', '.join(names) if names else '(none)'}")
 
 
 def cmd_harness_disable(args: Any) -> None:
     """Disable a harness while retaining its lock entry."""
-    raise NotImplementedError("harness disable is not implemented in Phase 2 tests")
+    if HarnessLock().set_enabled(args.name, False):
+        print(f"Disabled {args.name}")
+        return
+    print(f"Harness not found: {args.name}")
 
 
 def cmd_harness_enable(args: Any) -> None:
     """Re-enable a disabled harness."""
-    raise NotImplementedError("harness enable is not implemented in Phase 2 tests")
+    if HarnessLock().set_enabled(args.name, True):
+        print(f"Enabled {args.name}")
+        return
+    print(f"Harness not found: {args.name}")
 
 
 def cmd_harness_status(args: Any) -> None:
@@ -121,7 +143,17 @@ def cmd_harness_status(args: Any) -> None:
 
 def cmd_harness_remove(args: Any) -> None:
     """Remove a harness from the lockfile and filesystem."""
-    raise NotImplementedError("harness remove is not implemented in Phase 2 tests")
+    lock = HarnessLock()
+    harness = lock.get_harness(args.name)
+    if not harness:
+        print(f"Harness not found: {args.name}")
+        return
+
+    removed_files = 0
+    if not getattr(args, "keep_files", False):
+        removed_files = HarnessInstaller().remove_files(list(harness.get("files", [])))
+    lock.remove_harness(args.name)
+    print(f"Removed {args.name} ({removed_files} files)")
 
 
 def cmd_harness_diff(args: Any) -> None:

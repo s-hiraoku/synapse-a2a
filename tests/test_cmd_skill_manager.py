@@ -193,6 +193,45 @@ class TestSkillManagerCreate:
         assert result is True
         assert (synapse / "skills" / "new-skill" / "SKILL.md").exists()
 
+    def test_cmd_skills_create_can_launch_skill_creator_agent(self, setup_env) -> None:
+        """Create can deploy anthropic-skill-creator and spawn an agent."""
+        _, _, synapse = setup_env
+        from synapse.commands.skill_manager import cmd_skills_create
+
+        calls: list[list[str]] = []
+
+        def fake_runner(cmd: list[str]) -> object:
+            calls.append(cmd)
+
+            class Result:
+                returncode = 0
+
+            return Result()
+
+        result = cmd_skills_create(
+            name="new-skill",
+            synapse_dir=synapse,
+            launch_agent=True,
+            agent="codex",
+            runner=fake_runner,
+        )
+
+        assert result is True
+        assert calls[0] == [
+            "synapse",
+            "skills",
+            "deploy",
+            "anthropic-skill-creator",
+            "--agent",
+            "codex",
+            "--scope",
+            "user",
+        ]
+        assert calls[1][:3] == ["synapse", "spawn", "codex"]
+        assert calls[1][-1] == "--notify"
+        assert any("/anthropic-skill-creator" in arg for arg in calls[1])
+        assert "new-skill" in " ".join(calls[1])
+
 
 class TestSkillManagerCreateGuided:
     def test_cmd_skills_create_guided_shows_guidance(self, setup_env, capsys) -> None:

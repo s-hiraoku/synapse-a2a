@@ -1,0 +1,7 @@
+output: README.ja.generated.md
+title: Synapse A2A
+summary: 多言語 README の共通構造を段階移行するための生成シードです。
+install_heading: インストール
+install_body: 現在の完全なインストール手順は README.ja.md を参照してください。
+usage_heading: 使い方
+usage_body: コマンド一覧は `synapse --help` を実行してください。

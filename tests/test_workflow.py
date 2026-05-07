@@ -794,3 +794,47 @@ def test_workflow_auto_spawn_omitted_when_false(
     content = (project_dir / "no-wf-spawn.yaml").read_text()
     # Step-level auto_spawn should also not be present
     assert "auto_spawn" not in content
+
+
+def test_dag_step_fields_roundtrip(store) -> None:
+    """Workflow DAG fields should survive save/load roundtrip."""
+    from synapse.workflow import Workflow, WorkflowStep
+
+    workflow = Workflow(
+        name="dag",
+        scope="project",
+        steps=[
+            WorkflowStep(id="review", target="claude", message="Review"),
+            WorkflowStep(
+                id="test",
+                target="codex",
+                message="Test",
+                depends_on=["review"],
+                condition="all_success",
+            ),
+            WorkflowStep(
+                id="lint",
+                target="gemini",
+                message="Lint",
+                depends_on=["review"],
+                condition="always",
+            ),
+        ],
+    )
+
+    store.save(workflow)
+    loaded = store.load("dag")
+
+    assert loaded is not None
+    assert loaded.steps[1].id == "test"
+    assert loaded.steps[1].depends_on == ["review"]
+    assert loaded.steps[1].condition == "all_success"
+    assert loaded.steps[2].condition == "always"
+
+
+def test_step_rejects_unknown_dependency_condition() -> None:
+    """Only supported dependency conditions are accepted."""
+    from synapse.workflow import WorkflowError, WorkflowStep
+
+    with pytest.raises(WorkflowError, match="condition"):
+        WorkflowStep(target="codex", message="Deploy", condition="sometimes")
