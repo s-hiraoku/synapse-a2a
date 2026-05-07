@@ -139,7 +139,10 @@ If sender information is not fully available, it falls back to:
 synapse reply "Here are my findings..."
 ```
 
-Reply automatically routes to the last sender. Tasks started with `--wait` or `--notify` that complete without an explicit `synapse reply` are automatically marked as `MISSING_REPLY`. Tasks sent with `--silent` do not require a reply.
+`synapse reply` is only valid for a Synapse-tracked incoming message, such as one marked `[REPLY EXPECTED]` or one created by `synapse send --wait` / `--notify`. Reply automatically routes to the last tracked sender. Tasks started with `--wait` or `--notify` that complete without an explicit `synapse reply` are automatically marked as `MISSING_REPLY`. Tasks sent with `--silent` do not require a reply.
+
+!!! warning "Manually pasted A2A text"
+    If a user-pasted `A2A:` text block appears in your terminal, Synapse has no reply target for it. To respond, use `synapse send`, not `synapse reply`, and address the sender explicitly.
 
 ### Reply to Specific Sender
 

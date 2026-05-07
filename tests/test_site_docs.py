@@ -266,6 +266,14 @@ def test_communication_guide_does_not_document_missing_reply_fail_flag() -> None
     assert "Use `--fail`" not in guide
 
 
+def test_communication_guide_clarifies_manual_a2a_text_uses_send() -> None:
+    guide = _read("site-docs/guide/communication.md")
+
+    assert "Synapse-tracked incoming message" in guide
+    assert "user-pasted `A2A:` text" in guide
+    assert "use `synapse send`, not `synapse reply`" in guide
+
+
 def test_file_safety_docs_match_current_locks_flags() -> None:
     cli_ref = _read("site-docs/reference/cli.md")
     guide = _read("site-docs/guide/file-safety.md")
