@@ -1562,7 +1562,11 @@ def cmd_skills_create(args: argparse.Namespace) -> None:
     from synapse.commands.skill_manager import cmd_skills_create as _create
 
     name = getattr(args, "name", None)
-    _create(name=name)
+    _create(
+        name=name,
+        launch_agent=getattr(args, "launch_agent", False),
+        agent=getattr(args, "agent", "claude"),
+    )
 
 
 def cmd_skills_set(args: argparse.Namespace) -> None:
@@ -5125,6 +5129,16 @@ Scopes:
         "create", help="Create a new skill in ~/.synapse/skills/"
     )
     p_sk_create.add_argument("name", nargs="?", default=None, help="Skill name")
+    p_sk_create.add_argument(
+        "--launch-agent",
+        action="store_true",
+        help="Deploy anthropic-skill-creator and spawn an agent to finish the skill",
+    )
+    p_sk_create.add_argument(
+        "--agent",
+        default="claude",
+        help="Agent profile to launch with --launch-agent (default: claude)",
+    )
     p_sk_create.set_defaults(func=cmd_skills_create)
 
     # skills set (skill set management)

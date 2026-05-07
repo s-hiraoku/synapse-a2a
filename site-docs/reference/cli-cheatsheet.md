@@ -411,6 +411,7 @@ synapse skills add <repo>
 
 # Create new skill template
 synapse skills create [name]
+synapse skills create [name] --launch-agent --agent codex
 
 # Skill sets
 synapse skills set list

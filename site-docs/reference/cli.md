@@ -536,6 +536,7 @@ synapse skills deploy <name> --agent <types> [--scope SCOPE]
 synapse skills import <name> [--from SCOPE]
 synapse skills add <repo>
 synapse skills create [name]                   # Create new skill template
+synapse skills create [name] --launch-agent    # Spawn an agent to finish it with anthropic-skill-creator
 synapse skills set list
 synapse skills set show <name>
 synapse skills apply <target> <set_name> [--dry-run]

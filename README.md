@@ -545,7 +545,8 @@ synapse skills move <name> --to <scope>
 synapse skills import <name>                 # Import from agent dirs to ~/.synapse/skills/
 synapse skills deploy <name> --agent claude,codex --scope user
 synapse skills add <repo>                    # Install from repo (legacy wrapper; prefer `gh skill install`)
-synapse skills create                        # Show guided skill creation steps
+synapse skills create [name]                 # Create a skill template
+synapse skills create [name] --launch-agent  # Spawn an agent to finish it with anthropic-skill-creator
 
 # Skill sets (named groups)
 synapse skills set list
@@ -848,7 +849,7 @@ Save this agent definition for reuse? [y/N]:
 | `synapse skills deploy <name>` | Deploy skill from central store to agent dirs |
 | `synapse skills import <name>` | Import skill to central store (~/.synapse/skills/) |
 | `synapse skills add <repo>` | Install skill from repository (legacy wrapper; prefer `gh skill install <repo> <skill>`) |
-| `synapse skills create [name]` | Create new skill template |
+| `synapse skills create [name]` | Create new skill template. Add `--launch-agent [--agent claude|codex|gemini]` to deploy `anthropic-skill-creator` and spawn an agent with the right starter task |
 | `synapse skills set list` | List skill sets |
 | `synapse skills set show <name>` | Show skill set details |
 | `synapse skills apply <target> <set_name>` | Apply skill set to running agent (`--dry-run` to preview) |

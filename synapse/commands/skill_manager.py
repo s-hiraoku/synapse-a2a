@@ -20,6 +20,8 @@ Commands:
 
 from __future__ import annotations
 
+import subprocess
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from synapse.skills import (
@@ -352,6 +354,10 @@ def cmd_skills_import(
 def cmd_skills_create(
     name: str | None = None,
     synapse_dir: Path | None = None,
+    *,
+    launch_agent: bool = False,
+    agent: str = "claude",
+    runner: Callable[[list[str]], object] | None = None,
 ) -> bool:
     """Create a new skill in the central synapse store.
 
@@ -381,7 +387,51 @@ def cmd_skills_create(
         return False
 
     print(f"Created skill '{name}' at {result}")
+    if launch_agent:
+        _launch_skill_creator_agent(name, agent=agent, runner=runner)
     return True
+
+
+def _launch_skill_creator_agent(
+    skill_name: str,
+    *,
+    agent: str = "claude",
+    runner: Callable[[list[str]], object] | None = None,
+) -> None:
+    """Deploy the skill-creator skill and spawn an agent to finish a skill."""
+    run = runner or _run_subprocess
+    deploy_cmd = [
+        "synapse",
+        "skills",
+        "deploy",
+        "anthropic-skill-creator",
+        "--agent",
+        agent,
+        "--scope",
+        "user",
+    ]
+    run(deploy_cmd)
+
+    task = (
+        "/anthropic-skill-creator Create or refine the skill "
+        f"'{skill_name}' in ~/.synapse/skills/{skill_name}/. "
+        "Interview the user as needed, then update SKILL.md and any supporting files."
+    )
+    spawn_cmd = [
+        "synapse",
+        "spawn",
+        agent,
+        "--task",
+        task,
+        "--notify",
+    ]
+    run(spawn_cmd)
+    print(f"Launched {agent} to finish skill '{skill_name}'.")
+
+
+def _run_subprocess(cmd: Sequence[str]) -> object:
+    """Run a subprocess command for the skill creation launch flow."""
+    return subprocess.run(list(cmd), check=False)
 
 
 def cmd_skills_create_guided() -> None:
