@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-05-02
+
+This release fixes a cluster of multi-agent dogfooding bugs surfaced while shipping 0.34.0: a port-allocation race that silently lost one of two parallel spawns (#715), a misleading `synapse kill` recovery hint when the worktree branch already had an open PR (#714), and runtime artifacts under `.synapse/` and `.claude/worktrees/` that polluted `git status` (#713).
+
+### Changed
+
+- `.gitignore` now ignores the runtime-only paths that synapse-a2a / claude-code create during normal use (`.synapse/tasks/`, `.synapse/wiki/`, `.synapse/wiki.md`, `.synapse/worktrees/`, `.claude/worktrees/`) so they no longer appear as untracked entries in `git status`. Pre-existing committed files under `.synapse/` (settings/agent definitions, DB files, instruction sources) and the existing `.claude/worktrees/elastic-black` gitlink remain visible because gitignore patterns do not hide already-tracked paths. Closes #713.
+
 ### Fixed
 
 - Parallel `synapse spawn` no longer races on port allocation. Two simultaneous spawns of the same profile (e.g. `synapse spawn claude --worktree` × 2 in parallel) could both receive the same free port from `PortManager.get_available_port` because port discovery and registry write were not in the same critical section — the second spawn then overwrote the first's `synapse-{type}-{port}.json` registry entry, leaving the first agent visible as `READY` in some views but mis-labeled with the second agent's name and worktree, and leaving the first worktree as a physical orphan on disk. The new `PortManager.allocate_and_register` API performs free-port discovery and a placeholder registry write inside a single `AgentRegistry.registry_write_lock` (cross-process `fcntl.flock`) critical section, so parallel spawns serialize at the lock and observe each other's reservations. The `cli.py` spawn path now reserves the placeholder before worktree creation and rolls it back if worktree creation fails. The legacy `register()` signature is preserved (it is now a thin wrapper around the lock-aware `_register_locked`) and `get_available_port` is unchanged for backward compatibility. Closes #715.
+- `synapse kill <agent>` no longer attempts to merge a worktree branch into local `main` when that branch is already the head of an open GitHub PR. The previous behaviour printed a misleading recovery hint (`Resolve manually: git merge <branch>`) on conflict even though the PR is the canonical merge path; the new pre-check uses `gh pr list --head <branch> --state open` and skips the local auto-merge when ≥1 open PR is found, surfacing an informational message that points at the PR. The new `_branch_has_open_pr` helper is **fail-open**: missing `gh`, 5s timeout, non-zero exit, or malformed JSON falls back to the existing merge behaviour, so `kill` is never blocked or hung on a remote check. Closes #714.
 
 ## [0.34.0] - 2026-05-02
 
@@ -3688,7 +3697,8 @@ See v0.3.14 for reply PTY injection, CURRENT column, and history default changes
 - External agent connectivity vision document
 - PyPI publishing instructions
 
-[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.34.0...HEAD
+[Unreleased]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.35.0...HEAD
+[0.35.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/s-hiraoku/synapse-a2a/compare/v0.31.0...v0.32.0

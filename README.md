@@ -573,6 +573,7 @@ Synapse ships with 6 built-in skill sets (defined in `.synapse/skill_sets.json`)
 plugins/
 └── synapse-a2a/
     ├── .claude-plugin/plugin.json
+    ├── .codex-plugin/plugin.json
     ├── README.md
     └── skills/
         ├── synapse-a2a/
@@ -586,7 +587,8 @@ plugins/
 
 See [plugins/synapse-a2a/README.md](plugins/synapse-a2a/README.md) for details.
 
-> **Note**: Codex and Gemini don't support plugins, but you can place expanded skills in the `.agents/skills/` directory to enable these features.
+Codex can discover the repo-local plugin through `.agents/plugins/marketplace.json`.
+Gemini can use the expanded skills in the `.agents/skills/` directory.
 
 ---
 

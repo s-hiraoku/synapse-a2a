@@ -33,6 +33,7 @@ from synapse._pty_sanitize import (
     tail_printable,
 )
 from synapse.a2a_client import get_client
+from synapse.a2a_formatting import format_artifact_text as _format_artifact_text
 from synapse.auth import require_auth
 from synapse.config import (
     AGENT_READY_TIMEOUT,
@@ -282,37 +283,6 @@ def map_synapse_status_to_a2a(synapse_status: str) -> TaskState:
         "NOT_STARTED": "submitted",
     }
     return mapping.get(synapse_status, "working")
-
-
-def _format_artifact_text(artifact: "Artifact", use_markdown: bool = False) -> str:
-    """Format an artifact as text for history or response.
-
-    Args:
-        artifact: The Artifact to format
-        use_markdown: If True, format code blocks with markdown fences
-
-    Returns:
-        Formatted text representation of the artifact
-    """
-    if artifact.type == "code":
-        code_data = artifact.data if isinstance(artifact.data, dict) else {}
-        language = code_data.get("metadata", {}).get("language", "text")
-        content = code_data.get("content", str(artifact.data))
-        prefix = f"```{language}\n" if use_markdown else f"[Code: {language}]\n"
-        suffix = "\n```" if use_markdown else ""
-        text = f"{prefix}{content}{suffix}"
-    elif artifact.type == "text":
-        if isinstance(artifact.data, str):
-            text = artifact.data
-        else:
-            text = str(artifact.data.get("content", artifact.data))
-    else:
-        text = f"[{artifact.type}] {artifact.data}"
-
-    # Sanitize once at the single exit so PTY scrape residue (ANSI escapes,
-    # C0/C1 control bytes) cannot leak into history or A2A output regardless
-    # of artifact type. See PR #668 (#664) and #678 (#677, route C).
-    return strip_control_bytes(text)
 
 
 def _save_task_to_history(

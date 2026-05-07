@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
+      - name: Build package
+        run: uv build
+
       - name: Lint with ruff
         run: |
           uv run ruff check synapse/ tests/
@@ -38,7 +41,6 @@ jobs:
 
       - name: Type check with mypy
         run: uv run mypy synapse/
-        continue-on-error: true
 
       - name: Run tests
         run: uv run pytest -v

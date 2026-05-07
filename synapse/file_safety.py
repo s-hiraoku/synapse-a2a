@@ -125,11 +125,26 @@ class FileSafetyManager:
         Returns:
             FileSafetyManager instance with settings from env/config
         """
-        # Resolve DB path (env > settings > arg > default)
+        # Resolve DB path (env > project settings > arg > user settings > default).
+        # A caller-provided path is usually a deliberate test/runtime override; do not
+        # let ambient user-global settings leak into that case.
         env_db_path = os.environ.get("SYNAPSE_FILE_SAFETY_DB_PATH", "").strip()
         if not env_db_path:
-            env_db_path = cls._get_setting("SYNAPSE_FILE_SAFETY_DB_PATH", "").strip()
-        resolved_db_path = env_db_path or db_path
+            env_db_path = cls._get_setting(
+                "SYNAPSE_FILE_SAFETY_DB_PATH",
+                "",
+                include_user=False,
+            ).strip()
+        if env_db_path:
+            resolved_db_path = env_db_path
+        elif db_path:
+            resolved_db_path = db_path
+        else:
+            resolved_db_path = cls._get_setting(
+                "SYNAPSE_FILE_SAFETY_DB_PATH",
+                "",
+                include_project=False,
+            ).strip()
 
         # Check enabled status
         env_enabled = os.environ.get("SYNAPSE_FILE_SAFETY_ENABLED", "").lower()
@@ -155,12 +170,21 @@ class FileSafetyManager:
         )
 
     @staticmethod
-    def _get_setting(key: str, default: str = "") -> str:
+    def _get_setting(
+        key: str,
+        default: str = "",
+        *,
+        include_project: bool = True,
+        include_user: bool = True,
+    ) -> str:
         """Get a setting value from .synapse/settings.json."""
-        for settings_path in [
-            Path.cwd() / ".synapse" / "settings.json",
-            Path.home() / ".synapse" / "settings.json",
-        ]:
+        settings_paths = []
+        if include_project:
+            settings_paths.append(Path.cwd() / ".synapse" / "settings.json")
+        if include_user:
+            settings_paths.append(Path.home() / ".synapse" / "settings.json")
+
+        for settings_path in settings_paths:
             if settings_path.exists():
                 try:
                     with open(settings_path, encoding="utf-8") as f:

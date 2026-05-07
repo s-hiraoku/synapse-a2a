@@ -597,9 +597,13 @@ class SynapseSettings:
         """
         paths: list[str] = []
 
-        def add_if_exists(filename: str) -> None:
+        def add_if_exists(filename: str, *, include_ambient_user: bool = True) -> None:
             """Add file to paths if it exists in project or user directory."""
-            display_path = self._get_file_display_path(filename, user_dir)
+            display_path = self._get_file_display_path(
+                filename,
+                user_dir,
+                include_user=user_dir is not None or include_ambient_user,
+            )
             if display_path:
                 paths.append(display_path)
 
@@ -608,12 +612,16 @@ class SynapseSettings:
             add_if_exists(primary_file)
 
         for filename in self._enabled_optional_instruction_files():
-            add_if_exists(filename)
+            add_if_exists(filename, include_ambient_user=False)
 
         return paths
 
     def _get_file_display_path(
-        self, filename: str, user_dir: Path | None = None
+        self,
+        filename: str,
+        user_dir: Path | None = None,
+        *,
+        include_user: bool = True,
     ) -> str | None:
         """
         Get the display path for an instruction file.
@@ -630,10 +638,9 @@ class SynapseSettings:
             or None if file doesn't exist in either location.
         """
         home = user_dir or Path.home()
-        locations = [
-            (Path.cwd() / ".synapse" / filename, f".synapse/{filename}"),
-            (home / ".synapse" / filename, f"~/.synapse/{filename}"),
-        ]
+        locations = [(Path.cwd() / ".synapse" / filename, f".synapse/{filename}")]
+        if include_user:
+            locations.append((home / ".synapse" / filename, f"~/.synapse/{filename}"))
 
         for path, display in locations:
             if path.exists():
@@ -769,7 +776,7 @@ class SynapseSettings:
             Instruction with optional content appended.
         """
         for filename in self._enabled_optional_instruction_files():
-            content = self._load_instruction_file(filename)
+            content = self._load_instruction_file(filename, include_user=False)
             if content:
                 instruction = instruction + "\n\n" + content
 
@@ -813,7 +820,11 @@ class SynapseSettings:
         return text
 
     def _load_instruction_file(
-        self, filename: str, *, user_dir: Path | None = None
+        self,
+        filename: str,
+        *,
+        user_dir: Path | None = None,
+        include_user: bool = True,
     ) -> str:
         """
         Load instruction content from a file in .synapse directory.
@@ -830,10 +841,9 @@ class SynapseSettings:
             File content if found, empty string otherwise.
         """
         home = user_dir if user_dir is not None else Path.home()
-        search_paths = [
-            Path.cwd() / ".synapse" / filename,
-            home / ".synapse" / filename,
-        ]
+        search_paths = [Path.cwd() / ".synapse" / filename]
+        if include_user:
+            search_paths.append(home / ".synapse" / filename)
 
         for path in search_paths:
             if path.exists():

@@ -30,6 +30,7 @@ from synapse.auth import generate_api_key
 from synapse.commands import history as history_commands
 from synapse.commands import memory as memory_commands
 from synapse.commands import messaging as messaging_commands
+from synapse.commands import skill_install as skill_install_commands
 from synapse.commands.cleanup import cmd_cleanup
 from synapse.commands.doctor import cmd_doctor
 from synapse.commands.external import (
@@ -136,73 +137,9 @@ _get_send_message_threshold = messaging_commands._get_send_message_threshold
 _resolve_cli_message = messaging_commands._resolve_cli_message
 _resolve_task_message = messaging_commands._resolve_task_message
 _run_a2a_command = messaging_commands._run_a2a_command
-
-
-def install_skills() -> None:
-    """Install Synapse A2A skills to ~/.claude/skills/ and copy to ~/.agents/skills/."""
-    try:
-        import synapse
-
-        package_dir = Path(synapse.__file__).parent
-        skills_to_install = ["synapse-a2a", "synapse-reinst"]
-
-        for skill_name in skills_to_install:
-            claude_target = Path.home() / ".claude" / "skills" / skill_name
-
-            # Skip if already installed in .claude
-            if claude_target.exists():
-                # Still try to copy to .agents if not present
-                _copy_skill_to_agents(claude_target, skill_name)
-                continue
-
-            source_dir = package_dir / "skills" / skill_name
-
-            if source_dir.exists():
-                claude_target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(source_dir, claude_target)
-                msg = f"Installed {skill_name} skill to {claude_target}"
-                print(f"\x1b[32m[Synapse]\x1b[0m {msg}")
-                # Copy to .agents as well
-                _copy_skill_to_agents(claude_target, skill_name)
-    except Exception:  # broad catch: best-effort skill install must never block startup
-        pass
-
-
-def _copy_skill_to_agents(
-    source_dir: Path,
-    skill_name: str,
-    *,
-    base_dir: Path | None = None,
-    force: bool = False,
-    quiet: bool = False,
-) -> str | None:
-    """Copy a skill to .agents/skills/ (Codex/OpenCode/Gemini/Copilot use .agents/skills/).
-
-    Args:
-        source_dir: Source skill directory to copy from.
-        skill_name: Name of the skill (used as target directory name).
-        base_dir: Base directory for .agents/. Defaults to Path.home().
-        force: If True, overwrite existing skill.
-        quiet: If True, suppress output messages.
-
-    Returns the destination path string if copied, None otherwise.
-    """
-    try:
-        target_base = base_dir or Path.home()
-        agents_target = target_base / ".agents" / "skills" / skill_name
-        if agents_target.exists() and not force:
-            return None
-        if agents_target.exists() and force:
-            shutil.rmtree(agents_target)
-        agents_target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(source_dir, agents_target)
-        if not quiet:
-            print(
-                f"\x1b[32m[Synapse]\x1b[0m Copied {skill_name} skill to {agents_target}"
-            )
-        return str(agents_target)
-    except OSError:
-        return None
+install_skills = skill_install_commands.install_skills
+_copy_claude_skills_to_agents = skill_install_commands._copy_claude_skills_to_agents
+_copy_skill_to_agents = skill_install_commands._copy_skill_to_agents
 
 
 _START_COMMAND = StartCommand(subprocess_module=subprocess)
@@ -1297,35 +1234,6 @@ def _copy_synapse_templates(target_dir: Path) -> bool:
     except OSError as e:
         print(f"Error copying templates: {e}")
         return False
-
-
-def _copy_claude_skills_to_agents(base_dir: Path, force: bool = False) -> list[str]:
-    """Copy synapse skills from .claude to .agents directory.
-
-    Codex, OpenCode, Gemini, and Copilot use .agents/skills/ for skill discovery, so this
-    copies each skill from .claude/skills/<name> to .agents/skills/<name>.
-
-    Args:
-        base_dir: Base directory (e.g., Path.home() or Path.cwd())
-        force: If True, overwrite existing skills in .agents
-
-    Returns:
-        List of paths where skills were copied to
-    """
-    installed: list[str] = []
-    skill_names = ["synapse-a2a", "synapse-reinst"]
-
-    for skill_name in skill_names:
-        source = base_dir / ".claude" / "skills" / skill_name
-        if not source.exists():
-            continue
-        result = _copy_skill_to_agents(
-            source, skill_name, base_dir=base_dir, force=force, quiet=True
-        )
-        if result:
-            installed.append(result)
-
-    return installed
 
 
 def cmd_init(args: argparse.Namespace) -> None:
