@@ -296,6 +296,8 @@ synapse reply --stdin                      # Read reply body from stdin
 synapse reply --list-targets               # List pending senders
 ```
 
+Use `synapse reply` only for a Synapse-tracked incoming message, such as `[REPLY EXPECTED]` or a response path created by `synapse send --wait`. For user-pasted A2A text, Synapse has no reply target; use `synapse send` to continue the conversation instead.
+
 !!! tip "Long or shell-unsafe replies (#673)"
     `--message-file` / `-F` and `--stdin` mirror the same flags on `synapse send`, so replies containing backticks, `$()`, or `${}` shell metacharacters can be passed via file or pipe instead of as a positional argument the shell may try to expand. Reply still uses fixed `priority=3` and `silent` response mode — other `send` flags were intentionally not mirrored because they conflict with reply semantics.
 

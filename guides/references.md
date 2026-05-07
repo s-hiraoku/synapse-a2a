@@ -646,6 +646,8 @@ synapse interrupt claude "Stop" --force   # 異なるプロジェクトのエー
 
 最後に受信したA2Aメッセージに返信します。Synapseは返信を期待するメッセージの送信者情報を自動的に追跡します。
 
+`synapse reply` は Synapse-tracked incoming message（例: `[REPLY EXPECTED]` または `synapse send --wait` 由来）にだけ使います。user-pasted A2A text には返信先スタックがないため、会話を続ける場合は use `synapse send`。
+
 ```bash
 synapse reply [message|--message-file PATH|--stdin] [--from AGENT_ID] [--to SENDER_ID] [--list-targets] [--fail REASON]
 ```
