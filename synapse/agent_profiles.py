@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -31,6 +32,15 @@ class AgentProfile:
     path: Path | None = None
 
 
+@dataclass(frozen=True)
+class RoleTemplate:
+    """Role template discovered from .synapse/roles."""
+
+    name: str
+    path: Path
+    scope: Scope
+
+
 class AgentProfileStore:
     """Store and resolve saved agent definitions from user/project scopes."""
 
@@ -44,6 +54,10 @@ class AgentProfileStore:
         self.home_dir = home_dir or Path.home()
         self.project_dir = self.project_root / ".synapse" / "agents"
         self.user_dir = self.home_dir / ".synapse" / "agents"
+        self.project_json = self.project_root / ".synapse" / "agents.json"
+        self.user_json = self.home_dir / ".synapse" / "agents.json"
+        self.project_roles_dir = self.project_root / ".synapse" / "roles"
+        self.user_roles_dir = self.home_dir / ".synapse" / "roles"
 
     def add(
         self,
@@ -143,6 +157,81 @@ class AgentProfileStore:
                 merged[parsed.profile_id] = parsed
         return sorted(merged.values(), key=lambda item: item.profile_id)
 
+    def get_default_profile(self, profile: str) -> AgentProfile | None:
+        """Return the agents.json default for a CLI profile, if configured."""
+        defaults = self._load_default_profiles()
+        return defaults.get(profile)
+
+    def set_default_profile(
+        self,
+        *,
+        profile: str,
+        name: str,
+        role: str | None,
+        skill_set: str | None,
+        scope: Scope,
+    ) -> AgentProfile:
+        """Create or update a profile default in agents.json."""
+        self._validate_required(profile, "profile")
+        self._validate_required(name, "name")
+
+        path = self._scope_json(scope)
+        data = self._read_json_payload(path)
+        profiles = data.setdefault("profiles", {})
+        if not isinstance(profiles, dict):
+            profiles = {}
+            data["profiles"] = profiles
+
+        payload: dict[str, str] = {"name": name}
+        if role:
+            payload["role"] = role
+        if skill_set:
+            payload["skill_set"] = skill_set
+        profiles[profile] = payload
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return AgentProfile(
+            profile_id=profile,
+            name=name,
+            profile=profile,
+            role=role,
+            skill_set=skill_set,
+            scope=scope,
+            path=path,
+        )
+
+    def unset_default_profile(self, profile: str, *, scope: Scope) -> bool:
+        """Remove a profile default from agents.json."""
+        path = self._scope_json(scope)
+        data = self._read_json_payload(path)
+        profiles = data.get("profiles")
+        if not isinstance(profiles, dict) or profile not in profiles:
+            return False
+
+        del profiles[profile]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return True
+
+    def list_roles(self) -> list[RoleTemplate]:
+        """List Markdown role templates from user and project scopes."""
+        roles: list[RoleTemplate] = []
+        scopes: tuple[tuple[Scope, Path], tuple[Scope, Path]] = (
+            ("user", self.user_roles_dir),
+            ("project", self.project_roles_dir),
+        )
+        for scope, root in scopes:
+            for path in sorted(root.glob("*.md")):
+                roles.append(RoleTemplate(name=path.stem, path=path, scope=scope))
+        return roles
+
     def _read_file(self, path: Path, *, scope: Scope) -> AgentProfile:
         data: dict[str, str] = {}
         for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -170,11 +259,76 @@ class AgentProfileStore:
             path=path,
         )
 
+    def _load_default_profiles(self) -> dict[str, AgentProfile]:
+        merged: dict[str, AgentProfile] = {}
+        scopes: tuple[tuple[Scope, Path], tuple[Scope, Path]] = (
+            ("user", self.user_json),
+            ("project", self.project_json),
+        )
+        for scope, path in scopes:
+            merged.update(self._read_default_profiles(path, scope=scope))
+        return merged
+
+    def _read_default_profiles(
+        self,
+        path: Path,
+        *,
+        scope: Scope,
+    ) -> dict[str, AgentProfile]:
+        data = self._read_json_payload(path)
+        profiles = data.get("profiles")
+        if not isinstance(profiles, dict):
+            return {}
+
+        parsed: dict[str, AgentProfile] = {}
+        for profile_key, raw_profile in profiles.items():
+            if not isinstance(profile_key, str) or not isinstance(raw_profile, dict):
+                continue
+            name = raw_profile.get("name")
+            if not isinstance(name, str) or not name.strip():
+                continue
+            profile = raw_profile.get("profile", profile_key)
+            if not isinstance(profile, str) or not profile.strip():
+                continue
+            role = raw_profile.get("role")
+            skill_set = raw_profile.get("skill_set")
+            parsed[profile_key] = AgentProfile(
+                profile_id=profile_key,
+                name=name,
+                profile=profile,
+                role=role if isinstance(role, str) and role else None,
+                skill_set=skill_set
+                if isinstance(skill_set, str) and skill_set
+                else None,
+                scope=scope,
+                path=path,
+            )
+        return parsed
+
+    @staticmethod
+    def _read_json_payload(path: Path) -> dict[str, object]:
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return data
+
     def _scope_dir(self, scope: Scope) -> Path:
         if scope == "project":
             return self.project_dir
         if scope == "user":
             return self.user_dir
+        raise AgentProfileError(f"unsupported scope: {scope}")
+
+    def _scope_json(self, scope: Scope) -> Path:
+        if scope == "project":
+            return self.project_json
+        if scope == "user":
+            return self.user_json
         raise AgentProfileError(f"unsupported scope: {scope}")
 
     @staticmethod

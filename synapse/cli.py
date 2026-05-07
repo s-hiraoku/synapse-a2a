@@ -879,6 +879,42 @@ def cmd_agents_add(args: argparse.Namespace) -> None:
     )
 
 
+def cmd_agents_set(args: argparse.Namespace) -> None:
+    """Set the default name/role/skill-set for a CLI profile in agents.json."""
+    if args.profile not in KNOWN_PROFILES:
+        print(
+            f"Unknown profile '{args.profile}'. "
+            f"Choose from: {', '.join(sorted(KNOWN_PROFILES))}"
+        )
+        sys.exit(1)
+
+    store = AgentProfileStore()
+    try:
+        item = store.set_default_profile(
+            profile=args.profile,
+            name=args.name,
+            role=args.role,
+            skill_set=args.skill_set,
+            scope=args.scope,
+        )
+    except AgentProfileError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+    print(
+        f"Set default for profile '{item.profile}' ({item.name}) in {item.scope} scope."
+    )
+
+
+def cmd_agents_unset(args: argparse.Namespace) -> None:
+    """Unset a profile default from agents.json."""
+    store = AgentProfileStore()
+    if not store.unset_default_profile(args.profile, scope=args.scope):
+        print(f"No default profile found for '{args.profile}' in {args.scope} scope.")
+        sys.exit(1)
+    print(f"Unset default profile: {args.profile} ({args.scope})")
+
+
 def cmd_agents_delete(args: argparse.Namespace) -> None:
     """Delete a saved agent definition."""
     store = AgentProfileStore()
@@ -891,6 +927,34 @@ def cmd_agents_delete(args: argparse.Namespace) -> None:
         print(f"Saved agent not found: {args.id_or_name}")
         sys.exit(1)
     print(f"Deleted saved agent: {args.id_or_name}")
+
+
+def cmd_agents_roles(args: argparse.Namespace) -> None:
+    """List or create role templates under .synapse/roles."""
+    store = AgentProfileStore()
+    if getattr(args, "roles_command", None) == "create":
+        root = (
+            store.project_roles_dir if args.scope == "project" else store.user_roles_dir
+        )
+        root.mkdir(parents=True, exist_ok=True)
+        path = root / f"{args.name}.md"
+        if path.exists() and not args.force:
+            print(f"Role template already exists: {path}")
+            sys.exit(1)
+        if args.file:
+            content = Path(args.file).read_text(encoding="utf-8")
+        else:
+            content = args.content or ""
+        path.write_text(content, encoding="utf-8")
+        print(f"Created role template: {path}")
+        return
+
+    roles = store.list_roles()
+    if not roles:
+        print("No role templates found. Add Markdown files under .synapse/roles/.")
+        return
+    for role in roles:
+        print(f"{role.name}\t{role.scope}\t{role.path}")
 
 
 def _input_with_default(
@@ -2254,6 +2318,7 @@ def cmd_run_interactive(
     skill_set: str | None = None,
     headless: bool = False,
     profile_store: AgentProfileStore | None = None,
+    agent_definition_id: str | None = None,
 ) -> None:
     """Run an agent in interactive mode with A2A server.
 
@@ -2492,6 +2557,7 @@ def cmd_run_interactive(
         role=agent_role,
         delegate_mode=delegate_mode,
         skill_set=selected_skill_set,
+        agent_definition_id=agent_definition_id,
         write_delay=write_delay,
         submit_retry_delay=submit_retry_delay,
         bracketed_paste=bracketed_paste,
@@ -2712,6 +2778,7 @@ def main() -> None:
         has_agent_flag = "--agent" in synapse_args or "-A" in synapse_args
         agent_arg = parse_arg("--agent") or parse_arg("-A")
         startup_store: AgentProfileStore | None = None
+        agent_definition_id: str | None = None
         if has_agent_flag and not agent_arg:
             print("Error: --agent/-A requires a value.", file=sys.stderr)
             sys.exit(1)
@@ -2741,6 +2808,18 @@ def main() -> None:
             name = name or saved.name
             role = role or saved.role
             skill_set_arg = skill_set_arg or saved.skill_set
+            agent_definition_id = getattr(saved, "profile_id", None) or agent_arg
+        else:
+            store = AgentProfileStore()
+            default_profile = store.get_default_profile(profile)
+            if default_profile is not None:
+                startup_store = store
+                name = name or default_profile.name
+                role = role or default_profile.role
+                skill_set_arg = skill_set_arg or default_profile.skill_set
+                agent_definition_id = (
+                    getattr(default_profile, "profile_id", None) or profile
+                )
 
         explicit_port = port is not None
         placeholder_agent_id: str | None = None
@@ -2789,18 +2868,33 @@ def main() -> None:
 
         while True:
             try:
-                cmd_run_interactive(
-                    profile,
-                    port,
-                    tool_args,
-                    name=name,
-                    role=role,
-                    no_setup=no_setup,
-                    delegate_mode=delegate_mode,
-                    skill_set=skill_set_arg,
-                    headless=headless,
-                    profile_store=startup_store,
-                )
+                if agent_definition_id is not None:
+                    cmd_run_interactive(
+                        profile,
+                        port,
+                        tool_args,
+                        name=name,
+                        role=role,
+                        no_setup=no_setup,
+                        delegate_mode=delegate_mode,
+                        skill_set=skill_set_arg,
+                        headless=headless,
+                        profile_store=startup_store,
+                        agent_definition_id=agent_definition_id,
+                    )
+                else:
+                    cmd_run_interactive(
+                        profile,
+                        port,
+                        tool_args,
+                        name=name,
+                        role=role,
+                        no_setup=no_setup,
+                        delegate_mode=delegate_mode,
+                        skill_set=skill_set_arg,
+                        headless=headless,
+                        profile_store=startup_store,
+                    )
                 break
             except OSError as e:
                 if explicit_port or e.errno != errno.EADDRINUSE:
@@ -4983,6 +5077,60 @@ IDs must use petname format, e.g. `silent-snake`.""",
         help="Storage scope (default: project)",
     )
     p_agents_add.set_defaults(func=cmd_agents_add)
+
+    p_agents_set = agents_subparsers.add_parser(
+        "set", help="Set agents.json defaults for a profile"
+    )
+    p_agents_set.add_argument(
+        "profile",
+        help="Agent profile (claude, codex, gemini, opencode, copilot)",
+    )
+    p_agents_set.add_argument("--name", required=True, help="Display name")
+    p_agents_set.add_argument("--role", help="Role description or @role-file")
+    p_agents_set.add_argument("--skill-set", "-S", dest="skill_set", help="Skill set")
+    p_agents_set.add_argument(
+        "--scope",
+        choices=["project", "user"],
+        default="project",
+        help="Storage scope (default: project)",
+    )
+    p_agents_set.set_defaults(func=cmd_agents_set)
+
+    p_agents_unset = agents_subparsers.add_parser(
+        "unset", help="Unset agents.json defaults for a profile"
+    )
+    p_agents_unset.add_argument("profile", help="Agent profile to unset")
+    p_agents_unset.add_argument(
+        "--scope",
+        choices=["project", "user"],
+        default="project",
+        help="Storage scope (default: project)",
+    )
+    p_agents_unset.set_defaults(func=cmd_agents_unset)
+
+    p_agents_roles = agents_subparsers.add_parser(
+        "roles", help="List or create role templates"
+    )
+    roles_subparsers = p_agents_roles.add_subparsers(
+        dest="roles_command", metavar="SUBCOMMAND"
+    )
+    p_agents_roles.set_defaults(func=cmd_agents_roles)
+    p_agents_roles_create = roles_subparsers.add_parser(
+        "create", help="Create a role template"
+    )
+    p_agents_roles_create.add_argument("name", help="Role template name")
+    p_agents_roles_create.add_argument("--content", help="Markdown role content")
+    p_agents_roles_create.add_argument("--file", help="Read role content from file")
+    p_agents_roles_create.add_argument(
+        "--scope",
+        choices=["project", "user"],
+        default="project",
+        help="Storage scope (default: project)",
+    )
+    p_agents_roles_create.add_argument(
+        "--force", action="store_true", help="Overwrite an existing template"
+    )
+    p_agents_roles_create.set_defaults(func=cmd_agents_roles)
 
     p_agents_delete = agents_subparsers.add_parser(
         "delete", help="Delete a saved agent by ID or name"

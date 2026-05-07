@@ -471,6 +471,46 @@ class HistoryManager:
                 print(f"Warning: Failed to search observations: {e}", file=sys.stderr)
                 return []
 
+    def recall_observations(
+        self,
+        task_text: str,
+        *,
+        agent_name: str | None = None,
+        limit: int = 3,
+        random_fn: Any | None = None,
+        noise_fn: Any | None = None,
+    ) -> list[dict[str, Any]]:
+        """Probabilistically recall relevant observations for a task.
+
+        Recall is a thin layer over existing keyword search. It preserves all
+        stored history and lets the probabilistic selector decide which matching
+        observations are worth surfacing.
+        """
+        if not self.enabled or not task_text.strip() or limit <= 0:
+            return []
+
+        from synapse.probabilistic_recall import (
+            extract_recall_keywords,
+            select_recalled_observations,
+        )
+
+        keywords = extract_recall_keywords(task_text)
+        if not keywords:
+            return []
+
+        candidates = self.search_observations(
+            keywords=keywords,
+            logic="OR",
+            agent_name=agent_name,
+            limit=max(limit * 5, 20),
+        )
+        return select_recalled_observations(
+            candidates,
+            limit=limit,
+            random_fn=random_fn,
+            noise_fn=noise_fn,
+        )
+
     def _run_vacuum(self, conn: sqlite3.Connection, cursor: sqlite3.Cursor) -> float:
         """Run VACUUM and return space reclaimed in MB.
 

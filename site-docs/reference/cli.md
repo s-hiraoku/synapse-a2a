@@ -210,6 +210,24 @@ synapse agents add <id> --name NAME --profile PROFILE [OPTIONS]
 | `--skill-set SET` / `-S SET` | Skill set name |
 | `--scope SCOPE` | `project` (default) or `user` |
 
+### Set Profile Defaults
+
+```bash
+synapse agents set <profile> --name NAME [--role ROLE] [--skill-set SET] [--scope project|user]
+synapse agents unset <profile> [--scope project|user]
+```
+
+`agents set` writes the issue #302 `agents.json` format under `.synapse/` or `~/.synapse/`. These defaults apply automatically when starting the matching shortcut, for example `synapse claude`, and CLI flags override individual fields.
+
+### Role Templates
+
+```bash
+synapse agents roles
+synapse agents roles create <name> [--content MARKDOWN | --file PATH] [--scope project|user]
+```
+
+Role templates are Markdown files under `.synapse/roles/` or `~/.synapse/roles/`. Use them from defaults or CLI flags as `@./roles/<name>.md`.
+
 ### Delete Saved Agent
 
 ```bash

@@ -144,7 +144,7 @@ flowchart LR
 | **Auto-Spawn Panes** | `synapse team start` — 1st agent takes over current terminal, others in new panes. Defaults to `--worktree` isolation (opt out with `--no-worktree`). `--all-new` to start all in new panes. Supports `profile:name:role:skill_set:port` spec (tmux/iTerm2/Terminal.app/Ghostty/zellij) |
 | **Soft Interrupt** | `synapse interrupt <target> "message"` — Ergonomic shorthand for `synapse send -p 4 --silent` to quickly interrupt an agent |
 | **Token/Cost Tracking** | Skeleton for per-agent token usage tracking; `synapse history stats` shows TOKEN USAGE section when data exists |
-| **Saved Agent Definitions** | `synapse agents add/list/show/delete` — Save reusable agent templates (profile + name + role + skill set) with persistent **Agent IDs**. `synapse spawn` accepts Agent IDs/names in addition to profile names |
+| **Saved Agent Definitions** | `synapse agents add/list/show/delete` plus `agents set/unset/roles` — Save reusable agent templates or profile defaults (profile + name + role + skill set). `synapse spawn` accepts Agent IDs/names, and `synapse <profile>` can load `.synapse/agents.json` defaults |
 | **Spawn Single Agent** | `synapse spawn <profile\|saved-agent>` — Spawn a single agent in a new terminal pane or window. Accepts profile names or saved agent IDs/names. **Auto-tiles (tmux)**: when a second or subsequent agent is spawned, `tmux select-layout tiled` is automatically applied for even pane distribution (no flags needed). Use `--worktree` / `-w` for Synapse-native git worktree isolation (all agents, `.synapse/worktrees/`). `--branch` / `-b` auto-enables `--worktree` and sets the base branch (defaults to `origin/main`). Use `--no-worktree` to opt out. `--task "message"` / `--task-file path` auto-sends a task after the agent becomes READY (with `--task-timeout`, `--wait`/`--notify`/`--silent`). **Recommended pattern**: `synapse spawn <profile> --task-file <path> --task-timeout 600 --notify`. Legacy `-- --worktree` also supported for Claude Code only |
 | **CI Automation** | PostToolUse hooks detect `git push`/`gh pr create` and auto-poll CI status, merge conflicts, and CodeRabbit reviews. Skills: `/check-ci`, `/fix-ci`, `/fix-conflict`, `/fix-review` |
 | **Issue Bootstrap** | `/dev-issue <number>` slash command bootstraps issue implementation in one step — fetches the issue from GitHub, generates a task brief, creates a feature branch (`feat/<slug>-<number>`), and spawns a Codex agent on it ([#643](https://github.com/s-hiraoku/synapse-a2a/pull/643)) |
@@ -867,6 +867,9 @@ Save this agent definition for reuse? [y/N]:
 | `synapse agents list` | List saved agent definitions |
 | `synapse agents show <id_or_name>` | Show details for a saved agent |
 | `synapse agents add <id>` | Add or update a saved agent definition (requires `--name`, `--profile`) |
+| `synapse agents set <profile>` | Set `.synapse/agents.json` defaults for `synapse <profile>` startup |
+| `synapse agents unset <profile>` | Remove an `agents.json` profile default |
+| `synapse agents roles` | List Markdown role templates from `.synapse/roles` and `~/.synapse/roles` |
 | `synapse agents delete <id_or_name>` | Delete a saved agent by ID or name |
 | `synapse session save <name>` | Save running agents as a named session snapshot (captures `session_id` for resume) |
 | `synapse session list` | List saved sessions |

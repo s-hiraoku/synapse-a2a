@@ -170,3 +170,95 @@ def test_suggest_petname_ids_excludes_all_fallbacks() -> None:
     results = suggest_petname_ids("claude", exclude=excluded)
     for r in results:
         assert r not in excluded
+
+
+# ── agents.json defaults (#302) ──────────────────────────────
+
+
+def test_agents_json_default_profiles_merge_user_then_project(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Project agents.json should override user defaults for a profile."""
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    (home / ".synapse").mkdir(parents=True)
+    (project / ".synapse").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir(project)
+
+    (home / ".synapse" / "agents.json").write_text(
+        '{"profiles":{"claude":{"name":"User Claude","role":"user role"}}}',
+        encoding="utf-8",
+    )
+    (project / ".synapse" / "agents.json").write_text(
+        (
+            '{"profiles":{"claude":{"name":"Project Claude",'
+            '"role":"@./roles/architect.md","skill_set":"architect"}}}'
+        ),
+        encoding="utf-8",
+    )
+
+    from synapse.agent_profiles import AgentProfileStore
+
+    store = AgentProfileStore()
+    default = store.get_default_profile("claude")
+
+    assert default is not None
+    assert default.profile_id == "claude"
+    assert default.name == "Project Claude"
+    assert default.role == "@./roles/architect.md"
+    assert default.skill_set == "architect"
+    assert default.scope == "project"
+
+
+def test_set_and_unset_default_profile_round_trips_agents_json(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Default profile management should write the issue #302 agents.json format."""
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    home.mkdir()
+    project.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir(project)
+
+    from synapse.agent_profiles import AgentProfileStore
+
+    store = AgentProfileStore()
+    saved = store.set_default_profile(
+        profile="codex",
+        name="Tester",
+        role="@./roles/tester.md",
+        skill_set=None,
+        scope="project",
+    )
+
+    assert saved.profile_id == "codex"
+    assert store.get_default_profile("codex").name == "Tester"  # type: ignore[union-attr]
+    assert store.unset_default_profile("codex", scope="project")
+    assert store.get_default_profile("codex") is None
+
+
+def test_list_roles_reads_project_and_user_role_templates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Role templates should be discoverable from both .synapse/roles scopes."""
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    (home / ".synapse" / "roles").mkdir(parents=True)
+    (project / ".synapse" / "roles").mkdir(parents=True)
+    (home / ".synapse" / "roles" / "reviewer.md").write_text("review", encoding="utf-8")
+    (project / ".synapse" / "roles" / "architect.md").write_text(
+        "architect", encoding="utf-8"
+    )
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir(project)
+
+    from synapse.agent_profiles import AgentProfileStore
+
+    roles = AgentProfileStore().list_roles()
+
+    assert [(role.name, role.scope) for role in roles] == [
+        ("reviewer", "user"),
+        ("architect", "project"),
+    ]

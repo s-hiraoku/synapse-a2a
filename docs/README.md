@@ -33,6 +33,11 @@ For user guides, see the [`/guides`](../guides/) directory.
 - Displayed only for interactive `synapse <profile>` exits with a configured name.
 - Not displayed in `--headless`, non-TTY sessions, or when stopping via
   `synapse stop ...` / `synapse kill ...`.
+- Multilingual README structure can be generated from `docs/readme-template.md`
+  and `docs/translations/*.yaml`:
+  `python docs/generate_readmes.py --check` verifies generated files are current,
+  and running without `--check` writes the configured outputs. Existing
+  hand-maintained README files can be migrated section by section.
 
 ### プロジェクト哲学
 
