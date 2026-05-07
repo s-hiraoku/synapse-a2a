@@ -16,7 +16,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from synapse.utils import RoleFileNotFoundError, get_role_content
 
@@ -210,6 +210,7 @@ KNOWN_SETTINGS_KEYS: set[str] = {
     "hooks",
     "skill_sets",
     "administrator",
+    "wiki",
 }
 
 # Deprecated settings keys with migration messages
@@ -328,6 +329,7 @@ class SynapseSettings:
     delegate_mode_config: dict[str, Any] = field(default_factory=dict)
     hooks_config: dict[str, str] = field(default_factory=dict)
     administrator_config: dict[str, Any] = field(default_factory=dict)
+    wiki_config: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_defaults(cls) -> "SynapseSettings":
@@ -343,6 +345,7 @@ class SynapseSettings:
             delegate_mode_config=dict(DEFAULT_SETTINGS["delegate_mode"]),
             hooks_config=dict(DEFAULT_SETTINGS["hooks"]),
             administrator_config=dict(DEFAULT_SETTINGS["administrator"]),
+            wiki_config={},
         )
 
     @classmethod
@@ -409,6 +412,7 @@ class SynapseSettings:
             delegate_mode_config=merged.get("delegate_mode", {}),
             hooks_config=merged.get("hooks", {}),
             administrator_config=merged.get("administrator", {}),
+            wiki_config=merged.get("wiki", {}),
         )
 
     def get_instruction(
@@ -486,20 +490,7 @@ class SynapseSettings:
             - {{port}}: The port number
         """
 
-        # Try agent-specific first
-        instruction = self.instructions.get(agent_type, "")
-
-        # Fall back to default
-        if not instruction:
-            instruction = self.instructions.get("default", "")
-
-        # Handle array format: join with newlines
-        if isinstance(instruction, list):
-            instruction = "\n".join(instruction)
-
-        # Handle file reference: load from .synapse/<filename>
-        if isinstance(instruction, str) and instruction.endswith(".md"):
-            instruction = self._load_instruction_file(instruction)
+        instruction = cast(str, self._load_configured_instruction(agent_type))
 
         # Return None if empty
         if not instruction:
@@ -575,45 +566,15 @@ class SynapseSettings:
         """
         files: list[str] = []
 
-        # Check agent-specific file
-        agent_instruction = self.instructions.get(agent_type, "")
-        if self._is_valid_md_file(agent_instruction):
-            files.append(agent_instruction)
+        primary_file = self._configured_instruction_file(agent_type)
+        if primary_file and self._instruction_file_exists(primary_file):
+            files.append(primary_file)
 
-        # Check default file (only if agent-specific is not set)
-        if not agent_instruction:
-            default_instruction = self.instructions.get("default", "")
-            if self._is_valid_md_file(default_instruction):
-                files.append(default_instruction)
-
-        # Add optional files based on settings
-
-        # File safety
-        if self._is_file_safety_enabled() and self._instruction_file_exists(
-            "file-safety.md"
-        ):
-            files.append("file-safety.md")
-
-        if self._is_wiki_enabled() and self._instruction_file_exists("wiki.md"):
-            files.append("wiki.md")
-
-        # Learning mode (either flag enables learning.md injection)
-        if self._is_any_learning_enabled() and self._instruction_file_exists(
-            "learning.md"
-        ):
-            files.append("learning.md")
-
-        # Shared memory
-        if self._is_shared_memory_enabled() and self._instruction_file_exists(
-            "shared-memory.md"
-        ):
-            files.append("shared-memory.md")
-
-        # Proactive mode
-        if self._is_proactive_mode_enabled() and self._instruction_file_exists(
-            "proactive.md"
-        ):
-            files.append("proactive.md")
+        files.extend(
+            filename
+            for filename in self._enabled_optional_instruction_files()
+            if self._instruction_file_exists(filename)
+        )
 
         return files
 
@@ -635,58 +596,23 @@ class SynapseSettings:
             List of display paths (e.g., [".synapse/default.md", "~/.synapse/gemini.md"])
         """
         paths: list[str] = []
-        home = user_dir or Path.home()
-
-        def is_md_filename(value: object) -> bool:
-            """Check if value is a string ending with .md (filename only, no existence check)."""
-            return isinstance(value, str) and value.endswith(".md")
 
         def add_if_exists(filename: str, *, include_ambient_user: bool = True) -> None:
             """Add file to paths if it exists in project or user directory."""
-            project_path = Path.cwd() / ".synapse" / filename
-            user_path = home / ".synapse" / filename
-            include_user_path = user_dir is not None or include_ambient_user
-            if not (
-                project_path.exists() or (include_user_path and user_path.exists())
-            ):
-                return
             display_path = self._get_file_display_path(
                 filename,
                 user_dir,
-                include_user=include_user_path,
+                include_user=user_dir is not None or include_ambient_user,
             )
             if display_path:
                 paths.append(display_path)
 
-        # Check agent-specific file
-        agent_instruction = self.instructions.get(agent_type, "")
-        if is_md_filename(agent_instruction):
-            add_if_exists(agent_instruction)
+        primary_file = self._configured_instruction_file(agent_type)
+        if primary_file:
+            add_if_exists(primary_file)
 
-        # Check default file (only if agent-specific is not set)
-        if not agent_instruction:
-            default_instruction = self.instructions.get("default", "")
-            if is_md_filename(default_instruction):
-                add_if_exists(default_instruction)
-
-        # File safety
-        if self._is_file_safety_enabled():
-            add_if_exists("file-safety.md", include_ambient_user=False)
-
-        if self._is_wiki_enabled():
-            add_if_exists("wiki.md", include_ambient_user=False)
-
-        # Learning mode (either flag enables learning.md injection)
-        if self._is_any_learning_enabled():
-            add_if_exists("learning.md", include_ambient_user=False)
-
-        # Shared memory
-        if self._is_shared_memory_enabled():
-            add_if_exists("shared-memory.md", include_ambient_user=False)
-
-        # Proactive mode
-        if self._is_proactive_mode_enabled():
-            add_if_exists("proactive.md", include_ambient_user=False)
+        for filename in self._enabled_optional_instruction_files():
+            add_if_exists(filename, include_ambient_user=False)
 
         return paths
 
@@ -721,11 +647,36 @@ class SynapseSettings:
                 return display
         return None
 
-    def _is_valid_md_file(self, instruction: object) -> bool:
-        """Check if instruction is a valid .md filename that exists."""
-        if not isinstance(instruction, str) or not instruction.endswith(".md"):
-            return False
-        return self._instruction_file_exists(instruction)
+    def _configured_instruction_value(self, agent_type: str) -> Any:
+        """
+        Return the configured instruction value for an agent.
+
+        Agent-specific instructions win when their value is truthy; otherwise
+        the default instruction is used. This preserves the historical fallback
+        behavior for empty strings and empty lists.
+        """
+        return self.instructions.get(agent_type, "") or self.instructions.get(
+            "default", ""
+        )
+
+    def _configured_instruction_file(self, agent_type: str) -> str | None:
+        """Return the configured markdown instruction filename, if any."""
+        instruction = self._configured_instruction_value(agent_type)
+        if isinstance(instruction, str) and instruction.endswith(".md"):
+            return instruction
+        return None
+
+    def _load_configured_instruction(self, agent_type: str) -> Any:
+        """Load the configured instruction text, resolving arrays and markdown files."""
+        instruction = self._configured_instruction_value(agent_type)
+
+        if isinstance(instruction, list):
+            instruction = "\n".join(instruction)
+
+        if isinstance(instruction, str) and instruction.endswith(".md"):
+            instruction = self._load_instruction_file(instruction)
+
+        return instruction
 
     def _is_env_flag_enabled(self, key: str) -> bool:
         """Check if an environment flag is enabled via env var or settings.
@@ -763,8 +714,12 @@ class SynapseSettings:
         """Check if wiki is enabled. Defaults to True (opt-out, not opt-in)."""
         value = os.environ.get("SYNAPSE_WIKI_ENABLED", "").lower()
         if not value:
-            value = self.env.get("SYNAPSE_WIKI_ENABLED", "true").lower()
-        return value not in ("false", "0")
+            value = self.env.get("SYNAPSE_WIKI_ENABLED", "").lower()
+        if value:
+            return value not in ("false", "0")
+        if isinstance(self.wiki_config, dict) and "enabled" in self.wiki_config:
+            return bool(self.wiki_config.get("enabled"))
+        return True
 
     def _is_proactive_mode_enabled(self) -> bool:
         """Check if proactive mode is enabled via env var or settings."""
@@ -775,6 +730,24 @@ class SynapseSettings:
         return (
             self._is_learning_mode_enabled() or self._is_learning_translation_enabled()
         )
+
+    def _enabled_optional_instruction_files(self) -> list[str]:
+        """
+        Return optional instruction files enabled by resolved environment flags.
+
+        The order here is the append/read order used for every optional
+        instruction surface: full instruction text, filename lists, and display
+        paths. Each flag still resolves as environment variable, then settings
+        env, then the feature default.
+        """
+        optional_files = [
+            ("file-safety.md", self._is_file_safety_enabled()),
+            ("wiki.md", self._is_wiki_enabled()),
+            ("learning.md", self._is_any_learning_enabled()),
+            ("shared-memory.md", self._is_shared_memory_enabled()),
+            ("proactive.md", self._is_proactive_mode_enabled()),
+        ]
+        return [filename for filename, is_enabled in optional_files if is_enabled]
 
     def _instruction_file_exists(self, filename: str) -> bool:
         """Check if an instruction file exists in .synapse directory."""
@@ -789,7 +762,10 @@ class SynapseSettings:
 
         Currently supports:
         - SYNAPSE_FILE_SAFETY_ENABLED=true: appends .synapse/file-safety.md
+        - SYNAPSE_WIKI_ENABLED!=false: appends .synapse/wiki.md
         - SYNAPSE_LEARNING_MODE_ENABLED or SYNAPSE_LEARNING_MODE_TRANSLATION=true: appends .synapse/learning.md
+        - SYNAPSE_SHARED_MEMORY_ENABLED=true: appends .synapse/shared-memory.md
+        - SYNAPSE_PROACTIVE_MODE_ENABLED=true: appends .synapse/proactive.md
 
         Priority: Environment variable > settings.json > default (false)
 
@@ -799,37 +775,10 @@ class SynapseSettings:
         Returns:
             Instruction with optional content appended.
         """
-        if self._is_file_safety_enabled():
-            file_safety_content = self._load_instruction_file(
-                "file-safety.md",
-                include_user=False,
-            )
-            if file_safety_content:
-                instruction = instruction + "\n\n" + file_safety_content
-
-        if self._is_any_learning_enabled():
-            learning_content = self._load_instruction_file(
-                "learning.md",
-                include_user=False,
-            )
-            if learning_content:
-                instruction = instruction + "\n\n" + learning_content
-
-        if self._is_shared_memory_enabled():
-            memory_content = self._load_instruction_file(
-                "shared-memory.md",
-                include_user=False,
-            )
-            if memory_content:
-                instruction = instruction + "\n\n" + memory_content
-
-        if self._is_proactive_mode_enabled():
-            proactive_content = self._load_instruction_file(
-                "proactive.md",
-                include_user=False,
-            )
-            if proactive_content:
-                instruction = instruction + "\n\n" + proactive_content
+        for filename in self._enabled_optional_instruction_files():
+            content = self._load_instruction_file(filename, include_user=False)
+            if content:
+                instruction = instruction + "\n\n" + content
 
         return instruction
 
