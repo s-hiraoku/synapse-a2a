@@ -67,7 +67,8 @@ Inter-agent communication framework via Google A2A Protocol.
 | Kill agent | `synapse kill <name> -f` |
 | Cleanup orphans | `synapse cleanup --dry-run` (list); `synapse cleanup -f` (kill all orphans whose parent crashed/cleared) |
 | Attach files | `synapse send <target> "<msg>" --attach <file> --wait` |
-| Saved agents | `synapse agents list` / `synapse spawn <agent_id>` |
+| Saved agents | `synapse agents list` / `synapse agents set <profile>` / `synapse agents unset <profile>` / `synapse agents roles` / `synapse spawn <agent_id>`; live agents expose `agent_definition_id` as a stable target alias |
+| Shared session handoff | `synapse session publish <name>` / `synapse session import <name>` using `SYNAPSE_SHARED_SESSION_DIR` |
 | Post to Canvas | `synapse canvas post <format> "<body>" --title "<title>"` |
 | Link preview | `synapse canvas link "<url>" --title "<title>"` |
 | Post template | `synapse canvas briefing '<json>' --title "<title>"` |
@@ -75,7 +76,7 @@ Inter-agent communication framework via Google A2A Protocol.
 | Open Canvas | `synapse canvas open` (auto-starts server, opens browser) |
 | Restart Canvas | `synapse canvas restart` (stop + start; use when `canvas status` reports `⚠ STALE` after upgrade) |
 | Sync workflow skills | `synapse workflow sync` (regenerate skills from workflow YAMLs, remove orphans) |
-| Run workflow (auto-spawn) | `synapse workflow run <name> --auto-spawn` (spawn missing agents on the fly) |
+| Run workflow (auto-spawn) | `synapse workflow run <name> --auto-spawn` (supports DAG steps with `depends_on` and `condition`) |
 | Multi-agent patterns | `synapse map init/list/show/run/status/stop` (built-in: `generator-verifier`, `orchestrator-subagent`, `agent-teams`, `message-bus`, `shared-state`) |
 | Wiki ingest | `synapse wiki ingest <source> [--scope project\|global]` (ingest a source file into the wiki) |
 | Wiki query | `synapse wiki query "<question>" [--scope project\|global]` (search wiki pages) |
@@ -114,14 +115,16 @@ Skip this gate for small/medium tasks where the overhead exceeds the benefit.
 | **Worktree** | File isolation eliminates merge conflicts in parallel editing | `synapse spawn --worktree` |
 | **Broadcast** | Team-wide announcements reach all agents instantly | `synapse broadcast "<msg>"` |
 | **History** | Audit trail tracks what happened and when | `synapse history list/show/stats` |
+| **Probabilistic Recall** | Recall relevant past task observations by recency, importance, and keyword overlap without dumping all history | `HistoryManager.recall_observations` |
 | **Plan Approval** | Gated execution ensures quality before action | `synapse approve/reject` |
 | **Canvas** | Visual dashboard for sharing rich cards and templates (briefing, comparison, dashboard, steps, slides, plan); cards downloadable as Markdown, JSON, CSV, or native format via browser button or `GET /api/cards/{card_id}/download` | `synapse canvas post/link/briefing/plan/open/list/restart` |
 | **Agent Control** | Browser-based agent management via Canvas `#/admin` view (select agents, send messages, view responses, double-click agent row to jump to terminal) | `synapse canvas open` → navigate to `#/admin` |
-| **Workflow View** | Browser-based workflow management via Canvas `#/workflow` view (list workflows, inspect steps, trigger runs, monitor progress with live SSE updates; run history persisted to SQLite across restarts) | `synapse canvas open` → navigate to `#/workflow` |
+| **Workflow View** | Browser-based workflow management via Canvas `#/workflow` view (list workflows, inspect steps, create/edit/delete/import/export workflow YAML, trigger runs, monitor progress with live SSE updates; run history persisted to SQLite across restarts) | `synapse canvas open` → navigate to `#/workflow` |
 | **Harnesses View** | Browser-based browser for agent harness resources at Canvas `#/harnesses` — sub-views `#/harnesses/skills` (SKILL.md inventory across user/project/synapse/plugin scopes, scanned per active project root) and `#/harnesses/mcp` (MCP server configs from project `.mcp.json` per active root, plus user-scope: Claude Code `~/.claude.json`, Codex `~/.codex/config.toml`, Gemini `~/.gemini/settings.json`, OpenCode `~/.config/opencode/opencode.json`, and Claude Desktop config) | `synapse canvas open` → navigate to `#/harnesses` |
 | **Plan Cards** | Mermaid DAG + step list with dependency visualization | `synapse canvas plan` |
 | **LLM Wiki** | Structured knowledge base for ingesting, querying, and validating project/global docs | `synapse wiki ingest/query/lint/status` |
 | **Smart Suggest** | MCP tool that analyzes prompts and suggests team/task splits for large work | MCP tool: `analyze_task` |
+| **Project Learnings** | Saved definitions can load project-adaptive learnings from `.synapse/learnings/<agent_definition_id>.md` on startup | `synapse agents set` + Markdown learnings |
 | **Proactive Mode** | Task-size-based feature usage guide (`SYNAPSE_PROACTIVE_MODE_ENABLED=true`) | See `references/features.md` |
 | **MCP Bootstrap** | Distribute instructions via MCP resources for compatible clients (opt-in, including Copilot via tools-only). MCP tools: `bootstrap_agent`, `list_agents`, `analyze_task`, `canvas_post` | `synapse mcp serve` / `python -m synapse.mcp` |
 

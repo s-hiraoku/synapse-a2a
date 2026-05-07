@@ -184,6 +184,49 @@ def test_mcp_bootstrap_doc_includes_manual_test_flow() -> None:
     assert "pytest tests/test_mcp_bootstrap.py -q" in text
 
 
+def test_mcp_setup_guide_documents_current_tool_surface() -> None:
+    text = _read("site-docs/guide/mcp-setup.md")
+
+    for tool_name in ("bootstrap_agent", "list_agents", "analyze_task", "canvas_post"):
+        assert f"### {tool_name}" in text
+
+    assert "`format`" in text
+    assert "`body`" in text
+    assert "`title`" in text
+    assert "`tags`" in text
+    assert "without shell escaping" in text
+
+
+def test_project_mcp_config_is_portable() -> None:
+    text = _read(".mcp.json")
+
+    assert "/Volumes/" not in text
+    assert "/Users/" not in text
+    assert "synapse-channel" not in text
+    assert '"command": "uv"' in text
+    assert '"-m"' in text
+    assert '"synapse.mcp"' in text
+
+
+def test_session_guide_documents_shared_handoff_commands() -> None:
+    text = _read("site-docs/guide/session.md")
+
+    assert "synapse session publish review-team" in text
+    assert "synapse session import review-team" in text
+    assert "SYNAPSE_SHARED_SESSION_DIR" in text
+    assert "team-accessible" in text
+
+
+def test_history_guide_documents_probabilistic_recall() -> None:
+    text = _read("site-docs/guide/history.md")
+
+    assert "Probabilistic Recall" in text
+    assert "recency" in text
+    assert "importance" in text
+    assert "keyword overlap" in text
+    assert "HistoryManager.recall_observations" in text
+
+
 def test_synapse_reference_mentions_synapse_mcp_serve() -> None:
     """Check that synapse mcp serve is documented in the reference."""
     text = _read("docs/synapse-reference.md")
