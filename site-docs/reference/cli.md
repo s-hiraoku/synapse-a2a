@@ -45,6 +45,8 @@ synapse codex -- resume <sessionId>
     ```
     The saved agent's profile must match the shortcut profile (e.g., a `gemini` saved agent cannot be used with `synapse claude`). See [Saved Agent Definitions](../guide/agent-teams.md#saved-agent-definitions) for details.
 
+    Saved-agent petnames are also stored on the live registry as `agent_definition_id` and can be used as stable target aliases for commands such as `synapse send`, `synapse status`, `synapse jump`, and `synapse kill`.
+
 ### Background Start
 
 ```bash

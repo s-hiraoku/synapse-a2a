@@ -57,6 +57,22 @@ def test_register_unregister(registry):
     assert not expected_file.exists()
 
 
+def test_register_persists_agent_definition_id_alias(registry):
+    """Saved agent petname should resolve as a stable runtime alias (#313)."""
+    registry.register(
+        "synapse-claude-8100",
+        "claude",
+        8100,
+        agent_definition_id="wise-strategist",
+    )
+
+    resolved = registry.resolve_agent("wise-strategist")
+
+    assert resolved is not None
+    assert resolved["agent_id"] == "synapse-claude-8100"
+    assert resolved["agent_definition_id"] == "wise-strategist"
+
+
 def test_list_agents(registry):
     registry.register("id1", "claude", 8100)
     registry.register("id2", "gemini", 8101)

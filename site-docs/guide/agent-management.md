@@ -33,6 +33,8 @@ synapse claude --agent calm-lead --role "temporary override"  # CLI flags overri
 
 The saved agent's profile must match the profile shortcut (e.g., a `gemini` saved agent cannot be used with `synapse claude`).
 
+When a saved definition is used, its petname is stored as `agent_definition_id` in the live registry. Commands that resolve agent targets can use that stable petname alias, so `synapse send wise-strategist "..."` keeps working even when the runtime ID changes from `synapse-claude-8100` to another port on the next launch.
+
 ### With agents.json Defaults
 
 For project-wide defaults, configure `.synapse/agents.json` through `synapse agents set`:

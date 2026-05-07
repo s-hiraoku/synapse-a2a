@@ -2648,6 +2648,7 @@ def cmd_run_interactive(
                 worktree_base_branch=worktree_base_branch,
                 spawned_by=spawned_by,
                 renderer_available=controller.renderer_available,
+                agent_definition_id=agent_definition_id,
             )
         except NameConflictError as e:
             print(f"Error: {e}")
