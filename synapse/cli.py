@@ -103,7 +103,9 @@ from synapse.commands.multiagent import (
 )
 from synapse.commands.session import (
     cmd_session_delete,
+    cmd_session_import,
     cmd_session_list,
+    cmd_session_publish,
     cmd_session_restore,
     cmd_session_save,
     cmd_session_sessions,
@@ -4667,6 +4669,24 @@ Run 'synapse session <subcommand> --help' for detailed usage.""",
     p_session_save.add_argument("session_name", help="Session name")
     _add_scope_filter_args(p_session_save)
     p_session_save.set_defaults(func=cmd_session_save)
+
+    # session publish
+    p_session_publish = session_subparsers.add_parser(
+        "publish",
+        help="Publish a saved session to shared storage",
+    )
+    p_session_publish.add_argument("session_name", help="Session name")
+    _add_scope_filter_args(p_session_publish)
+    p_session_publish.set_defaults(func=cmd_session_publish)
+
+    # session import
+    p_session_import = session_subparsers.add_parser(
+        "import",
+        help="Import a session from shared storage",
+    )
+    p_session_import.add_argument("session_name", help="Session name")
+    _add_scope_filter_args(p_session_import)
+    p_session_import.set_defaults(func=cmd_session_import)
 
     # session list
     p_session_list = session_subparsers.add_parser(

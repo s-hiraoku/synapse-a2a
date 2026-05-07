@@ -439,6 +439,15 @@ Saves running agents in the current working directory as a named snapshot.
 synapse session list [--project | --user | --workdir DIR]
 ```
 
+### Share Sessions
+
+```bash
+synapse session publish <name> [--project | --user | --workdir DIR]
+synapse session import <name> [--project | --user | --workdir DIR]
+```
+
+Set `SYNAPSE_SHARED_SESSION_DIR` to a team-accessible directory. `publish` copies the selected saved session JSON there; `import` copies it back into the selected local scope. The snapshot format is the same as ordinary `session save`, so imported sessions can be restored with `synapse session restore`.
+
 ### Show Session
 
 ```bash
