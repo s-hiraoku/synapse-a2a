@@ -24,6 +24,7 @@ For user guides, see the [`/guides`](../guides/) directory.
 | `design/generative-ui-landscape.md` | Generative UI landscape analysis |
 | `design/mcp-bootstrap.md` | MCP bootstrap design |
 | `design/mcp-startup-approval-notes.md` | MCP startup approval notes |
+| `design/open-issue-decisions.md` | Decision notes for research/RFC/open-ended backlog issues |
 | `design/smart-suggest-plan-canvas.md` | Smart Suggest + Plan Canvas design |
 
 ## Operational Notes
