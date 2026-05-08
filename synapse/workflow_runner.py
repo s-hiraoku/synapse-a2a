@@ -28,7 +28,7 @@ import httpx
 
 from synapse.config import BLOCKING_TASK_STATES
 from synapse.registry import AgentRegistry
-from synapse.workflow import Workflow, WorkflowError
+from synapse.workflow import Workflow, WorkflowError, WorkflowStore
 from synapse.workflow_db import WorkflowRunDB
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,7 @@ _HELPER_PARENT_ENV = "SYNAPSE_WORKFLOW_HELPER_PARENT"
 _HELPER_DEPTH_ENV = "SYNAPSE_WORKFLOW_HELPER_DEPTH"
 _MAX_HELPER_DEPTH = 1
 _HELPER_SPAWN_TIMEOUT = 60.0
+_MAX_SUBWORKFLOW_DEPTH = 10
 
 # Lazily initialised DB singleton — set to None for tests that don't need it.
 _db: WorkflowRunDB | None = None
@@ -395,6 +396,7 @@ async def run_workflow(
     Returns the run_id immediately. The workflow runs asynchronously.
     """
     _raise_if_helper_execution_forbidden()
+    workflow = _expand_subworkflows(workflow)
     _configure_stdout_line_buffering()
     print(
         f"Starting workflow {workflow.name} ({len(workflow.steps)} steps)...",
@@ -423,6 +425,62 @@ async def run_workflow(
         lambda t: t.result() if not t.cancelled() and not t.exception() else None
     )
     return run_id
+
+
+def _expand_subworkflows(
+    workflow: Workflow,
+    *,
+    store: WorkflowStore | None = None,
+    stack: list[str] | None = None,
+) -> Workflow:
+    """Return a workflow whose steps contain only executable send steps."""
+    if not any(step.kind == "subworkflow" for step in workflow.steps):
+        return workflow
+
+    resolved_store = store or WorkflowStore()
+    expanded_steps = _expand_workflow_steps(
+        workflow,
+        resolved_store,
+        stack or [workflow.name],
+    )
+    expanded = Workflow(
+        name=workflow.name,
+        steps=expanded_steps,
+        scope=workflow.scope,
+        description=workflow.description,
+        trigger=workflow.trigger,
+        auto_spawn=workflow.auto_spawn,
+    )
+    expanded.path = workflow.path
+    return expanded
+
+
+def _expand_workflow_steps(
+    workflow: Workflow,
+    store: WorkflowStore,
+    stack: list[str],
+) -> list[Any]:
+    """Recursively expand subworkflow steps into their child send steps."""
+    expanded: list[Any] = []
+    for step in workflow.steps:
+        if step.kind != "subworkflow":
+            expanded.append(step)
+            continue
+
+        child_stack = [*stack, step.workflow]
+        if step.workflow in stack:
+            raise WorkflowError(f"Workflow cycle detected: {' -> '.join(child_stack)}")
+        if len(child_stack) > _MAX_SUBWORKFLOW_DEPTH:
+            raise WorkflowError(
+                f"Workflow nesting exceeds maximum depth {_MAX_SUBWORKFLOW_DEPTH}: "
+                f"{' -> '.join(child_stack)}"
+            )
+
+        child = store.load(step.workflow)
+        if child is None:
+            raise WorkflowError(f"Workflow '{step.workflow}' not found.")
+        expanded.extend(_expand_workflow_steps(child, store, child_stack))
+    return expanded
 
 
 _NO_AGENT_MARKER = "No agent found matching"

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from synapse.workflow import Workflow, WorkflowStep
+from synapse.workflow import Workflow, WorkflowStep, WorkflowStore
 from synapse.workflow_runner import (
     MAX_RUNS,
     StepResult,
@@ -90,6 +90,44 @@ async def test_run_workflow_all_steps_succeed(monkeypatch):
     assert all(s.status == "completed" for s in run.steps)
     assert all(s.output == "ok" for s in run.steps)
     assert run.completed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_run_workflow_expands_subworkflow_steps(monkeypatch, tmp_path):
+    """Async workflow runs should execute send steps from nested workflows."""
+    sent: list[tuple[str, str]] = []
+
+    async def _mock_send(endpoint, wf_step, sender_info):
+        sent.append((wf_step.target, wf_step.message))
+        return 0, "child ok", "", "task-child"
+
+    _patch_workflow_send(monkeypatch, _mock_send)
+    monkeypatch.chdir(tmp_path)
+
+    store = WorkflowStore()
+    store.save(
+        Workflow(
+            name="child",
+            scope="project",
+            steps=[WorkflowStep(target="agent-child", message="do child work")],
+        )
+    )
+    parent = Workflow(
+        name="parent",
+        scope="project",
+        steps=[WorkflowStep(kind="subworkflow", workflow="child")],
+    )
+
+    run_id = await run_workflow(parent)
+    await asyncio.sleep(0.1)
+
+    run = get_run(run_id)
+    assert run is not None
+    assert run.status == "completed"
+    assert sent == [("agent-child", "do child work")]
+    assert len(run.steps) == 1
+    assert run.steps[0].target == "agent-child"
+    assert run.steps[0].status == "completed"
 
 
 @pytest.mark.asyncio

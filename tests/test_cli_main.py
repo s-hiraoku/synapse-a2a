@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from synapse.agent_profiles import AgentProfileError
-from synapse.cli import main
+from synapse.cli import cmd_agents_roles, main
 
 
 class TestCliMain:
@@ -244,6 +244,23 @@ class TestCliMain:
         args = mock_cmd_agents_roles.call_args[0][0]
         assert args.command == "agents"
         assert args.agents_command == "roles"
+
+    def test_agents_roles_create_rejects_path_traversal(self, tmp_path, monkeypatch):
+        """Role template names must not write outside .synapse/roles."""
+        monkeypatch.chdir(tmp_path)
+        args = SimpleNamespace(
+            roles_command="create",
+            name="../escape",
+            content="role",
+            file=None,
+            scope="project",
+            force=False,
+        )
+
+        with pytest.raises(SystemExit):
+            cmd_agents_roles(args)
+
+        assert not (tmp_path / ".synapse" / "escape.md").exists()
 
     @patch("synapse.cli.cmd_history_list")
     @patch("synapse.cli.install_skills")
