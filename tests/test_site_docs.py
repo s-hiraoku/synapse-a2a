@@ -197,6 +197,22 @@ def test_mcp_setup_guide_documents_current_tool_surface() -> None:
     assert "without shell escaping" in text
 
 
+def test_mcp_tool_surface_is_consistent_across_user_docs() -> None:
+    expected_tools = ("bootstrap_agent", "list_agents", "analyze_task", "canvas_post")
+    doc_paths = (
+        "README.md",
+        "site-docs/reference/cli.md",
+        "site-docs/reference/api.md",
+        "site-docs/guide/mcp-setup.md",
+        "site-docs/getting-started/installation.md",
+    )
+
+    for relative_path in doc_paths:
+        text = _read(relative_path)
+        for tool_name in expected_tools:
+            assert tool_name in text, f"{relative_path} missing MCP tool {tool_name!r}"
+
+
 def test_project_mcp_config_is_portable() -> None:
     text = _read(".mcp.json")
 

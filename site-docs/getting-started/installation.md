@@ -217,7 +217,7 @@ Once this Synapse MCP configuration is present, Synapse sends a minimal PTY MCP 
     ```
 
     !!! note
-        Copilot's coding agent supports MCP **tools only** and cannot consume MCP resources/prompts. Copilot uses the `bootstrap_agent` and `analyze_task` tools to retrieve runtime context and task suggestions.
+        Copilot's coding agent supports MCP **tools only** and cannot consume MCP resources/prompts. Copilot uses `bootstrap_agent`, `list_agents`, `analyze_task`, and `canvas_post` to retrieve runtime context, discover peers, request task suggestions, and post Canvas cards.
 
 !!! tip "Path Replacement"
     The examples above assume a **source checkout** with `uv`. Replace `/path/to/uv` with the output of `which uv`, and `/path/to/synapse-a2a` with your actual checkout path.

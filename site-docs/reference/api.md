@@ -1089,6 +1089,8 @@ The Synapse MCP server (`synapse mcp serve` / `python -m synapse.mcp`) exposes t
 |------|-------------|
 | `bootstrap_agent` | Returns runtime context (agent_id, port, available features) |
 | `list_agents` | Lists all running Synapse agents with status and connection info |
+| `analyze_task` | Analyzes a prompt and returns delegation/worktree suggestions |
+| `canvas_post` | Posts a Canvas card without shell escaping |
 
 ### list_agents
 

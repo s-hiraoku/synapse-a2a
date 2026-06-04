@@ -915,7 +915,7 @@ Serves Synapse bootstrap resources (instructions, skills) over MCP stdio transpo
 | `--agent-type TYPE` | Agent type for instruction resolution (inferred from agent ID if omitted) |
 | `--port PORT` | Port for instruction placeholder resolution |
 
-MCP tools exposed: `bootstrap_agent`, `list_agents`, `analyze_task`. The `analyze_task` tool returns a `recommended_worktree` field indicating whether worktree isolation is advisable for the given task. See [MCP Bootstrap Setup](../guide/mcp-setup.md#mcp-tools) for tool documentation.
+MCP tools exposed: `bootstrap_agent`, `list_agents`, `analyze_task`, `canvas_post`. The `analyze_task` tool returns a `recommended_worktree` field indicating whether worktree isolation is advisable for the given task. The `canvas_post` tool posts Canvas cards without shell escaping. See [MCP Bootstrap Setup](../guide/mcp-setup.md#mcp-tools) for tool documentation.
 
 !!! warning "Experimental"
     This command is in early development (Phase 1). The interface may change in future releases.

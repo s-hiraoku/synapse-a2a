@@ -1925,7 +1925,7 @@ Post content to Canvas without shell escaping. Equivalent to `synapse canvas pos
 
 ## Self-Learning Pipeline
 
-> **Not yet available** — The commands below (`synapse learn`, `synapse instinct`, `synapse evolve`) are planned but not yet wired into the CLI. The backing modules exist in `synapse/commands/evolve_cmd.py` but no argparser registration is present. See issue #540 for tracking.
+The self-learning commands are wired into the CLI. `synapse learn` analyzes captured observations, `synapse instinct` inspects or promotes learned instincts, and `synapse evolve` turns mature instincts into reusable skill candidates.
 
 ### Learn (Analyze Observations)
 
