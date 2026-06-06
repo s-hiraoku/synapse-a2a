@@ -872,6 +872,13 @@ def cmd_agents_roles(args: argparse.Namespace) -> None:
     """List or create role templates under .synapse/roles."""
     store = AgentProfileStore()
     if getattr(args, "roles_command", None) == "create":
+        from synapse.workflow import WorkflowError, WorkflowStore
+
+        try:
+            WorkflowStore._validate_name(args.name)
+        except WorkflowError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
         root = (
             store.project_roles_dir if args.scope == "project" else store.user_roles_dir
         )
