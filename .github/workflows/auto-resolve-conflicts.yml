@@ -170,7 +170,7 @@ jobs:
 
       - name: Set up uv (for lock regeneration)
         if: steps.scope.outputs.mechanical == 'true'
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@v8.3.0
 
       - name: Mechanical resolve
         id: resolve
