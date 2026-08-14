@@ -78,7 +78,7 @@ jobs:
           echo "PR #${{ matrix.pr }} is from a fork; skipping."
           exit 0
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: steps.meta.outputs.fork == 'false'
         with:
           ref: ${{ steps.meta.outputs.head }}
