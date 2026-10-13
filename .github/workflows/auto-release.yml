@@ -13,7 +13,7 @@ jobs:
       contents: write    # Tag creation + Release creation
       actions: write     # Trigger publish.yml via workflow_dispatch
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2  # Need HEAD~1 for diff
 
